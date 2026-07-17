@@ -9,6 +9,7 @@ export const DEFAULT_ANNOUNCEMENTS = [
 ];
 
 export const DEFAULT_STORE_SETTINGS = {
+  heroProductId: "",
   announcementEnabled: true,
   announcementText: "Rs. 300 advance payment required for order confirmation",
   announcementLinkLabel: "Shop now",

@@ -2353,6 +2353,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
   const [storeSettingsLoading, setStoreSettingsLoading] = useState(false);
   const [storeSettingsError, setStoreSettingsError] = useState("");
   const [storeSettingsSetup, setStoreSettingsSetup] = useState("");
+  const [heroProducts, setHeroProducts] = useState([]);
   const [staff, setStaff] = useState([]);
   const [availablePermissions, setAvailablePermissions] = useState([]);
   const [currentAdminUser, setCurrentAdminUser] = useState(null);
@@ -2367,9 +2368,20 @@ function SettingsPanel({ onOpen, signedInUser }) {
   const tabs = ["Store","Payments","Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications","Domains","Checkout"];
 
   useEffect(() => {
-    if (activeTab === "Store") loadStoreSettings();
+    if (activeTab === "Store") {
+      loadStoreSettings();
+      loadHeroProducts();
+    }
     if (activeTab === "Users") loadAdminUsers();
   }, [activeTab]);
+
+  async function loadHeroProducts() {
+    try {
+      const response = await fetch("/api/catalog", { cache: "no-store" });
+      const result = await response.json();
+      if (response.ok) setHeroProducts(result.products || []);
+    } catch {}
+  }
 
   async function loadStoreSettings() {
     setStoreSettingsLoading(true);
@@ -2571,6 +2583,19 @@ function SettingsPanel({ onOpen, signedInUser }) {
           <h2>Store details</h2>
           {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
           {storeSettingsSetup && <div className="adminErrorBanner">{storeSettingsSetup}</div>}
+          <section className="heroSettingsEditor">
+            <div><p>HOMEPAGE</p><h2>Hero Section Settings</h2><span>Choose the product featured above the fold. Its main image, name and description update automatically.</span></div>
+            <label>Hero Product
+              <select value={storeSettings.heroProductId || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroProductId: event.target.value }))}>
+                <option value="">Automatic — newest product</option>
+                {heroProducts.map((product) => <option value={product.id} key={product.id}>{product.name} — PKR {Number(product.price || 0).toLocaleString()}</option>)}
+              </select>
+            </label>
+            {(() => {
+              const selected = heroProducts.find((product) => String(product.id) === String(storeSettings.heroProductId || "")) || heroProducts[0];
+              return selected ? <div className="heroProductPreview"><div className="heroProductPreviewImage"><img src={selected.image} alt="" /></div><div><small>LIVE HERO PREVIEW</small><b>{selected.name}</b><span>{selected.description || "No short description — the hero will keep the layout compact."}</span></div></div> : null;
+            })()}
+          </section>
           <div className="settingsOption"><div><b>Announcement bar</b><span>Shown above the main header. Multiple active announcements rotate automatically.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.announcementEnabled} onChange={(event) => setStoreSettings((current) => ({ ...current, announcementEnabled: event.target.checked }))} /> Enabled</label></div>
           <section className="announcementEditor">
             <div className="inventoryListHead"><div><h2>Announcements</h2><span>{(storeSettings.announcements || []).length} messages</span></div><button type="button" onClick={addAnnouncement}><Plus /> Add announcement</button></div>

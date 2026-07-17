@@ -69,6 +69,11 @@ export default function Home({
     image: products.find((product) => normalizeCategory(product.category) === category.name)?.image || category.image,
   })), [categoryRecords, products]);
 
+  const heroProduct = useMemo(() => {
+    const selected = products.find((product) => String(product.id) === String(storeSettings.heroProductId || ""));
+    return selected || products[0] || initialProducts[0];
+  }, [products, storeSettings.heroProductId]);
+
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
   const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
 
@@ -117,22 +122,28 @@ export default function Home({
       </header>
 
       <main>
-        <section className="hero" id="new">
+        {heroProduct && <section className="hero productHero" id="new">
           <div className="heroContent">
-            <h1>Quality,<br /><em>Trendy and Affordability</em></h1>
-            <a className="primaryButton" href="#products">Shop new arrivals <ArrowRight size={18} /></a>
+            <p className="eyebrow">BUSTANIYA / THE FEATURED EDIT</p>
+            <h1>{heroProduct.name}</h1>
+            {heroProduct.description && <p className="heroText">{heroProduct.description}</p>}
+            <div className="heroActions">
+              <a className="primaryButton" href={`/product/${heroProduct.id}`}>View product <ArrowRight size={18} /></a>
+              <a className="heroTextLink" href="#products">Shop new arrivals</a>
+            </div>
           </div>
           <div className="heroImage">
             <Image
-              src="/bustaniya-animated-hero-option-a.png"
-              alt=""
+              src={heroProduct.image}
+              alt={`${heroProduct.name} by Bustaniya`}
               fill
               priority
-              quality={100}
-              sizes="(max-width: 600px) 100vw, (max-width: 1100px) 100vw, 100vw"
+              quality={90}
+              sizes="(max-width: 767px) 48vw, (max-width: 1100px) 50vw, 48vw"
             />
           </div>
-        </section>
+          <span className="heroEdition" aria-hidden="true">B / 01</span>
+        </section>}
 
         <section className="shopSection khaadiTopPicks" id="products">
           <div className="sectionHeading">
