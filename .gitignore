@@ -1,0 +1,10 @@
+node_modules
+.next
+.next-*/
+.npm-cache/
+.env*.local
+public/product-uploads/
+data/admin-users.json
+*.log
+dev-*.log
+prod-*.log
