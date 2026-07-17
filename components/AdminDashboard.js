@@ -2353,7 +2353,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
   const [storeSettingsLoading, setStoreSettingsLoading] = useState(false);
   const [storeSettingsError, setStoreSettingsError] = useState("");
   const [storeSettingsSetup, setStoreSettingsSetup] = useState("");
-  const [heroProducts, setHeroProducts] = useState([]);
+  const [heroUploading, setHeroUploading] = useState("");
   const [staff, setStaff] = useState([]);
   const [availablePermissions, setAvailablePermissions] = useState([]);
   const [currentAdminUser, setCurrentAdminUser] = useState(null);
@@ -2370,17 +2370,26 @@ function SettingsPanel({ onOpen, signedInUser }) {
   useEffect(() => {
     if (activeTab === "Store") {
       loadStoreSettings();
-      loadHeroProducts();
     }
     if (activeTab === "Users") loadAdminUsers();
   }, [activeTab]);
 
-  async function loadHeroProducts() {
+  async function uploadHeroImage(file, field) {
+    if (!file) return;
+    setStoreSettingsError("");
+    setHeroUploading(field);
     try {
-      const response = await fetch("/api/catalog", { cache: "no-store" });
+      const form = new FormData();
+      form.append("file", file, file.name);
+      const response = await fetch("/api/admin/hero-upload", { method: "POST", body: form });
       const result = await response.json();
-      if (response.ok) setHeroProducts(result.products || []);
-    } catch {}
+      if (!response.ok) throw new Error(result.error || "Unable to upload hero image.");
+      setStoreSettings((current) => ({ ...current, [field]: result.url }));
+    } catch (error) {
+      setStoreSettingsError(error.message);
+    } finally {
+      setHeroUploading("");
+    }
   }
 
   async function loadStoreSettings() {
@@ -2584,17 +2593,21 @@ function SettingsPanel({ onOpen, signedInUser }) {
           {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
           {storeSettingsSetup && <div className="adminErrorBanner">{storeSettingsSetup}</div>}
           <section className="heroSettingsEditor">
-            <div><p>HOMEPAGE</p><h2>Hero Section Settings</h2><span>Choose the product featured above the fold. Its main image, name and description update automatically.</span></div>
-            <label>Hero Product
-              <select value={storeSettings.heroProductId || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroProductId: event.target.value }))}>
-                <option value="">Automatic — newest product</option>
-                {heroProducts.map((product) => <option value={product.id} key={product.id}>{product.name} — PKR {Number(product.price || 0).toLocaleString()}</option>)}
-              </select>
-            </label>
-            {(() => {
-              const selected = heroProducts.find((product) => String(product.id) === String(storeSettings.heroProductId || "")) || heroProducts[0];
-              return selected ? <div className="heroProductPreview"><div className="heroProductPreviewImage"><img src={selected.image} alt="" /></div><div><small>LIVE HERO PREVIEW</small><b>{selected.name}</b><span>{selected.description || "No short description — the hero will keep the layout compact."}</span></div></div> : null;
-            })()}
+            <div className="heroSettingsHeading"><div><p>HOMEPAGE</p><h2>Hero Banner Settings</h2><span>Manage the desktop and mobile campaign compositions independently.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.heroEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEnabled: event.target.checked }))} /> Enabled</label></div>
+            <div className="heroImageSettingsGrid">
+              {[{ field: "heroDesktopImage", label: "Desktop Hero Image", hint: "Wide campaign artwork · recommended 16:8" }, { field: "heroMobileImage", label: "Mobile Hero Image", hint: "Dedicated portrait artwork · recommended 4:5" }].map((item) => <label className="heroImageSetting" key={item.field}>
+                <span><b>{item.label}</b><small>{item.hint}</small></span>
+                <div className="heroAdminImagePreview"><img src={storeSettings[item.field]} alt="" /></div>
+                <input value={storeSettings[item.field] || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, [item.field]: event.target.value }))} placeholder="/hero-image.jpg or https://..." />
+                <span className="heroUploadButton">{heroUploading === item.field ? "Uploading..." : "Upload image"}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={Boolean(heroUploading)} onChange={(event) => uploadHeroImage(event.target.files?.[0], item.field)} /></span>
+              </label>)}
+            </div>
+            <div className="formRow"><label>Hero Eyebrow Text<input value={storeSettings.heroEyebrow || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEyebrow: event.target.value }))} placeholder="NEW SEASON" /></label><label>Main Heading<input value={storeSettings.heroHeading || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroHeading: event.target.value }))} placeholder="Elevated Eastern Wear" /></label></div>
+            <label>Short Supporting Text<textarea rows="2" value={storeSettings.heroSupportingText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSupportingText: event.target.value }))} placeholder="Thoughtfully designed kurtis for everyday elegance." /></label>
+            <div className="formRow"><label>Primary Button Text<input value={storeSettings.heroPrimaryButtonText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroPrimaryButtonText: event.target.value }))} /></label><label>Primary Button Link<input value={storeSettings.heroPrimaryButtonLink || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroPrimaryButtonLink: event.target.value }))} /></label></div>
+            <div className="formRow"><label>Secondary Button Text (optional)<input value={storeSettings.heroSecondaryButtonText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSecondaryButtonText: event.target.value }))} /></label><label>Secondary Button Link (optional)<input value={storeSettings.heroSecondaryButtonLink || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSecondaryButtonLink: event.target.value }))} /></label></div>
+            <div className="formRow"><label>Text Alignment<select value={storeSettings.heroTextAlignment || "left"} onChange={(event) => setStoreSettings((current) => ({ ...current, heroTextAlignment: event.target.value }))}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>Text Position<select value={storeSettings.heroTextPosition || "left"} onChange={(event) => setStoreSettings((current) => ({ ...current, heroTextPosition: event.target.value }))}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label></div>
+            <label>Overlay Intensity — {Number(storeSettings.heroOverlayIntensity || 0)}%<input type="range" min="0" max="80" step="1" value={Number(storeSettings.heroOverlayIntensity || 0)} onChange={(event) => setStoreSettings((current) => ({ ...current, heroOverlayIntensity: Number(event.target.value) }))} /></label>
           </section>
           <div className="settingsOption"><div><b>Announcement bar</b><span>Shown above the main header. Multiple active announcements rotate automatically.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.announcementEnabled} onChange={(event) => setStoreSettings((current) => ({ ...current, announcementEnabled: event.target.checked }))} /> Enabled</label></div>
           <section className="announcementEditor">

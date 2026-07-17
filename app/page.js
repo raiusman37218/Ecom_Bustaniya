@@ -11,7 +11,7 @@ export const metadata = buildMetadata({
   description:
     "Shop Bustaniya for Pakistani women's wear, everyday kurtis, elegant co-ord sets, bottoms and festive 3 piece suits with nationwide delivery.",
   path: "/",
-  image: "/bustaniya-logo-v2.png",
+  image: "/bustaniya-campaign-hero-v5.png",
 });
 
 export default async function HomePage() {
@@ -32,7 +32,7 @@ export default async function HomePage() {
           "@type": "Store",
           name: siteConfig.name,
           url: siteConfig.url,
-          image: `${siteConfig.url}/bustaniya-logo-v2.png`,
+          image: `${siteConfig.url}/bustaniya-campaign-hero-v5.png`,
           priceRange: "PKR",
           currenciesAccepted: "PKR",
           paymentAccepted: "Cash on Delivery, Bank Deposit",

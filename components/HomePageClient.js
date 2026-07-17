@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, ChevronDown, Menu, Minus, Plus, Search, ShoppingBag, UserRound, X } from "lucide-react";
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
@@ -28,6 +28,18 @@ function normalizeProducts(items) {
     stock: Number(product.stock ?? 10),
     lowStockThreshold: Number(product.lowStockThreshold ?? 5),
   }));
+}
+
+function CampaignHeroImage({ desktopSrc, mobileSrc, alt }) {
+  const shared = { alt, fill: true, priority: true, quality: 90, sizes: "100vw" };
+  const { props: desktop } = getImageProps({ ...shared, src: desktopSrc });
+  const { props: mobile } = getImageProps({ ...shared, src: mobileSrc });
+
+  return <picture>
+    <source media="(max-width: 767px)" srcSet={mobile.srcSet} />
+    <source media="(min-width: 768px)" srcSet={desktop.srcSet} />
+    <img {...desktop} src={desktop.src} alt={alt} fetchPriority="high" />
+  </picture>;
 }
 
 export default function Home({
@@ -68,11 +80,6 @@ export default function Home({
     ...category,
     image: products.find((product) => normalizeCategory(product.category) === category.name)?.image || category.image,
   })), [categoryRecords, products]);
-
-  const heroProduct = useMemo(() => {
-    const selected = products.find((product) => String(product.id) === String(storeSettings.heroProductId || ""));
-    return selected || products[0] || initialProducts[0];
-  }, [products, storeSettings.heroProductId]);
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
   const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
@@ -122,27 +129,30 @@ export default function Home({
       </header>
 
       <main>
-        {heroProduct && <section className="hero productHero" id="new">
-          <div className="heroContent">
-            <p className="eyebrow">BUSTANIYA / THE FEATURED EDIT</p>
-            <h1>{heroProduct.name}</h1>
-            {heroProduct.description && <p className="heroText">{heroProduct.description}</p>}
-            <div className="heroActions">
-              <a className="primaryButton" href={`/product/${heroProduct.id}`}>View product <ArrowRight size={18} /></a>
-              <a className="heroTextLink" href="#products">Shop new arrivals</a>
-            </div>
-          </div>
-          <div className="heroImage">
-            <Image
-              src={heroProduct.image}
-              alt={`${heroProduct.name} by Bustaniya`}
-              fill
-              priority
-              quality={90}
-              sizes="(max-width: 767px) 48vw, (max-width: 1100px) 50vw, 48vw"
+        {storeSettings.heroEnabled && <section
+          className={`campaignHero campaignHero--position-${storeSettings.heroTextPosition} campaignHero--align-${storeSettings.heroTextAlignment}`}
+          id="new"
+          style={{ "--campaign-overlay": Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0))) / 100 }}
+        >
+          <div className="campaignHeroMedia">
+            <CampaignHeroImage
+              desktopSrc={storeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage}
+              mobileSrc={storeSettings.heroMobileImage || DEFAULT_STORE_SETTINGS.heroMobileImage}
+              alt="Bustaniya eastern wear campaign"
             />
           </div>
-          <span className="heroEdition" aria-hidden="true">B / 01</span>
+          <div className="campaignHeroOverlay" />
+          <div className="campaignHeroInner">
+            <div className="campaignHeroCopy">
+              {storeSettings.heroEyebrow && <p>{storeSettings.heroEyebrow}</p>}
+              <h1>{storeSettings.heroHeading || DEFAULT_STORE_SETTINGS.heroHeading}</h1>
+              {storeSettings.heroSupportingText && <span>{storeSettings.heroSupportingText}</span>}
+              <div className="campaignHeroActions">
+                {storeSettings.heroPrimaryButtonText && <a className="campaignHeroPrimary" href={storeSettings.heroPrimaryButtonLink || "#products"}>{storeSettings.heroPrimaryButtonText}<ArrowRight size={17} /></a>}
+                {storeSettings.heroSecondaryButtonText && <a className="campaignHeroSecondary" href={storeSettings.heroSecondaryButtonLink || "#products"}>{storeSettings.heroSecondaryButtonText}</a>}
+              </div>
+            </div>
+          </div>
         </section>}
 
         <section className="shopSection khaadiTopPicks" id="products">
