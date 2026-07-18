@@ -1542,8 +1542,9 @@ function FinancePanel({ orders, products, connected }) {
   const expenseTotal = manualExpenseTotal + packagingTotal + deliveryTotal;
   const gstProvision = Math.round(deliveredProductRevenue * 0.01);
   const taxProvision = Math.round(deliveredProductRevenue * 0.04);
+  const gstTaxTotal = Math.round(deliveredProductRevenue * 0.05);
   const grossProductProfit = deliveredProductRevenue - deliveredCogs;
-  const netProfit = grossRevenue - deliveredCogs - expenseTotal - gstProvision - taxProvision;
+  const netProfit = grossRevenue - deliveredCogs - expenseTotal - gstTaxTotal;
   const inventoryRetailValue = safeProducts.reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
   const inventoryCostValue = safeProducts.reduce((sum, product) => sum + Number(product.costTotalPkr || 0) * Number(product.stock || 0), 0);
   const lowStockValue = safeProducts
@@ -1599,6 +1600,7 @@ function FinancePanel({ orders, products, connected }) {
       ["Delivery expense", deliveryTotal],
       ["GST provision (1%)", gstProvision],
       ["Tax provision (4%)", taxProvision],
+      ["GST + Tax total (5%)", gstTaxTotal],
       ["Net profit", netProfit],
       ["Inventory retail value", inventoryRetailValue],
       ["Inventory cost value", inventoryCostValue],
@@ -1638,8 +1640,7 @@ function FinancePanel({ orders, products, connected }) {
           <div><span>Manual expenses</span><b>- {money(manualExpenseTotal)}</b></div>
           <div><span>Packaging expense</span><b>- {money(packagingTotal)}</b></div>
           <div><span>Delivery expense</span><b>- {money(deliveryTotal)}</b></div>
-          <div><span>GST provision (1% per product)</span><b>- {money(gstProvision)}</b></div>
-          <div><span>Tax provision (4% per product)</span><b>- {money(taxProvision)}</b></div>
+          <div><span>GST + Tax total (5% of product sales)</span><b>- {money(gstTaxTotal)}</b></div>
           <div className="statementTotal"><span>Net profit</span><b>{money(netProfit)}</b></div>
         </div>
         <div className="financeControls">
