@@ -95,7 +95,8 @@ export default function AdminDashboard() {
   const [productMedia, setProductMedia] = useState([]);
   const [productImageUrl, setProductImageUrl] = useState("");
   const [mediaError, setMediaError] = useState("");
-  const [costBreakdown, setCostBreakdown] = useState({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, other: 0 });
+  const [productPrice, setProductPrice] = useState(0);
+  const [costBreakdown, setCostBreakdown] = useState({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0 });
   const [productSaving, setProductSaving] = useState(false);
   const [workspace, setWorkspace] = useState(null);
   const [activity, setActivity] = useState([]);
@@ -148,6 +149,10 @@ export default function AdminDashboard() {
   const filteredProducts = useMemo(() => products.filter((product) =>
     product.name.toLowerCase().includes(search.toLowerCase())
   ), [products, search]);
+  const totalProductCost = Object.values(costBreakdown).reduce((sum, value) => sum + Number(value || 0), 0);
+  const productGst = Math.round(Number(productPrice || 0) * 0.01);
+  const productTax = Math.round(Number(productPrice || 0) * 0.04);
+  const productFinalProfit = Number(productPrice || 0) - totalProductCost - productGst - productTax;
 
   function openNewProductForm() {
     setEditingProduct(null);
@@ -157,7 +162,8 @@ export default function AdminDashboard() {
     setProductMedia([]);
     setProductImageUrl("");
     setMediaError("");
-    setCostBreakdown({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, other: 0 });
+    setProductPrice(0);
+    setCostBreakdown({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0 });
     setShowProductForm(true);
   }
 
@@ -173,7 +179,8 @@ export default function AdminDashboard() {
     })));
     setProductImageUrl("");
     setMediaError("");
-    setCostBreakdown({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, other: 0, ...(product.costBreakdown || {}) });
+    setProductPrice(Number(product.price || 0));
+    setCostBreakdown({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0, ...(product.costBreakdown || {}) });
     setShowProductForm(true);
   }
 
@@ -290,7 +297,7 @@ export default function AdminDashboard() {
         delivery_fee_pkr: form.get("deliveryFeeMode") === "paid"
           ? Number(form.get("deliveryFee") || 200)
           : null,
-        cost_total_pkr: Object.values(costBreakdown).reduce((sum, value) => sum + Number(value || 0), 0),
+        cost_total_pkr: totalProductCost,
         cost_breakdown: costBreakdown,
       };
       if (!editingProduct) {
@@ -739,13 +746,19 @@ export default function AdminDashboard() {
             </section>
 
             <section className="productEditorCard">
-              <h3>Pricing</h3>
-              <div className="formRow"><label>Price (PKR)<input name="price" required type="number" defaultValue={editingProduct?.price || ""} placeholder="4,990" /></label><label>Compare-at price<input name="comparePrice" type="number" placeholder="5,990" /></label></div>
-              <p className="fieldTitle">Product cost breakdown (PKR)</p>
+              <h3>Cost, pricing & profit</h3>
+              <p>Enter every cost for this one product. Profit is calculated automatically after the fixed 1% GST and 4% tax.</p>
+              <div className="formRow"><label>Selling price (PKR)<input name="price" required type="number" min="0" value={productPrice || ""} onChange={(e) => setProductPrice(e.target.value)} placeholder="4,990" /></label><label>Compare-at price<input name="comparePrice" type="number" placeholder="5,990" /></label></div>
+              <p className="fieldTitle">This product&apos;s cost breakdown (PKR)</p>
               <div className="formRow"><label>Fabric<input type="number" min="0" value={costBreakdown.fabric || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, fabric: e.target.value }))} /></label><label>Stitching<input type="number" min="0" value={costBreakdown.stitching || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, stitching: e.target.value }))} /></label></div>
               <div className="formRow"><label>Embellishment<input type="number" min="0" value={costBreakdown.embellishment || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, embellishment: e.target.value }))} /></label><label>Packaging<input type="number" min="0" value={costBreakdown.packaging || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, packaging: e.target.value }))} /></label></div>
-              <div className="formRow"><label>Other cost<input type="number" min="0" value={costBreakdown.other || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, other: e.target.value }))} /></label><label>Total product cost<input readOnly value={Object.values(costBreakdown).reduce((sum, value) => sum + Number(value || 0), 0)} /></label></div>
-              <label className="checkLabel"><input type="checkbox" defaultChecked /> Charge tax on this product</label>
+              <div className="formRow"><label>Delivery / dispatch cost<input type="number" min="0" value={costBreakdown.delivery || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, delivery: e.target.value }))} /></label><label>Other cost<input type="number" min="0" value={costBreakdown.other || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, other: e.target.value }))} /></label></div>
+              <div className="financeStatement">
+                <div><span>Total product cost</span><b>{`Rs. ${totalProductCost.toLocaleString()}`}</b></div>
+                <div><span>GST (1%)</span><b>- {`Rs. ${productGst.toLocaleString()}`}</b></div>
+                <div><span>Tax (4%)</span><b>- {`Rs. ${productTax.toLocaleString()}`}</b></div>
+                <div className="statementTotal"><span>Final profit per item</span><b>{`Rs. ${productFinalProfit.toLocaleString()}`}</b></div>
+              </div>
             </section>
 
             <section className="productEditorCard">
