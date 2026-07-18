@@ -19,9 +19,9 @@ async function attachOrderItems(orders) {
     const items = itemsByOrderId.get(order.id) || [];
     return {
       ...order,
-      // The legacy RPC returns an empty `items` array even when order_items
-      // exist. Prefer the relational records so Finance can match product cost.
-      items: Array.isArray(order.items) && order.items.length ? order.items : items,
+      // The legacy RPC can return placeholder items without product IDs.
+      // Prefer relational order_items whenever present so Finance can match cost.
+      items: items.length ? items : (Array.isArray(order.items) ? order.items : []),
       order_items: items,
     };
   });
