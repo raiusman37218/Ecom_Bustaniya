@@ -836,34 +836,70 @@ export default function AdminDashboard() {
 }
 
 function DashboardHome({ setActive, orders, metrics, connected }) {
+  const liveOrders = connected ? orders : [];
   const dashboardSales = connected
-    ? orders.filter(isDeliveredOrder).reduce((sum, order) => sum + Number(order.total || 0), 0)
+    ? liveOrders.filter(isDeliveredOrder).reduce((sum, order) => sum + Number(order.total || 0), 0)
     : Number(metrics.totalSales || 0);
-  const statusCounts = orders.reduce((counts, order) => {
-    const key = orderStatus(order);
-    counts[key] = (counts[key] || 0) + 1;
-    return counts;
-  }, {});
+  const dashboardOrderCount = connected ? liveOrders.length : Number(metrics.orders || 0);
+  const dashboardCustomerCount = connected
+    ? new Set(liveOrders.map((order) => String(order.customer || order.shipping_full_name || "").trim()).filter(Boolean)).size
+    : Number(metrics.customers || 0);
+  const chartDays = Array.from({ length: 7 }, (_, index) => {
+    const date = startOfDay(new Date());
+    date.setDate(date.getDate() - (6 - index));
+    return { date, label: date.toLocaleDateString("en-PK", { weekday: "short" }) };
+  });
+  const salesByDay = chartDays.map(({ date, label }) => ({
+    label,
+    sales: liveOrders.filter((order) => {
+      const orderDate = toOrderDate(order);
+      return orderDate && isDeliveredOrder(order) && startOfDay(orderDate).getTime() === date.getTime();
+    }).reduce((sum, order) => sum + Number(order.total || 0), 0),
+  }));
+  const maxDailySales = Math.max(...salesByDay.map((day) => day.sales), 1);
+  const statusBuckets = {
+    Booked: 0,
+    Unbooked: 0,
+    Delivered: 0,
+    Returned: 0,
+    Cancelled: 0,
+  };
+  liveOrders.forEach((order) => {
+    const status = normalizePostexCategory(order.postexStatus || order.status);
+    if (orderStatus(order).includes("cancel") || orderStatus(order).includes("fail")) statusBuckets.Cancelled += 1;
+    else if (status === "Delivered" || status === "Returned" || status === "Unbooked") statusBuckets[status] += 1;
+    else if (status === "Total Orders") statusBuckets.Unbooked += 1;
+    else statusBuckets.Booked += 1;
+  });
+  const statusPalette = { Booked: "#1f6940", Unbooked: "#8bb39a", Delivered: "#2f8052", Returned: "#c5164d", Cancelled: "#dedfdc" };
+  const statusEntries = Object.entries(statusBuckets).filter(([, count]) => count > 0);
+  let completedPercent = 0;
+  const donutStops = statusEntries.map(([label, count]) => {
+    const start = completedPercent;
+    completedPercent += (count / Math.max(dashboardOrderCount, 1)) * 100;
+    return `${statusPalette[label]} ${start}% ${completedPercent}%`;
+  });
+  const donutStyle = { background: donutStops.length ? `conic-gradient(${donutStops.join(",")})` : "#dedfdc" };
   return <>
     <div className="adminTitle"><div><p>{new Date().toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" })}</p><h1>Good afternoon, Bustaniya</h1><span>{connected ? "Live data from your Supabase store." : "Connect Supabase orders to load live store data."}</span></div><button onClick={() => setActive("Products")}><Plus /> Add product</button></div>
     <div className="metricGrid">
       <Metric icon={CircleDollarSign} label="Total sales" value={`Rs. ${dashboardSales.toLocaleString()}`} change="Live" note="delivered orders" />
-      <Metric icon={ShoppingBag} label="Orders" value={metrics.orders || 0} change="Live" note="all orders" />
-      <Metric icon={Users} label="Customers" value={metrics.customers || 0} change="Live" note="unique customers" />
+      <Metric icon={ShoppingBag} label="Orders" value={dashboardOrderCount} change="Live" note="all orders" />
+      <Metric icon={Users} label="Customers" value={dashboardCustomerCount} change="Live" note="unique customers" />
       <Metric icon={TrendingUp} label="Low stock" value={metrics.lowStock || 0} change={metrics.products || 0} note="catalogue products" />
     </div>
     <div className="dashboardGrid">
       <section className="salesChart adminCard">
-        <div className="cardHeading"><div><h2>Sales overview</h2><p>Revenue performance for this week</p></div><button>Last 7 days <ChevronDown /></button></div>
-        <div className="chartTotal"><b>Rs. {dashboardSales.toLocaleString()}</b><span>Delivered orders only</span></div>
+        <div className="cardHeading"><div><h2>Sales overview</h2><p>Delivered revenue for the last 7 days</p></div><button>Live data <ChevronDown /></button></div>
+        <div className="chartTotal"><b>Rs. {salesByDay.reduce((sum, day) => sum + day.sales, 0).toLocaleString()}</b><span>Delivered orders only</span></div>
         <div className="fakeChart">
-          {[35, 48, 43, 66, 58, 82, 72].map((height, i) => <div key={i}><span style={{ height: `${height}%` }} /><small>{["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][i]}</small></div>)}
+          {salesByDay.map((day) => <div key={day.label}><span title={`Rs. ${day.sales.toLocaleString()}`} style={{ height: `${day.sales ? Math.max(4, (day.sales / maxDailySales) * 100) : 0}%` }} /><small>{day.label}</small></div>)}
         </div>
       </section>
       <section className="adminCard orderStatus">
         <div className="cardHeading"><div><h2>Order status</h2><p>Current fulfilment</p></div></div>
-        <div className="donut"><div><b>{metrics.orders || 0}</b><span>Orders</span></div></div>
-        <ul><li><i className="processing" />Booked <b>{statusCounts.booked || 0}</b></li><li><i className="confirmed" />Unbooked <b>{statusCounts.unbooked || statusCounts.pending || 0}</b></li><li><i className="delivered" />Delivered <b>{statusCounts.delivered || statusCounts.completed || 0}</b></li><li><i className="cancelled" />Cancelled <b>{statusCounts.cancelled || statusCounts.failed || 0}</b></li></ul>
+        <div className="donut" style={donutStyle}><div><b>{dashboardOrderCount}</b><span>Orders</span></div></div>
+        <ul>{Object.entries(statusBuckets).map(([label, count]) => <li key={label}><i style={{ background: statusPalette[label] }} />{label} <b>{count}</b></li>)}</ul>
       </section>
     </div>
     <section className="adminCard recentOrders">
