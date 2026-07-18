@@ -582,6 +582,20 @@ export default function AdminDashboard() {
     }
   }
 
+  async function createProductionBatch(batch) {
+    setCatalogLoading(true);
+    try {
+      const response = await fetch("/api/admin/production-batches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(batch) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to save production batch.");
+      await loadAdminData(ordersKey);
+      return result.batch;
+    } catch (error) {
+      setOrdersError(error.message);
+      throw error;
+    } finally { setCatalogLoading(false); }
+  }
+
   async function saveCategory(payload) {
     setCategorySaving(true);
     setOrdersError("");
@@ -703,7 +717,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
           {canAccessActive && active === "Orders" && <OrdersPanel onOpen={setWorkspace} rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} />}
-          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} />}
+          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Gift cards" && <ModulePanel onOpen={setWorkspace} title="Gift cards" subtitle="Issue and manage digital store credit." action="Issue gift card" icon={Tags} features={["Gift card products", "Issued cards", "Balances", "Expiry dates", "Gift card activity"]} />}
           {canAccessActive && active === "Discounts" && <ModulePanel onOpen={setWorkspace} title="Discounts" subtitle="Codes and automatic promotions." action="Create discount" icon={BadgePercent} features={["Discount codes", "Automatic discounts", "Amount off", "Buy X get Y", "Free delivery"]} />}
@@ -1861,10 +1875,12 @@ function FinancePanel({ orders, products, connected }) {
   </div>;
 }
 
-function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory }) {
+function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory, onCreateProductionBatch }) {
   const [tab, setTab] = useState("Stock");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogProductId, setDialogProductId] = useState("");
+  const [productionOpen, setProductionOpen] = useState(false);
+  const [productionSaving, setProductionSaving] = useState(false);
   const [inventoryView, setInventoryView] = useState("All");
   const [inventorySearch, setInventorySearch] = useState("");
   const [localHistory, setLocalHistory] = useState([]);
@@ -1878,6 +1894,17 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
     { id: "buttons", item: "Buttons", category: "Buttons", sourceId: "materials-general", quantity: 0, unit: "pcs", unitCost: 0, reorderAt: 50, notes: "", status: "Tracked" },
     { id: "laces", item: "Laces", category: "Laces", sourceId: "materials-general", quantity: 0, unit: "meters", unitCost: 0, reorderAt: 20, notes: "", status: "Tracked" },
   ]);
+
+  async function saveProductionBatch(event) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const costBreakdown = Object.fromEntries(["fabric", "stitching", "stitchingMaterial", "packaging", "travel", "other"].map((key) => [key, Number(form.get(key) || 0)]));
+    setProductionSaving(true);
+    try {
+      await onCreateProductionBatch({ productId: form.get("productId"), quantity: Number(form.get("quantity") || 0), date: form.get("date"), note: form.get("note"), costBreakdown });
+      setProductionOpen(false);
+    } catch {} finally { setProductionSaving(false); }
+  }
 
   useEffect(() => {
     const saved = localStorage.getItem("bustaniya-inventory-sources");
@@ -2094,6 +2121,7 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
       </div>
       <div className="inventoryControlBar simpleInventoryControls">
         <div className="inlineSearch"><Search /><input value={inventorySearch} onChange={(event) => setInventorySearch(event.target.value)} placeholder="Search products or SKU..." /></div>
+        <button type="button" onClick={() => setProductionOpen(true)}><Plus /> Create production batch</button>
         <button type="button" onClick={() => openAdjust("__custom__")}><Plus /> Add product with stock</button>
       </div>
       <div className="adminTableWrap"><table className="adminTable inventoryTable simpleInventoryTable"><thead><tr><th>Product</th><th>SKU</th><th>Available</th><th>Threshold</th><th>Retail value</th><th>Status</th><th /></tr></thead><tbody>{visibleInventoryRows.map(product => { const status = inventoryStatus(product); return <tr key={product.id}><td><div className="tableProduct"><span style={{backgroundImage:`url(${product.image})`}}/><b>{product.name}</b></div></td><td>{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4,"0")}`}</td><td><b className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)}</b></td><td>{Number(product.lowStockThreshold || 5)}</td><td>Rs. {(Number(product.price || 0) * Number(product.stock || 0)).toLocaleString()}</td><td><span className={`statusBadge ${status.className}`}>{status.label}</span></td><td><button className="adjustStockButton" onClick={() => openAdjust(product.id)}>Adjust</button></td></tr>})}</tbody></table>{!visibleInventoryRows.length&&<div className="inventoryEmpty">No products match this view.</div>}</div>
@@ -2113,6 +2141,7 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
     {tab === "History" && <InventoryList title="Stock adjustment history" headers={["Product","Change","Reason","Date","User"]} rows={history.map(x => [x.product, x.change > 0 ? `+${x.change}` : x.change, x.reason, x.date, x.user])} empty="No stock adjustments yet." />}
 
     {dialogOpen && <InventoryDialog products={products} productChoice={dialogProductId} setProductChoice={setDialogProductId} onClose={() => setDialogOpen(false)} onAdjust={adjustStock} />}
+    {productionOpen && <><div className="adminOverlay" onClick={() => setProductionOpen(false)} /><form className="inventoryDialog" onSubmit={saveProductionBatch}><DialogHead title="Create production batch" onClose={() => setProductionOpen(false)} /><p className="trackingNumber">Add one design at a time. Stock, per-suit cost and Finance expense will update together.</p><label>Design / product<select name="productId" required defaultValue=""><option value="">Select product</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label><div className="formRow"><label>Finished suits<input name="quantity" type="number" min="1" required placeholder="25" /></label><label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label></div><p className="fieldTitle">Costs for this design batch (PKR)</p><div className="formRow"><label>Fabric<input name="fabric" type="number" min="0" defaultValue="0" /></label><label>Stitching<input name="stitching" type="number" min="0" defaultValue="0" /></label></div><div className="formRow"><label>Stitching material<input name="stitchingMaterial" type="number" min="0" defaultValue="0" /></label><label>Packaging<input name="packaging" type="number" min="0" defaultValue="0" /></label></div><div className="formRow"><label>Travel / transport<input name="travel" type="number" min="0" defaultValue="0" /></label><label>Other<input name="other" type="number" min="0" defaultValue="0" /></label></div><label>Note<textarea name="note" rows="2" placeholder="Supplier, stitching unit or batch reference" /></label><button className="dialogSave" disabled={productionSaving}>{productionSaving ? "Saving batch..." : "Save batch, add stock & record cost"}</button></form></>}
   </div>;
 }
 
