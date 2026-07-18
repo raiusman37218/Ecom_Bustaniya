@@ -1543,7 +1543,8 @@ function FinancePanel({ orders, products, connected }) {
   const gstProvision = Math.round(deliveredProductRevenue * 0.01);
   const taxProvision = Math.round(deliveredProductRevenue * 0.04);
   const gstTaxTotal = Math.round(deliveredProductRevenue * 0.05);
-  const grossProductProfit = deliveredProductRevenue - deliveredCogs;
+  const deliveryCollected = grossRevenue - deliveredProductRevenue;
+  const profitAfterProductCost = grossRevenue - deliveredCogs;
   const netProfit = grossRevenue - deliveredCogs - expenseTotal - gstTaxTotal;
   const inventoryRetailValue = safeProducts.reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
   const inventoryCostValue = safeProducts.reduce((sum, product) => sum + Number(product.costTotalPkr || 0) * Number(product.stock || 0), 0);
@@ -1594,7 +1595,7 @@ function FinancePanel({ orders, products, connected }) {
       ["Received cash", receivedCash],
       ["Pending COD / receivables", receivables],
       ["Actual product cost (COGS)", deliveredCogs],
-      ["Gross product profit", grossProductProfit],
+      ["Profit after product cost", profitAfterProductCost],
       ["Manual expenses", manualExpenseTotal],
       ["Packaging expense", packagingTotal],
       ["Delivery expense", deliveryTotal],
@@ -1624,24 +1625,22 @@ function FinancePanel({ orders, products, connected }) {
       <article><Package /><span><b>{totalProductsSold}</b>Total products sold</span></article>
       <article><WalletCards /><span><b>{money(deliveredCogs)}</b>Total product cost</span></article>
       <article><Landmark /><span><b>{money(receivables)}</b>Pending COD</span></article>
-      <article><TrendingUp /><span><b>{money(grossProductProfit)}</b>Gross product profit</span></article>
+      <article><TrendingUp /><span><b>{money(profitAfterProductCost)}</b>Profit before deductions</span></article>
       <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Final net profit</span></article>
     </div>
 
     <section className="financeGrid">
       <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Profit summary</h2><p>Based on delivered orders, saved product cost and expenses</p></div><b>{profitMargin}% margin</b></div>
+        <div className="cardHeading"><div><h2>Profit summary</h2><p>Follow the steps below from sales to final profit.</p></div><b>{profitMargin}% margin</b></div>
         <div className="financeStatement">
-          <div><span>Total sales (orders)</span><b>{money(grossRevenue)}</b></div>
-          <div><span>Total product sales</span><b>{money(deliveredProductRevenue)}</b></div>
-          <div><span>Total products sold</span><b>{totalProductsSold}</b></div>
-          <div><span>Total saved product cost</span><b>- {money(deliveredCogs)}</b></div>
-          <div><span>Gross product profit</span><b>{money(grossProductProfit)}</b></div>
-          <div><span>Manual expenses</span><b>- {money(manualExpenseTotal)}</b></div>
-          <div><span>Packaging expense</span><b>- {money(packagingTotal)}</b></div>
-          <div><span>Delivery expense</span><b>- {money(deliveryTotal)}</b></div>
-          <div><span>GST + Tax total (5% of product sales)</span><b>- {money(gstTaxTotal)}</b></div>
-          <div className="statementTotal"><span>Net profit</span><b>{money(netProfit)}</b></div>
+          <div><span>1. Product sales ({totalProductsSold} items)</span><b>+ {money(deliveredProductRevenue)}</b></div>
+          <div><span>2. Delivery fees collected</span><b>{deliveryCollected >= 0 ? "+ " : "- "}{money(Math.abs(deliveryCollected))}</b></div>
+          <div><span>3. Total sale received</span><b>{money(grossRevenue)}</b></div>
+          <div><span>4. Less: saved product cost</span><b>- {money(deliveredCogs)}</b></div>
+          <div><span>5. Profit after product cost</span><b>{money(profitAfterProductCost)}</b></div>
+          <div><span>6. Less: GST + Tax (5% of product sales)</span><b>- {money(gstTaxTotal)}</b></div>
+          <div><span>7. Less: all other expenses</span><b>- {money(expenseTotal)}</b></div>
+          <div className="statementTotal"><span>8. Final net profit</span><b>{money(netProfit)}</b></div>
         </div>
         <div className="financeControls">
           <label>GST<input readOnly value="1% per product" /></label>
