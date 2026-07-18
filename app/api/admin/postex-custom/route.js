@@ -7,6 +7,29 @@ import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabase
 const POSTEX_CREATE_ORDER_URL =
   "https://api.postex.pk/services/integration/api/order/v3/create-order";
 
+async function ensureOrderItems(orderId, items) {
+  if (!orderId || !items.length) return;
+  const existing = await supabaseAdminRequest(
+    `order_items?select=id&order_id=eq.${encodeURIComponent(orderId)}&limit=1`
+  );
+  if (existing?.length) return;
+  await supabaseAdminRequest("order_items", {
+    method: "POST",
+    prefer: "return=minimal",
+    body: items.map((item) => ({
+      order_id: orderId,
+      product_id: item.product_id || item.id || null,
+      title: item.product_name || item.name || "Product",
+      unit_price_pkr: Number(item.unit_price_pkr || 0),
+      quantity: Number(item.quantity || 1),
+      line_total_pkr: Number(item.total_pkr || 0),
+      size: item.size || null,
+      color: item.color || null,
+      image_url: item.image_url || null,
+    })),
+  });
+}
+
 function normalizePhone(value = "") {
   const digits = String(value || "").replace(/\D/g, "");
   if (digits.startsWith("92") && digits.length === 12) return `0${digits.slice(2)}`;
@@ -195,6 +218,7 @@ export async function POST(request) {
           color: item.color || null,
         })),
       });
+      await ensureOrderItems(reservedOrder.order_id, customItems);
       completedOrder = {
         id: reservedOrder.order_id,
         order_number: reservedOrder.order_number,

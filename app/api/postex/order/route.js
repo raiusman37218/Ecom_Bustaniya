@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCatalogProducts } from "../../../../lib/catalog";
-import { supabaseAdminRpc } from "../../../../lib/supabaseRest";
+import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabaseRest";
 import { sendOrderConfirmation } from "../../../../lib/orderEmail";
 
 const POSTEX_CREATE_ORDER_URL =
@@ -8,6 +8,29 @@ const POSTEX_CREATE_ORDER_URL =
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+async function ensureOrderItems(orderId, items) {
+  if (!orderId || !items.length) return;
+  const existing = await supabaseAdminRequest(
+    `order_items?select=id&order_id=eq.${encodeURIComponent(orderId)}&limit=1`
+  );
+  if (existing?.length) return;
+  await supabaseAdminRequest("order_items", {
+    method: "POST",
+    prefer: "return=minimal",
+    body: items.map((item) => ({
+      order_id: orderId,
+      product_id: item.id,
+      title: item.name,
+      unit_price_pkr: Number(item.price || 0),
+      quantity: Number(item.quantity || 1),
+      line_total_pkr: Number(item.price || 0) * Number(item.quantity || 1),
+      size: item.size || null,
+      color: item.color || null,
+      image_url: item.image || null,
+    })),
+  });
+}
 
 function normalizePhone(value = "") {
   const digits = value.replace(/\D/g, "");
@@ -135,6 +158,7 @@ export async function POST(request) {
         color: item.color,
       })),
     });
+    await ensureOrderItems(reservedOrder.order_id, verifiedItems);
 
     const postexCollectionAmount = paymentMethod === "bank_deposit" ? 0 : Number(reservedOrder.total);
     const courierConfigured = Boolean(process.env.POSTEX_API_TOKEN);
