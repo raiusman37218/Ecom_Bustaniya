@@ -1545,6 +1545,7 @@ function FinancePanel({ orders, products, connected }) {
   const [expenses, setExpenses] = useState([]);
   const [financeReady, setFinanceReady] = useState(false);
   const [cashbookTransactions, setCashbookTransactions] = useState([]);
+  const [profitAllocation, setProfitAllocation] = useState({ marketingPercent: 25, ownerPercent: 30, stockPercent: 45 });
   const [cashbookLoading, setCashbookLoading] = useState(true);
   const [cashbookError, setCashbookError] = useState("");
 
@@ -1569,7 +1570,10 @@ function FinancePanel({ orders, products, connected }) {
       .then((response) => response.json().then((result) => ({ ok: response.ok, result })))
       .then(({ ok, result }) => {
         if (!ok) throw new Error(result.error || "Unable to load cashbook.");
-        if (active) setCashbookTransactions(result.transactions || []);
+        if (active) {
+          setCashbookTransactions(result.transactions || []);
+          setProfitAllocation(result.allocation || { marketingPercent: 25, ownerPercent: 30, stockPercent: 45 });
+        }
       })
       .catch((error) => { if (active) setCashbookError(error.message); })
       .finally(() => { if (active) setCashbookLoading(false); });
@@ -1618,6 +1622,10 @@ function FinancePanel({ orders, products, connected }) {
   const profitAfterProductCost = grossRevenue - deliveredCogs;
   const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - expenseTotal - gstTaxTotal;
   const availableCash = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - gstTaxTotal - expenseTotal + ownerInvestments - ownerWithdrawals;
+  const allocatableProfit = Math.max(0, netProfit);
+  const marketingAllocation = Math.round(allocatableProfit * Number(profitAllocation.marketingPercent || 0) / 100);
+  const ownerAllocation = Math.round(allocatableProfit * Number(profitAllocation.ownerPercent || 0) / 100);
+  const stockAllocation = Math.max(0, allocatableProfit - marketingAllocation - ownerAllocation);
   const inventoryRetailValue = safeProducts.reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
   const inventoryCostValue = safeProducts.reduce((sum, product) => sum + Number(product.costTotalPkr || 0) * Number(product.stock || 0), 0);
   const lowStockValue = safeProducts
@@ -1701,6 +1709,25 @@ function FinancePanel({ orders, products, connected }) {
     }
   }
 
+  async function saveProfitAllocation(event) {
+    event.preventDefault();
+    const marketingPercent = Math.min(100, Math.max(0, Number(profitAllocation.marketingPercent || 0)));
+    const ownerPercent = Math.min(100 - marketingPercent, Math.max(0, Number(profitAllocation.ownerPercent || 0)));
+    const allocation = { marketingPercent, ownerPercent, stockPercent: 100 - marketingPercent - ownerPercent };
+    setCashbookLoading(true);
+    setCashbookError("");
+    try {
+      const response = await fetch("/api/admin/finance-transactions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactions: cashbookTransactions, allocation }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to save profit allocation.");
+      setProfitAllocation(result.allocation || allocation);
+    } catch (error) {
+      setCashbookError(error.message);
+    } finally {
+      setCashbookLoading(false);
+    }
+  }
+
   function exportFinance() {
     const csv = [
       ["Metric","Value"],
@@ -1759,6 +1786,13 @@ function FinancePanel({ orders, products, connected }) {
     </div>
 
     <section className="financeGrid financeGridWide">
+      <form className="adminCard financeExpenseForm" onSubmit={saveProfitAllocation}>
+        <h2>Profit allocation planner</h2>
+        <p className="trackingNumber">Plan from current net profit only. Saving this plan does not create an expense or personal withdrawal.</p>
+        <div className="formRow"><label>Marketing %<input type="number" min="0" max="100" value={profitAllocation.marketingPercent} onChange={(event) => setProfitAllocation((current) => ({ ...current, marketingPercent: event.target.value }))} /></label><label>Owner / family %<input type="number" min="0" max="100" value={profitAllocation.ownerPercent} onChange={(event) => setProfitAllocation((current) => ({ ...current, ownerPercent: event.target.value }))} /></label></div>
+        <div className="financeStatement"><div><span>Current net profit to allocate</span><b>{money(allocatableProfit)}</b></div><div><span>Marketing budget ({profitAllocation.marketingPercent || 0}%)</span><b>{money(marketingAllocation)}</b></div><div><span>Owner / family amount ({profitAllocation.ownerPercent || 0}%)</span><b>{money(ownerAllocation)}</b></div><div className="statementTotal"><span>New stock / reinvestment ({Math.max(0, 100 - Number(profitAllocation.marketingPercent || 0) - Number(profitAllocation.ownerPercent || 0))}%)</span><b>{money(stockAllocation)}</b></div></div>
+        <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save allocation plan"}</button>
+      </form>
       <form className="adminCard financeExpenseForm" onSubmit={addCashbookTransaction}>
         <h2>Cashbook entry</h2>
         <p className="trackingNumber">Record owner funds, personal withdrawals, or a business cost paid from received cash.</p>
