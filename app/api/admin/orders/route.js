@@ -5,11 +5,8 @@ import {
   supabaseAdminRpc,
 } from "../../../../lib/supabaseRest";
 
-async function listOrdersDirectly() {
-  const [orders, orderItems] = await Promise.all([
-    supabaseAdminRequest("orders?select=*&order=created_at.desc"),
-    supabaseAdminRequest("order_items?select=*&order=id.asc").catch(() => []),
-  ]);
+async function attachOrderItems(orders) {
+  const orderItems = await supabaseAdminRequest("order_items?select=*&order=id.asc").catch(() => []);
 
   const itemsByOrderId = new Map();
   for (const item of orderItems || []) {
@@ -22,17 +19,25 @@ async function listOrdersDirectly() {
     const items = itemsByOrderId.get(order.id) || [];
     return {
       ...order,
-      items: Array.isArray(order.items) ? order.items : items,
+      // The legacy RPC returns an empty `items` array even when order_items
+      // exist. Prefer the relational records so Finance can match product cost.
+      items: Array.isArray(order.items) && order.items.length ? order.items : items,
       order_items: items,
     };
   });
 }
 
+async function listOrdersDirectly() {
+  const orders = await supabaseAdminRequest("orders?select=*&order=created_at.desc");
+  return attachOrderItems(orders);
+}
+
 async function loadOrders(accessKey) {
   try {
-    return await supabaseAdminRpc("admin_list_orders_rpc", {
+    const orders = await supabaseAdminRpc("admin_list_orders_rpc", {
       access_key: accessKey,
     });
+    return attachOrderItems(orders);
   } catch (error) {
     console.error("Admin orders RPC failed; using direct Supabase fallback", {
       message: error?.message,
