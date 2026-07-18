@@ -28,6 +28,11 @@ export const metadata = {
     address: true,
   },
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/icon.png", type: "image/png" }],
+    shortcut: ["/favicon.ico"],
+    apple: [{ url: "/apple-icon.png", type: "image/png" }],
+  },
   ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
     ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } }
     : {}),
