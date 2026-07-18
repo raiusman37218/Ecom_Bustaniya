@@ -9,6 +9,15 @@ import { authenticateAdminUser } from "../../../../lib/adminUsers";
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
 const attempts = new Map();
+const OWNER_PERMISSIONS = [
+  "dashboard",
+  "orders",
+  "products",
+  "inventory",
+  "customers",
+  "settings",
+  "users",
+];
 
 function clientKey(request) {
   return (
@@ -41,6 +50,17 @@ function clearFailures(key) {
   attempts.delete(key);
 }
 
+function envOwnerUser(email = "") {
+  return {
+    id: "owner",
+    name: process.env.ADMIN_NAME || "Owner",
+    email: email || process.env.ADMIN_EMAIL || "owner@bustaniya.local",
+    role: "Owner",
+    permissions: OWNER_PERMISSIONS,
+    status: "Active",
+  };
+}
+
 function isSecureRequest(request) {
   const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
   const protocol = forwardedProto || request.nextUrl?.protocol?.replace(":", "");
@@ -60,6 +80,8 @@ export async function POST(request) {
     }
 
     const { email, password } = await request.json().catch(() => ({}));
+    const submittedEmail = String(email || "").trim().toLowerCase();
+    const submittedPassword = String(password || "").trim();
     if (!process.env.ADMIN_SESSION_SECRET) {
       return NextResponse.json(
         { error: "Admin session signing is not configured." },
@@ -73,7 +95,10 @@ export async function POST(request) {
       );
     }
 
-    const user = await authenticateAdminUser({ email, password: password || "" });
+    let user = await authenticateAdminUser({ email: submittedEmail, password: submittedPassword });
+    if (!user && submittedPassword === String(process.env.ADMIN_PASSWORD || "").trim()) {
+      user = envOwnerUser(submittedEmail);
+    }
     if (!user) {
       recordFailure(key);
       return NextResponse.json({ error: "Invalid admin login." }, { status: 401 });
