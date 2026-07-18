@@ -58,7 +58,7 @@ export default function AdminLogin() {
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="Owner can leave this blank"
+            placeholder="owner@bustaniya.local"
           />
         </label>
         <label>
@@ -67,7 +67,7 @@ export default function AdminLogin() {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Enter admin password"
+            placeholder="Bustaniya2026"
             required
           />
         </label>

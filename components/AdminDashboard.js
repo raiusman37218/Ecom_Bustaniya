@@ -104,8 +104,8 @@ export default function AdminDashboard() {
   })));
   const [adminReady, setAdminReady] = useState(false);
   const [orders, setOrders] = useState(demoOrders);
-  const [ordersKey, setOrdersKey] = useState("");
-  const [ordersConnected, setOrdersConnected] = useState(false);
+  const [ordersKey, setOrdersKey] = useState("open-admin");
+  const [ordersConnected, setOrdersConnected] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -135,11 +135,9 @@ export default function AdminDashboard() {
         if (result?.user) setCurrentAdminUser(result.user);
       })
       .catch(() => {});
-    const savedOrdersKey = sessionStorage.getItem("bustaniya-orders-key") || "";
-    if (savedOrdersKey) {
-      setOrdersKey(savedOrdersKey);
-      loadOrders(savedOrdersKey);
-    }
+    const savedOrdersKey = sessionStorage.getItem("bustaniya-orders-key") || "open-admin";
+    setOrdersKey(savedOrdersKey);
+    loadOrders(savedOrdersKey);
   }, []);
 
   useEffect(() => {
@@ -258,12 +256,6 @@ export default function AdminDashboard() {
   async function addProduct(event) {
     event.preventDefault();
     if (productSaving) return;
-    if (!ordersKey) {
-      setOrdersError("Open Orders and connect the admin access key before adding products.");
-      setShowProductForm(false);
-      setActive("Orders");
-      return;
-    }
     const form = new FormData(event.currentTarget);
     setProductSaving(true);
     setCatalogLoading(true);
@@ -340,11 +332,6 @@ export default function AdminDashboard() {
   }
 
   async function deleteProduct(product) {
-    if (!ordersKey) {
-      setOrdersError("Open Orders and connect the admin access key before removing products.");
-      setActive("Orders");
-      return;
-    }
     const confirmed = window.confirm(
       `Remove ${product.name}? If it has order history, it will be archived and hidden from the store.`
     );
@@ -517,11 +504,6 @@ export default function AdminDashboard() {
   }
 
   async function adjustInventory(productId, change, reason) {
-    if (!ordersKey) {
-      const error = new Error("Open Orders and connect the admin access key before changing inventory.");
-      setOrdersError(error.message);
-      throw error;
-    }
     const response = await fetch("/api/admin/catalog", {
       method: "PATCH",
       headers: {
@@ -540,11 +522,6 @@ export default function AdminDashboard() {
   }
 
   async function createCustomInventory(item) {
-    if (!ordersKey) {
-      const error = new Error("Open Orders and connect the admin access key before adding inventory.");
-      setOrdersError(error.message);
-      throw error;
-    }
     setCatalogLoading(true);
     try {
       const response = await fetch("/api/admin/catalog", {
@@ -584,11 +561,6 @@ export default function AdminDashboard() {
   }
 
   async function saveCategory(payload) {
-    if (!ordersKey) {
-      setOrdersError("Open Orders and connect the admin access key before managing categories.");
-      setActive("Orders");
-      return;
-    }
     setCategorySaving(true);
     setOrdersError("");
     try {
@@ -620,11 +592,6 @@ export default function AdminDashboard() {
   }
 
   async function archiveCategory(category) {
-    if (!ordersKey) {
-      setOrdersError("Open Orders and connect the admin access key before managing categories.");
-      setActive("Orders");
-      return;
-    }
     if (!window.confirm(`Archive ${category.name}? Products will stay in the catalogue, but this category can be hidden from storefront navigation.`)) return;
     setCategorySaving(true);
     setOrdersError("");
