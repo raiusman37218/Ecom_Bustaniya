@@ -23,8 +23,20 @@ export async function POST(request) {
     const costs = Object.fromEntries(Object.entries(body.costBreakdown || {}).map(([key, value]) => [key, Math.max(0, Number(value || 0))]));
     const totalCost = Object.values(costs).reduce((sum, value) => sum + value, 0);
     if (!body.productId || !totalCost) return NextResponse.json({ error: "Choose a product and enter its production costs." }, { status: 400 });
-    const products = await supabaseAdminRequest(`products?select=id,name&id=eq.${encodeURIComponent(body.productId)}&limit=1`);
-    const product = products?.[0];
+    let product;
+    if (body.productId === "__new__") {
+      const name = String(body.newProductName || "").trim();
+      if (!name) return NextResponse.json({ error: "Enter a name for the new product/design." }, { status: 400 });
+      const created = await supabaseAdminRequest("products?select=id,name", {
+        method: "POST", prefer: "return=representation", body: {
+          name, description: "Created from production batch", price: Math.max(0, Number(body.newProductPrice || 0)), category: String(body.newProductCategory || "Uncategorized"), color: "[]", size: "[]", img: JSON.stringify([String(body.newProductImage || "/bustaniya-campaign-hero-v4.png")]), instock: true, new: false, bestsellere: false, article_number: `PB-${Date.now().toString().slice(-8)}`,
+        },
+      });
+      product = created?.[0];
+    } else {
+      const products = await supabaseAdminRequest(`products?select=id,name&id=eq.${encodeURIComponent(body.productId)}&limit=1`);
+      product = products?.[0];
+    }
     if (!product) return NextResponse.json({ error: "Selected product was not found." }, { status: 404 });
     const batch = { id: `PB-${randomUUID().slice(0, 8).toUpperCase()}`, productId: product.id, productName: product.name, quantity, totalCost, unitCost: totalCost / quantity, costBreakdown: costs, date: String(body.date || new Date().toISOString().slice(0, 10)), note: String(body.note || "").slice(0, 500) };
     const inventory = await supabaseAdminRequest(`inventory?select=stock_quantity,sku&product_id=eq.${encodeURIComponent(product.id)}&limit=1`).catch(() => []);
