@@ -43,6 +43,7 @@ const navItems = [
   { name: "Categories", icon: Tags, section: "COMMERCE" },
   { name: "Inventory", icon: Boxes, section: "COMMERCE" },
   { name: "Customers", icon: Users, section: "COMMERCE" },
+  { name: "Finances", icon: Landmark, section: "COMMERCE" },
   { name: "Gift cards", icon: Tags, section: "COMMERCE" },
   { name: "Analytics", icon: BarChart3, section: "GROWTH" },
   { name: "Marketing", icon: Megaphone, section: "GROWTH" },
@@ -50,7 +51,6 @@ const navItems = [
   { name: "Content", icon: FileText, section: "GROWTH" },
   { name: "Online Store", icon: Monitor, section: "SALES CHANNELS" },
   { name: "Markets", icon: Globe, section: "SALES CHANNELS" },
-  { name: "Finances", icon: Landmark, section: "OPERATIONS" },
   { name: "Apps", icon: AppWindow, section: "OPERATIONS" },
   { name: "Settings", icon: Settings, section: "OPERATIONS" }
 ];
