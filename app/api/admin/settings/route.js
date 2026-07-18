@@ -32,7 +32,12 @@ export async function PATCH(request) {
   try {
     await authorizeAdminSession(request, "settings");
     const body = await request.json();
-    const settings = await updateStoreSettings(body.settings || {});
+    const existing = await getStoreSettings({ includeFinance: true });
+    const settings = await updateStoreSettings({
+      ...existing,
+      ...(body.settings || {}),
+      financeTransactions: body?.settings?.financeTransactions ?? existing.financeTransactions,
+    });
     return NextResponse.json({ success: true, settings });
   } catch (error) {
     if (error?.status === 401 || error?.status === 403) {

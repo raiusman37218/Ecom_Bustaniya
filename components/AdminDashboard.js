@@ -1544,6 +1544,9 @@ function FinancePanel({ orders, products, connected }) {
   const [deliveryExpense, setDeliveryExpense] = useState(0);
   const [expenses, setExpenses] = useState([]);
   const [financeReady, setFinanceReady] = useState(false);
+  const [cashbookTransactions, setCashbookTransactions] = useState([]);
+  const [cashbookLoading, setCashbookLoading] = useState(true);
+  const [cashbookError, setCashbookError] = useState("");
 
   useEffect(() => {
     const savedFinance = localStorage.getItem("bustaniya-admin-finance");
@@ -1558,6 +1561,19 @@ function FinancePanel({ orders, products, connected }) {
       setExpenses(Array.isArray(parsed.expenses) ? parsed.expenses : []);
     } catch {}
     setFinanceReady(true);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/finance-transactions", { cache: "no-store" })
+      .then((response) => response.json().then((result) => ({ ok: response.ok, result })))
+      .then(({ ok, result }) => {
+        if (!ok) throw new Error(result.error || "Unable to load cashbook.");
+        if (active) setCashbookTransactions(result.transactions || []);
+      })
+      .catch((error) => { if (active) setCashbookError(error.message); })
+      .finally(() => { if (active) setCashbookLoading(false); });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -1587,9 +1603,12 @@ function FinancePanel({ orders, products, connected }) {
   const deliveredCogs = deliveredOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order)
     .reduce((itemTotal, item) => itemTotal + Number(item.quantity || 0) * Number(productCosts.get(String(item.productId)) || 0), 0), 0);
   const manualExpenseTotal = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const cashbookBusinessExpenses = cashbookTransactions.filter((item) => item.type === "business_expense").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const ownerInvestments = cashbookTransactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const ownerWithdrawals = cashbookTransactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const packagingTotal = Number(packagingExpense || 0);
   const deliveryTotal = Number(deliveryExpense || 0);
-  const expenseTotal = manualExpenseTotal + packagingTotal + deliveryTotal;
+  const expenseTotal = manualExpenseTotal + cashbookBusinessExpenses + packagingTotal + deliveryTotal;
   const courierDeliveryCost = deliveredOrderCount * 200;
   const returnCourierCost = returnedOrderCount * 200;
   const gstProvision = Math.round(deliveredProductRevenue * 0.01);
@@ -1598,6 +1617,7 @@ function FinancePanel({ orders, products, connected }) {
   const deliveryCollected = grossRevenue - deliveredProductRevenue;
   const profitAfterProductCost = grossRevenue - deliveredCogs;
   const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - expenseTotal - gstTaxTotal;
+  const availableCash = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - gstTaxTotal - expenseTotal + ownerInvestments - ownerWithdrawals;
   const inventoryRetailValue = safeProducts.reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
   const inventoryCostValue = safeProducts.reduce((sum, product) => sum + Number(product.costTotalPkr || 0) * Number(product.stock || 0), 0);
   const lowStockValue = safeProducts
@@ -1630,6 +1650,14 @@ function FinancePanel({ orders, products, connected }) {
       amount: -200,
       status: "Returned",
     })),
+    ...cashbookTransactions.map((entry) => ({
+      id: entry.id,
+      date: formatFinanceDate(entry.date),
+      type: entry.type === "owner_investment" ? "Owner investment" : entry.type === "owner_withdrawal" ? "Owner withdrawal" : "Business expense",
+      account: entry.title,
+      amount: entry.type === "owner_investment" ? Number(entry.amount) : -Number(entry.amount),
+      status: entry.category,
+    })),
   ];
 
   function addExpense(event) {
@@ -1645,6 +1673,34 @@ function FinancePanel({ orders, products, connected }) {
     event.currentTarget.reset();
   }
 
+  async function addCashbookTransaction(event) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const nextTransactions = [{
+      id: `cash-${Date.now()}`,
+      type: data.get("type"),
+      title: String(data.get("title") || "Finance entry").trim(),
+      category: String(data.get("category") || "Other").trim(),
+      amount: Number(data.get("amount") || 0),
+      date: data.get("date") || new Date().toISOString().slice(0, 10),
+      note: String(data.get("note") || "").trim(),
+    }, ...cashbookTransactions];
+    if (!nextTransactions[0].amount || nextTransactions[0].amount < 0) return;
+    setCashbookLoading(true);
+    setCashbookError("");
+    try {
+      const response = await fetch("/api/admin/finance-transactions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactions: nextTransactions }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to save cashbook entry.");
+      setCashbookTransactions(result.transactions || nextTransactions);
+      event.currentTarget.reset();
+    } catch (error) {
+      setCashbookError(error.message);
+    } finally {
+      setCashbookLoading(false);
+    }
+  }
+
   function exportFinance() {
     const csv = [
       ["Metric","Value"],
@@ -1657,6 +1713,10 @@ function FinancePanel({ orders, products, connected }) {
       ["Actual product cost (COGS)", deliveredCogs],
       ["Profit after product cost", profitAfterProductCost],
       ["Manual expenses", manualExpenseTotal],
+      ["Business expenses from cashbook", cashbookBusinessExpenses],
+      ["Owner investment / cash added", ownerInvestments],
+      ["Owner withdrawals / personal use", ownerWithdrawals],
+      ["Estimated available business cash", availableCash],
       ["Packaging expense", packagingTotal],
       ["Extra delivery expense", deliveryTotal],
       ["Returned orders", returnedOrderCount],
@@ -1688,6 +1748,9 @@ function FinancePanel({ orders, products, connected }) {
       <article><Package /><span><b>{totalProductsSold}</b>Total products sold</span></article>
       <article><WalletCards /><span><b>{money(deliveredCogs)}</b>Total product cost</span></article>
       <article><ShoppingBag /><span><b>{money(courierDeliveryCost)}</b>Courier delivery cost</span></article>
+      <article><WalletCards /><span><b>{money(availableCash)}</b>Available business cash</span></article>
+      <article><CircleDollarSign /><span><b>{money(ownerInvestments)}</b>Owner funds added</span></article>
+      <article className={ownerWithdrawals ? "alertMetric" : ""}><CircleDollarSign /><span><b>{money(ownerWithdrawals)}</b>Owner withdrawals</span></article>
       <article className={returnedOrderCount ? "alertMetric" : ""}><Package /><span><b>{returnedOrderCount}</b>Returned orders</span></article>
       <article className={returnCourierCost ? "alertMetric" : ""}><TrendingUp /><span><b>{money(returnCourierCost)}</b>Return courier loss</span></article>
       <article><Landmark /><span><b>{money(receivables)}</b>Pending COD</span></article>
@@ -1744,6 +1807,18 @@ function FinancePanel({ orders, products, connected }) {
         <div className="formRow"><label>Category<select name="category"><option>Inventory</option><option>Marketing</option><option>Operations</option><option>Bills</option><option>Delivery</option><option>Other</option></select></label><label>Amount<input name="amount" type="number" min="0" required placeholder="0" /></label></div>
         <label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label>
         <button>Add expense</button>
+      </form>
+
+      <form className="adminCard financeExpenseForm" onSubmit={addCashbookTransaction}>
+        <h2>Cashbook entry</h2>
+        <p className="trackingNumber">Use this when owner adds money, takes money out personally, or pays a business cost from received cash.</p>
+        {cashbookError && <div className="adminErrorBanner">{cashbookError}</div>}
+        <label>Transaction type<select name="type" defaultValue="business_expense"><option value="business_expense">Business expense (reduces profit + cash)</option><option value="owner_withdrawal">Owner withdrawal / personal use (reduces cash only)</option><option value="owner_investment">Owner investment / cash added (increases cash only)</option></select></label>
+        <label>Title<input name="title" required placeholder="e.g. Personal withdrawal or Instagram ads" /></label>
+        <div className="formRow"><label>Category<input name="category" defaultValue="Other" /></label><label>Amount<input name="amount" type="number" min="1" required placeholder="0" /></label></div>
+        <label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label>
+        <label>Note (optional)<input name="note" placeholder="Reason or reference" /></label>
+        <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save cashbook entry"}</button>
       </form>
     </section>
   </div>;
