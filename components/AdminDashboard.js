@@ -1479,8 +1479,6 @@ function OrdersPanel({ onOpen, rows, products, accessKey, setAccessKey, connecte
 function FinancePanel({ orders, products, connected }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeProducts = Array.isArray(products) ? products : [];
-  const [taxKind, setTaxKind] = useState("GST");
-  const [taxRate, setTaxRate] = useState(4);
   const [packagingExpense, setPackagingExpense] = useState(0);
   const [deliveryExpense, setDeliveryExpense] = useState(0);
   const [expenses, setExpenses] = useState([]);
@@ -1494,8 +1492,6 @@ function FinancePanel({ orders, products, connected }) {
     }
     try {
       const parsed = JSON.parse(savedFinance);
-      setTaxKind(parsed.taxKind || "GST");
-      setTaxRate(parsed.taxRate ?? 4);
       setPackagingExpense(parsed.packagingExpense ?? 0);
       setDeliveryExpense(parsed.deliveryExpense ?? 0);
       setExpenses(Array.isArray(parsed.expenses) ? parsed.expenses : []);
@@ -1506,13 +1502,11 @@ function FinancePanel({ orders, products, connected }) {
   useEffect(() => {
     if (!financeReady) return;
     localStorage.setItem("bustaniya-admin-finance", JSON.stringify({
-      taxKind,
-      taxRate,
       packagingExpense,
       deliveryExpense,
       expenses,
     }));
-  }, [taxKind, taxRate, packagingExpense, deliveryExpense, expenses, financeReady]);
+  }, [packagingExpense, deliveryExpense, expenses, financeReady]);
 
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
   const activeOrders = connected ? safeOrders.filter(isRevenueOrder) : [];
@@ -1522,15 +1516,18 @@ function FinancePanel({ orders, products, connected }) {
   const receivedCash = deliveredOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
   const receivables = pendingOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
   const productCosts = new Map(safeProducts.map((product) => [String(product.id), Number(product.costTotalPkr || 0)]));
+  const deliveredProductRevenue = deliveredOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order)
+    .reduce((itemTotal, item) => itemTotal + Number(item.quantity || 0) * Number(item.price || 0), 0), 0);
   const deliveredCogs = deliveredOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order)
     .reduce((itemTotal, item) => itemTotal + Number(item.quantity || 0) * Number(productCosts.get(String(item.productId)) || 0), 0), 0);
   const manualExpenseTotal = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const packagingTotal = Number(packagingExpense || 0);
   const deliveryTotal = Number(deliveryExpense || 0);
   const expenseTotal = manualExpenseTotal + packagingTotal + deliveryTotal;
-  const taxEstimate = Math.round(grossRevenue * (Number(taxRate || 0) / 100));
-  const grossProductProfit = grossRevenue - deliveredCogs;
-  const netProfit = grossRevenue - deliveredCogs - expenseTotal - taxEstimate;
+  const gstProvision = Math.round(deliveredProductRevenue * 0.01);
+  const taxProvision = Math.round(deliveredProductRevenue * 0.04);
+  const grossProductProfit = deliveredProductRevenue - deliveredCogs;
+  const netProfit = grossRevenue - deliveredCogs - expenseTotal - gstProvision - taxProvision;
   const inventoryRetailValue = safeProducts.reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
   const inventoryCostValue = safeProducts.reduce((sum, product) => sum + Number(product.costTotalPkr || 0) * Number(product.stock || 0), 0);
   const lowStockValue = safeProducts
@@ -1581,7 +1578,8 @@ function FinancePanel({ orders, products, connected }) {
       ["Manual expenses", manualExpenseTotal],
       ["Packaging expense", packagingTotal],
       ["Delivery expense", deliveryTotal],
-      [`${taxKind} estimate`, taxEstimate],
+      ["GST provision (1%)", gstProvision],
+      ["Tax provision (4%)", taxProvision],
       ["Net profit", netProfit],
       ["Inventory retail value", inventoryRetailValue],
       ["Inventory cost value", inventoryCostValue],
@@ -1617,12 +1615,13 @@ function FinancePanel({ orders, products, connected }) {
           <div><span>Manual expenses</span><b>- {money(manualExpenseTotal)}</b></div>
           <div><span>Packaging expense</span><b>- {money(packagingTotal)}</b></div>
           <div><span>Delivery expense</span><b>- {money(deliveryTotal)}</b></div>
-          <div><span>{taxKind} provision</span><b>- {money(taxEstimate)}</b></div>
+          <div><span>GST provision (1% per product)</span><b>- {money(gstProvision)}</b></div>
+          <div><span>Tax provision (4% per product)</span><b>- {money(taxProvision)}</b></div>
           <div className="statementTotal"><span>Net profit</span><b>{money(netProfit)}</b></div>
         </div>
         <div className="financeControls">
-          <label>Tax type<select value={taxKind} onChange={(event) => setTaxKind(event.target.value)}><option>GST</option><option>Tax</option><option>Sales tax</option><option>Withholding</option></select></label>
-          <label>{taxKind} %<input type="number" min="0" max="100" value={taxRate} onChange={(event) => setTaxRate(event.target.value)} /></label>
+          <label>GST<input readOnly value="1% per product" /></label>
+          <label>Tax<input readOnly value="4% per product" /></label>
           <label>Packaging expense<input type="number" min="0" value={packagingExpense} onChange={(event) => setPackagingExpense(event.target.value)} /></label>
           <label>Delivery expense<input type="number" min="0" value={deliveryExpense} onChange={(event) => setDeliveryExpense(event.target.value)} /></label>
         </div>
