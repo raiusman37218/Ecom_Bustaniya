@@ -30,12 +30,12 @@ export const metadata = {
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "16x16 32x32 48x48 64x64", type: "image/x-icon" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.ico?v=3", sizes: "16x16 32x32 48x48 64x64", type: "image/x-icon" },
+      { url: "/icon-192.png?v=3", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png?v=3", sizes: "512x512", type: "image/png" },
     ],
-    shortcut: "/favicon.ico",
-    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/favicon.ico?v=3",
+    apple: [{ url: "/apple-icon.png?v=3", sizes: "180x180", type: "image/png" }],
   },
   ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
     ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } }
