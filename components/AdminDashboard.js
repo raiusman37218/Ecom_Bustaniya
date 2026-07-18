@@ -1263,6 +1263,7 @@ function createDraftOrderFromForm(form, products = []) {
     address: String(form.get("address") || "").trim(),
     items: [{
       id: selectedProduct?.id || "manual",
+      product_id: selectedProduct?.id || "",
       name: itemName,
       sku: selectedProduct?.articleNumber || selectedProduct?.article_number || selectedProduct?.sku || legacyArticleNumber(selectedProduct?.id) || "CUSTOM-ORDER",
       articleNumber: selectedProduct?.articleNumber || selectedProduct?.article_number || legacyArticleNumber(selectedProduct?.id) || "",
@@ -1528,6 +1529,7 @@ function FinancePanel({ orders, products, connected }) {
   const deliveryTotal = Number(deliveryExpense || 0);
   const expenseTotal = manualExpenseTotal + packagingTotal + deliveryTotal;
   const taxEstimate = Math.round(grossRevenue * (Number(taxRate || 0) / 100));
+  const grossProductProfit = grossRevenue - deliveredCogs;
   const netProfit = grossRevenue - deliveredCogs - expenseTotal - taxEstimate;
   const inventoryRetailValue = safeProducts.reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
   const inventoryCostValue = safeProducts.reduce((sum, product) => sum + Number(product.costTotalPkr || 0) * Number(product.stock || 0), 0);
@@ -1575,6 +1577,7 @@ function FinancePanel({ orders, products, connected }) {
       ["Received cash", receivedCash],
       ["Pending COD / receivables", receivables],
       ["Actual product cost (COGS)", deliveredCogs],
+      ["Gross product profit", grossProductProfit],
       ["Manual expenses", manualExpenseTotal],
       ["Packaging expense", packagingTotal],
       ["Delivery expense", deliveryTotal],
@@ -1600,6 +1603,7 @@ function FinancePanel({ orders, products, connected }) {
       <article><CircleDollarSign /><span><b>{money(grossRevenue)}</b>Gross revenue</span></article>
       <article><WalletCards /><span><b>{money(receivedCash)}</b>Cash received</span></article>
       <article><Landmark /><span><b>{money(receivables)}</b>Pending COD</span></article>
+      <article><TrendingUp /><span><b>{money(grossProductProfit)}</b>Gross product profit</span></article>
       <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Net profit</span></article>
     </div>
 
@@ -1609,6 +1613,7 @@ function FinancePanel({ orders, products, connected }) {
         <div className="financeStatement">
           <div><span>Sales revenue</span><b>{money(grossRevenue)}</b></div>
           <div><span>Actual product cost</span><b>- {money(deliveredCogs)}</b></div>
+          <div><span>Gross product profit</span><b>{money(grossProductProfit)}</b></div>
           <div><span>Manual expenses</span><b>- {money(manualExpenseTotal)}</b></div>
           <div><span>Packaging expense</span><b>- {money(packagingTotal)}</b></div>
           <div><span>Delivery expense</span><b>- {money(deliveryTotal)}</b></div>
