@@ -38,7 +38,7 @@ const demoOrders = [
 
 const navItems = [
   { name: "Dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
-  { name: "Orders", icon: ShoppingBag, count: 8, section: "COMMERCE" },
+  { name: "Orders", icon: ShoppingBag, section: "COMMERCE" },
   { name: "Products", icon: Package, section: "COMMERCE" },
   { name: "Categories", icon: Tags, section: "COMMERCE" },
   { name: "Inventory", icon: Boxes, section: "COMMERCE" },
