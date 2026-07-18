@@ -1758,6 +1758,20 @@ function FinancePanel({ orders, products, connected }) {
       <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Final net profit</span></article>
     </div>
 
+    <section className="financeGrid financeGridWide">
+      <form className="adminCard financeExpenseForm" onSubmit={addCashbookTransaction}>
+        <h2>Cashbook entry</h2>
+        <p className="trackingNumber">Record owner funds, personal withdrawals, or a business cost paid from received cash.</p>
+        {cashbookError && <div className="adminErrorBanner">{cashbookError}</div>}
+        <label>Transaction type<select name="type" defaultValue="business_expense"><option value="business_expense">Business expense (reduces profit + cash)</option><option value="owner_withdrawal">Owner withdrawal / personal use (reduces cash only)</option><option value="owner_investment">Owner investment / cash added (increases cash only)</option></select></label>
+        <label>Title<input name="title" required placeholder="e.g. Personal withdrawal or Instagram ads" /></label>
+        <div className="formRow"><label>Category<input name="category" defaultValue="Other" /></label><label>Amount<input name="amount" type="number" min="1" required placeholder="0" /></label></div>
+        <label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label>
+        <label>Note (optional)<input name="note" placeholder="Reason or reference" /></label>
+        <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save cashbook entry"}</button>
+      </form>
+    </section>
+
     <section className="financeGrid">
       <div className="adminCard financeSummaryCard">
         <div className="cardHeading"><div><h2>Profit summary</h2><p>Follow the steps below from sales to final profit.</p></div><b>{profitMargin}% margin</b></div>
@@ -1809,17 +1823,6 @@ function FinancePanel({ orders, products, connected }) {
         <button>Add expense</button>
       </form>
 
-      <form className="adminCard financeExpenseForm" onSubmit={addCashbookTransaction}>
-        <h2>Cashbook entry</h2>
-        <p className="trackingNumber">Use this when owner adds money, takes money out personally, or pays a business cost from received cash.</p>
-        {cashbookError && <div className="adminErrorBanner">{cashbookError}</div>}
-        <label>Transaction type<select name="type" defaultValue="business_expense"><option value="business_expense">Business expense (reduces profit + cash)</option><option value="owner_withdrawal">Owner withdrawal / personal use (reduces cash only)</option><option value="owner_investment">Owner investment / cash added (increases cash only)</option></select></label>
-        <label>Title<input name="title" required placeholder="e.g. Personal withdrawal or Instagram ads" /></label>
-        <div className="formRow"><label>Category<input name="category" defaultValue="Other" /></label><label>Amount<input name="amount" type="number" min="1" required placeholder="0" /></label></div>
-        <label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label>
-        <label>Note (optional)<input name="note" placeholder="Reason or reference" /></label>
-        <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save cashbook entry"}</button>
-      </form>
     </section>
   </div>;
 }
