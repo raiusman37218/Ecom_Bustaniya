@@ -1,8 +1,7 @@
 import { randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import { NextResponse } from "next/server";
 import { authorizeAdminRequest } from "../../../../lib/adminAuth";
+import { requiredAnyEnv, requiredEnv } from "../../../../lib/env";
 
 export const runtime = "nodejs";
 
@@ -19,6 +18,37 @@ function validSignature(buffer, type) {
   return false;
 }
 
+const HERO_BUCKET = "bustaniya-hero";
+
+function storageConfig() {
+  return {
+    url: requiredEnv("SUPABASE_URL").replace(/\/$/, ""),
+    key: requiredAnyEnv(["SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY", "SUPABASE_SECRET_KEY"]),
+  };
+}
+
+function storageHeaders(key, extra = {}) {
+  return { apikey: key, Authorization: `Bearer ${key}`, ...extra };
+}
+
+async function ensureHeroBucket(url, key) {
+  const response = await fetch(`${url}/storage/v1/bucket`, {
+    method: "POST",
+    headers: storageHeaders(key, { "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      id: HERO_BUCKET,
+      name: HERO_BUCKET,
+      public: true,
+      file_size_limit: 12 * 1024 * 1024,
+      allowed_mime_types: [...allowedTypes.keys()],
+    }),
+    cache: "no-store",
+  });
+  if (response.ok || response.status === 409) return;
+  const result = await response.json().catch(() => null);
+  throw new Error(result?.message || result?.error || "Unable to prepare image storage.");
+}
+
 export async function POST(request) {
   try {
     await authorizeAdminRequest(request, "settings");
@@ -31,11 +61,20 @@ export async function POST(request) {
     const bytes = Buffer.from(await file.arrayBuffer());
     if (!validSignature(bytes, file.type)) return NextResponse.json({ error: "The selected file is not a valid image." }, { status: 400 });
 
-    const uploadDir = path.join(process.cwd(), "public", "hero-uploads");
-    await mkdir(uploadDir, { recursive: true });
-    const filename = `${Date.now()}-${randomUUID()}${extension}`;
-    await writeFile(path.join(uploadDir, filename), bytes);
-    return NextResponse.json({ url: `/hero-uploads/${filename}` });
+    const { url, key } = storageConfig();
+    await ensureHeroBucket(url, key);
+    const objectPath = `hero/${Date.now()}-${randomUUID()}${extension}`;
+    const uploadResponse = await fetch(`${url}/storage/v1/object/${HERO_BUCKET}/${objectPath}`, {
+      method: "POST",
+      headers: storageHeaders(key, { "Content-Type": file.type, "x-upsert": "false" }),
+      body: bytes,
+      cache: "no-store",
+    });
+    if (!uploadResponse.ok) {
+      const result = await uploadResponse.json().catch(() => null);
+      throw new Error(result?.message || result?.error || "Unable to upload hero image.");
+    }
+    return NextResponse.json({ url: `${url}/storage/v1/object/public/${HERO_BUCKET}/${objectPath}` });
   } catch (error) {
     const status = error.status === 401 || error.status === 403 ? error.status : 500;
     return NextResponse.json({ error: status === 500 ? "Unable to upload hero image." : error.message }, { status });
