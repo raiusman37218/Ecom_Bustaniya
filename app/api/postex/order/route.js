@@ -113,10 +113,12 @@ export async function POST(request) {
     const paymentMethod = body?.paymentMethod === "bank_deposit" ? "bank_deposit" : "cod";
     const phone = String(customer.phone || "").trim();
     const courierPhone = normalizePhone(phone);
+    const fullName = String(customer.fullName || `${customer.firstName || ""} ${customer.lastName || ""}`).trim();
+    const [firstName, ...lastNameParts] = fullName.split(/\s+/);
+    const lastName = lastNameParts.join(" ") || "-";
 
     if (
-      !customer.firstName?.trim() ||
-      !customer.lastName?.trim() ||
+      !fullName ||
       !customer.address?.trim() ||
       !customer.city?.trim() ||
       !phone ||
@@ -150,7 +152,7 @@ export async function POST(request) {
     });
 
     reservedOrder = await supabaseAdminRpc("create_checkout_order", {
-      p_customer: { ...customer, phone, paymentMethod },
+      p_customer: { ...customer, firstName, lastName, phone, paymentMethod },
       p_items: verifiedItems.map((item) => ({
         article_number: item.articleNumber,
         quantity: item.quantity,
@@ -170,7 +172,7 @@ export async function POST(request) {
         .map((item) => `${item.name} x${item.quantity}`)
         .join(", ")
         .slice(0, 500),
-      customerName: `${customer.firstName.trim()} ${customer.lastName.trim()}`,
+      customerName: fullName,
       customerPhone: courierPhone,
       deliveryAddress: customer.address.trim(),
       transactionNotes: [

@@ -6,8 +6,7 @@ import { ArrowLeft, CheckCircle2, Lock, ShoppingBag, Truck } from "lucide-react"
 export default function CheckoutPage() {
   const [cart, setCart] = useState([]);
   const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
+    fullName: "",
     phone: "",
     email: "",
     address: "",
@@ -153,10 +152,7 @@ export default function CheckoutPage() {
           <p className="eyebrow">DELIVERY DETAILS</p>
           <h1>Checkout</h1>
           <form onSubmit={placeOrder}>
-            <div className="formRow">
-              <label>First name<input required name="firstName" value={form.firstName} onChange={updateField} placeholder="First name" /></label>
-              <label>Last name<input required name="lastName" value={form.lastName} onChange={updateField} placeholder="Last name" /></label>
-            </div>
+            <label>Full name<input required name="fullName" value={form.fullName} onChange={updateField} placeholder="Your full name" /></label>
             <label>Phone number<input required name="phone" value={form.phone} onChange={updateField} type="tel" inputMode="tel" placeholder="Phone / WhatsApp number" /></label>
             <label>Email address (optional)<input name="email" value={form.email} onChange={updateField} type="email" placeholder="you@example.com" /></label>
             <label>Complete address<textarea required name="address" value={form.address} onChange={updateField} placeholder="House, street, area" rows="3" /></label>
@@ -228,7 +224,7 @@ function OrderConfirmation({ order, items, subtotal, delivery }) {
             <span className="successMark"><CheckCircle2 /></span>
             <div>
               <p className="eyebrow">ORDER {order.orderRef}</p>
-              <h1>Thank you, {order.customer?.firstName || "there"}!</h1>
+              <h1>Thank you, {order.customer?.fullName || "there"}!</h1>
               <p>{order.emailSent ? "Your confirmation email has been sent. Keep your tracking ID safe." : "Your order is confirmed. Keep your tracking ID safe."}</p>
             </div>
           </div>
