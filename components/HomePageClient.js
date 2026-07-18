@@ -56,6 +56,10 @@ export default function Home({
   const [cartReady, setCartReady] = useState(false);
   const [products, setProducts] = useState(() => normalizeProducts(serverProducts));
   const [categoryRecords, setCategoryRecords] = useState(() => initialCategories.filter((category) => !category.parentSlug));
+  const [heroSlide, setHeroSlide] = useState(0);
+  const heroDesktopImages = storeSettings.heroDesktopImages?.length ? storeSettings.heroDesktopImages : [storeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage];
+  const heroMobileImages = storeSettings.heroMobileImages?.length ? storeSettings.heroMobileImages : [storeSettings.heroMobileImage || DEFAULT_STORE_SETTINGS.heroMobileImage];
+  const heroSlideCount = Math.max(heroDesktopImages.length, heroMobileImages.length);
 
   useEffect(() => {
     const savedCart = localStorage.getItem("bustaniya-cart");
@@ -68,6 +72,12 @@ export default function Home({
   useEffect(() => {
     if (cartReady) localStorage.setItem("bustaniya-cart", JSON.stringify(cart));
   }, [cart, cartReady]);
+
+  useEffect(() => {
+    if (heroSlideCount < 2) return undefined;
+    const timer = window.setInterval(() => setHeroSlide((current) => (current + 1) % heroSlideCount), 5000);
+    return () => window.clearInterval(timer);
+  }, [heroSlideCount]);
 
   const visibleProducts = useMemo(() => products.filter((product) => {
     const categoryMatch = activeCategory === "All" || normalizeCategory(product.category) === activeCategory;
@@ -136,8 +146,9 @@ export default function Home({
         >
           <div className="campaignHeroMedia">
             <CampaignHeroImage
-              desktopSrc={storeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage}
-              mobileSrc={storeSettings.heroMobileImage || DEFAULT_STORE_SETTINGS.heroMobileImage}
+              key={heroSlide}
+              desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
+              mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
               alt="Bustaniya eastern wear campaign"
             />
           </div>

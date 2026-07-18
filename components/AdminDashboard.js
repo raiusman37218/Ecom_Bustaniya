@@ -2464,17 +2464,22 @@ function SettingsPanel({ onOpen, signedInUser }) {
     if (activeTab === "Users") loadAdminUsers();
   }, [activeTab]);
 
-  async function uploadHeroImage(file, field) {
-    if (!file) return;
+  async function uploadHeroImages(files, field) {
+    const selectedFiles = Array.from(files || []);
+    if (!selectedFiles.length) return;
     setStoreSettingsError("");
     setHeroUploading(field);
     try {
-      const form = new FormData();
-      form.append("file", file, file.name);
-      const response = await fetch("/api/admin/hero-upload", { method: "POST", body: form });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Unable to upload hero image.");
-      setStoreSettings((current) => ({ ...current, [field]: result.url }));
+      const uploadedUrls = [];
+      for (const file of selectedFiles) {
+        const form = new FormData();
+        form.append("file", file, file.name);
+        const response = await fetch("/api/admin/hero-upload", { method: "POST", body: form });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Unable to upload hero image.");
+        uploadedUrls.push(result.url);
+      }
+      setStoreSettings((current) => ({ ...current, [field]: [...(current[field] || []), ...uploadedUrls] }));
     } catch (error) {
       setStoreSettingsError(error.message);
     } finally {
@@ -2685,12 +2690,14 @@ function SettingsPanel({ onOpen, signedInUser }) {
           <section className="heroSettingsEditor">
             <div className="heroSettingsHeading"><div><p>HOMEPAGE</p><h2>Hero Banner Settings</h2><span>Manage the desktop and mobile campaign compositions independently.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.heroEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEnabled: event.target.checked }))} /> Enabled</label></div>
             <div className="heroImageSettingsGrid">
-              {[{ field: "heroDesktopImage", label: "Desktop Hero Image", hint: "Wide campaign artwork · recommended 16:8" }, { field: "heroMobileImage", label: "Mobile Hero Image", hint: "Dedicated portrait artwork · recommended 4:5" }].map((item) => <label className="heroImageSetting" key={item.field}>
-                <span><b>{item.label}</b><small>{item.hint}</small></span>
-                <div className="heroAdminImagePreview"><img src={storeSettings[item.field]} alt="" /></div>
-                <input value={storeSettings[item.field] || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, [item.field]: event.target.value }))} placeholder="/hero-image.jpg or https://..." />
-                <span className="heroUploadButton">{heroUploading === item.field ? "Uploading..." : "Upload image"}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={Boolean(heroUploading)} onChange={(event) => uploadHeroImage(event.target.files?.[0], item.field)} /></span>
-              </label>)}
+              {[{ field: "heroDesktopImages", legacyField: "heroDesktopImage", label: "Desktop Hero Slides", hint: "Select multiple wide campaign images · recommended 16:8" }, { field: "heroMobileImages", legacyField: "heroMobileImage", label: "Mobile Hero Slides", hint: "Select multiple portrait campaign images · recommended 4:5" }].map((item) => {
+                const images = storeSettings[item.field]?.length ? storeSettings[item.field] : [storeSettings[item.legacyField]].filter(Boolean);
+                return <div className="heroImageSetting" key={item.field}>
+                  <span><b>{item.label}</b><small>{item.hint}</small></span>
+                  <div className="heroSlidesEditor">{images.map((image, index) => <div className="heroSlideEditor" key={`${image}-${index}`}><div className="heroAdminImagePreview"><img src={image} alt="" /></div><input value={image} onChange={(event) => setStoreSettings((current) => ({ ...current, [item.field]: images.map((value, imageIndex) => imageIndex === index ? event.target.value : value) }))} placeholder="/hero-image.jpg or https://..." /><button type="button" disabled={images.length === 1} onClick={() => setStoreSettings((current) => ({ ...current, [item.field]: images.filter((_, imageIndex) => imageIndex !== index) }))}>Remove</button></div>)}</div>
+                  <span className="heroUploadButton">{heroUploading === item.field ? "Uploading..." : "Upload image(s)"}<input type="file" multiple accept="image/png,image/jpeg,image/webp" disabled={Boolean(heroUploading)} onChange={(event) => { uploadHeroImages(event.target.files, item.field); event.target.value = ""; }} /></span>
+                </div>;
+              })}
             </div>
             <div className="formRow"><label>Hero Eyebrow Text<input value={storeSettings.heroEyebrow || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEyebrow: event.target.value }))} placeholder="NEW SEASON" /></label><label>Main Heading<input value={storeSettings.heroHeading || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroHeading: event.target.value }))} placeholder="Elevated Eastern Wear" /></label></div>
             <label>Short Supporting Text<textarea rows="2" value={storeSettings.heroSupportingText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSupportingText: event.target.value }))} placeholder="Thoughtfully designed kurtis for everyday elegance." /></label>
