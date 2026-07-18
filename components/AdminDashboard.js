@@ -1092,6 +1092,10 @@ function isDeliveredOrder(order) {
   return ["delivered", "completed"].includes(orderStatus(order));
 }
 
+function isReturnedOrder(order) {
+  return normalizePostexCategory(order.postexStatus || order.status) === "Returned";
+}
+
 const orderCategoryLabels = [
   "Total Orders",
   "Unbooked",
@@ -1532,9 +1536,11 @@ function FinancePanel({ orders, products, connected }) {
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
   const activeOrders = connected ? safeOrders.filter(isRevenueOrder) : [];
   const deliveredOrders = activeOrders.filter(isDeliveredOrder);
+  const returnedOrders = safeOrders.filter(isReturnedOrder);
   const pendingOrders = activeOrders.filter(isPendingCodOrder);
   const deliveredItems = deliveredOrders.flatMap((order) => normalizeOrderItems(order.raw || order));
   const deliveredOrderCount = deliveredOrders.length;
+  const returnedOrderCount = returnedOrders.length;
   const totalProductsSold = deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const grossRevenue = deliveredOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
   const receivedCash = deliveredOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
@@ -1549,12 +1555,13 @@ function FinancePanel({ orders, products, connected }) {
   const deliveryTotal = Number(deliveryExpense || 0);
   const expenseTotal = manualExpenseTotal + packagingTotal + deliveryTotal;
   const courierDeliveryCost = deliveredOrderCount * 200;
+  const returnCourierCost = returnedOrderCount * 200;
   const gstProvision = Math.round(deliveredProductRevenue * 0.01);
   const taxProvision = Math.round(deliveredProductRevenue * 0.04);
   const gstTaxTotal = Math.round(deliveredProductRevenue * 0.05);
   const deliveryCollected = grossRevenue - deliveredProductRevenue;
   const profitAfterProductCost = grossRevenue - deliveredCogs;
-  const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - expenseTotal - gstTaxTotal;
+  const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - expenseTotal - gstTaxTotal;
   const inventoryRetailValue = safeProducts.reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
   const inventoryCostValue = safeProducts.reduce((sum, product) => sum + Number(product.costTotalPkr || 0) * Number(product.stock || 0), 0);
   const lowStockValue = safeProducts
@@ -1578,6 +1585,14 @@ function FinancePanel({ orders, products, connected }) {
       account: expense.title,
       amount: -Number(expense.amount || 0),
       status: expense.category,
+    })),
+    ...returnedOrders.slice(0, 8).map((order) => ({
+      id: order.id,
+      date: order.date,
+      type: "Returned order courier cost",
+      account: order.customer,
+      amount: -200,
+      status: "Returned",
     })),
   ];
 
@@ -1608,6 +1623,8 @@ function FinancePanel({ orders, products, connected }) {
       ["Manual expenses", manualExpenseTotal],
       ["Packaging expense", packagingTotal],
       ["Extra delivery expense", deliveryTotal],
+      ["Returned orders", returnedOrderCount],
+      ["Returned order courier cost (Rs. 200 each)", returnCourierCost],
       ["Courier delivery cost (Rs. 200 × delivered orders)", courierDeliveryCost],
       ["GST provision (1%)", gstProvision],
       ["Tax provision (4%)", taxProvision],
@@ -1635,6 +1652,8 @@ function FinancePanel({ orders, products, connected }) {
       <article><Package /><span><b>{totalProductsSold}</b>Total products sold</span></article>
       <article><WalletCards /><span><b>{money(deliveredCogs)}</b>Total product cost</span></article>
       <article><ShoppingBag /><span><b>{money(courierDeliveryCost)}</b>Courier delivery cost</span></article>
+      <article className={returnedOrderCount ? "alertMetric" : ""}><Package /><span><b>{returnedOrderCount}</b>Returned orders</span></article>
+      <article className={returnCourierCost ? "alertMetric" : ""}><TrendingUp /><span><b>{money(returnCourierCost)}</b>Return courier loss</span></article>
       <article><Landmark /><span><b>{money(receivables)}</b>Pending COD</span></article>
       <article><TrendingUp /><span><b>{money(profitAfterProductCost)}</b>Profit before deductions</span></article>
       <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Final net profit</span></article>
@@ -1651,8 +1670,9 @@ function FinancePanel({ orders, products, connected }) {
           <div><span>5. Profit after product cost</span><b>{money(profitAfterProductCost)}</b></div>
           <div><span>6. Less: GST + Tax (5% of product sales)</span><b>- {money(gstTaxTotal)}</b></div>
           <div><span>7. Less: courier delivery (Rs. 200 × {deliveredOrderCount} orders)</span><b>- {money(courierDeliveryCost)}</b></div>
-          <div><span>8. Less: all other expenses</span><b>- {money(expenseTotal)}</b></div>
-          <div className="statementTotal"><span>9. Final net profit</span><b>{money(netProfit)}</b></div>
+          <div><span>8. Less: returned-order courier loss (Rs. 200 Ã— {returnedOrderCount} orders)</span><b>- {money(returnCourierCost)}</b></div>
+          <div><span>9. Less: all other expenses</span><b>- {money(expenseTotal)}</b></div>
+          <div className="statementTotal"><span>10. Final net profit</span><b>{money(netProfit)}</b></div>
         </div>
         <div className="financeControls">
           <label>GST<input readOnly value="1% per product" /></label>
@@ -2250,6 +2270,7 @@ function OrderDetailDrawer({ order, accessKey, onClose, onUpdate }) {
       <section className="adminCard orderOpsCard">
         <h3>Returns, exchanges, refunds</h3>
         <div className="formRow"><label>Status<select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)}><option>No return</option><option>Return requested</option><option>Exchange requested</option><option>Refund requested</option><option>Refund processed</option></select></label><label>Tags<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Urgent, DM, Exchange" /></label></div>
+        <p className="shippingRuleHint">When PostEx marks this order as Returned, Finance records Rs. 200 as courier loss. Product cost stays out of the loss; add stock back only after the parcel is physically received and checked.</p>
       </section>
 
       <section className="adminCard orderOpsCard">
