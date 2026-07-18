@@ -83,6 +83,7 @@ function canUseAdminArea(user, area) {
 
 export default function AdminDashboard() {
   const [active, setActive] = useState("Dashboard");
+  const [activeSectionReady, setActiveSectionReady] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [showProductForm, setShowProductForm] = useState(false);
@@ -126,6 +127,11 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
+    const savedActiveSection = localStorage.getItem("bustaniya-admin-active-section");
+    if (navItems.some((item) => item.name === savedActiveSection)) {
+      setActive(savedActiveSection);
+    }
+    setActiveSectionReady(true);
     const saved = localStorage.getItem("bustaniya-admin-products");
     if (saved) {
       try { setProducts(JSON.parse(saved)); } catch {}
@@ -145,6 +151,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (adminReady) localStorage.setItem("bustaniya-admin-products", JSON.stringify(products));
   }, [products, adminReady]);
+
+  useEffect(() => {
+    if (activeSectionReady) localStorage.setItem("bustaniya-admin-active-section", active);
+  }, [active, activeSectionReady]);
 
   const filteredProducts = useMemo(() => products.filter((product) =>
     product.name.toLowerCase().includes(search.toLowerCase())
