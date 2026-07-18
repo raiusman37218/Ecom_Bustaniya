@@ -36,7 +36,10 @@ export async function generateMetadata({ params }) {
 
 export default async function ProductPage({ params }) {
   const { id } = await params;
-  const products = await getCatalogProducts();
+  const [products, storeSettings] = await Promise.all([
+    getCatalogProducts(),
+    getStoreSettings(),
+  ]);
   const product = findProduct(products, id);
   if (!product) notFound();
   const related = products
