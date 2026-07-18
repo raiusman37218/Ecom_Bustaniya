@@ -32,7 +32,7 @@ export default function AdminLogin() {
       const response = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password: password.trim() }),
       });
       const result = await readLoginResponse(response);
       if (!response.ok) throw new Error(result.error || "Invalid password.");
