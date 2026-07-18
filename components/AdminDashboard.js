@@ -95,6 +95,7 @@ export default function AdminDashboard() {
   const [productMedia, setProductMedia] = useState([]);
   const [productImageUrl, setProductImageUrl] = useState("");
   const [mediaError, setMediaError] = useState("");
+  const [costBreakdown, setCostBreakdown] = useState({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, other: 0 });
   const [productSaving, setProductSaving] = useState(false);
   const [workspace, setWorkspace] = useState(null);
   const [activity, setActivity] = useState([]);
@@ -156,6 +157,7 @@ export default function AdminDashboard() {
     setProductMedia([]);
     setProductImageUrl("");
     setMediaError("");
+    setCostBreakdown({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, other: 0 });
     setShowProductForm(true);
   }
 
@@ -171,6 +173,7 @@ export default function AdminDashboard() {
     })));
     setProductImageUrl("");
     setMediaError("");
+    setCostBreakdown({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, other: 0, ...(product.costBreakdown || {}) });
     setShowProductForm(true);
   }
 
@@ -287,6 +290,8 @@ export default function AdminDashboard() {
         delivery_fee_pkr: form.get("deliveryFeeMode") === "paid"
           ? Number(form.get("deliveryFee") || 200)
           : null,
+        cost_total_pkr: Object.values(costBreakdown).reduce((sum, value) => sum + Number(value || 0), 0),
+        cost_breakdown: costBreakdown,
       };
       if (!editingProduct) {
         productPayload.is_new = true;
@@ -736,7 +741,10 @@ export default function AdminDashboard() {
             <section className="productEditorCard">
               <h3>Pricing</h3>
               <div className="formRow"><label>Price (PKR)<input name="price" required type="number" defaultValue={editingProduct?.price || ""} placeholder="4,990" /></label><label>Compare-at price<input name="comparePrice" type="number" placeholder="5,990" /></label></div>
-              <div className="formRow"><label>Cost per item<input name="cost" type="number" placeholder="2,200" /></label><label>Profit margin<input disabled placeholder="Calculated automatically" /></label></div>
+              <p className="fieldTitle">Product cost breakdown (PKR)</p>
+              <div className="formRow"><label>Fabric<input type="number" min="0" value={costBreakdown.fabric || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, fabric: e.target.value }))} /></label><label>Stitching<input type="number" min="0" value={costBreakdown.stitching || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, stitching: e.target.value }))} /></label></div>
+              <div className="formRow"><label>Embellishment<input type="number" min="0" value={costBreakdown.embellishment || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, embellishment: e.target.value }))} /></label><label>Packaging<input type="number" min="0" value={costBreakdown.packaging || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, packaging: e.target.value }))} /></label></div>
+              <div className="formRow"><label>Other cost<input type="number" min="0" value={costBreakdown.other || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, other: e.target.value }))} /></label><label>Total product cost<input readOnly value={Object.values(costBreakdown).reduce((sum, value) => sum + Number(value || 0), 0)} /></label></div>
               <label className="checkLabel"><input type="checkbox" defaultChecked /> Charge tax on this product</label>
             </section>
 
@@ -1205,6 +1213,7 @@ function normalizeOrderItems(order) {
   if (items.length) {
     return items.map((item, index) => ({
       id: item.id || item.product_id || index,
+      productId: item.product_id || item.productId || "",
       name: item.product_name || item.name || item.title || `Item ${index + 1}`,
       sku: item.article_number || item.sku || item.articleNumber || "",
       quantity: Number(item.quantity || item.qty || 1),
@@ -1469,7 +1478,6 @@ function OrdersPanel({ onOpen, rows, products, accessKey, setAccessKey, connecte
 function FinancePanel({ orders, products, connected }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeProducts = Array.isArray(products) ? products : [];
-  const [costRate, setCostRate] = useState(45);
   const [taxKind, setTaxKind] = useState("GST");
   const [taxRate, setTaxRate] = useState(4);
   const [packagingExpense, setPackagingExpense] = useState(0);
@@ -1485,7 +1493,6 @@ function FinancePanel({ orders, products, connected }) {
     }
     try {
       const parsed = JSON.parse(savedFinance);
-      setCostRate(parsed.costRate ?? 45);
       setTaxKind(parsed.taxKind || "GST");
       setTaxRate(parsed.taxRate ?? 4);
       setPackagingExpense(parsed.packagingExpense ?? 0);
@@ -1498,14 +1505,13 @@ function FinancePanel({ orders, products, connected }) {
   useEffect(() => {
     if (!financeReady) return;
     localStorage.setItem("bustaniya-admin-finance", JSON.stringify({
-      costRate,
       taxKind,
       taxRate,
       packagingExpense,
       deliveryExpense,
       expenses,
     }));
-  }, [costRate, taxKind, taxRate, packagingExpense, deliveryExpense, expenses, financeReady]);
+  }, [taxKind, taxRate, packagingExpense, deliveryExpense, expenses, financeReady]);
 
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
   const activeOrders = connected ? safeOrders.filter(isRevenueOrder) : [];
@@ -1514,16 +1520,17 @@ function FinancePanel({ orders, products, connected }) {
   const grossRevenue = deliveredOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
   const receivedCash = deliveredOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
   const receivables = pendingOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
-  const estimatedCogs = Math.round(grossRevenue * (Number(costRate || 0) / 100));
+  const productCosts = new Map(safeProducts.map((product) => [String(product.id), Number(product.costTotalPkr || 0)]));
+  const deliveredCogs = deliveredOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order)
+    .reduce((itemTotal, item) => itemTotal + Number(item.quantity || 0) * Number(productCosts.get(String(item.productId)) || 0), 0), 0);
   const manualExpenseTotal = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const packagingTotal = Number(packagingExpense || 0);
   const deliveryTotal = Number(deliveryExpense || 0);
   const expenseTotal = manualExpenseTotal + packagingTotal + deliveryTotal;
   const taxEstimate = Math.round(grossRevenue * (Number(taxRate || 0) / 100));
-  const netProfit = grossRevenue - estimatedCogs - expenseTotal - taxEstimate;
-  const inventoryCostRate = Number(costRate || 0) / 100;
+  const netProfit = grossRevenue - deliveredCogs - expenseTotal - taxEstimate;
   const inventoryRetailValue = safeProducts.reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
-  const inventoryCostValue = Math.round(inventoryRetailValue * inventoryCostRate);
+  const inventoryCostValue = safeProducts.reduce((sum, product) => sum + Number(product.costTotalPkr || 0) * Number(product.stock || 0), 0);
   const lowStockValue = safeProducts
     .filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5))
     .reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
@@ -1567,7 +1574,7 @@ function FinancePanel({ orders, products, connected }) {
       ["Gross revenue", grossRevenue],
       ["Received cash", receivedCash],
       ["Pending COD / receivables", receivables],
-      ["Estimated COGS", estimatedCogs],
+      ["Actual product cost (COGS)", deliveredCogs],
       ["Manual expenses", manualExpenseTotal],
       ["Packaging expense", packagingTotal],
       ["Delivery expense", deliveryTotal],
@@ -1585,7 +1592,7 @@ function FinancePanel({ orders, products, connected }) {
 
   return <div className="financeSystem">
     <div className="adminTitle">
-      <div><p>FINANCE MANAGER</p><h1>Finances</h1><span>{connected ? "Live order totals with inventory-linked estimates." : "No finance data yet. Connect live orders or add expenses to start tracking."}</span></div>
+      <div><p>FINANCE MANAGER</p><h1>Finances</h1><span>{connected ? "Live order totals with actual product costs." : "No finance data yet. Connect live orders or add expenses to start tracking."}</span></div>
       <button onClick={exportFinance}><ReceiptText /> Export report</button>
     </div>
 
@@ -1593,15 +1600,15 @@ function FinancePanel({ orders, products, connected }) {
       <article><CircleDollarSign /><span><b>{money(grossRevenue)}</b>Gross revenue</span></article>
       <article><WalletCards /><span><b>{money(receivedCash)}</b>Cash received</span></article>
       <article><Landmark /><span><b>{money(receivables)}</b>Pending COD</span></article>
-      <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Estimated net profit</span></article>
+      <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Net profit</span></article>
     </div>
 
     <section className="financeGrid">
       <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Profit summary</h2><p>Based on orders, stock cost ratio and expenses</p></div><b>{profitMargin}% margin</b></div>
+        <div className="cardHeading"><div><h2>Profit summary</h2><p>Based on delivered orders, saved product cost and expenses</p></div><b>{profitMargin}% margin</b></div>
         <div className="financeStatement">
           <div><span>Sales revenue</span><b>{money(grossRevenue)}</b></div>
-          <div><span>Estimated product cost</span><b>- {money(estimatedCogs)}</b></div>
+          <div><span>Actual product cost</span><b>- {money(deliveredCogs)}</b></div>
           <div><span>Manual expenses</span><b>- {money(manualExpenseTotal)}</b></div>
           <div><span>Packaging expense</span><b>- {money(packagingTotal)}</b></div>
           <div><span>Delivery expense</span><b>- {money(deliveryTotal)}</b></div>
@@ -1609,7 +1616,6 @@ function FinancePanel({ orders, products, connected }) {
           <div className="statementTotal"><span>Net profit</span><b>{money(netProfit)}</b></div>
         </div>
         <div className="financeControls">
-          <label>COGS %<input type="number" min="0" max="100" value={costRate} onChange={(event) => setCostRate(event.target.value)} /></label>
           <label>Tax type<select value={taxKind} onChange={(event) => setTaxKind(event.target.value)}><option>GST</option><option>Tax</option><option>Sales tax</option><option>Withholding</option></select></label>
           <label>{taxKind} %<input type="number" min="0" max="100" value={taxRate} onChange={(event) => setTaxRate(event.target.value)} /></label>
           <label>Packaging expense<input type="number" min="0" value={packagingExpense} onChange={(event) => setPackagingExpense(event.target.value)} /></label>
@@ -1618,10 +1624,10 @@ function FinancePanel({ orders, products, connected }) {
       </div>
 
       <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Inventory finance</h2><p>Retail and estimated purchase value</p></div></div>
+        <div className="cardHeading"><div><h2>Inventory finance</h2><p>Retail and saved purchase value</p></div></div>
         <div className="inventoryFinanceList">
           <div><span>Retail value on hand</span><b>{money(inventoryRetailValue)}</b></div>
-          <div><span>Estimated purchase value</span><b>{money(inventoryCostValue)}</b></div>
+          <div><span>Purchase value on hand</span><b>{money(inventoryCostValue)}</b></div>
           <div><span>Low-stock retail exposure</span><b>{money(lowStockValue)}</b></div>
           <div><span>Products tracked</span><b>{safeProducts.length}</b></div>
         </div>

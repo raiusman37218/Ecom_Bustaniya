@@ -50,6 +50,16 @@ function parseJsonArray(value) {
   }
 }
 
+function parseJsonObject(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 function formatProduct(product) {
   const inventory = Array.isArray(product.inventory)
     ? product.inventory[0]
@@ -78,6 +88,8 @@ function formatProduct(product) {
     isBestseller: Boolean(product.bestsellere),
     deliveryFeeMode: product.delivery_fee_mode || "inherit",
     deliveryFee: Number(product.delivery_fee_pkr || 0),
+    costTotalPkr: Number(product.cost_total_pkr || 0),
+    costBreakdown: parseJsonObject(product.cost_breakdown),
   };
 }
 
@@ -113,6 +125,8 @@ function normalizeProductPayload(product = {}) {
       (product.delivery_fee_mode || product.deliveryFeeMode) === "paid"
         ? Number(product.delivery_fee_pkr ?? product.deliveryFee ?? 0)
         : null,
+    cost_total_pkr: Number(product.cost_total_pkr ?? product.costTotalPkr ?? 0),
+    cost_breakdown: product.cost_breakdown ?? product.costBreakdown ?? {},
   };
 }
 
@@ -195,6 +209,12 @@ async function updateProductDirect(body) {
   if (product.sizes !== undefined) updates.size = JSON.stringify(product.sizes || []);
   if (product.colors !== undefined) updates.color = JSON.stringify(product.colors || []);
   if (product.sku !== undefined) updates.article_number = String(product.sku || "").trim();
+  if (product.cost_total_pkr !== undefined || product.costTotalPkr !== undefined) {
+    updates.cost_total_pkr = Number(product.cost_total_pkr ?? product.costTotalPkr ?? 0);
+  }
+  if (product.cost_breakdown !== undefined || product.costBreakdown !== undefined) {
+    updates.cost_breakdown = product.cost_breakdown ?? product.costBreakdown ?? {};
+  }
 
   if (Object.keys(updates).length) {
     try {
@@ -346,6 +366,23 @@ export async function PUT(request) {
       if (!isRpcUnavailableError(error) && !isInventoryProductDuplicateError(error)) throw error;
       result = await createProductDirect(body);
     }
+    // Older catalogue RPCs intentionally ignore unknown JSON keys. Persist cost
+    // details separately so the finance screen always receives the true cost.
+    if (body.product?.cost_total_pkr !== undefined || body.product?.cost_breakdown !== undefined) {
+      const rows = await supabaseAdminRequest(
+        `products?select=id&article_number=eq.${encodeURIComponent(body.product.article_number)}&limit=1`
+      );
+      if (rows?.[0]?.id) {
+        await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(rows[0].id)}`, {
+          method: "PATCH",
+          prefer: "return=minimal",
+          body: {
+            cost_total_pkr: Number(body.product.cost_total_pkr || 0),
+            cost_breakdown: body.product.cost_breakdown || {},
+          },
+        });
+      }
+    }
     return NextResponse.json({ success: true, result });
   } catch (error) {
     return errorResponse(error);
@@ -397,6 +434,16 @@ export async function PATCH(request) {
     } catch (error) {
       if (!isRpcUnavailableError(error)) throw error;
       result = await updateProductDirect(body);
+    }
+    if (body.product?.cost_total_pkr !== undefined || body.product?.cost_breakdown !== undefined) {
+      await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(body.productId)}`, {
+        method: "PATCH",
+        prefer: "return=minimal",
+        body: {
+          cost_total_pkr: Number(body.product.cost_total_pkr || 0),
+          cost_breakdown: body.product.cost_breakdown || {},
+        },
+      });
     }
     return NextResponse.json({ success: true, result });
   } catch (error) {
