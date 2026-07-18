@@ -1248,14 +1248,31 @@ function legacyArticleNumber(id) {
 
 function createDraftOrderFromForm(form, products = []) {
   const customer = String(form.get("customer") || "").trim() || "Instagram customer";
-  const productId = String(form.get("productId") || "");
-  const selectedProduct = products.find((product) => String(product.id) === productId);
-  const quantity = Number(form.get("quantity") || 1);
-  const unitPrice = Number(form.get("unitPrice") || selectedProduct?.price || 0);
-  const total = Number(form.get("total") || unitPrice * quantity || 0);
-  const itemName = selectedProduct?.name || String(form.get("item") || "").trim() || "Manual DM order";
-  const itemSize = String(form.get("size") || "").trim();
-  const itemColor = String(form.get("color") || "").trim();
+  let submittedItems = [];
+  try {
+    submittedItems = JSON.parse(String(form.get("itemsJson") || "[]"));
+  } catch {
+    submittedItems = [];
+  }
+  const items = (Array.isArray(submittedItems) ? submittedItems : []).map((item, index) => {
+    const selectedProduct = products.find((product) => String(product.id) === String(item.productId || item.product_id || item.id));
+    const quantity = Math.max(1, Number(item.quantity) || 1);
+    const price = Number(selectedProduct?.price ?? item.price ?? 0);
+    return {
+      id: selectedProduct?.id || item.id || `manual-${index + 1}`,
+      product_id: selectedProduct?.id || item.product_id || "",
+      name: selectedProduct?.name || String(item.name || "").trim() || "Manual DM order",
+      sku: selectedProduct?.articleNumber || selectedProduct?.article_number || selectedProduct?.sku || item.sku || "CUSTOM-ORDER",
+      articleNumber: selectedProduct?.articleNumber || selectedProduct?.article_number || item.articleNumber || "",
+      productId: selectedProduct?.id || item.productId || "",
+      quantity,
+      price,
+      size: String(item.size || "").trim(),
+      color: String(item.color || "").trim(),
+    };
+  }).filter((item) => item.name);
+  const productTotal = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+  const total = productTotal + 200;
   const deliveryMethod = String(form.get("deliveryMethod") || "Rider / same city").trim();
   const status = String(form.get("status") || "Un-Assigned By Me").trim();
   const source = String(form.get("source") || "Manual").trim();
@@ -1276,18 +1293,7 @@ function createDraftOrderFromForm(form, products = []) {
     tracking: "",
     phone: String(form.get("phone") || "").trim(),
     address: String(form.get("address") || "").trim(),
-    items: [{
-      id: selectedProduct?.id || "manual",
-      product_id: selectedProduct?.id || "",
-      name: itemName,
-      sku: selectedProduct?.articleNumber || selectedProduct?.article_number || selectedProduct?.sku || legacyArticleNumber(selectedProduct?.id) || "CUSTOM-ORDER",
-      articleNumber: selectedProduct?.articleNumber || selectedProduct?.article_number || legacyArticleNumber(selectedProduct?.id) || "",
-      productId: selectedProduct?.id || "",
-      quantity,
-      price: unitPrice,
-      size: itemSize,
-      color: itemColor,
-    }],
+    items,
     notes: String(form.get("notes") || "").trim(),
     tags: ["Custom order", source, deliveryMethod].filter(Boolean),
     risk: "Standard COD",
@@ -2030,16 +2036,30 @@ function InventoryDialog({ products, productChoice, setProductChoice, onClose, o
 function DialogHead({title,onClose}) { return <div className="dialogHead"><h2>{title}</h2><button type="button" onClick={onClose}><X/></button></div>; }
 
 function DraftOrderDialog({ products = [], onClose, onCreate }) {
-  const [selectedProductId, setSelectedProductId] = useState(products[0]?.id ? String(products[0].id) : "__custom__");
-  const [quantity, setQuantity] = useState(1);
+  const makeItem = () => ({ key: `${Date.now()}-${Math.random()}`, productId: products[0]?.id ? String(products[0].id) : "__custom__", quantity: 1, size: "", color: "", customName: "", unitPrice: "" });
+  const [draftItems, setDraftItems] = useState(() => [makeItem()]);
   const [postexCities, setPostexCities] = useState([]);
   const [citiesLoading, setCitiesLoading] = useState(false);
   const [citiesError, setCitiesError] = useState("");
-  const selectedProduct = products.find((product) => String(product.id) === selectedProductId);
-  const productSizes = Array.isArray(selectedProduct?.sizes) && selectedProduct.sizes.length ? selectedProduct.sizes : ["S", "M", "L"];
-  const productColors = Array.isArray(selectedProduct?.colors) && selectedProduct.colors.length ? selectedProduct.colors : ["Default"];
-  const unitPrice = Number(selectedProduct?.price || 0);
-  const calculatedTotal = unitPrice * Number(quantity || 1);
+  const preparedItems = draftItems.map((entry, index) => {
+    const product = products.find((candidate) => String(candidate.id) === entry.productId);
+    return {
+      id: product?.id || `custom-${index + 1}`,
+      productId: product?.id || "",
+      product_id: product?.id || "",
+      name: product?.name || entry.customName || "Custom item",
+      sku: product?.articleNumber || product?.article_number || product?.sku || "CUSTOM-ORDER",
+      articleNumber: product?.articleNumber || product?.article_number || "",
+      quantity: Math.max(1, Number(entry.quantity) || 1),
+      price: Number(product?.price ?? entry.unitPrice ?? 0),
+      size: entry.size || "",
+      color: entry.color || "",
+    };
+  });
+  const productSubtotal = preparedItems.reduce((sum, item) => sum + item.quantity * item.price, 0);
+  const deliveryFee = 200;
+  const orderTotal = productSubtotal + deliveryFee;
+  const updateItem = (key, changes) => setDraftItems((items) => items.map((item) => item.key === key ? { ...item, ...changes } : item));
 
   useEffect(() => {
     let active = true;
@@ -2069,13 +2089,20 @@ function DraftOrderDialog({ products = [], onClose, onCreate }) {
     <div className="formRow"><label>Payment<select name="paymentStatus"><option>COD pending</option><option>Advance pending</option><option>Paid</option></select></label><label>Delivery method<select name="deliveryMethod"><option>Rider / same city</option><option>PostEx</option><option>Customer pickup</option><option>Staff delivery</option><option>Manual courier</option><option>PostEx later</option></select></label></div>
     <div className="formRow"><label>Order status<select name="status">{customOrderStatusOptions.map((status) => <option key={status}>{status}</option>)}</select></label><label>Fulfillment<select name="fulfillmentStatus"><option>Manual delivery</option><option>Rider assigned</option><option>Ready for pickup</option><option>Booked with PostEx</option><option>Delivered</option><option>On hold</option></select></label></div>
     <label>Shipping address<textarea name="address" rows="3" required placeholder="Full delivery address from DM" /></label>
-    <label>Item<select name="productId" value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}>
-      {products.map((product) => <option key={product.id} value={product.id}>{product.name} - Rs. {Number(product.price || 0).toLocaleString()}</option>)}
-      <option value="__custom__">Custom item</option>
-    </select></label>
-    {selectedProduct ? <div className="formRow"><label>Size<select name="size">{productSizes.map((size) => <option key={size}>{size}</option>)}</select></label><label>Color<select name="color">{productColors.map((color) => <option key={color}>{color}</option>)}</select></label></div> : <label>Custom item<input name="item" required placeholder="Product, size, color" /></label>}
-    <div className="formRow"><label>Quantity<input name="quantity" type="number" min="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label><label>Unit price<input key={selectedProductId} name="unitPrice" type="number" min="0" defaultValue={unitPrice} readOnly={!!selectedProduct} /></label></div>
-    <label><span>Total amount</span>{selectedProduct ? <input name="total" type="number" min="0" required value={calculatedTotal} readOnly /> : <input name="total" type="number" min="0" required placeholder="0" />}</label>
+    <div className="inventoryListHead"><div><h3>Order items</h3><span>Add as many different products as needed.</span></div><button type="button" onClick={() => setDraftItems((items) => [...items, makeItem()])}>Add another item</button></div>
+    {draftItems.map((entry, index) => {
+      const selectedProduct = products.find((product) => String(product.id) === entry.productId);
+      const sizes = Array.isArray(selectedProduct?.sizes) && selectedProduct.sizes.length ? selectedProduct.sizes : ["S", "M", "L"];
+      const colors = Array.isArray(selectedProduct?.colors) && selectedProduct.colors.length ? selectedProduct.colors : ["Default"];
+      return <div className="adminCard" key={entry.key} style={{ padding: "16px", marginBottom: "12px" }}>
+        <div className="inventoryListHead"><b>Item {index + 1}</b>{draftItems.length > 1 && <button type="button" onClick={() => setDraftItems((items) => items.filter((item) => item.key !== entry.key))}>Remove</button>}</div>
+        <label>Product<select value={entry.productId} onChange={(event) => updateItem(entry.key, { productId: event.target.value, size: "", color: "" })}>{products.map((product) => <option key={product.id} value={product.id}>{product.name} - Rs. {Number(product.price || 0).toLocaleString()}</option>)}<option value="__custom__">Custom item</option></select></label>
+        {selectedProduct ? <div className="formRow"><label>Size<select value={entry.size} onChange={(event) => updateItem(entry.key, { size: event.target.value })}>{sizes.map((size) => <option key={size}>{size}</option>)}</select></label><label>Color<select value={entry.color} onChange={(event) => updateItem(entry.key, { color: event.target.value })}>{colors.map((color) => <option key={color}>{color}</option>)}</select></label></div> : <label>Custom item<input required value={entry.customName} onChange={(event) => updateItem(entry.key, { customName: event.target.value })} placeholder="Product, size, color" /></label>}
+        <div className="formRow"><label>Quantity<input type="number" min="1" value={entry.quantity} onChange={(event) => updateItem(entry.key, { quantity: event.target.value })} /></label><label>Unit price<input type="number" min="0" value={selectedProduct ? Number(selectedProduct.price || 0) : entry.unitPrice} onChange={(event) => updateItem(entry.key, { unitPrice: event.target.value })} readOnly={!!selectedProduct} /></label></div>
+      </div>;
+    })}
+    <input type="hidden" name="itemsJson" value={JSON.stringify(preparedItems)} />
+    <div className="adminCard" style={{ padding: "16px", marginBottom: "12px" }}><div className="formRow"><span>Products subtotal: <b>Rs. {productSubtotal.toLocaleString()}</b></span><span>Delivery (once per order): <b>Rs. {deliveryFee.toLocaleString()}</b></span></div><b>Order total: Rs. {orderTotal.toLocaleString()}</b></div>
     <label>Internal note<textarea name="notes" rows="3" placeholder="Rider name, pickup timing, DM link, customer request" /></label>
     <button className="dialogSave">Create custom order</button>
   </form></>;

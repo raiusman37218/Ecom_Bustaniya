@@ -190,9 +190,11 @@ export async function POST(request) {
     const products = await getCatalogProducts();
     const customItems = normalizeCustomItems(items, products);
     const paymentMethod = body?.paymentStatus === "Paid" ? "bank_deposit" : "cod";
-    const total = normalizeMoney(
+    const productSubtotal = normalizeMoney(
       customItems.reduce((sum, item) => sum + Number(item.total_pkr || 0), 0)
     );
+    const deliveryFee = 200;
+    const total = normalizeMoney(productSubtotal + deliveryFee);
     const orderNumber = makeCustomOrderNumber();
     const allItemsInCatalog = customItems.every((item) => !item.custom);
     let completedOrder;
@@ -234,10 +236,10 @@ export async function POST(request) {
         payment_status: body?.paymentStatus || "COD pending",
         payment_method: paymentMethod,
         fulfillment_status: shouldBookPostex ? "PostEx booking pending" : "Manual delivery",
-        subtotal: total,
-        subtotal_pkr: total,
-        delivery: 0,
-        delivery_pkr: 0,
+        subtotal: productSubtotal,
+        subtotal_pkr: productSubtotal,
+        delivery: deliveryFee,
+        delivery_pkr: deliveryFee,
         total,
         total_pkr: total,
         shipping_full_name: customer.name.trim(),
