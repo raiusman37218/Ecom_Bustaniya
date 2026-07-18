@@ -1525,12 +1525,15 @@ function FinancePanel({ orders, products, connected }) {
   const activeOrders = connected ? safeOrders.filter(isRevenueOrder) : [];
   const deliveredOrders = activeOrders.filter(isDeliveredOrder);
   const pendingOrders = activeOrders.filter(isPendingCodOrder);
+  const deliveredItems = deliveredOrders.flatMap((order) => normalizeOrderItems(order.raw || order));
+  const deliveredOrderCount = deliveredOrders.length;
+  const totalProductsSold = deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const grossRevenue = deliveredOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
   const receivedCash = deliveredOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
   const receivables = pendingOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
   const productCosts = new Map(safeProducts.map((product) => [String(product.id), Number(product.costTotalPkr || 0)]));
-  const deliveredProductRevenue = deliveredOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order)
-    .reduce((itemTotal, item) => itemTotal + Number(item.quantity || 0) * Number(item.price || 0), 0), 0);
+  const deliveredProductRevenue = deliveredItems
+    .reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0);
   const deliveredCogs = deliveredOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order)
     .reduce((itemTotal, item) => itemTotal + Number(item.quantity || 0) * Number(productCosts.get(String(item.productId)) || 0), 0), 0);
   const manualExpenseTotal = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -1584,6 +1587,9 @@ function FinancePanel({ orders, products, connected }) {
     const csv = [
       ["Metric","Value"],
       ["Gross revenue", grossRevenue],
+      ["Delivered orders", deliveredOrderCount],
+      ["Total products sold", totalProductsSold],
+      ["Product sales total", deliveredProductRevenue],
       ["Received cash", receivedCash],
       ["Pending COD / receivables", receivables],
       ["Actual product cost (COGS)", deliveredCogs],
@@ -1611,19 +1617,23 @@ function FinancePanel({ orders, products, connected }) {
     </div>
 
     <div className="miniMetricGrid financeMetrics">
-      <article><CircleDollarSign /><span><b>{money(grossRevenue)}</b>Gross revenue</span></article>
-      <article><WalletCards /><span><b>{money(receivedCash)}</b>Cash received</span></article>
+      <article><CircleDollarSign /><span><b>{money(grossRevenue)}</b>Total sales</span></article>
+      <article><ShoppingBag /><span><b>{deliveredOrderCount}</b>Delivered orders</span></article>
+      <article><Package /><span><b>{totalProductsSold}</b>Total products sold</span></article>
+      <article><WalletCards /><span><b>{money(deliveredCogs)}</b>Total product cost</span></article>
       <article><Landmark /><span><b>{money(receivables)}</b>Pending COD</span></article>
       <article><TrendingUp /><span><b>{money(grossProductProfit)}</b>Gross product profit</span></article>
-      <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Net profit</span></article>
+      <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Final net profit</span></article>
     </div>
 
     <section className="financeGrid">
       <div className="adminCard financeSummaryCard">
         <div className="cardHeading"><div><h2>Profit summary</h2><p>Based on delivered orders, saved product cost and expenses</p></div><b>{profitMargin}% margin</b></div>
         <div className="financeStatement">
-          <div><span>Sales revenue</span><b>{money(grossRevenue)}</b></div>
-          <div><span>Actual product cost</span><b>- {money(deliveredCogs)}</b></div>
+          <div><span>Total sales (orders)</span><b>{money(grossRevenue)}</b></div>
+          <div><span>Total product sales</span><b>{money(deliveredProductRevenue)}</b></div>
+          <div><span>Total products sold</span><b>{totalProductsSold}</b></div>
+          <div><span>Total saved product cost</span><b>- {money(deliveredCogs)}</b></div>
           <div><span>Gross product profit</span><b>{money(grossProductProfit)}</b></div>
           <div><span>Manual expenses</span><b>- {money(manualExpenseTotal)}</b></div>
           <div><span>Packaging expense</span><b>- {money(packagingTotal)}</b></div>
