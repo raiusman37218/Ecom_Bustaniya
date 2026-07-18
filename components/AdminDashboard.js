@@ -1542,12 +1542,13 @@ function FinancePanel({ orders, products, connected }) {
   const packagingTotal = Number(packagingExpense || 0);
   const deliveryTotal = Number(deliveryExpense || 0);
   const expenseTotal = manualExpenseTotal + packagingTotal + deliveryTotal;
+  const courierDeliveryCost = deliveredOrderCount * 200;
   const gstProvision = Math.round(deliveredProductRevenue * 0.01);
   const taxProvision = Math.round(deliveredProductRevenue * 0.04);
   const gstTaxTotal = Math.round(deliveredProductRevenue * 0.05);
   const deliveryCollected = grossRevenue - deliveredProductRevenue;
   const profitAfterProductCost = grossRevenue - deliveredCogs;
-  const netProfit = grossRevenue - deliveredCogs - expenseTotal - gstTaxTotal;
+  const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - expenseTotal - gstTaxTotal;
   const inventoryRetailValue = safeProducts.reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
   const inventoryCostValue = safeProducts.reduce((sum, product) => sum + Number(product.costTotalPkr || 0) * Number(product.stock || 0), 0);
   const lowStockValue = safeProducts
@@ -1600,7 +1601,8 @@ function FinancePanel({ orders, products, connected }) {
       ["Profit after product cost", profitAfterProductCost],
       ["Manual expenses", manualExpenseTotal],
       ["Packaging expense", packagingTotal],
-      ["Delivery expense", deliveryTotal],
+      ["Extra delivery expense", deliveryTotal],
+      ["Courier delivery cost (Rs. 200 × delivered orders)", courierDeliveryCost],
       ["GST provision (1%)", gstProvision],
       ["Tax provision (4%)", taxProvision],
       ["GST + Tax total (5%)", gstTaxTotal],
@@ -1626,6 +1628,7 @@ function FinancePanel({ orders, products, connected }) {
       <article><ShoppingBag /><span><b>{deliveredOrderCount}</b>Delivered orders</span></article>
       <article><Package /><span><b>{totalProductsSold}</b>Total products sold</span></article>
       <article><WalletCards /><span><b>{money(deliveredCogs)}</b>Total product cost</span></article>
+      <article><ShoppingBag /><span><b>{money(courierDeliveryCost)}</b>Courier delivery cost</span></article>
       <article><Landmark /><span><b>{money(receivables)}</b>Pending COD</span></article>
       <article><TrendingUp /><span><b>{money(profitAfterProductCost)}</b>Profit before deductions</span></article>
       <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Final net profit</span></article>
@@ -1641,14 +1644,15 @@ function FinancePanel({ orders, products, connected }) {
           <div><span>4. Less: saved product cost</span><b>- {money(deliveredCogs)}</b></div>
           <div><span>5. Profit after product cost</span><b>{money(profitAfterProductCost)}</b></div>
           <div><span>6. Less: GST + Tax (5% of product sales)</span><b>- {money(gstTaxTotal)}</b></div>
-          <div><span>7. Less: all other expenses</span><b>- {money(expenseTotal)}</b></div>
-          <div className="statementTotal"><span>8. Final net profit</span><b>{money(netProfit)}</b></div>
+          <div><span>7. Less: courier delivery (Rs. 200 × {deliveredOrderCount} orders)</span><b>- {money(courierDeliveryCost)}</b></div>
+          <div><span>8. Less: all other expenses</span><b>- {money(expenseTotal)}</b></div>
+          <div className="statementTotal"><span>9. Final net profit</span><b>{money(netProfit)}</b></div>
         </div>
         <div className="financeControls">
           <label>GST<input readOnly value="1% per product" /></label>
           <label>Tax<input readOnly value="4% per product" /></label>
           <label>Packaging expense<input type="number" min="0" value={packagingExpense} onChange={(event) => setPackagingExpense(event.target.value)} /></label>
-          <label>Delivery expense<input type="number" min="0" value={deliveryExpense} onChange={(event) => setDeliveryExpense(event.target.value)} /></label>
+          <label>Extra delivery expense<input type="number" min="0" value={deliveryExpense} onChange={(event) => setDeliveryExpense(event.target.value)} /></label>
         </div>
       </div>
 
