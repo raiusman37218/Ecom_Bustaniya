@@ -1,5 +1,5 @@
 @echo off
-cd /d "D:\Bustaniya"
+cd /d "D:\Ecom_Bustaniya-main"
 echo Building latest Bustaniya production files...
 "C:\Program Files\nodejs\npm.cmd" run build
 if errorlevel 1 (
