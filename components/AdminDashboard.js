@@ -797,17 +797,9 @@ export default function AdminDashboard() {
             <section className="productEditorCard">
               <h3>Shipping</h3>
               <label className="checkLabel"><input type="checkbox" defaultChecked /> This is a physical product</label>
-              <div className="formRow">
-                <label>Delivery rule
-                  <select name="deliveryFeeMode" defaultValue={editingProduct?.deliveryFeeMode || "inherit"}>
-                    <option value="inherit">Use store rules</option>
-                    <option value="free">Always free delivery</option>
-                    <option value="paid">Custom paid delivery</option>
-                  </select>
-                </label>
-                <label>Custom COD fee (PKR)<input name="deliveryFee" type="number" min="0" defaultValue={editingProduct?.deliveryFee || 200} /></label>
-              </div>
-              <p className="shippingRuleHint">Store rules: COD is Rs. 200 and orders of Rs. 5,000 or more receive free delivery.</p>
+              <input type="hidden" name="deliveryFeeMode" value="inherit" />
+              <div className="formRow"><label>Delivery fee per order<input readOnly value="Rs. 200" /></label><label>Rule<input readOnly value="Applied once, even for multiple products" /></label></div>
+              <p className="shippingRuleHint">Store rule: product prices exclude delivery. Every order has one flat Rs. 200 delivery fee, regardless of item quantity.</p>
               <div className="formRow"><label>Weight<input name="weight" type="number" step="0.1" placeholder="0.5" /></label><label>Unit<select><option>kg</option><option>g</option></select></label></div>
               <div className="formRow"><label>Country of origin<select><option>Pakistan</option></select></label><label>HS tariff code<input placeholder="Optional" /></label></div>
             </section>
@@ -1071,7 +1063,7 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
         {visibleProducts.map((product) => {
           const variants = productVariants(product);
           const status = productStatus(product);
-          return <tr key={product.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${product.image})` }} /><div><b>{product.name}</b><small>{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4,"0")}`}</small></div></div></td><td>{productCollection(product)}</td><td><b>Rs. {Number(product.price || 0).toLocaleString()}</b>{(product.compareAtPrice || product.compare_at_price) && <small className="trackingNumber">Was Rs. {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</small>}</td><td><button className="adjustStockButton" onClick={() => setVariantProduct(product)}>{variants.length} variants</button></td><td><span className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)} in stock</span><small className="trackingNumber">Alert at {Number(product.lowStockThreshold || 5)}</small></td><td><select className="tableSelect" value={product.deliveryFeeMode || "inherit"} onChange={(event) => onDeliveryChange(product, event.target.value)} disabled={loading}><option value="inherit">Store rules</option><option value="free">Free</option><option value="paid">Paid{product.deliveryFee ? ` - Rs. ${product.deliveryFee}` : ""}</option></select></td><td><span className={`statusBadge ${status === "Active" ? "activeStatus" : status === "Out of stock" ? "cancelled" : "processing"}`}>{status}</span></td><td><div className="productRowActions"><button className="editProductButton" onClick={() => onEdit(product)} disabled={loading}>Edit</button><button className="removeProductButton" onClick={() => onDelete(product)} disabled={loading} aria-label={`Remove ${product.name}`}><X /><span>Remove</span></button></div></td></tr>;
+          return <tr key={product.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${product.image})` }} /><div><b>{product.name}</b><small>{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4,"0")}`}</small></div></div></td><td>{productCollection(product)}</td><td><b>Rs. {Number(product.price || 0).toLocaleString()}</b>{(product.compareAtPrice || product.compare_at_price) && <small className="trackingNumber">Was Rs. {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</small>}</td><td><button className="adjustStockButton" onClick={() => setVariantProduct(product)}>{variants.length} variants</button></td><td><span className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)} in stock</span><small className="trackingNumber">Alert at {Number(product.lowStockThreshold || 5)}</small></td><td><b>Rs. 200 / order</b></td><td><span className={`statusBadge ${status === "Active" ? "activeStatus" : status === "Out of stock" ? "cancelled" : "processing"}`}>{status}</span></td><td><div className="productRowActions"><button className="editProductButton" onClick={() => onEdit(product)} disabled={loading}>Edit</button><button className="removeProductButton" onClick={() => onDelete(product)} disabled={loading} aria-label={`Remove ${product.name}`}><X /><span>Remove</span></button></div></td></tr>;
         })}
         {!visibleProducts.length && <tr><td colSpan="8"><div className="inventoryEmpty">No products match this view.</div></td></tr>}
       </tbody></table></div>

@@ -47,17 +47,9 @@ export default function CheckoutPage() {
     () => cart.reduce((total, item) => total + item.price * item.quantity, 0),
     [cart]
   );
-  const allProductsFree = cart.length > 0 && cart.every(
-    (item) => item.deliveryFeeMode === "free" || item.delivery_fee_mode === "free"
-  );
-  const customDeliveryFee = cart.reduce((highest, item) => {
-    const mode = item.deliveryFeeMode || item.delivery_fee_mode || "inherit";
-    const fee = Number(item.deliveryFee ?? item.delivery_fee_pkr ?? 0);
-    return mode === "paid" ? Math.max(highest, fee) : highest;
-  }, 0);
-  const estimatedDelivery = subtotal >= 5000 || allProductsFree
-    ? 0
-    : Math.max(200, customDeliveryFee);
+  // Product prices exclude shipping. Every non-empty order has one flat fee,
+  // regardless of how many products are in the cart.
+  const estimatedDelivery = cart.length ? 200 : 0;
   const delivery = quotedDelivery ?? estimatedDelivery;
 
   useEffect(() => {
@@ -192,7 +184,7 @@ export default function CheckoutPage() {
             </label>
             <div className="advancePaymentNote">
               <b>{paymentMethod === "bank_deposit" ? "Bank deposit selected" : "COD selected"}</b>
-              <span>{paymentMethod === "bank_deposit" ? "Confirm bank payment before dispatch. Courier will not collect cash from customer." : "COD delivery is Rs. 200 unless your cart qualifies for free delivery."}</span>
+              <span>{paymentMethod === "bank_deposit" ? "Confirm bank payment before dispatch. Delivery fee is Rs. 200 per order." : "Flat delivery fee is Rs. 200 per order, regardless of item quantity."}</span>
             </div>
             {error && <p className="checkoutError" role="alert">{error}</p>}
             <button className="placeOrder" type="submit" disabled={!cart.length || submitting}>
