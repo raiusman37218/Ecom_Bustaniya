@@ -10,6 +10,7 @@ import {
 import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, products as initialProducts, slugifyCategory } from "../data/store";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import { apparelSizes, fashionColors } from "../data/variantOptions";
+import AdminLogin from "./AdminLogin";
 
 const fallbackCategoryRecords = fallbackCategoryNames
   .filter((category) => category !== "All")
@@ -102,6 +103,7 @@ export default function AdminDashboard() {
   const [categorySetupNeeded, setCategorySetupNeeded] = useState(false);
   const [categorySaving, setCategorySaving] = useState(false);
   const [currentAdminUser, setCurrentAdminUser] = useState(null);
+  const [adminAuthChecked, setAdminAuthChecked] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [metrics, setMetrics] = useState({
     totalSales: 0,
@@ -125,12 +127,14 @@ export default function AdminDashboard() {
     fetch("/api/admin/me")
       .then((response) => response.ok ? response.json() : null)
       .then((result) => {
-        if (result?.user) setCurrentAdminUser(result.user);
+        if (!result?.user) return;
+        setCurrentAdminUser(result.user);
+        const savedOrdersKey = sessionStorage.getItem("bustaniya-orders-key") || "open-admin";
+        setOrdersKey(savedOrdersKey);
+        loadOrders(savedOrdersKey);
       })
-      .catch(() => {});
-    const savedOrdersKey = sessionStorage.getItem("bustaniya-orders-key") || "open-admin";
-    setOrdersKey(savedOrdersKey);
-    loadOrders(savedOrdersKey);
+      .catch(() => {})
+      .finally(() => setAdminAuthChecked(true));
   }, []);
 
   useEffect(() => {
@@ -653,9 +657,11 @@ export default function AdminDashboard() {
   // The admin dashboard depends on browser-only session, timezone and cached
   // catalogue state. Render a deterministic shell first to avoid React
   // hydration failures that disable sidebar interactions in production.
-  if (!adminReady) {
+  if (!adminReady || !adminAuthChecked) {
     return <main className="adminShell"><div className="adminContent"><div className="inventoryEmpty">Loading Bustaniya admin…</div></div></main>;
   }
+
+  if (!currentAdminUser) return <AdminLogin />;
 
   return (
     <main className="adminShell">
@@ -711,7 +717,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
-          {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} />}
+          {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} />}
           {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} />}
         </div>
       </section>
@@ -1536,9 +1542,10 @@ function OrdersPanel({ rows, products, accessKey, setAccessKey, connected, loadi
   </>;
 }
 
-function FinancePanel({ orders, products, connected }) {
+function FinancePanel({ orders, products, connected, currentAdminUser }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeProducts = Array.isArray(products) ? products : [];
+  const isOwnerFinance = !currentAdminUser || currentAdminUser.role === "Owner";
   const [packagingExpense, setPackagingExpense] = useState(0);
   const [deliveryExpense, setDeliveryExpense] = useState(0);
   const [expenses, setExpenses] = useState([]);
@@ -1549,6 +1556,10 @@ function FinancePanel({ orders, products, connected }) {
   const [cashbookError, setCashbookError] = useState("");
 
   useEffect(() => {
+    if (!isOwnerFinance) {
+      setFinanceReady(true);
+      return;
+    }
     const savedFinance = localStorage.getItem("bustaniya-admin-finance");
     if (!savedFinance) {
       setFinanceReady(true);
@@ -1561,9 +1572,13 @@ function FinancePanel({ orders, products, connected }) {
       setExpenses(Array.isArray(parsed.expenses) ? parsed.expenses : []);
     } catch {}
     setFinanceReady(true);
-  }, []);
+  }, [isOwnerFinance]);
 
   useEffect(() => {
+    if (!isOwnerFinance) {
+      setCashbookLoading(false);
+      return;
+    }
     let active = true;
     fetch("/api/admin/finance-transactions", { cache: "no-store" })
       .then((response) => response.json().then((result) => ({ ok: response.ok, result })))
@@ -1577,16 +1592,16 @@ function FinancePanel({ orders, products, connected }) {
       .catch((error) => { if (active) setCashbookError(error.message); })
       .finally(() => { if (active) setCashbookLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [isOwnerFinance]);
 
   useEffect(() => {
-    if (!financeReady) return;
+    if (!isOwnerFinance || !financeReady) return;
     localStorage.setItem("bustaniya-admin-finance", JSON.stringify({
       packagingExpense,
       deliveryExpense,
       expenses,
     }));
-  }, [packagingExpense, deliveryExpense, expenses, financeReady]);
+  }, [packagingExpense, deliveryExpense, expenses, financeReady, isOwnerFinance]);
 
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
   const activeOrders = connected ? safeOrders.filter(isRevenueOrder) : [];
@@ -1642,6 +1657,21 @@ function FinancePanel({ orders, products, connected }) {
     .filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5))
     .reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
   const profitMargin = grossRevenue ? Math.round((netProfit / grossRevenue) * 100) : 0;
+
+  if (!isOwnerFinance) {
+    return <div className="financeSystem">
+      <div className="adminTitle"><div><p>SALES OVERVIEW</p><h1>Finances</h1><span>Operational sales and delivery information for staff.</span></div></div>
+      <div className="inventoryAlert materialAlert"><Landmark /><div><b>Staff finance view</b><span>Owner-only data such as product costs, profit, cashbook, withdrawals and allocation plans is hidden.</span></div></div>
+      <div className="miniMetricGrid financeMetrics">
+        <article><CircleDollarSign /><span><b>{money(grossRevenue)}</b>Delivered sales</span></article>
+        <article><ShoppingBag /><span><b>{deliveredOrderCount}</b>Delivered orders</span></article>
+        <article><Package /><span><b>{totalProductsSold}</b>Products sold</span></article>
+        <article><Landmark /><span><b>{money(receivables)}</b>Pending COD</span></article>
+        <article className={returnedOrderCount ? "alertMetric" : ""}><Package /><span><b>{returnedOrderCount}</b>Returned orders</span></article>
+      </div>
+      <section className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>What to do next</h2><p>Use Orders for booking, delivery, return and customer updates.</p></div></div><div className="financeStatement"><div><span>Orders waiting for COD / delivery follow-up</span><b>{pendingOrders.length}</b></div><div><span>Returns needing stock inspection</span><b>{returnedOrderCount}</b></div><div className="statementTotal"><span>For profit or cash details</span><b>Contact owner</b></div></div></section>
+    </div>;
+  }
 
   const ledgerRows = [
     ...deliveredOrders.slice(0, 8).map((order) => ({
