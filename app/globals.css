@@ -495,12 +495,10 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .tableProduct { display:flex; align-items:center; gap:11px; }
 .tableProduct>span { width:42px; height:50px; border-radius:4px; background:center/cover; }
 .stockLow { color:#c04a42; font-weight:600; }
-.orderTabs { display:flex; gap:20px; padding:20px 18px 0; border-bottom:1px solid #e6eae6; }
-.orderTabs button { padding:0 0 12px; border:0; border-bottom:2px solid transparent; background:transparent; color:#7a867e; font-size:10px; }
-.orderTabs button.active { color:var(--forest); border-color:var(--forest); }
 .ordersToolbar { min-height:68px; padding:0 18px; border-bottom:1px solid #e6eae6; display:flex; align-items:center; justify-content:space-between; gap:14px; }
-.ordersToolbar .orderTabs { padding:0; border:0; }
 .ordersToolbar .inlineSearch { width:min(340px,40vw); }
+.orderStatusFilter { display:flex; align-items:center; gap:9px; color:#657269; font-size:10px; font-weight:700; white-space:nowrap; }
+.orderStatusFilter select { min-height:36px; padding:0 32px 0 10px; border:1px solid #dce3dc; border-radius:5px; background:#fff; color:#2f4438; font-size:10px; }
 .orderDetailDrawer { position:fixed; right:0; top:0; bottom:0; z-index:85; width:min(780px,100%); background:#f5f7f3; overflow:auto; box-shadow:-24px 0 70px #0b25182b; }
 .orderDetailDrawer>header { position:sticky; top:0; z-index:2; min-height:92px; padding:18px 24px; border-bottom:1px solid #e0e6df; background:#fff; display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .orderDetailDrawer>header p { margin:0 0 4px; color:var(--berry); font-size:8px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
@@ -899,7 +897,6 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .inventoryViewBar { align-items:center; overflow-x:auto; }
   .inventoryControlBar { grid-template-columns:1fr; }
   .catalogToolbar { height:auto; min-height:0; padding:14px; align-items:stretch; flex-direction:column; }
-  .catalogToolbar .orderTabs { width:100%; overflow-x:auto; gap:14px; }
   .catalogActions { align-items:stretch; flex-direction:column; }
   .catalogActions .inlineSearch,.catalogActions button,.csvButton { width:100%; }
   .collectionStrip { padding:10px 14px; }
@@ -912,7 +909,8 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .inventoryListHead>button { width:100%; justify-content:center; }
   .inventoryDialog { width:calc(100% - 24px); padding:16px; }
   .ordersToolbar { height:auto; min-height:0; padding:14px; align-items:stretch; flex-direction:column; }
-  .ordersToolbar .orderTabs { width:100%; overflow-x:auto; gap:14px; }
+  .orderStatusFilter { width:100%; justify-content:space-between; }
+  .orderStatusFilter select { flex:1; max-width:260px; }
   .ordersToolbar .inlineSearch { width:100%; }
   .orderDetailDrawer { width:100%; }
   .orderDetailDrawer>header { padding:15px 16px; }

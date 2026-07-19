@@ -708,7 +708,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Dashboard" && <DashboardHome setActive={setActive} orders={orders} metrics={metrics} connected={ordersConnected} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
-          {canAccessActive && active === "Orders" && <OrdersPanel onOpen={setWorkspace} rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} />}
+          {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} />}
@@ -1378,7 +1378,7 @@ function formatSavedCustomOrder(order, fallback = {}) {
   };
 }
 
-function OrdersPanel({ onOpen, rows, products, accessKey, setAccessKey, connected, loading, error, onConnect }) {
+function OrdersPanel({ rows, products, accessKey, setAccessKey, connected, loading, error, onConnect }) {
   const [localOrders, setLocalOrders] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [activeTab, setActiveTab] = useState("Total Orders");
@@ -1512,7 +1512,7 @@ function OrdersPanel({ onOpen, rows, products, accessKey, setAccessKey, connecte
       {error && <p>{error}</p>}
     </form>}
     {connected && error && <div className="adminErrorBanner">{error}</div>}
-    <div className="moduleQuickLinks"><button className="customOrderCta" onClick={() => setShowDraft(true)}><Plus /> Create custom order</button>{["Returns / exchanges","Refund queue","Risk review"].map(item=><button key={item} onClick={()=>onOpen({module:"Orders",feature:item})}>{item}</button>)}</div>
+    <div className="moduleQuickLinks"><button className="customOrderCta" onClick={() => setShowDraft(true)}><Plus /> Create custom order</button></div>
     <section className="orderPeriodGrid">
       {periodSummary.map((period) => <article className="adminCard orderPeriodCard" key={period.label}>
         <p>{period.label}</p>
@@ -1524,15 +1524,9 @@ function OrdersPanel({ onOpen, rows, products, accessKey, setAccessKey, connecte
         </ul>
       </article>)}
     </section>
-    <section className="postexCategoryGrid">
-      {orderStatusCounts.map((category) => <button key={category.label} className={activeTab === category.label ? "active" : ""} onClick={() => setActiveTab(category.label)}>
-        <span>{category.label.toUpperCase()}</span>
-        <b>{category.count}</b>
-      </button>)}
-    </section>
     <section className="adminCard managementCard">
       <div className="ordersToolbar">
-        <div className="orderTabs">{orderCategoryLabels.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>{tab}</button>)}</div>
+        <label className="orderStatusFilter">Order status<select value={activeTab} onChange={(event) => setActiveTab(event.target.value)}>{orderStatusCounts.map((category) => <option key={category.label} value={category.label}>{category.label} ({category.count})</option>)}</select></label>
         <div className="inlineSearch"><Search /><input value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Search order, customer, tracking..." /></div>
       </div>
       <OrderTable rows={visibleRows} onSelect={(order) => setSelectedId(order.id)} />
