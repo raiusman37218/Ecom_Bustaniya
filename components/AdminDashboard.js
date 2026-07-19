@@ -1905,12 +1905,16 @@ function FinancePanel({ orders, products, connected }) {
 }
 
 function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory, onCreateProductionBatch }) {
+  const emptyProductionCosts = () => ({ fabric: 0, stitching: 0, stitchingMaterial: 0, packaging: 0, travel: 0, other: 0 });
+  const newProductionItem = () => ({ key: `batch-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, productId: "", quantity: "", newProductName: "", newProductPrice: "", newProductCategory: "Kurtis", newProductImage: "", directCostBreakdown: emptyProductionCosts() });
   const [tab, setTab] = useState("Stock");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogProductId, setDialogProductId] = useState("");
   const [productionOpen, setProductionOpen] = useState(false);
   const [productionSaving, setProductionSaving] = useState(false);
+  // Kept for the legacy dialog markup below; multi-product batches use productionItems.
   const [productionProductId, setProductionProductId] = useState("");
+  const [productionItems, setProductionItems] = useState(() => [newProductionItem()]);
   const [productionBatches, setProductionBatches] = useState([]);
   const [productionBatchesLoading, setProductionBatchesLoading] = useState(true);
   const [voidingBatchId, setVoidingBatchId] = useState("");
@@ -1931,14 +1935,22 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
   async function saveProductionBatch(event) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const costBreakdown = Object.fromEntries(["fabric", "stitching", "stitchingMaterial", "packaging", "travel", "other"].map((key) => [key, Number(form.get(key) || 0)]));
+    const sharedCostBreakdown = Object.fromEntries(["fabric", "stitching", "stitchingMaterial", "packaging", "travel", "other"].map((key) => [key, Number(form.get(`shared-${key}`) || 0)]));
     setProductionSaving(true);
     try {
-      await onCreateProductionBatch({ productId: form.get("productId"), newProductName: form.get("newProductName"), newProductPrice: form.get("newProductPrice"), newProductCategory: form.get("newProductCategory"), newProductImage: form.get("newProductImage"), quantity: Number(form.get("quantity") || 0), date: form.get("date"), note: form.get("note"), costBreakdown });
+      await onCreateProductionBatch({ items: productionItems.map(({ key, ...item }) => ({ ...item, quantity: Number(item.quantity || 0), directCostBreakdown: Object.fromEntries(Object.entries(item.directCostBreakdown).map(([name, value]) => [name, Number(value || 0)])) })), sharedCostBreakdown, date: form.get("date"), note: form.get("note") });
       await loadProductionBatches();
       setProductionOpen(false);
-      setProductionProductId("");
-    } catch {} finally { setProductionSaving(false); }
+      setProductionItems([newProductionItem()]);
+    } catch (error) { window.alert(error.message || "Unable to save production batch."); } finally { setProductionSaving(false); }
+  }
+
+  function updateProductionItem(key, patch) {
+    setProductionItems((current) => current.map((item) => item.key === key ? { ...item, ...patch } : item));
+  }
+
+  function updateProductionItemCost(key, costKey, value) {
+    setProductionItems((current) => current.map((item) => item.key === key ? { ...item, directCostBreakdown: { ...item.directCostBreakdown, [costKey]: value } } : item));
   }
 
   async function loadProductionBatches() {
@@ -2167,6 +2179,26 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
         ? { ...item, quantity: Math.max(0, Number(item.quantity || 0) + change) }
         : item
     ));
+  }
+
+  if (productionOpen) {
+    return <div className="inventorySystem"><div className="adminOverlay" onClick={() => setProductionOpen(false)} /><form className="inventoryDialog" onSubmit={saveProductionBatch}>
+      <DialogHead title="Create multi-product production batch" onClose={() => setProductionOpen(false)} />
+      <p className="trackingNumber">Add every design in this production run. Shared costs are divided by total finished-suit quantity; direct costs remain with their selected design.</p>
+      {productionItems.map((item, index) => <section className="adminCard" style={{ padding: "14px", marginBottom: "12px" }} key={item.key}>
+        <div className="editorHeading"><p className="fieldTitle">Design {index + 1}</p>{productionItems.length > 1 && <button type="button" className="removeProductButton" onClick={() => setProductionItems((current) => current.filter((entry) => entry.key !== item.key))}>Remove</button>}</div>
+        <label>Design / product<select required value={item.productId} onChange={(event) => updateProductionItem(item.key, { productId: event.target.value })}><option value="">Select product</option><option value="__new__">+ Create new product/design</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
+        {item.productId === "__new__" && <><label>Product / design name<input required value={item.newProductName} onChange={(event) => updateProductionItem(item.key, { newProductName: event.target.value })} placeholder="e.g. Blue Arora – Design 4" /></label><div className="formRow"><label>Selling price<input type="number" min="0" required value={item.newProductPrice} onChange={(event) => updateProductionItem(item.key, { newProductPrice: event.target.value })} placeholder="0" /></label><label>Category<input value={item.newProductCategory} onChange={(event) => updateProductionItem(item.key, { newProductCategory: event.target.value })} placeholder="Kurtis" /></label></div><label>Image URL (optional)<input value={item.newProductImage} onChange={(event) => updateProductionItem(item.key, { newProductImage: event.target.value })} placeholder="https://..." /></label></>}
+        <label>Finished suits for this design<input type="number" min="1" required value={item.quantity} onChange={(event) => updateProductionItem(item.key, { quantity: event.target.value })} placeholder="25" /></label>
+        <p className="fieldTitle">Direct costs for this design (PKR)</p>
+        <div className="formRow"><label>Fabric<input type="number" min="0" value={item.directCostBreakdown.fabric || ""} onChange={(event) => updateProductionItemCost(item.key, "fabric", event.target.value)} /></label><label>Stitching<input type="number" min="0" value={item.directCostBreakdown.stitching || ""} onChange={(event) => updateProductionItemCost(item.key, "stitching", event.target.value)} /></label></div>
+        <div className="formRow"><label>Stitching material<input type="number" min="0" value={item.directCostBreakdown.stitchingMaterial || ""} onChange={(event) => updateProductionItemCost(item.key, "stitchingMaterial", event.target.value)} /></label><label>Packaging<input type="number" min="0" value={item.directCostBreakdown.packaging || ""} onChange={(event) => updateProductionItemCost(item.key, "packaging", event.target.value)} /></label></div>
+        <div className="formRow"><label>Travel / transport<input type="number" min="0" value={item.directCostBreakdown.travel || ""} onChange={(event) => updateProductionItemCost(item.key, "travel", event.target.value)} /></label><label>Other<input type="number" min="0" value={item.directCostBreakdown.other || ""} onChange={(event) => updateProductionItemCost(item.key, "other", event.target.value)} /></label></div>
+      </section>)}
+      <button type="button" onClick={() => setProductionItems((current) => [...current, newProductionItem()])}><Plus /> Add another design</button>
+      <section className="adminCard" style={{ padding: "14px", marginTop: "12px" }}><p className="fieldTitle">Shared costs for all designs (PKR)</p><p className="trackingNumber">These costs are divided across every suit by quantity.</p><div className="formRow"><label>Shared fabric<input name="shared-fabric" type="number" min="0" defaultValue="0" /></label><label>Shared stitching<input name="shared-stitching" type="number" min="0" defaultValue="0" /></label></div><div className="formRow"><label>Shared stitching material<input name="shared-stitchingMaterial" type="number" min="0" defaultValue="0" /></label><label>Shared packaging<input name="shared-packaging" type="number" min="0" defaultValue="0" /></label></div><div className="formRow"><label>Shared travel / transport<input name="shared-travel" type="number" min="0" defaultValue="0" /></label><label>Shared other<input name="shared-other" type="number" min="0" defaultValue="0" /></label></div></section>
+      <label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label><label>Batch note<textarea name="note" rows="2" placeholder="Supplier, stitching unit or batch reference" /></label><button className="dialogSave" disabled={productionSaving}>{productionSaving ? "Saving batch..." : "Save batch, allocate costs & add stock"}</button>
+    </form></div>;
   }
 
   return <div className="inventorySystem">
