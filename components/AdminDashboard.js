@@ -74,6 +74,8 @@ const navPermissionMap = {
   Settings: "settings",
 };
 
+const PRODUCT_COST_KEYS = ["fabric", "stitching", "embellishment", "packaging", "delivery", "other"];
+
 function canUseAdminArea(user, area) {
   if (!area) return true;
   if (!user) return true;
@@ -159,7 +161,7 @@ export default function AdminDashboard() {
   const filteredProducts = useMemo(() => products.filter((product) =>
     product.name.toLowerCase().includes(search.toLowerCase())
   ), [products, search]);
-  const totalProductCost = Object.values(costBreakdown).reduce((sum, value) => sum + Number(value || 0), 0);
+  const totalProductCost = PRODUCT_COST_KEYS.reduce((sum, key) => sum + Number(costBreakdown[key] || 0), 0);
   const productGst = Math.round(Number(productPrice || 0) * 0.01);
   const productTax = Math.round(Number(productPrice || 0) * 0.04);
   const productFinalProfit = Number(productPrice || 0) - totalProductCost - productGst - productTax;
@@ -772,6 +774,7 @@ export default function AdminDashboard() {
             <section className="productEditorCard">
               <h3>Cost, pricing & profit</h3>
               <p>Enter every cost for this one product. Profit is calculated automatically after the fixed 1% GST and 4% tax.</p>
+              {costBreakdown.costSource === "production_batch" && <div className="inventoryAlert materialAlert"><Package /><div><b>Production batch cost is linked</b><span>Batch {costBreakdown.productionBatchId} produced {Number(costBreakdown.productionBatchQuantity || 0).toLocaleString()} items. Its total cost of Rs. {Number(costBreakdown.productionBatchTotalCost || 0).toLocaleString()} has been divided into the per-item costs below.</span></div></div>}
               <div className="formRow"><label>Selling price (PKR)<input name="price" required type="number" min="0" value={productPrice || ""} onChange={(e) => setProductPrice(e.target.value)} placeholder="4,990" /></label><label>Compare-at price<input name="comparePrice" type="number" placeholder="5,990" /></label></div>
               <p className="fieldTitle">This product&apos;s cost breakdown (PKR)</p>
               <div className="formRow"><label>Fabric<input type="number" min="0" value={costBreakdown.fabric || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, fabric: e.target.value }))} /></label><label>Stitching<input type="number" min="0" value={costBreakdown.stitching || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, stitching: e.target.value }))} /></label></div>
@@ -1109,13 +1112,13 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
         </div>
       </div>
       <div className="collectionStrip">{collections.map((collection) => <span key={collection}>{collection}</span>)}</div>
-      <div className="adminTableWrap"><table className="adminTable productAdminTable"><thead><tr><th>Product</th><th>Collection</th><th>Price</th><th>Variants</th><th>Inventory</th><th>Delivery</th><th>Status</th><th /></tr></thead><tbody>
+      <div className="adminTableWrap"><table className="adminTable productAdminTable"><thead><tr><th>Product</th><th>Collection</th><th>Price</th><th>Unit cost</th><th>Variants</th><th>Inventory</th><th>Delivery</th><th>Status</th><th /></tr></thead><tbody>
         {visibleProducts.map((product) => {
           const variants = productVariants(product);
           const status = productStatus(product);
-          return <tr key={product.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${product.image})` }} /><div><b>{product.name}</b><small>{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4,"0")}`}</small></div></div></td><td>{productCollection(product)}</td><td><b>Rs. {Number(product.price || 0).toLocaleString()}</b>{(product.compareAtPrice || product.compare_at_price) && <small className="trackingNumber">Was Rs. {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</small>}</td><td><button className="adjustStockButton" onClick={() => setVariantProduct(product)}>{variants.length} variants</button></td><td><span className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)} in stock</span><small className="trackingNumber">Alert at {Number(product.lowStockThreshold || 5)}</small></td><td><b>Rs. 200 / order</b></td><td><span className={`statusBadge ${status === "Active" ? "activeStatus" : status === "Out of stock" ? "cancelled" : "processing"}`}>{status}</span></td><td><div className="productRowActions"><button className="editProductButton" onClick={() => onEdit(product)} disabled={loading}>Edit</button><button className="removeProductButton" onClick={() => onDelete(product)} disabled={loading} aria-label={`Remove ${product.name}`}><X /><span>Remove</span></button></div></td></tr>;
+          return <tr key={product.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${product.image})` }} /><div><b>{product.name}</b><small>{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4,"0")}`}</small></div></div></td><td>{productCollection(product)}</td><td><b>Rs. {Number(product.price || 0).toLocaleString()}</b>{(product.compareAtPrice || product.compare_at_price) && <small className="trackingNumber">Was Rs. {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</small>}</td><td><b>Rs. {Number(product.costTotalPkr || 0).toLocaleString()}</b>{product.costBreakdown?.costSource === "production_batch" && <small className="trackingNumber">Batch cost</small>}</td><td><button className="adjustStockButton" onClick={() => setVariantProduct(product)}>{variants.length} variants</button></td><td><span className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)} in stock</span><small className="trackingNumber">Alert at {Number(product.lowStockThreshold || 5)}</small></td><td><b>Rs. 200 / order</b></td><td><span className={`statusBadge ${status === "Active" ? "activeStatus" : status === "Out of stock" ? "cancelled" : "processing"}`}>{status}</span></td><td><div className="productRowActions"><button className="editProductButton" onClick={() => onEdit(product)} disabled={loading}>Edit</button><button className="removeProductButton" onClick={() => onDelete(product)} disabled={loading} aria-label={`Remove ${product.name}`}><X /><span>Remove</span></button></div></td></tr>;
         })}
-        {!visibleProducts.length && <tr><td colSpan="8"><div className="inventoryEmpty">No products match this view.</div></td></tr>}
+        {!visibleProducts.length && <tr><td colSpan="9"><div className="inventoryEmpty">No products match this view.</div></td></tr>}
       </tbody></table></div>
     </section>
     {variantProduct && <VariantInventoryDrawer product={variantProduct} onClose={() => setVariantProduct(null)} />}
