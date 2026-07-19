@@ -1637,12 +1637,23 @@ function FinancePanel({ orders, products, connected }) {
   const deliveredCogs = deliveredOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order)
     .reduce((itemTotal, item) => itemTotal + Number(item.quantity || 0) * Number(productCosts.get(String(item.productId)) || 0), 0), 0);
   const manualExpenseTotal = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const cashbookBusinessExpenses = cashbookTransactions.filter((item) => item.type === "business_expense").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const isProductionBatchExpense = (item) => item.type === "business_expense" && (
+    item.productionBatchId ||
+    item.category === "Inventory production" ||
+    String(item.title || "").startsWith("Production batch ")
+  );
+  const productionCashOutflow = cashbookTransactions.filter(isProductionBatchExpense).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const cashbookOperatingExpenses = cashbookTransactions
+    .filter((item) => item.type === "business_expense" && !isProductionBatchExpense(item))
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const ownerInvestments = cashbookTransactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const ownerWithdrawals = cashbookTransactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const packagingTotal = Number(packagingExpense || 0);
   const deliveryTotal = Number(deliveryExpense || 0);
-  const expenseTotal = manualExpenseTotal + cashbookBusinessExpenses + packagingTotal + deliveryTotal;
+  // A batch purchase is cash spent now but becomes COGS only when its units sell.
+  // Keeping it out of this P&L total prevents subtracting the same cost twice.
+  const profitExpenseTotal = manualExpenseTotal + cashbookOperatingExpenses + packagingTotal + deliveryTotal;
+  const cashOutflowTotal = profitExpenseTotal + productionCashOutflow;
   const courierDeliveryCost = deliveredOrderCount * 200;
   const returnCourierCost = returnedOrderCount * 200;
   const gstProvision = Math.round(deliveredProductRevenue * 0.01);
@@ -1650,8 +1661,8 @@ function FinancePanel({ orders, products, connected }) {
   const gstTaxTotal = Math.round(deliveredProductRevenue * 0.05);
   const deliveryCollected = grossRevenue - deliveredProductRevenue;
   const profitAfterProductCost = grossRevenue - deliveredCogs;
-  const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - expenseTotal - gstTaxTotal;
-  const availableCash = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - gstTaxTotal - expenseTotal + ownerInvestments - ownerWithdrawals;
+  const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - profitExpenseTotal - gstTaxTotal;
+  const availableCash = grossRevenue - courierDeliveryCost - returnCourierCost - gstTaxTotal - cashOutflowTotal + ownerInvestments - ownerWithdrawals;
   const allocatableProfit = Math.max(0, netProfit);
   const marketingAllocation = Math.round(allocatableProfit * Number(profitAllocation.marketingPercent || 0) / 100);
   const ownerAllocation = Math.round(allocatableProfit * Number(profitAllocation.ownerPercent || 0) / 100);
@@ -1770,7 +1781,8 @@ function FinancePanel({ orders, products, connected }) {
       ["Actual product cost (COGS)", deliveredCogs],
       ["Profit after product cost", profitAfterProductCost],
       ["Manual expenses", manualExpenseTotal],
-      ["Business expenses from cashbook", cashbookBusinessExpenses],
+      ["Operating expenses from cashbook", cashbookOperatingExpenses],
+      ["Production batch cash spent (not deducted from profit twice)", productionCashOutflow],
       ["Owner investment / cash added", ownerInvestments],
       ["Owner withdrawals / personal use", ownerWithdrawals],
       ["Estimated available business cash", availableCash],
@@ -1848,7 +1860,8 @@ function FinancePanel({ orders, products, connected }) {
           <div><span>6. Less: GST + Tax (5% of product sales)</span><b>- {money(gstTaxTotal)}</b></div>
           <div><span>7. Less: courier delivery (Rs. 200 × {deliveredOrderCount} orders)</span><b>- {money(courierDeliveryCost)}</b></div>
           <div><span>8. Less: returned-order courier loss (Rs. 200 Ã— {returnedOrderCount} orders)</span><b>- {money(returnCourierCost)}</b></div>
-          <div><span>9. Less: all other expenses</span><b>- {money(expenseTotal)}</b></div>
+          <div><span>9. Less: operating expenses</span><b>- {money(profitExpenseTotal)}</b></div>
+          {productionCashOutflow > 0 && <div><span>Stock purchases tracked in Cashbook</span><b>{money(productionCashOutflow)} (deducted when units sell)</b></div>}
           <div className="statementTotal"><span>10. Final net profit</span><b>{money(netProfit)}</b></div>
         </div>
         <div className="financeControls">
