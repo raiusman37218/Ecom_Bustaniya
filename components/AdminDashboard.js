@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  AppWindow, BadgePercent, BarChart3, Bell, Boxes, ChevronDown,
-  CircleDollarSign, FileText, Globe, Landmark, LayoutDashboard,
-  LogOut, Megaphone, Menu, Minus, Monitor, MoreHorizontal, Package, Plus,
+  Bell, Boxes, ChevronDown, CircleDollarSign, Landmark, LayoutDashboard,
+  LogOut, Menu, Minus, MoreHorizontal, Package, Plus,
   ReceiptText, Search, Settings, ShoppingBag, Store, Tags, TrendingUp, Users,
   WalletCards, X
 } from "lucide-react";
@@ -44,14 +43,6 @@ const navItems = [
   { name: "Inventory", icon: Boxes, section: "COMMERCE" },
   { name: "Customers", icon: Users, section: "COMMERCE" },
   { name: "Finances", icon: Landmark, section: "COMMERCE" },
-  { name: "Gift cards", icon: Tags, section: "COMMERCE" },
-  { name: "Analytics", icon: BarChart3, section: "GROWTH" },
-  { name: "Marketing", icon: Megaphone, section: "GROWTH" },
-  { name: "Discounts", icon: BadgePercent, section: "GROWTH" },
-  { name: "Content", icon: FileText, section: "GROWTH" },
-  { name: "Online Store", icon: Monitor, section: "SALES CHANNELS" },
-  { name: "Markets", icon: Globe, section: "SALES CHANNELS" },
-  { name: "Apps", icon: AppWindow, section: "OPERATIONS" },
   { name: "Settings", icon: Settings, section: "OPERATIONS" }
 ];
 
@@ -62,15 +53,7 @@ const navPermissionMap = {
   Categories: "products",
   Inventory: "inventory",
   Customers: "customers",
-  "Gift cards": "products",
-  Analytics: "dashboard",
-  Marketing: "settings",
-  Discounts: "products",
-  Content: "settings",
-  "Online Store": "settings",
-  Markets: "settings",
   Finances: "dashboard",
-  Apps: "settings",
   Settings: "settings",
 };
 
@@ -728,15 +711,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Orders" && <OrdersPanel onOpen={setWorkspace} rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
-          {canAccessActive && active === "Gift cards" && <ModulePanel onOpen={setWorkspace} title="Gift cards" subtitle="Issue and manage digital store credit." action="Issue gift card" icon={Tags} features={["Gift card products", "Issued cards", "Balances", "Expiry dates", "Gift card activity"]} />}
-          {canAccessActive && active === "Discounts" && <ModulePanel onOpen={setWorkspace} title="Discounts" subtitle="Codes and automatic promotions." action="Create discount" icon={BadgePercent} features={["Discount codes", "Automatic discounts", "Amount off", "Buy X get Y", "Free delivery"]} />}
-          {canAccessActive && active === "Analytics" && <ModulePanel onOpen={setWorkspace} title="Analytics" subtitle="Store performance and reporting." icon={BarChart3} features={["Live view", "Reports", "Sales over time", "Product performance", "Customer cohorts", "Conversion funnel"]} />}
-          {canAccessActive && active === "Marketing" && <ModulePanel onOpen={setWorkspace} title="Marketing" subtitle="Campaigns, attribution and automations." action="Create campaign" icon={Megaphone} features={["Campaigns", "Marketing automations", "Email marketing", "Abandoned checkout", "Attribution reports"]} />}
-          {canAccessActive && active === "Content" && <ModulePanel onOpen={setWorkspace} title="Content" subtitle="Reusable content across your storefront." action="Add content" icon={FileText} features={["Files", "Menus", "Metaobjects", "Metafields", "Blog posts"]} />}
-          {canAccessActive && active === "Online Store" && <ModulePanel onOpen={setWorkspace} title="Online Store" subtitle="Design and manage your sales channel." action="Customize theme" icon={Monitor} features={["Themes", "Pages", "Navigation", "Blog posts", "Domains", "Preferences", "Theme sections"]} />}
-          {canAccessActive && active === "Markets" && <ModulePanel onOpen={setWorkspace} title="Markets" subtitle="Localize selling by country or customer group." action="Add market" icon={Globe} features={["Pakistan market", "Currencies", "Languages", "Domains", "Duties and taxes", "Product availability"]} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} />}
-          {canAccessActive && active === "Apps" && <ModulePanel onOpen={setWorkspace} title="Apps and channels" subtitle="Extend your store capabilities." action="Add app" icon={AppWindow} features={["Installed apps", "Sales channels", "App permissions", "Custom integrations", "Automation workflows"]} />}
           {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} />}
         </div>
       </section>
@@ -3129,11 +3104,6 @@ function settingsTabHint(tab) {
     Domains: "Store URL",
     Checkout: "Customer flow",
   }[tab];
-}
-
-function ModulePanel({ title, subtitle, action, icon: Icon, features, onOpen }) {
-  return <><div className="adminTitle"><div><p>MANAGEMENT</p><h1>{title}</h1><span>{subtitle}</span></div>{action && <button onClick={()=>onOpen({module:title,feature:action,create:true})}><Plus /> {action}</button>}</div>
-    <section className="moduleGrid">{features.map((feature, index)=><article className="adminCard moduleCard" key={feature}><div><Icon /></div><span>{String(index+1).padStart(2,"0")}</span><h2>{feature}</h2><p>Manage {feature.toLowerCase()} for your Bustaniya store.</p><button onClick={()=>onOpen({module:title,feature})}>Open module →</button></article>)}</section></>;
 }
 
 function WorkspaceDrawer({ workspace, onClose, onSave, activity }) {
