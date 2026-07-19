@@ -19,6 +19,26 @@ export async function POST(request) {
   try {
     await authorizeAdminSession(request, "inventory");
     const body = await request.json();
+    if (body.action === "void") {
+      const batchId = String(body.batchId || "").trim();
+      const settings = await getStoreSettings({ includeFinance: true });
+      const batch = (settings.productionBatches || []).find((item) => item.id === batchId);
+      if (!batch) return NextResponse.json({ error: "Production batch was not found." }, { status: 404 });
+      if (batch.status === "voided") return NextResponse.json({ error: "This production batch is already voided." }, { status: 400 });
+      const linkedOrderItems = await supabaseAdminRequest(`order_items?select=order_id&product_id=eq.${encodeURIComponent(batch.productId)}&limit=1`).catch(() => []);
+      if (linkedOrderItems.length) return NextResponse.json({ error: "This batch cannot be voided because its product appears in an order. Use a finance adjustment instead." }, { status: 400 });
+      const inventory = await supabaseAdminRequest(`inventory?select=stock_quantity,sku&product_id=eq.${encodeURIComponent(batch.productId)}&limit=1`).catch(() => []);
+      const before = Number(inventory?.[0]?.stock_quantity || 0);
+      const after = Math.max(0, before - Number(batch.quantity || 0));
+      if (inventory?.[0]) {
+        await supabaseAdminRequest(`inventory?product_id=eq.${encodeURIComponent(batch.productId)}`, { method: "PATCH", prefer: "return=minimal", body: { stock_quantity: after } });
+        await supabaseAdminRequest("inventory_movements", { method: "POST", prefer: "return=minimal", body: { product_id: batch.productId, quantity_change: after - before, reason: `Voided production batch ${batch.id}`, stock_before: before, stock_after: after } }).catch(() => {});
+      }
+      const batches = (settings.productionBatches || []).map((item) => item.id === batch.id ? { ...item, status: "voided", voidedAt: new Date().toISOString() } : item);
+      const transactions = (settings.financeTransactions || []).filter((item) => item.productionBatchId !== batch.id && !String(item.title || "").startsWith(`Production batch ${batch.id}:`));
+      const saved = await updateStoreSettings({ ...settings, productionBatches: batches, financeTransactions: transactions });
+      return NextResponse.json({ success: true, batches: saved.productionBatches || [] });
+    }
     const quantity = Math.max(1, Number(body.quantity || 0));
     const costs = Object.fromEntries(Object.entries(body.costBreakdown || {}).map(([key, value]) => [key, Math.max(0, Number(value || 0))]));
     const totalCost = Object.values(costs).reduce((sum, value) => sum + value, 0);
@@ -54,7 +74,7 @@ export async function POST(request) {
     await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(product.id)}`, { method: "PATCH", prefer: "return=minimal", body: { cost_total_pkr: batch.unitCost, cost_breakdown: { ...unitCostBreakdown, costSource: "production_batch", productionBatchId: batch.id, productionBatchDate: batch.date, productionBatchQuantity: quantity, productionBatchTotalCost: totalCost } } });
     await supabaseAdminRequest("inventory_movements", { method: "POST", prefer: "return=minimal", body: { product_id: product.id, quantity_change: quantity, reason: `Production batch ${batch.id}`, stock_before: before, stock_after: after } }).catch(() => {});
     const settings = await getStoreSettings({ includeFinance: true });
-    const transactions = [{ id: `cash-${Date.now()}`, type: "business_expense", title: `Production batch ${batch.id}: ${product.name}`, category: "Inventory production", amount: totalCost, date: batch.date, note: batch.note }, ...(settings.financeTransactions || [])];
+    const transactions = [{ id: `cash-${Date.now()}`, type: "business_expense", title: `Production batch ${batch.id}: ${product.name}`, category: "Inventory production", amount: totalCost, date: batch.date, note: batch.note, productionBatchId: batch.id }, ...(settings.financeTransactions || [])];
     const saved = await updateStoreSettings({ ...settings, productionBatches: [batch, ...(settings.productionBatches || [])], financeTransactions: transactions });
     return NextResponse.json({ success: true, batch, batches: saved.productionBatches || [] });
   } catch (error) {

@@ -1885,6 +1885,9 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
   const [productionOpen, setProductionOpen] = useState(false);
   const [productionSaving, setProductionSaving] = useState(false);
   const [productionProductId, setProductionProductId] = useState("");
+  const [productionBatches, setProductionBatches] = useState([]);
+  const [productionBatchesLoading, setProductionBatchesLoading] = useState(true);
+  const [voidingBatchId, setVoidingBatchId] = useState("");
   const [inventoryView, setInventoryView] = useState("All");
   const [inventorySearch, setInventorySearch] = useState("");
   const [localHistory, setLocalHistory] = useState([]);
@@ -1906,10 +1909,43 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
     setProductionSaving(true);
     try {
       await onCreateProductionBatch({ productId: form.get("productId"), newProductName: form.get("newProductName"), newProductPrice: form.get("newProductPrice"), newProductCategory: form.get("newProductCategory"), newProductImage: form.get("newProductImage"), quantity: Number(form.get("quantity") || 0), date: form.get("date"), note: form.get("note"), costBreakdown });
+      await loadProductionBatches();
       setProductionOpen(false);
       setProductionProductId("");
     } catch {} finally { setProductionSaving(false); }
   }
+
+  async function loadProductionBatches() {
+    setProductionBatchesLoading(true);
+    try {
+      const response = await fetch("/api/admin/production-batches", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to load production batches.");
+      setProductionBatches(result.batches || []);
+    } catch (error) {
+      setProductionBatches([]);
+    } finally {
+      setProductionBatchesLoading(false);
+    }
+  }
+
+  async function voidProductionBatch(batch) {
+    if (!window.confirm(`Void test batch ${batch.id}? This removes its linked Finance production expense and reverses unsold stock.`)) return;
+    setVoidingBatchId(batch.id);
+    try {
+      const response = await fetch("/api/admin/production-batches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "void", batchId: batch.id }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to void production batch.");
+      setProductionBatches(result.batches || []);
+      window.alert("Test batch voided. Its Finance production expense has been removed.");
+    } catch (error) {
+      window.alert(error.message || "Unable to void production batch.");
+    } finally {
+      setVoidingBatchId("");
+    }
+  }
+
+  useEffect(() => { loadProductionBatches(); }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem("bustaniya-inventory-sources");
@@ -2138,6 +2174,15 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
         <button type="button" onClick={() => openAdjust("__custom__")}><Plus /> Add product with stock</button>
       </div>
       <div className="adminTableWrap"><table className="adminTable inventoryTable simpleInventoryTable"><thead><tr><th>Product</th><th>SKU</th><th>Available</th><th>Threshold</th><th>Retail value</th><th>Status</th><th /></tr></thead><tbody>{visibleInventoryRows.map(product => { const status = inventoryStatus(product); return <tr key={product.id}><td><div className="tableProduct"><span style={{backgroundImage:`url(${product.image})`}}/><b>{product.name}</b></div></td><td>{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4,"0")}`}</td><td><b className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)}</b></td><td>{Number(product.lowStockThreshold || 5)}</td><td>Rs. {(Number(product.price || 0) * Number(product.stock || 0)).toLocaleString()}</td><td><span className={`statusBadge ${status.className}`}>{status.label}</span></td><td><button className="adjustStockButton" onClick={() => openAdjust(product.id)}>Adjust</button></td></tr>})}</tbody></table>{!visibleInventoryRows.length&&<div className="inventoryEmpty">No products match this view.</div>}</div>
+    </section>}
+
+    {tab === "Stock" && <section className="adminCard managementCard inventoryLedger">
+      <div className="editorHeading"><div><h2>Production batches</h2><p>Void only test batches with no orders. This keeps an audit record and removes the linked Finance expense.</p></div></div>
+      <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Batch</th><th>Product</th><th>Quantity</th><th>Total cost</th><th>Unit cost</th><th>Date</th><th>Status</th><th /></tr></thead><tbody>
+        {productionBatches.map((batch) => <tr key={batch.id}><td><b>{batch.id}</b></td><td>{batch.productName}</td><td>{Number(batch.quantity || 0).toLocaleString()}</td><td>Rs. {Number(batch.totalCost || 0).toLocaleString()}</td><td>Rs. {Number(batch.unitCost || 0).toLocaleString()}</td><td>{batch.date || "—"}</td><td><span className={`statusBadge ${batch.status === "voided" ? "cancelled" : "delivered"}`}>{batch.status === "voided" ? "Voided" : "Active"}</span></td><td>{batch.status !== "voided" && <button className="removeProductButton" type="button" disabled={voidingBatchId === batch.id} onClick={() => voidProductionBatch(batch)}>{voidingBatchId === batch.id ? "Voiding..." : "Void test batch"}</button>}</td></tr>)}
+        {!productionBatchesLoading && !productionBatches.length && <tr><td colSpan="8"><div className="inventoryEmpty">No production batches yet.</div></td></tr>}
+        {productionBatchesLoading && <tr><td colSpan="8"><div className="inventoryEmpty">Loading production batches...</div></td></tr>}
+      </tbody></table></div>
     </section>}
 
     {tab === "Sources" && <InventorySourcesPanel
