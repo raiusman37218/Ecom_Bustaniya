@@ -1,7 +1,7 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { authorizeAdminRequest } from "../../../../lib/adminAuth";
-import { requiredAnyEnv, requiredEnv } from "../../../../lib/env";
+import { optionalEnv, requiredAnyEnv, requiredEnv } from "../../../../lib/env";
 
 export const runtime = "nodejs";
 
@@ -29,6 +29,36 @@ function storageConfig() {
 
 function storageHeaders(key, extra = {}) {
   return { apikey: key, Authorization: `Bearer ${key}`, ...extra };
+}
+
+function cloudinaryConfig() {
+  const cloudName = optionalEnv("CLOUDINARY_CLOUD_NAME");
+  const apiKey = optionalEnv("CLOUDINARY_API_KEY");
+  const apiSecret = optionalEnv("CLOUDINARY_API_SECRET");
+  if (cloudName && apiKey && apiSecret) return { cloudName, apiKey, apiSecret };
+  try {
+    const connection = new URL(optionalEnv("CLOUDINARY_URL"));
+    if (connection.protocol === "cloudinary:" && connection.hostname && connection.username && connection.password) {
+      return { cloudName: connection.hostname, apiKey: decodeURIComponent(connection.username), apiSecret: decodeURIComponent(connection.password) };
+    }
+  } catch {}
+  return null;
+}
+
+async function uploadToCloudinary(file, bytes, config) {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const folder = "bustaniya/hero";
+  const signature = createHash("sha1").update(`folder=${folder}&timestamp=${timestamp}${config.apiSecret}`).digest("hex");
+  const form = new FormData();
+  form.append("file", new Blob([bytes], { type: file.type }), file.name || `hero-${timestamp}`);
+  form.append("folder", folder);
+  form.append("timestamp", String(timestamp));
+  form.append("api_key", config.apiKey);
+  form.append("signature", signature);
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(config.cloudName)}/image/upload`, { method: "POST", body: form, cache: "no-store" });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.secure_url) throw new Error(result?.error?.message || "Cloudinary could not upload this image.");
+  return result.secure_url;
 }
 
 async function ensureHeroBucket(url, key) {
@@ -60,6 +90,9 @@ export async function POST(request) {
     if (file.size > 12 * 1024 * 1024) return NextResponse.json({ error: "Hero image must be under 12MB." }, { status: 400 });
     const bytes = Buffer.from(await file.arrayBuffer());
     if (!validSignature(bytes, file.type)) return NextResponse.json({ error: "The selected file is not a valid image." }, { status: 400 });
+
+    const cloudinary = cloudinaryConfig();
+    if (cloudinary) return NextResponse.json({ url: await uploadToCloudinary(file, bytes, cloudinary), provider: "cloudinary" });
 
     const { url, key } = storageConfig();
     await ensureHeroBucket(url, key);

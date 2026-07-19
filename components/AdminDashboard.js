@@ -2801,6 +2801,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
   const [storeSettingsLoading, setStoreSettingsLoading] = useState(false);
   const [storeSettingsError, setStoreSettingsError] = useState("");
   const [storeSettingsSetup, setStoreSettingsSetup] = useState("");
+  const [heroUrlInputs, setHeroUrlInputs] = useState({});
   const [heroUploading, setHeroUploading] = useState("");
   const [staff, setStaff] = useState([]);
   const [availablePermissions, setAvailablePermissions] = useState([]);
@@ -2843,6 +2844,17 @@ function SettingsPanel({ onOpen, signedInUser }) {
     } finally {
       setHeroUploading("");
     }
+  }
+
+  function addHeroImageUrl(field) {
+    const url = String(heroUrlInputs[field] || "").trim();
+    if (!/^https:\/\//i.test(url)) {
+      setStoreSettingsError("Paste a secure https:// image URL from Cloudinary.");
+      return;
+    }
+    setStoreSettingsError("");
+    setStoreSettings((current) => ({ ...current, [field]: [...(current[field] || []), url] }));
+    setHeroUrlInputs((current) => ({ ...current, [field]: "" }));
   }
 
   async function loadStoreSettings() {
@@ -3054,6 +3066,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
                   <span><b>{item.label}</b><small>{item.hint}</small></span>
                   <div className="heroSlidesEditor">{images.map((image, index) => <div className="heroSlideEditor" key={`${image}-${index}`}><div className="heroAdminImagePreview"><img src={image} alt="" /></div><input value={image} onChange={(event) => setStoreSettings((current) => ({ ...current, [item.field]: images.map((value, imageIndex) => imageIndex === index ? event.target.value : value) }))} placeholder="/hero-image.jpg or https://..." /><button type="button" disabled={images.length === 1} onClick={() => setStoreSettings((current) => ({ ...current, [item.field]: images.filter((_, imageIndex) => imageIndex !== index) }))}>Remove</button></div>)}</div>
                   <span className="heroUploadButton">{heroUploading === item.field ? "Uploading..." : "Upload image(s)"}<input type="file" multiple accept="image/png,image/jpeg,image/webp" disabled={Boolean(heroUploading)} onChange={(event) => { uploadHeroImages(event.target.files, item.field); event.target.value = ""; }} /></span>
+                  <div className="heroUrlAdder"><input value={heroUrlInputs[item.field] || ""} onChange={(event) => setHeroUrlInputs((current) => ({ ...current, [item.field]: event.target.value }))} placeholder="Paste Cloudinary image URL (https://...)" /><button type="button" onClick={() => addHeroImageUrl(item.field)}>Add URL</button></div>
                 </div>;
               })}
             </div>
