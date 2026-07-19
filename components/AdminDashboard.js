@@ -153,6 +153,12 @@ export default function AdminDashboard() {
   const productTax = Math.round(Number(productPrice || 0) * 0.04);
   const productFinalProfit = Number(productPrice || 0) - totalProductCost - productGst - productTax;
 
+  useEffect(() => {
+    if (!showProductForm || !editingProduct?.seoTitle) return;
+    const pageTitleField = document.querySelector('.productFormDrawer input[maxlength="70"]');
+    if (pageTitleField) pageTitleField.value = editingProduct.seoTitle;
+  }, [showProductForm, editingProduct]);
+
   function openNewProductForm() {
     setEditingProduct(null);
     setProductCategory("Kurtis");
@@ -270,6 +276,7 @@ export default function AdminDashboard() {
     setCatalogLoading(true);
     try {
       const mediaImages = await uploadProductMedia();
+      const seoTitle = String(event.currentTarget.querySelector('input[maxlength="70"]')?.value || "").trim();
       const productPayload = {
         name: form.get("name"),
         description: form.get("description") || "",
@@ -297,7 +304,20 @@ export default function AdminDashboard() {
           ? Number(form.get("deliveryFee") || 200)
           : null,
         cost_total_pkr: totalProductCost,
-        cost_breakdown: costBreakdown,
+        cost_breakdown: {
+          ...costBreakdown,
+          metadata: {
+            vendor: String(form.get("vendor") || "").trim(),
+            barcode: String(form.get("barcode") || "").trim(),
+            weight: String(form.get("weight") || "").trim(),
+            weightUnit: String(form.get("weightUnit") || "kg"),
+            countryOfOrigin: String(form.get("countryOfOrigin") || "Pakistan"),
+            hsTariffCode: String(form.get("hsTariffCode") || "").trim(),
+            seoTitle,
+            seoDescription: String(form.get("seoDescription") || "").trim(),
+            urlHandle: String(form.get("urlHandle") || "").trim(),
+          },
+        },
       };
       if (!editingProduct) {
         productPayload.is_new = true;
@@ -755,7 +775,7 @@ export default function AdminDashboard() {
                 <label>Product type<select name="productType"><option>Women&apos;s clothing</option><option>Kurti</option><option>Trouser</option><option>Co-ord</option></select></label>
               </div>
               {!!productSubcategoryOptions.length && <label>Subcategory<select name="subcategory" defaultValue={editingProduct?.subcategory || productSubcategoryOptions[0]?.slug}>{productSubcategoryOptions.map((category) => <option value={category.slug} key={category.slug}>{category.name}</option>)}</select></label>}
-              <div className="formRow"><label>Vendor<input name="vendor" defaultValue="Bustaniya" /></label><label>Collection<input name="collection" defaultValue={editingProduct?.collection || ""} placeholder="Summer Collection, New Arrivals..." /></label></div>
+              <div className="formRow"><label>Vendor<input name="vendor" defaultValue={editingProduct?.vendor || "Bustaniya"} /></label><label>Collection<input name="collection" defaultValue={editingProduct?.collection || ""} placeholder="Summer Collection, New Arrivals..." /></label></div>
               <label>Tags<input name="tags" placeholder="summer, printed, cotton, new-arrival" /></label>
             </section>
 
@@ -778,7 +798,7 @@ export default function AdminDashboard() {
 
             <section className="productEditorCard">
               <h3>Inventory</h3>
-              <div className="formRow"><label>SKU<input name="sku" defaultValue={editingProduct?.sku || editingProduct?.articleNumber || ""} placeholder="BST-KRT-001" /></label><label>Barcode<input name="barcode" placeholder="ISBN, UPC or GTIN" /></label></div>
+              <div className="formRow"><label>SKU<input name="sku" defaultValue={editingProduct?.sku || editingProduct?.articleNumber || ""} placeholder="BST-KRT-001" /></label><label>Barcode<input name="barcode" defaultValue={editingProduct?.barcode || ""} placeholder="ISBN, UPC or GTIN" /></label></div>
               <label className="checkLabel"><input type="checkbox" defaultChecked /> Track quantity</label>
               <div className="stockLocation"><div><Store /><span><b>Bustaniya warehouse</b><small>Pakistan</small></span></div><label>Available<input name="stock" required type="number" defaultValue={editingProduct?.stock ?? 10} /></label></div>
               <label className="checkLabel"><input type="checkbox" /> Continue selling when out of stock</label>
@@ -805,16 +825,16 @@ export default function AdminDashboard() {
               <input type="hidden" name="deliveryFeeMode" value="inherit" />
               <div className="formRow"><label>Delivery fee per order<input readOnly value="Rs. 200" /></label><label>Rule<input readOnly value="Applied once, even for multiple products" /></label></div>
               <p className="shippingRuleHint">Store rule: product prices exclude delivery. Every order has one flat Rs. 200 delivery fee, regardless of item quantity.</p>
-              <div className="formRow"><label>Weight<input name="weight" type="number" step="0.1" placeholder="0.5" /></label><label>Unit<select><option>kg</option><option>g</option></select></label></div>
-              <div className="formRow"><label>Country of origin<select><option>Pakistan</option></select></label><label>HS tariff code<input placeholder="Optional" /></label></div>
+              <div className="formRow"><label>Weight<input name="weight" type="number" step="0.1" defaultValue={editingProduct?.weight || ""} placeholder="0.5" /></label><label>Unit<select name="weightUnit" defaultValue={editingProduct?.weightUnit || "kg"}><option>kg</option><option>g</option></select></label></div>
+              <div className="formRow"><label>Country of origin<select name="countryOfOrigin" defaultValue={editingProduct?.countryOfOrigin || "Pakistan"}><option>Pakistan</option></select></label><label>HS tariff code<input name="hsTariffCode" defaultValue={editingProduct?.hsTariffCode || ""} placeholder="Optional" /></label></div>
             </section>
 
             <section className="productEditorCard">
               <h3>Search engine listing</h3>
               <div className="seoPreview"><b>Bustaniya · Product title</b><span>https://bustaniya.pk/products/product-title</span><p>Your product description will appear here in search results.</p></div>
               <label>Page title<input maxLength="70" placeholder="Product title — Bustaniya" /></label>
-              <label>Meta description<textarea rows="3" maxLength="160" placeholder="Describe this product for Google search..." /></label>
-              <label>URL handle<input placeholder="gulnaar-corset-kurti" /></label>
+              <label>Meta description<textarea name="seoDescription" rows="3" maxLength="160" defaultValue={editingProduct?.seoDescription || ""} placeholder="Describe this product for Google search..." /></label>
+              <label>URL handle<input name="urlHandle" defaultValue={editingProduct?.urlHandle || ""} placeholder="gulnaar-corset-kurti" /></label>
             </section>
 
             <section className="productEditorCard">
@@ -2866,11 +2886,6 @@ function SettingsPanel({ onOpen, signedInUser }) {
     }
   }
 
-  function saveSettings(event) {
-    event?.preventDefault();
-    setSavedAt(new Date().toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }));
-  }
-
   async function saveStoreSettings(event) {
     event.preventDefault();
     setStoreSettingsLoading(true);
@@ -3024,8 +3039,8 @@ function SettingsPanel({ onOpen, signedInUser }) {
     event.currentTarget.reset();
   }
 
-  return <><div className="adminTitle"><div><p>CONFIGURATION</p><h1>Settings</h1><span>Local setup previews for store, payments, shipping, staff, notifications, domains and checkout.</span></div><button onClick={saveSettings}>Save preview</button></div>
-    {savedAt && <div className="adminErrorBanner settingsSaved">Settings preview saved locally at {savedAt}.</div>}
+  return <><div className="adminTitle"><div><p>CONFIGURATION</p><h1>Settings</h1><span>Manage storefront and workspace configuration. Store Details changes save live; use the relevant section to save its settings.</span></div></div>
+    {savedAt && <div className="adminErrorBanner settingsSaved">Store settings saved at {savedAt}.</div>}
     <section className="settingsLayout">
       <aside className="settingsNav">{tabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>{tab}<span>{settingsTabHint(tab)}</span></button>)}</aside>
       <div className="settingsPanel">

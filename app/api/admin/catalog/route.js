@@ -66,6 +66,8 @@ function formatProduct(product) {
     : product.inventory;
   const images = parseJsonArray(product.img);
   const categorySelection = parseCategorySelection(product.category);
+  const costBreakdown = parseJsonObject(product.cost_breakdown);
+  const productMetadata = parseJsonObject(costBreakdown.metadata);
   return {
     id: product.id,
     name: product.name,
@@ -89,7 +91,16 @@ function formatProduct(product) {
     deliveryFeeMode: product.delivery_fee_mode || "inherit",
     deliveryFee: Number(product.delivery_fee_pkr || 0),
     costTotalPkr: Number(product.cost_total_pkr || 0),
-    costBreakdown: parseJsonObject(product.cost_breakdown),
+    costBreakdown,
+    vendor: String(productMetadata.vendor || "Bustaniya"),
+    barcode: String(productMetadata.barcode || ""),
+    weight: String(productMetadata.weight || ""),
+    weightUnit: productMetadata.weightUnit === "g" ? "g" : "kg",
+    countryOfOrigin: String(productMetadata.countryOfOrigin || "Pakistan"),
+    hsTariffCode: String(productMetadata.hsTariffCode || ""),
+    seoTitle: String(productMetadata.seoTitle || ""),
+    seoDescription: String(productMetadata.seoDescription || ""),
+    urlHandle: String(productMetadata.urlHandle || ""),
   };
 }
 

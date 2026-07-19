@@ -14,6 +14,16 @@ function sumCosts(costs) {
   return COST_KEYS.reduce((sum, key) => sum + Number(costs[key] || 0), 0);
 }
 
+function parseJsonObject(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 function productCostBreakdown(directCosts, sharedCosts, quantity, totalQuantity) {
   return {
     fabric: (directCosts.fabric / quantity) + (sharedCosts.fabric / totalQuantity),
@@ -29,14 +39,14 @@ async function resolveBatchProduct(item) {
   if (item.productId === "__new__") {
     const name = String(item.newProductName || "").trim();
     if (!name) throw new Error("Enter a name for every new product/design.");
-    const created = await supabaseAdminRequest("products?select=id,name", {
+    const created = await supabaseAdminRequest("products?select=id,name,cost_breakdown", {
       method: "POST", prefer: "return=representation", body: {
         name, description: "Created from production batch", price: Math.max(0, Number(item.newProductPrice || 0)), category: String(item.newProductCategory || "Uncategorized"), color: "[]", size: "[]", img: JSON.stringify([String(item.newProductImage || "/bustaniya-campaign-hero-v4.png")]), instock: true, new: false, bestsellere: false, article_number: `PB-${Date.now().toString().slice(-8)}`,
       },
     });
     return created?.[0];
   }
-  const products = await supabaseAdminRequest(`products?select=id,name&id=eq.${encodeURIComponent(item.productId)}&limit=1`);
+  const products = await supabaseAdminRequest(`products?select=id,name,cost_breakdown&id=eq.${encodeURIComponent(item.productId)}&limit=1`);
   return products?.[0];
 }
 
@@ -111,7 +121,8 @@ export async function POST(request) {
       const before = Number(inventory?.[0]?.stock_quantity || 0);
       const after = before + item.quantity;
       await supabaseAdminRequest("inventory?on_conflict=product_id", { method: "POST", prefer: "resolution=merge-duplicates,return=minimal", body: { product_id: product.id, stock_quantity: after, sku: inventory?.[0]?.sku || "" } });
-      await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(product.id)}`, { method: "PATCH", prefer: "return=minimal", body: { cost_total_pkr: unitCost, cost_breakdown: { ...unitCostBreakdown, costSource: "production_batch", productionBatchId: batchId, productionBatchDate: batchDate, productionBatchQuantity: item.quantity, productionBatchTotalCost: itemTotalCost, sharedCostAllocation: sumCosts(sharedCostBreakdown) * item.quantity / totalQuantity } } });
+      const existingMetadata = parseJsonObject(parseJsonObject(product.cost_breakdown).metadata);
+      await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(product.id)}`, { method: "PATCH", prefer: "return=minimal", body: { cost_total_pkr: unitCost, cost_breakdown: { ...unitCostBreakdown, metadata: existingMetadata, costSource: "production_batch", productionBatchId: batchId, productionBatchDate: batchDate, productionBatchQuantity: item.quantity, productionBatchTotalCost: itemTotalCost, sharedCostAllocation: sumCosts(sharedCostBreakdown) * item.quantity / totalQuantity } } });
       await supabaseAdminRequest("inventory_movements", { method: "POST", prefer: "return=minimal", body: { product_id: product.id, quantity_change: item.quantity, reason: `Production batch ${batchId}`, stock_before: before, stock_after: after } }).catch(() => {});
       savedItems.push({ productId: product.id, productName: product.name, quantity: item.quantity, directCostBreakdown: item.directCostBreakdown, sharedCostAllocation: sumCosts(sharedCostBreakdown) * item.quantity / totalQuantity, totalCost: itemTotalCost, unitCost, unitCostBreakdown });
     }
