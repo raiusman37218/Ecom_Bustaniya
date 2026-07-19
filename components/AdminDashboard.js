@@ -1922,7 +1922,7 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
   const [inventorySearch, setInventorySearch] = useState("");
   const [localHistory, setLocalHistory] = useState([]);
   const [sourceSearch, setSourceSearch] = useState("");
-  const [sourcesReady, setSourcesReady] = useState(false);
+  const [resourcesSaving, setResourcesSaving] = useState(false);
   const [inventorySources, setInventorySources] = useState([
     { id: "stitching-main", name: "Main stitching unit", type: "Stitching unit", contact: "", location: "Pakistan", notes: "Primary production source", status: "Active" },
     { id: "materials-general", name: "General trims supplier", type: "Material supplier", contact: "", location: "Pakistan", notes: "Buttons, laces and finishing items", status: "Active" },
@@ -1985,25 +1985,49 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
 
   useEffect(() => { loadProductionBatches(); }, []);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("bustaniya-inventory-sources");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed.sources)) setInventorySources(parsed.sources);
-        if (Array.isArray(parsed.materials)) setMaterials(parsed.materials);
-      } catch {}
-    }
-    setSourcesReady(true);
-  }, []);
+  async function saveInventoryResources(nextSources, nextMaterials) {
+    setInventorySources(nextSources);
+    setMaterials(nextMaterials);
+    setResourcesSaving(true);
+    try {
+      const response = await fetch("/api/admin/inventory-resources", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sources: nextSources, materials: nextMaterials }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to save sources and materials.");
+      setInventorySources(result.sources || nextSources);
+      setMaterials(result.materials || nextMaterials);
+      localStorage.removeItem("bustaniya-inventory-sources");
+    } catch (error) {
+      window.alert(error.message || "Unable to save sources and materials.");
+    } finally { setResourcesSaving(false); }
+  }
 
   useEffect(() => {
-    if (!sourcesReady) return;
-    localStorage.setItem("bustaniya-inventory-sources", JSON.stringify({
-      sources: inventorySources,
-      materials,
-    }));
-  }, [inventorySources, materials, sourcesReady]);
+    let active = true;
+    const localFallback = (() => { try { return JSON.parse(localStorage.getItem("bustaniya-inventory-sources") || "{}"); } catch { return {}; } })();
+    fetch("/api/admin/inventory-resources", { cache: "no-store" })
+      .then((response) => response.json().then((result) => ({ ok: response.ok, result })))
+      .then(({ ok, result }) => {
+        if (!ok) throw new Error(result.error || "Unable to load sources and materials.");
+        const remoteSources = result.sources || [];
+        const remoteMaterials = result.materials || [];
+        const fallbackSources = Array.isArray(localFallback.sources) ? localFallback.sources : [];
+        const fallbackMaterials = Array.isArray(localFallback.materials) ? localFallback.materials : [];
+        if (!active) return;
+        if (remoteSources.length || remoteMaterials.length) {
+          setInventorySources(remoteSources);
+          setMaterials(remoteMaterials);
+          localStorage.removeItem("bustaniya-inventory-sources");
+        } else {
+          // One-time migration for records created before Supabase persistence.
+          saveInventoryResources(
+            fallbackSources.length ? fallbackSources : inventorySources,
+            fallbackMaterials.length ? fallbackMaterials : materials,
+          );
+        }
+      })
+      .catch(() => {})
+    return () => { active = false; };
+  }, []);
 
   const history = useMemo(() => {
     const remoteHistory = (movements || []).map((entry) => {
@@ -2141,7 +2165,7 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
     const data = new FormData(event.currentTarget);
     const name = String(data.get("name") || "").trim();
     if (!name) return;
-    setInventorySources((current) => [{
+    const nextSources = [{
       id: `source-${Date.now()}`,
       name,
       type: data.get("type") || "Material supplier",
@@ -2149,7 +2173,8 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
       location: data.get("location") || "",
       notes: data.get("notes") || "",
       status: data.get("status") || "Active",
-    }, ...current]);
+    }, ...inventorySources];
+    saveInventoryResources(nextSources, materials);
     event.currentTarget.reset();
   }
 
@@ -2158,7 +2183,7 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
     const data = new FormData(event.currentTarget);
     const item = String(data.get("item") || "").trim();
     if (!item) return;
-    setMaterials((current) => [{
+    const nextMaterials = [{
       id: `material-${Date.now()}`,
       item,
       category: data.get("category") || "Other material",
@@ -2169,16 +2194,18 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
       reorderAt: Number(data.get("reorderAt") || 0),
       notes: data.get("notes") || "",
       status: "Tracked",
-    }, ...current]);
+    }, ...materials];
+    saveInventoryResources(inventorySources, nextMaterials);
     event.currentTarget.reset();
   }
 
   function updateMaterialQuantity(materialId, change) {
-    setMaterials((current) => current.map((item) =>
+    const nextMaterials = materials.map((item) =>
       item.id === materialId
         ? { ...item, quantity: Math.max(0, Number(item.quantity || 0) + change) }
         : item
-    ));
+    );
+    saveInventoryResources(inventorySources, nextMaterials);
   }
 
   if (productionOpen) {
@@ -2252,6 +2279,7 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
       onAddSource={addInventorySource}
       onAddMaterial={addMaterial}
       onUpdateMaterialQuantity={updateMaterialQuantity}
+      saving={resourcesSaving}
     />}
 
     {tab === "History" && <InventoryList title="Stock adjustment history" headers={["Product","Change","Reason","Date","User"]} rows={history.map(x => [x.product, x.change > 0 ? `+${x.change}` : x.change, x.reason, x.date, x.user])} empty="No stock adjustments yet." />}
@@ -2270,6 +2298,7 @@ function InventorySourcesPanel({
   onAddSource,
   onAddMaterial,
   onUpdateMaterialQuantity,
+  saving,
 }) {
   const sourceName = (sourceId) => allSources.find((source) => source.id === sourceId)?.name || "Unassigned";
   const materialValue = materials.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitCost || 0), 0);
@@ -2292,7 +2321,7 @@ function InventorySourcesPanel({
       <div className="formRow"><label>Type<select name="type"><option>Stitching unit</option><option>Fabric supplier</option><option>Material supplier</option><option>Embroidery unit</option><option>Packaging supplier</option><option>Other source</option></select></label><label>Status<select name="status"><option>Active</option><option>Paused</option></select></label></div>
       <div className="formRow"><label>Contact<input name="contact" placeholder="Phone / WhatsApp" /></label><label>Location<input name="location" placeholder="City or area" /></label></div>
       <label>Notes<textarea name="notes" rows="3" placeholder="Capacity, rates, lead time..." /></label>
-      <button>Add source</button>
+      <button disabled={saving}>{saving ? "Saving..." : "Add source"}</button>
     </form>
 
     <section className="adminCard managementCard inventoryMaterialsMain">
@@ -2300,7 +2329,7 @@ function InventorySourcesPanel({
       <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Material</th><th>Category</th><th>Source</th><th>Qty</th><th>Reorder</th><th>Value</th><th /></tr></thead><tbody>
         {materials.map((item) => {
           const low = Number(item.quantity || 0) <= Number(item.reorderAt || 0);
-          return <tr key={item.id}><td><b>{item.item}</b><small className="trackingNumber">{item.notes || item.unit}</small></td><td>{item.category}</td><td>{sourceName(item.sourceId)}</td><td><b className={low ? "stockLow" : ""}>{Number(item.quantity || 0).toLocaleString()} {item.unit}</b></td><td>{Number(item.reorderAt || 0).toLocaleString()} {item.unit}</td><td>Rs. {(Number(item.quantity || 0) * Number(item.unitCost || 0)).toLocaleString()}</td><td><div className="materialQtyActions"><button type="button" onClick={() => onUpdateMaterialQuantity(item.id, -1)}><Minus /></button><button type="button" onClick={() => onUpdateMaterialQuantity(item.id, 1)}><Plus /></button></div></td></tr>;
+          return <tr key={item.id}><td><b>{item.item}</b><small className="trackingNumber">{item.notes || item.unit}</small></td><td>{item.category}</td><td>{sourceName(item.sourceId)}</td><td><b className={low ? "stockLow" : ""}>{Number(item.quantity || 0).toLocaleString()} {item.unit}</b></td><td>{Number(item.reorderAt || 0).toLocaleString()} {item.unit}</td><td>Rs. {(Number(item.quantity || 0) * Number(item.unitCost || 0)).toLocaleString()}</td><td><div className="materialQtyActions"><button type="button" disabled={saving} onClick={() => onUpdateMaterialQuantity(item.id, -1)}><Minus /></button><button type="button" disabled={saving} onClick={() => onUpdateMaterialQuantity(item.id, 1)}><Plus /></button></div></td></tr>;
         })}
         {!materials.length && <tr><td colSpan="7"><div className="inventoryEmpty">No materials match this search.</div></td></tr>}
       </tbody></table></div>
@@ -2313,7 +2342,7 @@ function InventorySourcesPanel({
       <div className="formRow"><label>Quantity<input name="quantity" type="number" min="0" step="0.01" defaultValue="0" /></label><label>Unit<select name="unit"><option>pcs</option><option>meters</option><option>yards</option><option>rolls</option><option>kg</option><option>packs</option></select></label></div>
       <div className="formRow"><label>Unit cost<input name="unitCost" type="number" min="0" step="0.01" defaultValue="0" /></label><label>Reorder at<input name="reorderAt" type="number" min="0" step="0.01" defaultValue="0" /></label></div>
       <label>Notes<textarea name="notes" rows="3" placeholder="Color, size, use in product, supplier rate..." /></label>
-      <button>Add material</button>
+      <button disabled={saving}>{saving ? "Saving..." : "Add material"}</button>
     </form>
   </div>;
 }
