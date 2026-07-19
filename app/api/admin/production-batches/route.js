@@ -53,10 +53,16 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    await authorizeAdminSession(request, "inventory");
+    const { user } = await authorizeAdminSession(request, "inventory");
     const body = await request.json();
     if (body.action === "void") {
       const batchId = String(body.batchId || "").trim();
+      if (user.role !== "Owner") {
+        return NextResponse.json({ error: "Only an Owner can void a production batch." }, { status: 403 });
+      }
+      if (String(body.confirmation || "").trim() !== `VOID ${batchId}`) {
+        return NextResponse.json({ error: `Type VOID ${batchId} exactly to confirm this action.` }, { status: 400 });
+      }
       const settings = await getStoreSettings({ includeFinance: true });
       const batch = (settings.productionBatches || []).find((item) => item.id === batchId);
       if (!batch) return NextResponse.json({ error: "Production batch was not found." }, { status: 404 });
@@ -75,7 +81,12 @@ export async function POST(request) {
           await supabaseAdminRequest("inventory_movements", { method: "POST", prefer: "return=minimal", body: { product_id: item.productId, quantity_change: after - before, reason: `Voided production batch ${batch.id}`, stock_before: before, stock_after: after } }).catch(() => {});
         }
       }
-      const batches = (settings.productionBatches || []).map((item) => item.id === batch.id ? { ...item, status: "voided", voidedAt: new Date().toISOString() } : item);
+      const batches = (settings.productionBatches || []).map((item) => item.id === batch.id ? {
+        ...item,
+        status: "voided",
+        voidedAt: new Date().toISOString(),
+        voidedBy: { id: user.id, name: user.name, email: user.email },
+      } : item);
       const transactions = (settings.financeTransactions || []).filter((item) => item.productionBatchId !== batch.id && !String(item.title || "").startsWith(`Production batch ${batch.id}:`));
       const saved = await updateStoreSettings({ ...settings, productionBatches: batches, financeTransactions: transactions });
       return NextResponse.json({ success: true, batches: saved.productionBatches || [] });

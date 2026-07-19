@@ -715,7 +715,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} />}
-          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} />}
+          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} />}
           {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} />}
@@ -1903,7 +1903,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   </div>;
 }
 
-function InventoryPanel({ products, movements, orders, connected, onAdjust, onCreateCustomInventory, onCreateProductionBatch }) {
+function InventoryPanel({ products, movements, orders, connected, currentAdminUser, onAdjust, onCreateCustomInventory, onCreateProductionBatch }) {
   const emptyProductionCosts = () => ({ fabric: 0, stitching: 0, stitchingMaterial: 0, packaging: 0, travel: 0, other: 0 });
   const newProductionItem = () => ({ key: `batch-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, productId: "", quantity: "", newProductName: "", newProductPrice: "", newProductCategory: "Kurtis", newProductImage: "", directCostBreakdown: emptyProductionCosts() });
   const [tab, setTab] = useState("Stock");
@@ -1917,6 +1917,8 @@ function InventoryPanel({ products, movements, orders, connected, onAdjust, onCr
   const [productionBatches, setProductionBatches] = useState([]);
   const [productionBatchesLoading, setProductionBatchesLoading] = useState(true);
   const [voidingBatchId, setVoidingBatchId] = useState("");
+  const [voidBatch, setVoidBatch] = useState(null);
+  const [voidConfirmation, setVoidConfirmation] = useState("");
   const [inventoryView, setInventoryView] = useState("All");
   const [inventorySearch, setInventorySearch] = useState("");
   const [localHistory, setLocalHistory] = useState([]);
@@ -1971,15 +1973,38 @@ function InventoryPanel({ products, movements, orders, connected, onAdjust, onCr
     }
   }
 
-  async function voidProductionBatch(batch) {
-    if (!window.confirm(`Void test batch ${batch.id}? This removes its linked Finance production expense and reverses unsold stock.`)) return;
+  function requestVoidBatch(batch) {
+    setVoidBatch(batch);
+    setVoidConfirmation("");
+  }
+
+  function closeVoidBatch() {
+    if (voidingBatchId) return;
+    setVoidBatch(null);
+    setVoidConfirmation("");
+  }
+
+  async function voidProductionBatch(event) {
+    if (event?.id) {
+      if (currentAdminUser?.role !== "Owner") {
+        window.alert("Only an Owner can void a production batch.");
+        return;
+      }
+      requestVoidBatch(event);
+      return;
+    }
+    event.preventDefault();
+    const batch = voidBatch;
+    if (!batch || voidConfirmation.trim() !== `VOID ${batch.id}`) return;
     setVoidingBatchId(batch.id);
     try {
-      const response = await fetch("/api/admin/production-batches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "void", batchId: batch.id }) });
+      const response = await fetch("/api/admin/production-batches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "void", batchId: batch.id, confirmation: voidConfirmation.trim() }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to void production batch.");
       setProductionBatches(result.batches || []);
-      window.alert("Test batch voided. Its Finance production expense has been removed.");
+      setVoidBatch(null);
+      setVoidConfirmation("");
+      window.alert("Production batch voided. Its Finance production expense has been removed.");
     } catch (error) {
       window.alert(error.message || "Unable to void production batch.");
     } finally {
@@ -2303,7 +2328,7 @@ function InventoryPanel({ products, movements, orders, connected, onAdjust, onCr
     </section>}
 
     {tab === "Stock" && <section className="adminCard managementCard inventoryLedger">
-      <div className="editorHeading"><div><h2>Production batches</h2><p>Void only test batches with no orders. This keeps an audit record and removes the linked Finance expense.</p></div></div>
+      <div className="editorHeading"><div><h2>Production batches</h2><p>Voiding is owner-only and requires a typed batch confirmation. Use it only for a test batch with no customer orders; the audit record remains.</p></div></div>
       <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Batch</th><th>Product</th><th>Quantity</th><th>Total cost</th><th>Unit cost</th><th>Date</th><th>Status</th><th /></tr></thead><tbody>
         {productionBatches.map((batch) => <tr key={batch.id}><td><b>{batch.id}</b></td><td>{batch.productName}</td><td>{Number(batch.quantity || 0).toLocaleString()}</td><td>Rs. {Number(batch.totalCost || 0).toLocaleString()}</td><td>Rs. {Number(batch.unitCost || 0).toLocaleString()}</td><td>{batch.date || "—"}</td><td><span className={`statusBadge ${batch.status === "voided" ? "cancelled" : "delivered"}`}>{batch.status === "voided" ? "Voided" : "Active"}</span></td><td>{batch.status !== "voided" && <button className="removeProductButton" type="button" disabled={voidingBatchId === batch.id} onClick={() => voidProductionBatch(batch)}>{voidingBatchId === batch.id ? "Voiding..." : "Void test batch"}</button>}</td></tr>)}
         {!productionBatchesLoading && !productionBatches.length && <tr><td colSpan="8"><div className="inventoryEmpty">No production batches yet.</div></td></tr>}
@@ -2326,6 +2351,12 @@ function InventoryPanel({ products, movements, orders, connected, onAdjust, onCr
     {tab === "History" && <InventoryList title="Stock adjustment history" headers={["Product","Change","Reason","Date","User"]} rows={history.map(x => [x.product, x.change > 0 ? `+${x.change}` : x.change, x.reason, x.date, x.user])} empty="No stock adjustments yet." />}
 
     {dialogOpen && <InventoryDialog products={products} productChoice={dialogProductId} setProductChoice={setDialogProductId} onClose={() => setDialogOpen(false)} onAdjust={adjustStock} />}
+    {voidBatch && <><div className="adminOverlay" onClick={closeVoidBatch} /><form className="inventoryDialog" onSubmit={voidProductionBatch}>
+      <DialogHead title={`Void ${voidBatch.id}`} onClose={closeVoidBatch} />
+      <p className="trackingNumber">Owner-only action. It reverses the batch stock, removes its linked Finance production expense and keeps a voided audit record. Do not void a batch that has customer orders.</p>
+      <label>Type <b>{`VOID ${voidBatch.id}`}</b> exactly to confirm<input value={voidConfirmation} onChange={(event) => setVoidConfirmation(event.target.value)} autoComplete="off" autoFocus /></label>
+      <button className="removeProductButton" type="submit" disabled={voidingBatchId === voidBatch.id || voidConfirmation.trim() !== `VOID ${voidBatch.id}`}>{voidingBatchId === voidBatch.id ? "Voiding batch..." : "Void batch permanently"}</button>
+    </form></>}
     {productionOpen && <><div className="adminOverlay" onClick={() => setProductionOpen(false)} /><form className="inventoryDialog" onSubmit={saveProductionBatch}><DialogHead title="Create production batch" onClose={() => setProductionOpen(false)} /><p className="trackingNumber">Add one design at a time. Stock, per-suit cost and Finance expense will update together.</p><label>Design / product<select name="productId" required value={productionProductId} onChange={(event) => setProductionProductId(event.target.value)}><option value="">Select product</option><option value="__new__">+ Create new product/design</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>{productionProductId === "__new__" && <section className="adminCard" style={{ padding: "14px", marginBottom: "12px" }}><p className="fieldTitle">New product details</p><label>Product / design name<input name="newProductName" required placeholder="e.g. Blue Arora – Design 4" /></label><div className="formRow"><label>Selling price<input name="newProductPrice" type="number" min="0" required placeholder="0" /></label><label>Category<input name="newProductCategory" placeholder="e.g. Kurtis" defaultValue="Kurtis" /></label></div><label>Image URL (optional)<input name="newProductImage" placeholder="https://... or uploaded image URL" /></label></section>}<div className="formRow"><label>Finished suits<input name="quantity" type="number" min="1" required placeholder="25" /></label><label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label></div><p className="fieldTitle">Costs for this design batch (PKR)</p><div className="formRow"><label>Fabric<input name="fabric" type="number" min="0" defaultValue="0" /></label><label>Stitching<input name="stitching" type="number" min="0" defaultValue="0" /></label></div><div className="formRow"><label>Stitching material<input name="stitchingMaterial" type="number" min="0" defaultValue="0" /></label><label>Packaging<input name="packaging" type="number" min="0" defaultValue="0" /></label></div><div className="formRow"><label>Travel / transport<input name="travel" type="number" min="0" defaultValue="0" /></label><label>Other<input name="other" type="number" min="0" defaultValue="0" /></label></div><label>Note<textarea name="note" rows="2" placeholder="Supplier, stitching unit or batch reference" /></label><button className="dialogSave" disabled={productionSaving}>{productionSaving ? "Saving batch..." : "Save batch, add stock & record cost"}</button></form></>}
   </div>;
 }
