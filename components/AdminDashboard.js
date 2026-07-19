@@ -1859,7 +1859,7 @@ function FinancePanel({ orders, products, connected }) {
           <div><span>5. Profit after product cost</span><b>{money(profitAfterProductCost)}</b></div>
           <div><span>6. Less: GST + Tax (5% of product sales)</span><b>- {money(gstTaxTotal)}</b></div>
           <div><span>7. Less: courier delivery (Rs. 200 × {deliveredOrderCount} orders)</span><b>- {money(courierDeliveryCost)}</b></div>
-          <div><span>8. Less: returned-order courier loss (Rs. 200 Ã— {returnedOrderCount} orders)</span><b>- {money(returnCourierCost)}</b></div>
+          <div><span>8. Less: returned-order courier loss (Rs. 200 × {returnedOrderCount} orders)</span><b>- {money(returnCourierCost)}</b></div>
           <div><span>9. Less: operating expenses</span><b>- {money(profitExpenseTotal)}</b></div>
           {productionCashOutflow > 0 && <div><span>Stock purchases tracked in Cashbook</span><b>{money(productionCashOutflow)} (deducted when units sell)</b></div>}
           <div className="statementTotal"><span>10. Final net profit</span><b>{money(netProfit)}</b></div>
