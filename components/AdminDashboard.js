@@ -667,6 +667,13 @@ export default function AdminDashboard() {
     ? catalogCategories.filter((category) => category.parentSlug === activeCategoryRecord.slug && category.status !== "Archived")
     : [];
 
+  // The admin dashboard depends on browser-only session, timezone and cached
+  // catalogue state. Render a deterministic shell first to avoid React
+  // hydration failures that disable sidebar interactions in production.
+  if (!adminReady) {
+    return <main className="adminShell"><div className="adminContent"><div className="inventoryEmpty">Loading Bustaniya admin…</div></div></main>;
+  }
+
   return (
     <main className="adminShell">
       <aside className={sidebarOpen ? "adminSidebar sidebarVisible" : "adminSidebar"}>
