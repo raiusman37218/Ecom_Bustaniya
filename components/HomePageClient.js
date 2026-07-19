@@ -115,10 +115,10 @@ export default function Home({
       <AnnouncementBar storeSettings={storeSettings} />
 
       <header className="header">
-        <a className="brand" href="#" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
+        <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
         <nav className={mobileOpen ? "nav navOpen" : "nav"} id="site-menu" aria-hidden={!mobileOpen}>
           <button className="mobileClose" type="button" aria-label="Close menu" onClick={() => setMobileOpen(false)}><X /></button>
-          <a className="navActive" href="#" onClick={() => setMobileOpen(false)}>Home</a>
+          <a className="navActive" href="/" onClick={() => setMobileOpen(false)}>Home</a>
           <a href="#products" onClick={() => setMobileOpen(false)}>New In</a>
           {categoryRecords.map((category) => <a href={`/category/${category.slug}`} key={category.slug} onClick={() => setMobileOpen(false)}>{category.name}</a>)}
           <a href="#story" onClick={() => setMobileOpen(false)}>Our Story</a>
@@ -192,7 +192,6 @@ export default function Home({
             </article>)}
           </div>
           {!visibleProducts.length && <p className="empty">No products found.</p>}
-          <a className="viewAll" href="#">View all products <ArrowRight size={16} /></a>
         </section>
 
         <section className="categoryShowcase">
@@ -228,13 +227,13 @@ export default function Home({
 
       <footer id="footer">
         <div className="footerBrand">
-          <a className="brand" href="#" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
+          <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
           <p>Pakistani clothing, rooted in grace.</p>
           <span>Thoughtfully designed silhouettes for everyday elegance and memorable occasions.</span>
         </div>
         <div><b>Shop</b>{categoryRecords.map((category) => <a href={`/category/${category.slug}`} key={category.slug}>{category.name}</a>)}</div>
         <div><b>Help</b><a href="/shipping-policy">Delivery</a><a href="/exchange-return-policy">Exchange</a><a href="/contact">Contact Us</a></div>
-        <div><b>Follow</b><a href="#">Instagram</a><a href="#">Pinterest</a><a href="#">TikTok</a></div>
+        <div><b>Follow</b><a href="https://www.instagram.com/bustaniya_/" target="_blank" rel="noreferrer">Instagram</a></div>
         <div className="copyright">
           <p>Copyright 2026 Bustaniya. Made with care in Pakistan.</p>
           <div><a href="/privacy-policy">Privacy</a><a href="/terms-and-conditions">Terms</a><a href="/shipping-policy">Shipping</a></div>
