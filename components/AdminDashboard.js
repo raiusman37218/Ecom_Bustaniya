@@ -773,17 +773,17 @@ export default function AdminDashboard() {
 
             <section className="productEditorCard">
               <h3>Cost, pricing & profit</h3>
-              <p>Enter every cost for this one product. Profit is calculated automatically after the fixed 1% GST and 4% tax.</p>
+              <p>Every figure in this section is for one item / one suit. Profit is calculated for one item after the fixed 1% GST and 4% tax.</p>
               {costBreakdown.costSource === "production_batch" && <div className="inventoryAlert materialAlert"><Package /><div><b>Production batch cost is linked</b><span>Batch {costBreakdown.productionBatchId} produced {Number(costBreakdown.productionBatchQuantity || 0).toLocaleString()} items. Its total cost of Rs. {Number(costBreakdown.productionBatchTotalCost || 0).toLocaleString()} has been divided into the per-item costs below.</span></div></div>}
               <div className="formRow"><label>Selling price (PKR)<input name="price" required type="number" min="0" value={productPrice || ""} onChange={(e) => setProductPrice(e.target.value)} placeholder="4,990" /></label><label>Compare-at price<input name="comparePrice" type="number" placeholder="5,990" /></label></div>
-              <p className="fieldTitle">This product&apos;s cost breakdown (PKR)</p>
+              <p className="fieldTitle">Per-item cost breakdown (PKR)</p>
               <div className="formRow"><label>Fabric<input type="number" min="0" value={costBreakdown.fabric || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, fabric: e.target.value }))} /></label><label>Stitching<input type="number" min="0" value={costBreakdown.stitching || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, stitching: e.target.value }))} /></label></div>
               <div className="formRow"><label>Embellishment<input type="number" min="0" value={costBreakdown.embellishment || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, embellishment: e.target.value }))} /></label><label>Packaging<input type="number" min="0" value={costBreakdown.packaging || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, packaging: e.target.value }))} /></label></div>
               <div className="formRow"><label>Delivery / dispatch cost<input type="number" min="0" value={costBreakdown.delivery || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, delivery: e.target.value }))} /></label><label>Other cost<input type="number" min="0" value={costBreakdown.other || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, other: e.target.value }))} /></label></div>
               <div className="financeStatement">
-                <div><span>Total product cost</span><b>{`Rs. ${totalProductCost.toLocaleString()}`}</b></div>
-                <div><span>GST (1%)</span><b>- {`Rs. ${productGst.toLocaleString()}`}</b></div>
-                <div><span>Tax (4%)</span><b>- {`Rs. ${productTax.toLocaleString()}`}</b></div>
+                <div><span>Cost per item</span><b>{`Rs. ${totalProductCost.toLocaleString()}`}</b></div>
+                <div><span>GST per item (1%)</span><b>- {`Rs. ${productGst.toLocaleString()}`}</b></div>
+                <div><span>Tax per item (4%)</span><b>- {`Rs. ${productTax.toLocaleString()}`}</b></div>
                 <div className="statementTotal"><span>Final profit per item</span><b>{`Rs. ${productFinalProfit.toLocaleString()}`}</b></div>
               </div>
             </section>
@@ -1953,6 +1953,9 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
     return stock > 0 && stock <= Number(product.lowStockThreshold || 5);
   }).length;
   const value = products.reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
+  const stockCostValue = products.reduce((sum, product) => sum + Number(product.costTotalPkr || 0) * Number(product.stock || 0), 0);
+  const stockSalesTax = Math.round(value * 0.05);
+  const potentialStockProfit = value - stockCostValue - stockSalesTax;
   const materialValue = materials.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitCost || 0), 0);
   const lowMaterialCount = materials.filter((item) => Number(item.quantity || 0) <= Number(item.reorderAt || 0)).length;
 
@@ -2110,11 +2113,16 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
       <article><Boxes /><span><b>{total}</b>Available units</span></article>
       <article className={low ? "alertMetric" : ""}><TrendingUp /><span><b>{low}</b>Low stock</span></article>
       <article><Store /><span><b>{inventorySources.length}</b>Sources</span></article>
-      <article className={lowMaterialCount ? "alertMetric" : ""}><Tags /><span><b>Rs. {(value + materialValue).toLocaleString()}</b>Stock + material value</span></article>
+      <article><WalletCards /><span><b>Rs. {stockCostValue.toLocaleString()}</b>Stock cost value</span></article>
+      <article><TrendingUp /><span><b>Rs. {value.toLocaleString()}</b>Potential sales value</span></article>
+      <article><CircleDollarSign /><span><b>Rs. {potentialStockProfit.toLocaleString()}</b>Potential stock profit</span></article>
+      <article className={lowMaterialCount ? "alertMetric" : ""}><Tags /><span><b>Rs. {materialValue.toLocaleString()}</b>Material value</span></article>
     </div>
 
     {low + out > 0 && <div className="inventoryAlert"><Bell /><div><b>{low + out} products need attention</b><span>Out-of-stock products cannot be ordered, and low stock is highlighted here.</span></div><button onClick={() => setInventoryView(low ? "Low stock" : "Out of stock")}>Review items</button></div>}
     {lowMaterialCount > 0 && <div className="inventoryAlert materialAlert"><Bell /><div><b>{lowMaterialCount} material items need reorder review</b><span>Buttons, laces, trims and other raw materials are tracked separately from finished product stock.</span></div><button onClick={() => setTab("Sources")}>Review materials</button></div>}
+
+    <div className="inventoryAlert materialAlert"><CircleDollarSign /><div><b>Potential stock profit: Rs. {potentialStockProfit.toLocaleString()}</b><span>If all {total.toLocaleString()} available items sell at their current prices: potential sales minus per-item product cost and 5% GST/tax. Courier charges are excluded until actual orders are delivered.</span></div></div>
 
     <div className="inventoryTabs">
       {["Stock","Sources","History"].map(item => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item === "Sources" ? "Sources & Materials" : item}</button>)}
