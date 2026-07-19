@@ -853,6 +853,10 @@ export default function AdminDashboard() {
 }
 
 function DashboardHome({ setActive, orders, metrics, connected }) {
+  // Dates are initialized only in the browser so the server and client render
+  // the same initial markup regardless of their timezone.
+  const [dashboardNow, setDashboardNow] = useState(null);
+  useEffect(() => { setDashboardNow(new Date()); }, []);
   const liveOrders = connected ? orders : [];
   const dashboardSales = connected
     ? liveOrders.filter(isDeliveredOrder).reduce((sum, order) => sum + Number(order.total || 0), 0)
@@ -861,16 +865,18 @@ function DashboardHome({ setActive, orders, metrics, connected }) {
   const dashboardCustomerCount = connected
     ? new Set(liveOrders.map((order) => String(order.customer || order.shipping_full_name || "").trim()).filter(Boolean)).size
     : Number(metrics.customers || 0);
-  const chartDays = Array.from({ length: 7 }, (_, index) => {
-    const date = startOfDay(new Date());
-    date.setDate(date.getDate() - (6 - index));
-    return { date, label: date.toLocaleDateString("en-PK", { weekday: "short" }) };
-  });
+  const chartDays = dashboardNow
+    ? Array.from({ length: 7 }, (_, index) => {
+      const date = startOfDay(dashboardNow);
+      date.setDate(date.getDate() - (6 - index));
+      return { date, label: date.toLocaleDateString("en-PK", { weekday: "short" }) };
+    })
+    : Array.from({ length: 7 }, () => ({ date: null, label: "—" }));
   const salesByDay = chartDays.map(({ date, label }) => ({
     label,
     sales: liveOrders.filter((order) => {
       const orderDate = toOrderDate(order);
-      return orderDate && isDeliveredOrder(order) && startOfDay(orderDate).getTime() === date.getTime();
+      return date && orderDate && isDeliveredOrder(order) && startOfDay(orderDate).getTime() === date.getTime();
     }).reduce((sum, order) => sum + Number(order.total || 0), 0),
   }));
   const maxDailySales = Math.max(...salesByDay.map((day) => day.sales), 1);
@@ -898,7 +904,7 @@ function DashboardHome({ setActive, orders, metrics, connected }) {
   });
   const donutStyle = { background: donutStops.length ? `conic-gradient(${donutStops.join(",")})` : "#dedfdc" };
   return <>
-    <div className="adminTitle"><div><p>{new Date().toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" })}</p><h1>Good afternoon, Bustaniya</h1><span>{connected ? "Live data from your Supabase store." : "Connect Supabase orders to load live store data."}</span></div><button onClick={() => setActive("Products")}><Plus /> Add product</button></div>
+    <div className="adminTitle"><div><p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" }) : "Loading date…"}</p><h1>Good afternoon, Bustaniya</h1><span>{connected ? "Live data from your Supabase store." : "Connect Supabase orders to load live store data."}</span></div><button onClick={() => setActive("Products")}><Plus /> Add product</button></div>
     <div className="metricGrid">
       <Metric icon={CircleDollarSign} label="Total sales" value={`Rs. ${dashboardSales.toLocaleString()}`} change="Live" note="delivered orders" />
       <Metric icon={ShoppingBag} label="Orders" value={dashboardOrderCount} change="Live" note="all orders" />
