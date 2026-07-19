@@ -726,7 +726,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
           {canAccessActive && active === "Orders" && <OrdersPanel onOpen={setWorkspace} rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} />}
-          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} />}
+          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Gift cards" && <ModulePanel onOpen={setWorkspace} title="Gift cards" subtitle="Issue and manage digital store credit." action="Issue gift card" icon={Tags} features={["Gift card products", "Issued cards", "Balances", "Expiry dates", "Gift card activity"]} />}
           {canAccessActive && active === "Discounts" && <ModulePanel onOpen={setWorkspace} title="Discounts" subtitle="Codes and automatic promotions." action="Create discount" icon={BadgePercent} features={["Discount codes", "Automatic discounts", "Amount off", "Buy X get Y", "Free delivery"]} />}
@@ -1904,7 +1904,7 @@ function FinancePanel({ orders, products, connected }) {
   </div>;
 }
 
-function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory, onCreateProductionBatch }) {
+function InventoryPanel({ products, movements, orders, connected, onAdjust, onCreateCustomInventory, onCreateProductionBatch }) {
   const emptyProductionCosts = () => ({ fabric: 0, stitching: 0, stitchingMaterial: 0, packaging: 0, travel: 0, other: 0 });
   const newProductionItem = () => ({ key: `batch-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, productId: "", quantity: "", newProductName: "", newProductPrice: "", newProductCategory: "Kurtis", newProductImage: "", directCostBreakdown: emptyProductionCosts() });
   const [tab, setTab] = useState("Stock");
@@ -1923,6 +1923,11 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
   const [localHistory, setLocalHistory] = useState([]);
   const [sourceSearch, setSourceSearch] = useState("");
   const [resourcesSaving, setResourcesSaving] = useState(false);
+  const [profitProjectionView, setProfitProjectionView] = useState("product");
+  const [expectedItemsPerOrder, setExpectedItemsPerOrder] = useState("");
+  const [projectionTransactions, setProjectionTransactions] = useState([]);
+  const [projectionFinanceLoaded, setProjectionFinanceLoaded] = useState(false);
+  const [projectionFinanceAvailable, setProjectionFinanceAvailable] = useState(false);
   const [inventorySources, setInventorySources] = useState([
     { id: "stitching-main", name: "Main stitching unit", type: "Stitching unit", contact: "", location: "Pakistan", notes: "Primary production source", status: "Active" },
     { id: "materials-general", name: "General trims supplier", type: "Material supplier", contact: "", location: "Pakistan", notes: "Buttons, laces and finishing items", status: "Active" },
@@ -1984,6 +1989,22 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
   }
 
   useEffect(() => { loadProductionBatches(); }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/inventory-projection", { cache: "no-store" })
+      .then((response) => response.json().then((result) => ({ ok: response.ok, result })))
+      .then(({ ok, result }) => {
+        if (!ok) throw new Error(result.error || "Unable to load finance assumptions.");
+        if (active) {
+          setProjectionTransactions(result.transactions || []);
+          setProjectionFinanceAvailable(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (active) setProjectionFinanceLoaded(true); });
+    return () => { active = false; };
+  }, []);
 
   async function saveInventoryResources(nextSources, nextMaterials) {
     setInventorySources(nextSources);
@@ -2054,6 +2075,23 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
   const stockCostValue = products.reduce((sum, product) => sum + Number(product.costTotalPkr || 0) * Number(product.stock || 0), 0);
   const stockSalesTax = Math.round(value * 0.05);
   const potentialStockProfit = value - stockCostValue - stockSalesTax;
+  const historicalOrders = connected ? (orders || []) : [];
+  const deliveredHistoricalOrders = historicalOrders.filter(isDeliveredOrder);
+  const returnedHistoricalOrders = historicalOrders.filter(isReturnedOrder);
+  const historicalSoldUnits = deliveredHistoricalOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order)
+    .reduce((itemTotal, item) => itemTotal + Number(item.quantity || 0), 0), 0);
+  const historicalItemsPerOrder = deliveredHistoricalOrders.length ? historicalSoldUnits / deliveredHistoricalOrders.length : 1;
+  const projectionItemsPerOrder = Math.max(1, Number(expectedItemsPerOrder || historicalItemsPerOrder || 1));
+  const projectedOrderCount = total ? Math.ceil(total / projectionItemsPerOrder) : 0;
+  const historicalFulfilledOrderCount = deliveredHistoricalOrders.length + returnedHistoricalOrders.length;
+  const returnRate = historicalFulfilledOrderCount ? returnedHistoricalOrders.length / historicalFulfilledOrderCount : 0;
+  const projectedReturnCourierLoss = Math.round(projectedOrderCount * returnRate * 200);
+  const marketingSpend = projectionTransactions
+    .filter((entry) => entry.type === "business_expense" && String(entry.category || "").toLowerCase() === "marketing")
+    .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const projectedMarketingCost = historicalSoldUnits ? Math.round((marketingSpend / historicalSoldUnits) * total) : 0;
+  const allCostsProjectedProfit = potentialStockProfit - projectedReturnCourierLoss - projectedMarketingCost;
+  const displayedStockProfit = profitProjectionView === "all" ? allCostsProjectedProfit : potentialStockProfit;
   const materialValue = materials.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitCost || 0), 0);
   const lowMaterialCount = materials.filter((item) => Number(item.quantity || 0) <= Number(item.reorderAt || 0)).length;
 
@@ -2236,14 +2274,18 @@ function InventoryPanel({ products, movements, onAdjust, onCreateCustomInventory
       <article><Store /><span><b>{inventorySources.length}</b>Sources</span></article>
       <article><WalletCards /><span><b>Rs. {stockCostValue.toLocaleString()}</b>Stock cost value</span></article>
       <article><TrendingUp /><span><b>Rs. {value.toLocaleString()}</b>Potential sales value</span></article>
-      <article><CircleDollarSign /><span><b>Rs. {potentialStockProfit.toLocaleString()}</b>Potential stock profit</span></article>
+      <article className={displayedStockProfit < 0 ? "alertMetric" : ""}><CircleDollarSign /><span><b>Rs. {displayedStockProfit.toLocaleString()}</b>{profitProjectionView === "all" ? "All-cost projected profit" : "Product-only stock profit"}</span></article>
       <article className={lowMaterialCount ? "alertMetric" : ""}><Tags /><span><b>Rs. {materialValue.toLocaleString()}</b>Material value</span></article>
     </div>
 
     {low + out > 0 && <div className="inventoryAlert"><Bell /><div><b>{low + out} products need attention</b><span>Out-of-stock products cannot be ordered, and low stock is highlighted here.</span></div><button onClick={() => setInventoryView(low ? "Low stock" : "Out of stock")}>Review items</button></div>}
     {lowMaterialCount > 0 && <div className="inventoryAlert materialAlert"><Bell /><div><b>{lowMaterialCount} material items need reorder review</b><span>Buttons, laces, trims and other raw materials are tracked separately from finished product stock.</span></div><button onClick={() => setTab("Sources")}>Review materials</button></div>}
 
-    <div className="inventoryAlert materialAlert"><CircleDollarSign /><div><b>Potential stock profit: Rs. {potentialStockProfit.toLocaleString()}</b><span>If all {total.toLocaleString()} available items sell at their current prices: potential sales minus per-item product cost and 5% GST/tax. Courier charges are excluded until actual orders are delivered.</span></div></div>
+    <section className="adminCard managementCard inventoryLedger">
+      <div className="inventoryListHead"><div><h2>Inventory profit projection</h2><span>Estimate only — actual profit remains in Finance after orders are delivered.</span></div></div>
+      <div className="inventoryViewBar"><button type="button" className={profitProjectionView === "product" ? "active" : ""} onClick={() => setProfitProjectionView("product")}>Product-only</button><button type="button" className={profitProjectionView === "all" ? "active" : ""} onClick={() => setProfitProjectionView("all")}>All costs included</button></div>
+      {profitProjectionView === "product" ? <div className="inventoryAlert materialAlert"><CircleDollarSign /><div><b>Product-only stock profit: Rs. {potentialStockProfit.toLocaleString()}</b><span>Potential sales minus saved per-item product cost and 5% GST/tax. This is the clean product margin before delivery, returns and marketing.</span></div></div> : <><div className="financeControls"><label>Expected items per order<input type="number" min="1" step="0.1" value={expectedItemsPerOrder || historicalItemsPerOrder.toFixed(1)} onChange={(event) => setExpectedItemsPerOrder(event.target.value)} /></label><label>Projected orders<input readOnly value={projectedOrderCount} /></label><label>Historical return rate<input readOnly value={`${Math.round(returnRate * 100)}%`} /></label></div><div className="financeStatement"><div><span>Product-only stock profit</span><b>{money(potentialStockProfit)}</b></div><div><span>Delivery collected less courier (Rs. 200 per order)</span><b>Rs. 0</b></div><div><span>Expected returned-order courier loss</span><b>- {money(projectedReturnCourierLoss)}</b></div><div><span>Actual marketing spend allocated per sold item</span><b>- {money(projectedMarketingCost)}</b></div><div className="statementTotal"><span>All-cost projected inventory profit</span><b>{money(allCostsProjectedProfit)}</b></div></div><p className="trackingNumber">{!projectionFinanceLoaded ? "Loading Finance-linked assumptions..." : projectionFinanceAvailable ? "Marketing uses saved Cashbook entries in the Marketing category. Return loss uses your historic returned-order rate; change expected items per order if needed." : "Finance marketing data is unavailable for this account, so marketing is shown as Rs. 0. Product-only calculation remains accurate."}</p></>}
+    </section>
 
     <div className="inventoryTabs">
       {["Stock","Sources","History"].map(item => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item === "Sources" ? "Sources & Materials" : item}</button>)}
