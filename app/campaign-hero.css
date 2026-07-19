@@ -45,6 +45,7 @@
 .heroAdminImagePreview img { width:100%; height:100%; object-fit:cover; object-position:center; }
 .heroUploadButton { position:relative; min-height:36px; margin-top:8px; border:1px solid #173d29; border-radius:4px; display:grid; place-items:center; color:#173d29!important; font-size:9px!important; font-weight:800; letter-spacing:.08em; text-transform:uppercase; overflow:hidden; }
 .heroUploadButton input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.heroUrlHelp { margin:10px 0 0; color:#6c7b71; font-size:10px; line-height:1.45; }
 .heroUrlAdder { display:flex; gap:6px; margin-top:8px; }
 .heroUrlAdder input { min-width:0; flex:1; }
 .heroUrlAdder button { flex:0 0 auto; padding:0 10px; font-size:10px; }

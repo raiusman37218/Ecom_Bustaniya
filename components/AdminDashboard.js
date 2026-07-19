@@ -2802,7 +2802,6 @@ function SettingsPanel({ onOpen, signedInUser }) {
   const [storeSettingsError, setStoreSettingsError] = useState("");
   const [storeSettingsSetup, setStoreSettingsSetup] = useState("");
   const [heroUrlInputs, setHeroUrlInputs] = useState({});
-  const [heroUploading, setHeroUploading] = useState("");
   const [staff, setStaff] = useState([]);
   const [availablePermissions, setAvailablePermissions] = useState([]);
   const [currentAdminUser, setCurrentAdminUser] = useState(null);
@@ -2822,29 +2821,6 @@ function SettingsPanel({ onOpen, signedInUser }) {
     }
     if (activeTab === "Users") loadAdminUsers();
   }, [activeTab]);
-
-  async function uploadHeroImages(files, field) {
-    const selectedFiles = Array.from(files || []);
-    if (!selectedFiles.length) return;
-    setStoreSettingsError("");
-    setHeroUploading(field);
-    try {
-      const uploadedUrls = [];
-      for (const file of selectedFiles) {
-        const form = new FormData();
-        form.append("file", file, file.name);
-        const response = await fetch("/api/admin/hero-upload", { method: "POST", body: form });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Unable to upload hero image.");
-        uploadedUrls.push(result.url);
-      }
-      setStoreSettings((current) => ({ ...current, [field]: [...(current[field] || []), ...uploadedUrls] }));
-    } catch (error) {
-      setStoreSettingsError(error.message);
-    } finally {
-      setHeroUploading("");
-    }
-  }
 
   function addHeroImageUrl(field) {
     const url = String(heroUrlInputs[field] || "").trim();
@@ -3065,7 +3041,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
                 return <div className="heroImageSetting" key={item.field}>
                   <span><b>{item.label}</b><small>{item.hint}</small></span>
                   <div className="heroSlidesEditor">{images.map((image, index) => <div className="heroSlideEditor" key={`${image}-${index}`}><div className="heroAdminImagePreview"><img src={image} alt="" /></div><input value={image} onChange={(event) => setStoreSettings((current) => ({ ...current, [item.field]: images.map((value, imageIndex) => imageIndex === index ? event.target.value : value) }))} placeholder="/hero-image.jpg or https://..." /><button type="button" disabled={images.length === 1} onClick={() => setStoreSettings((current) => ({ ...current, [item.field]: images.filter((_, imageIndex) => imageIndex !== index) }))}>Remove</button></div>)}</div>
-                  <span className="heroUploadButton">{heroUploading === item.field ? "Uploading..." : "Upload image(s)"}<input type="file" multiple accept="image/png,image/jpeg,image/webp" disabled={Boolean(heroUploading)} onChange={(event) => { uploadHeroImages(event.target.files, item.field); event.target.value = ""; }} /></span>
+                  <p className="heroUrlHelp">Upload images to your Cloudinary account first, then paste each secure Cloudinary URL below.</p>
                   <div className="heroUrlAdder"><input value={heroUrlInputs[item.field] || ""} onChange={(event) => setHeroUrlInputs((current) => ({ ...current, [item.field]: event.target.value }))} placeholder="Paste Cloudinary image URL (https://...)" /><button type="button" onClick={() => addHeroImageUrl(item.field)}>Add URL</button></div>
                 </div>;
               })}
