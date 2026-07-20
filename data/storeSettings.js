@@ -1,5 +1,26 @@
 export const DEFAULT_ANNOUNCEMENTS = [
   {
+    id: "default-cod",
+    text: "Cash on Delivery available nationwide",
+    linkLabel: "",
+    linkHref: "",
+    enabled: true,
+  },
+  {
+    id: "default-quality",
+    text: "Thoughtfully made, premium-quality eastern wear",
+    linkLabel: "",
+    linkHref: "",
+    enabled: true,
+  },
+  {
+    id: "default-secure-checkout",
+    text: "Secure checkout and clear order updates",
+    linkLabel: "",
+    linkHref: "",
+    enabled: true,
+  },
+  {
     id: "default-advance-payment",
     text: "Rs. 300 advance payment required for order confirmation",
     linkLabel: "Shop now",
