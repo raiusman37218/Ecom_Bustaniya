@@ -271,12 +271,13 @@ export default function AdminDashboard() {
   async function addProduct(event) {
     event.preventDefault();
     if (productSaving) return;
-    const form = new FormData(event.currentTarget);
+    const productForm = event.currentTarget;
+    const form = new FormData(productForm);
     setProductSaving(true);
     setCatalogLoading(true);
     try {
       const mediaImages = await uploadProductMedia();
-      const seoTitle = String(event.currentTarget.querySelector('input[maxlength="70"]')?.value || "").trim();
+      const seoTitle = String(productForm.querySelector('input[maxlength="70"]')?.value || "").trim();
       const productPayload = {
         name: form.get("name"),
         description: form.get("description") || "",
