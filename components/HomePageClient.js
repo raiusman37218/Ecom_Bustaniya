@@ -57,6 +57,7 @@ export default function Home({
   const [products, setProducts] = useState(() => normalizeProducts(serverProducts));
   const [categoryRecords, setCategoryRecords] = useState(() => initialCategories.filter((category) => !category.parentSlug));
   const [heroSlide, setHeroSlide] = useState(0);
+  const [quickViewProduct, setQuickViewProduct] = useState(null);
   const heroDesktopImages = storeSettings.heroDesktopImages?.length ? storeSettings.heroDesktopImages : [storeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage];
   const heroMobileImages = storeSettings.heroMobileImages?.length ? storeSettings.heroMobileImages : [storeSettings.heroMobileImage || DEFAULT_STORE_SETTINGS.heroMobileImage];
   const heroSlideCount = Math.max(heroDesktopImages.length, heroMobileImages.length);
@@ -112,6 +113,12 @@ export default function Home({
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
   const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+
+  function salePercent(product) {
+    const previous = Number(product.compareAtPrice || product.compare_at_price || 0);
+    const current = Number(product.price || 0);
+    return previous > current && current > 0 ? Math.round(((previous - current) / previous) * 100) : 0;
+  }
 
   function addToCart(product) {
     if (Number(product.stock || 0) <= 0) return;
@@ -203,10 +210,12 @@ export default function Home({
                 />
                 <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
                 {product.badge && <span className="badge">{product.badge}</span>}
+                {salePercent(product) > 0 && <span className="saleBadge">-{salePercent(product)}%</span>}
+                <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
               </div>
               <div className="productInfo">
-                <div><p>{product.category}</p><h3><a href={`/product/${product.id}`}>{product.name}</a></h3></div>
-                <div className="productPrice"><span>PKR {product.price.toLocaleString()}</span></div>
+                <div><p>{product.category}</p><h3><a href={`/product/${product.id}`}>{product.name}</a></h3>{Array.isArray(product.colors) && product.colors.length > 0 && <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>{product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}{product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}</div>}</div>
+                <div className="productPrice"><span>PKR {product.price.toLocaleString()}</span>{salePercent(product) > 0 && <del>PKR {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</del>}</div>
               </div>
             </article>)}
           </div>
@@ -258,6 +267,8 @@ export default function Home({
           <div><a href="/privacy-policy">Privacy</a><a href="/terms-and-conditions">Terms</a><a href="/shipping-policy">Shipping</a></div>
         </div>
       </footer>
+
+      {quickViewProduct && <><div className="overlay" onClick={() => setQuickViewProduct(null)} /><section className="quickViewModal" role="dialog" aria-modal="true" aria-label={`Quick view ${quickViewProduct.name}`}><button className="quickViewClose" onClick={() => setQuickViewProduct(null)} aria-label="Close quick view"><X /></button><div className="quickViewImage"><Image src={quickViewProduct.image} alt={quickViewProduct.name} fill sizes="(max-width: 700px) 90vw, 360px" /></div><div className="quickViewDetails"><p>{quickViewProduct.category}</p><h2>{quickViewProduct.name}</h2><div className="quickViewPrice">PKR {Number(quickViewProduct.price).toLocaleString()}{salePercent(quickViewProduct) > 0 && <del>PKR {Number(quickViewProduct.compareAtPrice || quickViewProduct.compare_at_price).toLocaleString()}</del>}</div><span>{quickViewProduct.description || "A thoughtfully designed Bustaniya piece."}</span>{quickViewProduct.sizes?.length > 0 && <small>Sizes: {quickViewProduct.sizes.join(" · ")}</small>}<button onClick={() => { addToCart(quickViewProduct); setQuickViewProduct(null); }} disabled={Number(quickViewProduct.stock || 0) <= 0}>{Number(quickViewProduct.stock || 0) > 0 ? "Add to bag" : "Out of stock"}</button><a href={`/product/${quickViewProduct.id}`}>View full details <ArrowRight size={15} /></a></div></section></>}
 
       {cartOpen && <div className="overlay" onClick={() => setCartOpen(false)} />}
       <aside className={cartOpen ? "cartDrawer cartOpen" : "cartDrawer"}>
