@@ -113,6 +113,11 @@ a { text-decoration:none; }
   .hero .primaryButton { width:max-content; max-width:100%; min-height:2.9rem; margin-top:1.25rem; padding:.8rem 1rem; box-shadow:0 12px 25px #173d2922; }
 }
 .shopSection { position:relative; padding:95px 3.2vw 105px; overflow:hidden; background:radial-gradient(circle at 8% 5%,#dcffb86b 0,transparent 22%),linear-gradient(180deg,#fffefb 0%,#f8f8f1 100%); }
+.scrollReveal { opacity:0; transform:translateY(30px); transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1); }
+.scrollReveal.is-revealed { opacity:1; transform:translateY(0); }
+.scrollReveal .sectionHeading,.scrollReveal>h2,.scrollReveal>.eyebrow,.scrollReveal .storyImage,.scrollReveal .storyContent,.scrollReveal .categoryCards,.scrollReveal form { transition:transform .7s cubic-bezier(.2,.7,.2,1) .08s,opacity .7s cubic-bezier(.2,.7,.2,1) .08s; }
+.scrollReveal:not(.is-revealed) .sectionHeading,.scrollReveal:not(.is-revealed)>h2,.scrollReveal:not(.is-revealed)>.eyebrow,.scrollReveal:not(.is-revealed) .storyImage,.scrollReveal:not(.is-revealed) .storyContent,.scrollReveal:not(.is-revealed) .categoryCards,.scrollReveal:not(.is-revealed) form { opacity:0; transform:translateY(18px); }
+@media (prefers-reduced-motion:reduce) { .scrollReveal,.scrollReveal .sectionHeading,.scrollReveal>h2,.scrollReveal>.eyebrow,.scrollReveal .storyImage,.scrollReveal .storyContent,.scrollReveal .categoryCards,.scrollReveal form { opacity:1; transform:none; transition:none; } }
 .shopSection::before { content:"NEW / 2026"; position:absolute; left:2.2vw; top:52px; color:#31574346; font-size:9px; font-weight:700; letter-spacing:.22em; writing-mode:vertical-rl; }
 .sectionHeading { display:block; position:relative; text-align:center; margin-bottom:32px; }
 .sectionHeading::after { content:""; display:block; width:44px; height:1px; margin:20px auto 0; background:var(--berry); }

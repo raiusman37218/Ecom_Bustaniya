@@ -79,6 +79,25 @@ export default function Home({
     return () => window.clearInterval(timer);
   }, [heroSlideCount]);
 
+  useEffect(() => {
+    const sections = [...document.querySelectorAll("[data-scroll-reveal]")];
+    if (!sections.length) return undefined;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion || !("IntersectionObserver" in window)) {
+      sections.forEach((section) => section.classList.add("is-revealed"));
+      return undefined;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("is-revealed");
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -48px" });
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+
   const visibleProducts = useMemo(() => products.filter((product) => {
     const categoryMatch = activeCategory === "All" || normalizeCategory(product.category) === activeCategory;
     return categoryMatch && product.name.toLowerCase().includes(search.toLowerCase());
@@ -166,7 +185,7 @@ export default function Home({
           </div>
         </section>}
 
-        <section className="shopSection khaadiTopPicks" id="products">
+        <section className="shopSection khaadiTopPicks scrollReveal" data-scroll-reveal id="products">
           <div className="sectionHeading">
             <div><p className="eyebrow">NEW ARRIVALS</p><h2>Top Picks for You</h2><span>Fresh styles selected for everyday elegance.</span></div>
           </div>
@@ -194,7 +213,7 @@ export default function Home({
           {!visibleProducts.length && <p className="empty">No products found.</p>}
         </section>
 
-        <section className="categoryShowcase">
+        <section className="categoryShowcase scrollReveal" data-scroll-reveal>
           <p className="eyebrow">FIND YOUR FAVOURITE</p>
           <h2>Shop by category</h2>
           <div className="categoryCards">
@@ -206,7 +225,7 @@ export default function Home({
           </div>
         </section>
 
-        <section className="story" id="story">
+        <section className="story scrollReveal" data-scroll-reveal id="story">
           <div className="storyImage" />
           <div className="storyContent">
             <p className="eyebrow">THE BUSTANIYA STORY</p>
@@ -217,7 +236,7 @@ export default function Home({
           </div>
         </section>
 
-        <section className="newsletter">
+        <section className="newsletter scrollReveal" data-scroll-reveal>
           <p className="eyebrow">STAY IN THE LOOP</p>
           <h2>A little beauty, delivered.</h2>
           <p>New collections, styling inspiration and 10% off your first order.</p>
