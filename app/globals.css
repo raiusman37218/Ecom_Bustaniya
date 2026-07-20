@@ -733,6 +733,10 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .productMetrics { margin-bottom:18px; }
 .catalogToolbar { min-height:68px; padding:0 18px; border-bottom:1px solid #e6eae6; display:flex; align-items:center; justify-content:space-between; gap:14px; }
 .catalogToolbar .orderTabs { padding:0; border:0; }
+.orderTabs { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:7px; border:1px solid #e0e7e0; border-radius:9px; background:#f7f9f6; }
+.orderTabs button { min-height:32px; padding:0 11px; border:1px solid transparent; border-radius:6px; background:transparent; color:#587065; font-size:10px; font-weight:700; letter-spacing:.01em; white-space:nowrap; transition:background .18s ease,color .18s ease,border-color .18s ease; }
+.orderTabs button:hover { border-color:#cddbd0; background:#fff; color:#244e35; }
+.orderTabs button.active { border-color:#173d29; background:#173d29; color:#fff; box-shadow:0 2px 5px #173d2920; }
 .catalogActions { display:flex; align-items:center; gap:8px; }
 .catalogActions .inlineSearch { width:300px; }
 .catalogActions button,.csvButton { min-height:35px; padding:0 12px; border:1px solid #d9e2db; border-radius:5px; background:#fff; color:#344b3b; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
