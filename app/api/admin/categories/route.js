@@ -30,6 +30,13 @@ function payloadToRecord(category = {}) {
     parent_slug: String(category.parentSlug || category.parent_slug || "").trim() || null,
     status: category.status || "Active",
     sort_order: Number(category.sortOrder ?? category.sort_order ?? 100),
+    show_in_header: Boolean(category.showInHeader ?? category.show_in_header ?? true),
+    show_on_homepage: Boolean(category.showOnHomepage ?? category.show_on_homepage ?? true),
+    show_in_footer: Boolean(category.showInFooter ?? category.show_in_footer ?? false),
+    show_in_search: Boolean(category.showInSearch ?? category.show_in_search ?? true),
+    seo_title: String(category.seoTitle || category.seo_title || "").trim(),
+    seo_description: String(category.seoDescription || category.seo_description || "").trim(),
+    image_alt: String(category.imageAlt || category.image_alt || name).trim(),
   };
 }
 

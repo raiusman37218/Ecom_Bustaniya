@@ -1027,6 +1027,20 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
     setEditing({ parentSlug: parent.slug, status: "Active", sortOrder: (childCategories.length + 1) * 10 });
   }
 
+  function moveCategory(category, direction) {
+    const siblings = categories.filter((item) => item.parentSlug === category.parentSlug).sort((a, b) => a.sortOrder - b.sortOrder);
+    const index = siblings.findIndex((item) => item.id === category.id);
+    const target = siblings[index + direction];
+    if (!target) return;
+    onSave({ ...category, sortOrder: target.sortOrder });
+    onSave({ ...target, sortOrder: category.sortOrder });
+  }
+
+  function confirmArchive(category) {
+    const count = productCount(category);
+    if (window.confirm(`${category.name} ko archive karna hai?${count ? ` ${count} product${count === 1 ? "" : "s"} is category mein hain.` : ""} Products delete nahi honge, lekin category storefront se hide ho jayegi.`)) onArchive(category);
+  }
+
   function saveCategory(event) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -1040,6 +1054,13 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
       image: form.get("image") || "",
       status: form.get("status") || "Active",
       sortOrder: Number(form.get("sortOrder") || 100),
+      showInHeader: form.get("showInHeader") === "on",
+      showOnHomepage: form.get("showOnHomepage") === "on",
+      showInFooter: form.get("showInFooter") === "on",
+      showInSearch: form.get("showInSearch") === "on",
+      seoTitle: form.get("seoTitle") || "",
+      seoDescription: form.get("seoDescription") || "",
+      imageAlt: form.get("imageAlt") || name,
     });
     if (!editing) event.currentTarget.reset();
     setEditing(null);
@@ -1074,7 +1095,7 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
         <div className="inventoryListHead"><div><h2>{selectedCategory?.name || "Select category"}</h2><span>{childCategories.length} subcategories inside</span></div>{selectedCategory && <button onClick={() => openNewSubcategory(selectedCategory)} disabled={saving}><Plus /> Add inside</button>}</div>
         {selectedCategory && <div className="categoryParentSummary">
           <div className="tableProduct"><span style={{ backgroundImage: `url(${selectedCategory.image || "/bustaniya-campaign-hero-v4.png"})` }} /><div><b>{selectedCategory.name}</b><small><a href={`/category/${selectedCategory.slug}`} target="_blank">/category/{selectedCategory.slug}</a></small></div></div>
-          <div className="productRowActions"><button className="editProductButton" onClick={() => setEditing(selectedCategory)} disabled={saving}>Edit main</button><button className="removeProductButton" onClick={() => onArchive(selectedCategory)} disabled={saving}><X /><span>Archive</span></button></div>
+          <div className="productRowActions"><button className="editProductButton" onClick={() => moveCategory(selectedCategory, -1)} disabled={saving}>↑</button><button className="editProductButton" onClick={() => moveCategory(selectedCategory, 1)} disabled={saving}>↓</button><button className="editProductButton" onClick={() => setEditing(selectedCategory)} disabled={saving}>Edit main</button><button className="removeProductButton" onClick={() => confirmArchive(selectedCategory)} disabled={saving}><X /><span>Archive</span></button></div>
         </div>}
         <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Subcategory</th><th>URL</th><th>Products</th><th>Status</th><th /></tr></thead><tbody>
           {childCategories.map((category) => (
@@ -1092,6 +1113,9 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
       <label>Parent<select name="parentSlug" defaultValue={editing.parentSlug || ""}><option value="">Main category</option>{mainCategories.filter((category) => category.id !== editing.id).map((category) => <option value={category.slug} key={category.slug}>{category.name}</option>)}</select></label>
       <label>Description<textarea name="description" rows="3" defaultValue={editing.description || ""} placeholder="Short SEO-friendly category description" /></label>
       <label>Cover image URL<input name="image" defaultValue={editing.image || ""} placeholder="https://... or /bustaniya-campaign-hero-v4.png" /></label>
+      <label>Cover image alt text<input name="imageAlt" defaultValue={editing.imageAlt || editing.name || ""} placeholder="Describe this category image" /></label>
+      <div className="categoryVisibility"><b>Storefront visibility</b><label><input type="checkbox" name="showInHeader" defaultChecked={editing.showInHeader ?? true} /> Header menu</label><label><input type="checkbox" name="showOnHomepage" defaultChecked={editing.showOnHomepage ?? true} /> Homepage</label><label><input type="checkbox" name="showInFooter" defaultChecked={editing.showInFooter ?? false} /> Footer</label><label><input type="checkbox" name="showInSearch" defaultChecked={editing.showInSearch ?? true} /> Search & filters</label></div>
+      <details className="categorySeo"><summary>SEO settings</summary><label>SEO title<input name="seoTitle" maxLength="60" defaultValue={editing.seoTitle || ""} placeholder="Category title for Google" /></label><label>Meta description<textarea name="seoDescription" rows="3" maxLength="160" defaultValue={editing.seoDescription || ""} placeholder="Short search-result description" /></label></details>
       <label>Status<select name="status" defaultValue={editing.status || "Active"}><option>Active</option><option>Draft</option><option>Archived</option></select></label>
       <button disabled={saving}>{saving ? "Saving..." : "Save category"}</button>
     </form></>}

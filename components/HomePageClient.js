@@ -86,7 +86,7 @@ export default function Home({
 
   const categoryNames = useMemo(() => ["All", ...categoryRecords.map((category) => category.name)], [categoryRecords]);
 
-  const categoryCards = useMemo(() => categoryRecords.map((category) => ({
+  const categoryCards = useMemo(() => categoryRecords.filter((category) => category.showOnHomepage !== false).map((category) => ({
     ...category,
     image: products.find((product) => normalizeCategory(product.category) === category.name)?.image || category.image,
   })), [categoryRecords, products]);
