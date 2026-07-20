@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CircleCheck, ShieldCheck, Truck } from "lucide-react";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 
 function activeAnnouncements(settings) {
@@ -26,7 +26,15 @@ function activeAnnouncements(settings) {
 }
 
 export default function AnnouncementBar({ storeSettings = DEFAULT_STORE_SETTINGS, className = "" }) {
-  const announcements = useMemo(() => activeAnnouncements(storeSettings), [storeSettings]);
+  const announcements = useMemo(() => {
+    const configured = activeAnnouncements(storeSettings);
+    const trustMessages = [
+      { id: "trust-cod", text: "Cash on Delivery available nationwide", icon: Truck },
+      { id: "trust-quality", text: "Thoughtfully made, premium-quality eastern wear", icon: CircleCheck },
+      { id: "trust-secure", text: "Secure checkout and clear order updates", icon: ShieldCheck },
+    ];
+    return [...trustMessages, ...configured];
+  }, [storeSettings]);
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -51,7 +59,8 @@ export default function AnnouncementBar({ storeSettings = DEFAULT_STORE_SETTINGS
 
   return (
     <div className={["announcement", className].filter(Boolean).join(" ")}>
-      <span key={announcement.id}>{announcement.text}</span>
+      <span className="announcementMessage" key={announcement.id}>{announcement.icon && <announcement.icon aria-hidden="true" />}{announcement.text}</span>
+      <span className="announcementProgress" aria-hidden="true">{announcements.map((item, index) => <i className={index === activeIndex ? "active" : ""} key={item.id} />)}</span>
       {announcement.linkLabel && announcement.linkHref && (
         <a href={announcement.linkHref}>{announcement.linkLabel} <ArrowRight size={14} /></a>
       )}

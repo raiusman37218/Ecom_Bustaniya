@@ -8,7 +8,13 @@ button,input,select,textarea { font:inherit; }
 button,a { color:inherit; }
 button { cursor:pointer; }
 a { text-decoration:none; }
-.announcement { height:40px; padding:0 4.5vw; display:flex; align-items:center; justify-content:center; gap:34px; background:var(--forest); color:#fffdf5; font-size:11px; letter-spacing:.16em; }
+.announcement { min-height:42px; padding:0 4.5vw; display:flex; align-items:center; justify-content:center; gap:18px; background:linear-gradient(90deg,#0d321f,#16452c 50%,#0d321f); color:#fffdf5; font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+.announcementMessage { display:flex; align-items:center; justify-content:center; gap:8px; text-align:center; animation:announcementIn .36s ease both; }
+.announcementMessage svg { width:15px; height:15px; color:#d8ffb2; flex:0 0 auto; }
+.announcementProgress { display:flex; gap:4px; }
+.announcementProgress i { width:4px; height:4px; border-radius:50%; background:#ffffff55; transition:.25s; }
+.announcementProgress i.active { width:15px; border-radius:4px; background:#d8ffb2; }
+@keyframes announcementIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
 .announcement a { display:flex; gap:6px; align-items:center; border-bottom:1px solid #ffffff80; }
 .header { height:100px; padding:0 4.2vw; background:linear-gradient(180deg,#fffefb 0%,#f8fced 100%); color:var(--forest); display:flex; align-items:center; justify-content:space-between; position:relative; z-index:20; border-bottom:1px solid #cfdacb; box-shadow:0 10px 35px #173d2910; }
 .header::after { content:""; position:absolute; left:4.2vw; right:4.2vw; bottom:-1px; height:1px; background:linear-gradient(90deg,transparent,var(--berry) 48%,transparent); opacity:.3; }
@@ -988,7 +994,8 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .orderActionRow { flex-direction:column; }
   .orderActionRow button,.orderOpsCard>button { width:100%; }
   .orderDialog { width:calc(100% - 24px); padding:16px; }
-  .announcement { display:none; height:auto; min-height:38px; padding:8px 18px; text-align:center; line-height:1.35; font-size:8px; letter-spacing:.11em; }
+  .announcement { display:flex; height:auto; min-height:38px; padding:8px 18px; text-align:center; line-height:1.35; font-size:8px; letter-spacing:.08em; }
+  .announcementProgress { display:none; }
   .announcement a { display:none; }
   .header { position:sticky; top:0; height:74px; padding:0 14px; z-index:60; background:#fffefbde; backdrop-filter:blur(14px); }
   .header::after { left:14px; right:14px; }
