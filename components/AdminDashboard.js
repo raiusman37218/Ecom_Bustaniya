@@ -2843,15 +2843,29 @@ function SettingsPanel({ onOpen, signedInUser }) {
     if (activeTab === "Users") loadAdminUsers();
   }, [activeTab]);
 
-  function addHeroImageUrl(field) {
+  async function addHeroImageUrl(field) {
     const url = String(heroUrlInputs[field] || "").trim();
     if (!/^https:\/\//i.test(url)) {
       setStoreSettingsError("Paste a secure https:// image URL from Cloudinary.");
       return;
     }
-    setStoreSettingsError("");
-    setStoreSettings((current) => ({ ...current, [field]: [...(current[field] || []), url] }));
-    setHeroUrlInputs((current) => ({ ...current, [field]: "" }));
+    if (!/^https:\/\/res\.cloudinary\.com\//i.test(url)) {
+      setStoreSettingsError("Paste a Cloudinary delivery URL beginning with https://res.cloudinary.com/.");
+      return;
+    }
+    try {
+      await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error("This Cloudinary URL does not load an image."));
+        image.src = url;
+      });
+      setStoreSettingsError("");
+      setStoreSettings((current) => ({ ...current, [field]: [...(current[field] || []), url] }));
+      setHeroUrlInputs((current) => ({ ...current, [field]: "" }));
+    } catch (error) {
+      setStoreSettingsError(error.message || "This Cloudinary URL does not load an image.");
+    }
   }
 
   async function loadStoreSettings() {
