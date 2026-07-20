@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Bell, Boxes, ChevronDown, CircleDollarSign, Landmark, LayoutDashboard,
+  Bell, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
   LogOut, Menu, Minus, MoreHorizontal, Package, Plus,
   ReceiptText, Search, Settings, ShoppingBag, Store, Tags, TrendingUp, Users,
   WalletCards, X
@@ -11,6 +11,10 @@ import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, p
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import { apparelSizes, fashionColors } from "../data/variantOptions";
 import AdminLogin from "./AdminLogin";
+
+function HelpHint({ text }) {
+  return <span className="helpHint" tabIndex="0" role="note" aria-label={text} data-tooltip={text}><Info /></span>;
+}
 
 const fallbackCategoryRecords = fallbackCategoryNames
   .filter((category) => category !== "All")
@@ -783,7 +787,7 @@ export default function AdminDashboard() {
             <section className="productEditorCard">
               <h3>Cost, pricing & profit</h3>
               <p>Every figure in this section is for one item / one suit. Profit is calculated for one item after the fixed 1% GST and 4% tax.</p>
-              {costBreakdown.costSource === "production_batch" && <div className="inventoryAlert materialAlert"><Package /><div><b>Production batch cost is linked</b><span>Batch {costBreakdown.productionBatchId} produced {Number(costBreakdown.productionBatchQuantity || 0).toLocaleString()} items. Its total cost of Rs. {Number(costBreakdown.productionBatchTotalCost || 0).toLocaleString()} has been divided into the per-item costs below.</span></div></div>}
+              {costBreakdown.costSource === "production_batch" && <div className="inventoryAlert materialAlert"><Package /><div><b>Production batch cost is linked <HelpHint text="This per-item cost is calculated from the batch's direct costs plus its share of common costs, divided by finished quantity." /></b><span>Batch {costBreakdown.productionBatchId} produced {Number(costBreakdown.productionBatchQuantity || 0).toLocaleString()} items. Its total cost of Rs. {Number(costBreakdown.productionBatchTotalCost || 0).toLocaleString()} has been divided into the per-item costs below.</span></div></div>}
               <div className="formRow"><label>Selling price (PKR)<input name="price" required type="number" min="0" value={productPrice || ""} onChange={(e) => setProductPrice(e.target.value)} placeholder="4,990" /></label><label>Compare-at price<input name="comparePrice" type="number" placeholder="5,990" /></label></div>
               <p className="fieldTitle">Per-item cost breakdown (PKR)</p>
               <div className="formRow"><label>Fabric<input type="number" min="0" value={costBreakdown.fabric || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, fabric: e.target.value }))} /></label><label>Stitching<input type="number" min="0" value={costBreakdown.stitching || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, stitching: e.target.value }))} /></label></div>
@@ -1849,14 +1853,14 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
 
     <section className="financeGrid financeGridWide">
       <form className="adminCard financeExpenseForm" onSubmit={saveProfitAllocation}>
-        <h2>Profit allocation planner</h2>
+        <h2>Profit allocation planner <HelpHint text="This only plans how current net profit may be used. It does not move cash or create an expense." /></h2>
         <p className="trackingNumber">Plan from current net profit only. Saving this plan does not create an expense or personal withdrawal.</p>
         <div className="formRow"><label>Marketing %<input type="number" min="0" max="100" value={profitAllocation.marketingPercent} onChange={(event) => setProfitAllocation((current) => ({ ...current, marketingPercent: event.target.value }))} /></label><label>Owner / family %<input type="number" min="0" max="100" value={profitAllocation.ownerPercent} onChange={(event) => setProfitAllocation((current) => ({ ...current, ownerPercent: event.target.value }))} /></label></div>
         <div className="financeStatement"><div><span>Current net profit to allocate</span><b>{money(allocatableProfit)}</b></div><div><span>Marketing budget ({profitAllocation.marketingPercent || 0}%)</span><b>{money(marketingAllocation)}</b></div><div><span>Owner / family amount ({profitAllocation.ownerPercent || 0}%)</span><b>{money(ownerAllocation)}</b></div><div className="statementTotal"><span>New stock / reinvestment ({Math.max(0, 100 - Number(profitAllocation.marketingPercent || 0) - Number(profitAllocation.ownerPercent || 0))}%)</span><b>{money(stockAllocation)}</b></div></div>
         <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save allocation plan"}</button>
       </form>
       <form className="adminCard financeExpenseForm" onSubmit={addCashbookTransaction}>
-        <h2>Cashbook entry</h2>
+        <h2>Cashbook entry <HelpHint text="Use this for money actually received, spent, added by the owner, or withdrawn for personal use." /></h2>
         <p className="trackingNumber">Record owner funds, personal withdrawals, or a business cost paid from received cash.</p>
         {cashbookError && <div className="adminErrorBanner">{cashbookError}</div>}
         <label>Transaction type<select name="type" defaultValue="business_expense"><option value="business_expense">Business expense (reduces profit + cash)</option><option value="owner_withdrawal">Owner withdrawal / personal use (reduces cash only)</option><option value="owner_investment">Owner investment / cash added (increases cash only)</option></select></label>
@@ -1870,7 +1874,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
 
     <section className="financeGrid">
       <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Profit summary</h2><p>Follow the steps below from sales to final profit.</p></div><b>{profitMargin}% margin</b></div>
+        <div className="cardHeading"><div><h2>Profit summary <HelpHint text="COGS means the saved cost of delivered products. Cashbook stock purchases are not deducted twice; their cost is counted when units sell." /></h2><p>Follow the steps below from sales to final profit.</p></div><b>{profitMargin}% margin</b></div>
         <div className="financeStatement">
           <div><span>1. Product sales ({totalProductsSold} items)</span><b>+ {money(deliveredProductRevenue)}</b></div>
           <div><span>2. Delivery fees collected</span><b>{deliveryCollected >= 0 ? "+ " : "- "}{money(Math.abs(deliveryCollected))}</b></div>
@@ -2329,7 +2333,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
 
     <section className="adminCard managementCard inventoryLedger">
       <div className="inventoryListHead"><div><h2>Inventory profit projection</h2><span>Estimate only — actual profit remains in Finance after orders are delivered.</span></div></div>
-      <div className="inventoryViewBar"><button type="button" className={profitProjectionView === "product" ? "active" : ""} onClick={() => setProfitProjectionView("product")}>Product-only</button><button type="button" className={profitProjectionView === "all" ? "active" : ""} onClick={() => setProfitProjectionView("all")}>All costs included</button></div>
+      <div className="inventoryViewBar"><button type="button" className={profitProjectionView === "product" ? "active" : ""} onClick={() => setProfitProjectionView("product")}>Product-only</button><button type="button" className={profitProjectionView === "all" ? "active" : ""} onClick={() => setProfitProjectionView("all")}>All costs included</button><HelpHint text="Estimated stock profit after expected return-courier loss and saved marketing spend. Actual profit remains in Finance." /></div>
       {profitProjectionView === "product" ? <div className="inventoryAlert materialAlert"><CircleDollarSign /><div><b>Product-only stock profit: Rs. {potentialStockProfit.toLocaleString()}</b><span>Potential sales minus saved per-item product cost and 5% GST/tax. This is the clean product margin before delivery, returns and marketing.</span></div></div> : <><div className="financeControls"><label>Expected items per order<input type="number" min="1" step="0.1" value={expectedItemsPerOrder || historicalItemsPerOrder.toFixed(1)} onChange={(event) => setExpectedItemsPerOrder(event.target.value)} /></label><label>Projected orders<input readOnly value={projectedOrderCount} /></label><label>Historical return rate<input readOnly value={`${Math.round(returnRate * 100)}%`} /></label></div><div className="financeStatement"><div><span>Product-only stock profit</span><b>{inventoryMoney(potentialStockProfit)}</b></div><div><span>Delivery collected less courier (Rs. 200 per order)</span><b>Rs. 0</b></div><div><span>Expected returned-order courier loss</span><b>- {inventoryMoney(projectedReturnCourierLoss)}</b></div><div><span>Actual marketing spend allocated per sold item</span><b>- {inventoryMoney(projectedMarketingCost)}</b></div><div className="statementTotal"><span>All-cost projected inventory profit</span><b>{inventoryMoney(allCostsProjectedProfit)}</b></div></div><p className="trackingNumber">{!projectionFinanceLoaded ? "Loading Finance-linked assumptions..." : projectionFinanceAvailable ? "Marketing uses saved Cashbook entries in the Marketing category. Return loss uses your historic returned-order rate; change expected items per order if needed." : "Finance marketing data is unavailable for this account, so marketing is shown as Rs. 0. Product-only calculation remains accurate."}</p></>}
     </section>
 

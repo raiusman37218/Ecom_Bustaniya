@@ -479,6 +479,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .adminTableWrap { overflow:auto; }
 .adminTable { width:100%; border-collapse:collapse; font-size:10px; white-space:nowrap; }
 .adminTable th { padding:11px 16px; background:#f7f8f6; color:#859087; text-align:left; font-size:8px; text-transform:uppercase; letter-spacing:.06em; font-weight:500; }
+.adminTableWrap .adminTable thead th { position:sticky; top:0; z-index:2; box-shadow:0 1px 0 #e3e8e3; }
 .adminTable td { padding:12px 16px; border-top:1px solid #edf0ed; }
 .tableSelect { min-width:112px; padding:7px 9px; border:1px solid #dfe5df; border-radius:6px; background:#fff; color:#334139; font:inherit; }
 .statusBadge { display:inline-block; padding:5px 8px; border-radius:12px; font-size:8px; background:#eef1ee; }
@@ -784,6 +785,12 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .financeStatement { margin-top:20px; display:flex; flex-direction:column; gap:10px; }
 .financeStatement>div,.inventoryFinanceList>div { min-height:42px; padding:0 0 10px; border-bottom:1px solid #edf0ed; display:flex; align-items:center; justify-content:space-between; gap:14px; }
 .financeStatement span,.inventoryFinanceList span { color:#5f6f66; font-size:10px; }
+
+.helpHint { position:relative; display:inline-flex; vertical-align:middle; margin-left:5px; color:#64776b; cursor:help; outline:0; }
+.helpHint svg { width:13px; height:13px; }
+.helpHint::after { content:attr(data-tooltip); position:absolute; z-index:20; left:50%; bottom:calc(100% + 8px); width:min(240px,70vw); padding:9px 10px; border-radius:6px; background:#173d29; color:#fff; font-family:var(--font-sans); font-size:10px; font-weight:500; line-height:1.45; letter-spacing:0; text-transform:none; white-space:normal; opacity:0; pointer-events:none; transform:translate(-50%,4px); transition:opacity .15s ease,transform .15s ease; }
+.helpHint:hover::after,.helpHint:focus::after { opacity:1; transform:translate(-50%,0); }
+.inventoryViewBar .helpHint { margin-left:4px; color:currentColor; }
 
 /* Disabled admin actions remain readable on bright screens while clearly inactive. */
 .adminContent button:disabled { cursor:not-allowed; opacity:1; background:#eef1ee!important; color:#66736b!important; border-color:#c7d0c9!important; box-shadow:none!important; }
