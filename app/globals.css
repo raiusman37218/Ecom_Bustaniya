@@ -383,6 +383,40 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .relatedProducts h2 { margin:8px 0 35px; font-family:var(--font-display); font-size:clamp(42px,5vw,66px); font-weight:600; }
 .relatedProducts .productInfo { text-align:left; }
 .adminShell { min-height:100vh; background:#f5f7f3; color:#183226; display:grid; grid-template-columns:250px 1fr; font-family:var(--font-sans); }
+.adminLoadingShell { overflow:hidden; }
+.adminSkeleton { display:block; border-radius:7px; background:linear-gradient(100deg,#e3e9e3 20%,#f8fbf7 42%,#e3e9e3 64%); background-size:220% 100%; animation:adminSkeletonShimmer 1.25s ease-in-out infinite; }
+.adminLoadingSidebar .adminSkeleton { background:linear-gradient(100deg,#2a593f 20%,#3b6a50 42%,#2a593f 64%); background-size:220% 100%; }
+.adminLoadingBrand { height:86px; padding:0 10px; border-bottom:1px solid #ffffff17; display:flex; align-items:center; gap:11px; }
+.adminLoadingMark { width:35px; height:35px; border-radius:50%; flex:0 0 auto; }
+.adminLoadingBrandName { width:125px; height:16px; }
+.adminLoadingNavigation { flex:1; padding:22px 10px; display:flex; flex-direction:column; gap:14px; }
+.adminLoadingNavItem { width:100%; height:30px; }
+.adminLoadingNavItem:nth-child(2n) { width:78%; }
+.adminLoadingNavItem:nth-child(3n) { width:88%; }
+.adminLoadingAccount { width:calc(100% - 20px); height:49px; margin:0 10px 4px; }
+.adminLoadingTopbar { position:relative; }
+.adminLoadingSearch { width:min(330px,42vw); height:14px; }
+.adminLoadingTopActions { display:flex; align-items:center; gap:14px; }
+.adminLoadingAction { width:68px; height:14px; }
+.adminLoadingAvatar { width:35px; height:35px; border-radius:50%; }
+.adminLoadingContent { width:100%; }
+.adminLoadingHeading { margin:6px 0 28px; display:flex; flex-direction:column; align-items:flex-start; gap:10px; }
+.adminLoadingEyebrow { width:72px; height:8px; }
+.adminLoadingTitle { width:min(250px,52vw); height:38px; }
+.adminLoadingSubtitle { width:min(355px,72vw); height:12px; }
+.adminLoadingMetricGrid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:16px; }
+.adminLoadingMetric { min-height:116px; padding:20px; border:1px solid #e1e6e1; border-radius:9px; background:#fff; display:flex; flex-direction:column; justify-content:space-between; }
+.adminLoadingMetric .adminSkeleton:nth-child(1) { width:28px; height:28px; border-radius:50%; }
+.adminLoadingMetric .adminSkeleton:nth-child(2) { width:58%; height:21px; }
+.adminLoadingMetric .adminSkeleton:nth-child(3) { width:38%; height:10px; }
+.adminLoadingPanel { min-height:310px; padding:22px; border:1px solid #e1e6e1; border-radius:9px; background:#fff; display:flex; flex-direction:column; gap:19px; }
+.adminLoadingPanel>div { display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; }
+.adminLoadingPanelTitle { width:150px; height:19px; }
+.adminLoadingPanelAction { width:76px; height:30px; }
+.adminLoadingRow { width:100%; height:17px; }
+.adminLoadingRow:nth-of-type(3),.adminLoadingRow:nth-of-type(5) { width:79%; }
+.adminLoadingStatus { margin:18px 0 0; color:#65736a; font-size:11px; }
+@keyframes adminSkeletonShimmer { 0% { background-position:100% 0; } 100% { background-position:-120% 0; } }
 .adminLoginShell { min-height:100vh; padding:28px; background:linear-gradient(135deg,#f8fced 0%,#fffefb 48%,#eaf4d8 100%); display:grid; place-items:center; color:var(--forest); }
 .adminLoginCard { width:min(390px,100%); padding:34px; border:1px solid #dbe4d8; border-radius:8px; background:#fffefbf2; box-shadow:0 24px 70px #173d2920; display:flex; flex-direction:column; gap:16px; }
 .adminLoginCard img { width:190px; height:auto; margin-bottom:6px; }
@@ -811,6 +845,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 
 @media (max-width:900px) {
   .adminShell { display:block; }
+  .adminLoadingSidebar { display:none; }
   .adminSidebar { transform:translateX(-105%); transition:.25s; }
   .adminSidebar.sidebarVisible { transform:translateX(0); }
   .closeSidebar { display:block; position:absolute; right:12px; top:12px; border:0; background:transparent; color:#fff; }
@@ -861,6 +896,10 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .adminTopActions>a { display:none; }
   .adminTopActions { gap:8px; }
   .adminContent { padding:20px 14px; }
+  .adminLoadingContent { padding-top:25px; }
+  .adminLoadingMetricGrid { grid-template-columns:1fr 1fr; gap:10px; }
+  .adminLoadingMetric { min-height:105px; padding:15px; }
+  .adminLoadingPanel { min-height:255px; padding:16px; }
   .adminTitle { align-items:flex-start; gap:18px; flex-direction:column; }
   .adminTitle h1 { font-size:29px; }
   .adminTitle span { max-width:210px; line-height:1.5; }
