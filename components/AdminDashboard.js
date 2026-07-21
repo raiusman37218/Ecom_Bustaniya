@@ -1723,6 +1723,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
     String(item.title || "").startsWith("Production batch ")
   );
   const productionCashOutflow = cashbookTransactions.filter(isProductionBatchExpense).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const supplierPaymentTotal = cashbookTransactions.filter((item) => item.type === "supplier_payment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const cashbookOperatingExpenses = cashbookTransactions
     .filter((item) => item.type === "business_expense" && !isProductionBatchExpense(item))
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -1733,7 +1734,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   // A batch purchase is cash spent now but becomes COGS only when its units sell.
   // Keeping it out of this P&L total prevents subtracting the same cost twice.
   const profitExpenseTotal = manualExpenseTotal + cashbookOperatingExpenses + packagingTotal + deliveryTotal;
-  const cashOutflowTotal = profitExpenseTotal + productionCashOutflow;
+  const cashOutflowTotal = profitExpenseTotal + productionCashOutflow + supplierPaymentTotal;
   const courierDeliveryCost = deliveredOrderCount * 200;
   const returnCourierCost = returnedOrderCount * 200;
   const gstProvision = Math.round(deliveredProductRevenue * 0.01);
@@ -1786,6 +1787,16 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
       if (!response.ok) throw new Error(result.error || "Unable to save supplier bill.");
       setSupplierBills(result.supplierBills || nextBills); event.currentTarget.reset();
     } catch (error) { setCashbookError(error.message); } finally { setCashbookLoading(false); }
+  }
+
+  async function recordSupplierPayment(bill) {
+    const remaining = Math.max(0, Number(bill.total) - Number(bill.paid));
+    const amount = Number(window.prompt(`Record payment to ${bill.supplier}. Remaining: Rs. ${remaining.toLocaleString()}`, String(remaining)) || 0);
+    if (!amount || amount < 0 || amount > remaining) return;
+    const nextBills = supplierBills.map((item) => item.id === bill.id ? { ...item, paid: Number(item.paid || 0) + amount, status: Number(item.paid || 0) + amount >= Number(item.total) ? "paid" : "open" } : item);
+    const nextTransactions = [{ id: `supplier-payment-${Date.now()}`, type: "supplier_payment", title: `Supplier payment: ${bill.supplier}`, category: "Supplier payable", amount, date: today, note: bill.reference || bill.note || "" }, ...cashbookTransactions];
+    setCashbookLoading(true); setCashbookError("");
+    try { const response = await fetch("/api/admin/finance-transactions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactions: nextTransactions, allocation: profitAllocation, supplierBills: nextBills, fixedCosts: Number(fixedCosts || 0), marketingCampaigns }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to record supplier payment."); setSupplierBills(result.supplierBills || nextBills); setCashbookTransactions(result.transactions || nextTransactions); } catch (error) { setCashbookError(error.message); } finally { setCashbookLoading(false); }
   }
 
   if (!isOwnerFinance) {
@@ -1989,7 +2000,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
     <section className="financeGrid financeGridWide">
       <div className="adminCard managementCard">
         <div className="inventoryListHead"><div><h2>Supplier payables</h2><span>{overdueSupplierBills.length ? `${overdueSupplierBills.length} overdue — action needed` : "Bills and due dates"}</span></div><b>{money(supplierPayableTotal)} due</b></div>
-        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Supplier</th><th>Reference</th><th>Due date</th><th>Bill</th><th>Paid</th><th>Remaining</th></tr></thead><tbody>{supplierBills.map((bill) => { const remaining = Math.max(0, Number(bill.total) - Number(bill.paid)); return <tr key={bill.id}><td><b>{bill.supplier}</b></td><td>{bill.reference || "—"}</td><td>{bill.dueDate || "—"}</td><td>{money(bill.total)}</td><td>{money(bill.paid)}</td><td className={bill.dueDate && bill.dueDate < today && remaining ? "expenseAmount" : ""}>{money(remaining)}</td></tr>; })}{!supplierBills.length && <tr><td colSpan="6" className="emptyFinanceCell">No supplier bills added yet.</td></tr>}</tbody></table></div>
+        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Supplier</th><th>Reference</th><th>Due date</th><th>Bill</th><th>Paid</th><th>Remaining</th><th /></tr></thead><tbody>{supplierBills.map((bill) => { const remaining = Math.max(0, Number(bill.total) - Number(bill.paid)); return <tr key={bill.id}><td><b>{bill.supplier}</b></td><td>{bill.reference || "—"}</td><td>{bill.dueDate || "—"}</td><td>{money(bill.total)}</td><td>{money(bill.paid)}</td><td className={bill.dueDate && bill.dueDate < today && remaining ? "expenseAmount" : ""}>{money(remaining)}</td><td>{remaining > 0 && <button className="editProductButton" onClick={() => recordSupplierPayment(bill)} disabled={cashbookLoading}>Pay</button>}</td></tr>; })}{!supplierBills.length && <tr><td colSpan="7" className="emptyFinanceCell">No supplier bills added yet.</td></tr>}</tbody></table></div>
       </div>
       <form className="adminCard financeExpenseForm" onSubmit={addSupplierBill}>
         <h2>Add supplier bill</h2><p className="trackingNumber">Record the full bill, any amount already paid, and the due date. This creates a payable, not an expense twice.</p>
