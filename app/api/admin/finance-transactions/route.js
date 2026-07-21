@@ -6,7 +6,7 @@ export async function GET(request) {
   try {
     await authorizeAdminSession(request, "finance");
     const settings = await getStoreSettings({ includeFinance: true });
-    return NextResponse.json({ transactions: settings.financeTransactions || [], allocation: settings.financeAllocation });
+    return NextResponse.json({ transactions: settings.financeTransactions || [], allocation: settings.financeAllocation, supplierBills: settings.supplierBills || [] });
   } catch (error) {
     if (error?.status === 401 || error?.status === 403) {
       const authError = adminAuthErrorResponse(error);
@@ -25,8 +25,9 @@ export async function PATCH(request) {
       ...existing,
       financeTransactions: body.transactions ?? existing.financeTransactions,
       financeAllocation: body.allocation ?? existing.financeAllocation,
+      supplierBills: body.supplierBills ?? existing.supplierBills,
     });
-    return NextResponse.json({ success: true, transactions: settings.financeTransactions || [], allocation: settings.financeAllocation });
+    return NextResponse.json({ success: true, transactions: settings.financeTransactions || [], allocation: settings.financeAllocation, supplierBills: settings.supplierBills || [] });
   } catch (error) {
     if (error?.status === 401 || error?.status === 403) {
       const authError = adminAuthErrorResponse(error);

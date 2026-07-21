@@ -1641,6 +1641,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   const [expenses, setExpenses] = useState([]);
   const [financeReady, setFinanceReady] = useState(false);
   const [cashbookTransactions, setCashbookTransactions] = useState([]);
+  const [supplierBills, setSupplierBills] = useState([]);
   const [profitAllocation, setProfitAllocation] = useState({ marketingPercent: 25, ownerPercent: 30, stockPercent: 45 });
   const [cashbookLoading, setCashbookLoading] = useState(true);
   const [cashbookError, setCashbookError] = useState("");
@@ -1676,6 +1677,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
         if (!ok) throw new Error(result.error || "Unable to load cashbook.");
         if (active) {
           setCashbookTransactions(result.transactions || []);
+          setSupplierBills(result.supplierBills || []);
           setProfitAllocation(result.allocation || { marketingPercent: 25, ownerPercent: 30, stockPercent: 45 });
         }
       })
@@ -1747,6 +1749,26 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
     .filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5))
     .reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
   const profitMargin = grossRevenue ? Math.round((netProfit / grossRevenue) * 100) : 0;
+  const supplierPayableTotal = supplierBills.reduce((sum, bill) => sum + Math.max(0, Number(bill.total || 0) - Number(bill.paid || 0)), 0);
+  const today = new Date().toISOString().slice(0, 10);
+  const overdueSupplierBills = supplierBills.filter((bill) => bill.status !== "paid" && bill.dueDate && bill.dueDate < today);
+
+  async function addSupplierBill(event) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const total = Number(data.get("total") || 0);
+    const paid = Math.min(total, Math.max(0, Number(data.get("paid") || 0)));
+    if (!total) return;
+    const nextBills = [{ id: `supplier-bill-${Date.now()}`, supplier: String(data.get("supplier") || "").trim(), reference: String(data.get("reference") || "").trim(), total, paid, date: data.get("date") || today, dueDate: data.get("dueDate") || "", note: String(data.get("note") || "").trim(), status: paid >= total ? "paid" : "open" }, ...supplierBills];
+    if (!nextBills[0].supplier) return;
+    setCashbookLoading(true); setCashbookError("");
+    try {
+      const response = await fetch("/api/admin/finance-transactions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactions: cashbookTransactions, allocation: profitAllocation, supplierBills: nextBills }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to save supplier bill.");
+      setSupplierBills(result.supplierBills || nextBills); event.currentTarget.reset();
+    } catch (error) { setCashbookError(error.message); } finally { setCashbookLoading(false); }
+  }
 
   if (!isOwnerFinance) {
     return <div className="financeSystem">
@@ -1912,6 +1934,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
       <article className={returnedOrderCount ? "alertMetric" : ""}><Package /><span><b>{returnedOrderCount}</b>Returned orders</span></article>
       <article className={returnCourierCost ? "alertMetric" : ""}><TrendingUp /><span><b>{money(returnCourierCost)}</b>Return courier loss</span></article>
       <article><Landmark /><span><b>{money(receivables)}</b>Pending COD</span></article>
+      <article className={overdueSupplierBills.length ? "alertMetric" : ""}><Landmark /><span><b>{money(supplierPayableTotal)}</b>Supplier payables</span></article>
       <article><TrendingUp /><span><b>{money(profitAfterProductCost)}</b>Profit before deductions</span></article>
       <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Final net profit</span></article>
     </div>
@@ -1934,6 +1957,17 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
         <label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label>
         <label>Note (optional)<input name="note" placeholder="Reason or reference" /></label>
         <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save cashbook entry"}</button>
+      </form>
+    </section>
+
+    <section className="financeGrid financeGridWide">
+      <div className="adminCard managementCard">
+        <div className="inventoryListHead"><div><h2>Supplier payables</h2><span>{overdueSupplierBills.length ? `${overdueSupplierBills.length} overdue — action needed` : "Bills and due dates"}</span></div><b>{money(supplierPayableTotal)} due</b></div>
+        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Supplier</th><th>Reference</th><th>Due date</th><th>Bill</th><th>Paid</th><th>Remaining</th></tr></thead><tbody>{supplierBills.map((bill) => { const remaining = Math.max(0, Number(bill.total) - Number(bill.paid)); return <tr key={bill.id}><td><b>{bill.supplier}</b></td><td>{bill.reference || "—"}</td><td>{bill.dueDate || "—"}</td><td>{money(bill.total)}</td><td>{money(bill.paid)}</td><td className={bill.dueDate && bill.dueDate < today && remaining ? "expenseAmount" : ""}>{money(remaining)}</td></tr>; })}{!supplierBills.length && <tr><td colSpan="6" className="emptyFinanceCell">No supplier bills added yet.</td></tr>}</tbody></table></div>
+      </div>
+      <form className="adminCard financeExpenseForm" onSubmit={addSupplierBill}>
+        <h2>Add supplier bill</h2><p className="trackingNumber">Record the full bill, any amount already paid, and the due date. This creates a payable, not an expense twice.</p>
+        <label>Supplier<input name="supplier" required placeholder="e.g. Main fabric supplier" /></label><div className="formRow"><label>Bill/reference<input name="reference" placeholder="Invoice or WhatsApp ref" /></label><label>Bill date<input name="date" type="date" defaultValue={today} /></label></div><div className="formRow"><label>Total bill<input name="total" type="number" min="1" required /></label><label>Already paid<input name="paid" type="number" min="0" defaultValue="0" /></label></div><label>Due date<input name="dueDate" type="date" /></label><label>Note<input name="note" placeholder="What was purchased" /></label><button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save payable"}</button>
       </form>
     </section>
 
