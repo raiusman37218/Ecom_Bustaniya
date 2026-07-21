@@ -1647,6 +1647,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   const [profitAllocation, setProfitAllocation] = useState({ marketingPercent: 25, ownerPercent: 30, stockPercent: 45 });
   const [cashbookLoading, setCashbookLoading] = useState(true);
   const [cashbookError, setCashbookError] = useState("");
+  const [financePeriod, setFinancePeriod] = useState("all");
 
   useEffect(() => {
     if (!isOwnerFinance) {
@@ -1700,9 +1701,19 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   }, [packagingExpense, deliveryExpense, expenses, financeReady, isOwnerFinance]);
 
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
-  const activeOrders = connected ? safeOrders.filter(isRevenueOrder) : [];
+  const periodMatches = (order) => {
+    if (financePeriod === "all") return true;
+    const rawDate = order.createdAt || order.raw?.created_at || order.raw?.order_date || "";
+    const date = rawDate ? new Date(rawDate) : null;
+    if (!date || Number.isNaN(date.getTime())) return false;
+    const now = new Date();
+    const start = financePeriod === "month" ? new Date(now.getFullYear(), now.getMonth(), 1) : new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end = financePeriod === "month" ? new Date(now.getFullYear(), now.getMonth() + 1, 1) : new Date(now.getFullYear(), now.getMonth(), 1);
+    return date >= start && date < end;
+  };
+  const activeOrders = connected ? safeOrders.filter(isRevenueOrder).filter(periodMatches) : [];
   const deliveredOrders = activeOrders.filter(isDeliveredOrder);
-  const returnedOrders = safeOrders.filter(isReturnedOrder);
+  const returnedOrders = safeOrders.filter(isReturnedOrder).filter(periodMatches);
   const pendingOrders = activeOrders.filter(isPendingCodOrder);
   const deliveredItems = deliveredOrders.flatMap((order) => normalizeOrderItems(order.raw || order));
   const deliveredOrderCount = deliveredOrders.length;
@@ -1948,6 +1959,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   return <div className="financeSystem">
     <div className="adminTitle">
       <div><p>FINANCE MANAGER</p><h1>Finances</h1><span>{connected ? "Live order totals with actual product costs." : "No finance data yet. Connect live orders or add expenses to start tracking."}</span></div>
+      <div className="orderTabs">{[["all","All time"],["month","This month"],["lastMonth","Last month"]].map(([value,label]) => <button type="button" key={value} className={financePeriod === value ? "active" : ""} onClick={() => setFinancePeriod(value)}>{label}</button>)}</div>
       <button onClick={exportFinance}><ReceiptText /> Export report</button>
     </div>
 
