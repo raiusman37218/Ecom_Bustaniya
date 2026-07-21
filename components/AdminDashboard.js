@@ -1971,6 +1971,32 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
       </form>
     </section>
 
+    <section className="financeGrid financeGridWide">
+      <div className="adminCard financeSummaryCard">
+        <div className="cardHeading"><div><h2>Profit &amp; Loss statement</h2><p>Actual delivered-order performance. Product cost is recognised only when units sell.</p></div><b>{profitMargin}% net margin</b></div>
+        <div className="financeStatement">
+          <div><span>Sales revenue</span><b>+ {money(grossRevenue)}</b></div>
+          <div><span>Less: cost of goods sold</span><b>- {money(deliveredCogs)}</b></div>
+          <div><span>Gross profit</span><b>{money(grossRevenue - deliveredCogs)}</b></div>
+          <div><span>Less: GST and tax</span><b>- {money(gstTaxTotal)}</b></div>
+          <div><span>Less: delivered-order courier cost</span><b>- {money(courierDeliveryCost)}</b></div>
+          <div><span>Less: returned-order courier loss</span><b>- {money(returnCourierCost)}</b></div>
+          <div><span>Less: operating expenses</span><b>- {money(profitExpenseTotal)}</b></div>
+          <div className="statementTotal"><span>Net profit / loss</span><b>{money(netProfit)}</b></div>
+        </div>
+      </div>
+      <div className="adminCard financeSummaryCard">
+        <div className="cardHeading"><div><h2>Returns-loss report</h2><p>Returned orders do not create sales revenue. Courier loss is charged at Rs. 200 per returned order.</p></div></div>
+        <div className="financeStatement">
+          <div><span>Returned orders</span><b>{returnedOrderCount}</b></div>
+          <div><span>Return rate</span><b>{deliveredOrderCount + returnedOrderCount ? Math.round((returnedOrderCount / (deliveredOrderCount + returnedOrderCount)) * 100) : 0}%</b></div>
+          <div><span>Return courier cost</span><b>- {money(returnCourierCost)}</b></div>
+          <div><span>Stock action</span><b>Inspect before restock</b></div>
+        </div>
+        {returnedOrders.length > 0 && <div className="trackingNumber">Returned: {returnedOrders.slice(0, 4).map((order) => `${order.id} (${order.customer})`).join(" · ")}{returnedOrders.length > 4 ? ` +${returnedOrders.length - 4} more` : ""}</div>}
+      </div>
+    </section>
+
     <section className="financeGrid">
       <div className="adminCard financeSummaryCard">
         <div className="cardHeading"><div><h2>Profit summary <HelpHint text="COGS means the saved cost of delivered products. Cashbook stock purchases are not deducted twice; their cost is counted when units sell." /></h2><p>Follow the steps below from sales to final profit.</p></div><b>{profitMargin}% margin</b></div>
