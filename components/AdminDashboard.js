@@ -1642,6 +1642,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   const [financeReady, setFinanceReady] = useState(false);
   const [cashbookTransactions, setCashbookTransactions] = useState([]);
   const [supplierBills, setSupplierBills] = useState([]);
+  const [fixedCosts, setFixedCosts] = useState(0);
   const [profitAllocation, setProfitAllocation] = useState({ marketingPercent: 25, ownerPercent: 30, stockPercent: 45 });
   const [cashbookLoading, setCashbookLoading] = useState(true);
   const [cashbookError, setCashbookError] = useState("");
@@ -1678,6 +1679,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
         if (active) {
           setCashbookTransactions(result.transactions || []);
           setSupplierBills(result.supplierBills || []);
+          setFixedCosts(Number(result.fixedCosts || 0));
           setProfitAllocation(result.allocation || { marketingPercent: 25, ownerPercent: 30, stockPercent: 45 });
         }
       })
@@ -1752,6 +1754,15 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   const supplierPayableTotal = supplierBills.reduce((sum, bill) => sum + Math.max(0, Number(bill.total || 0) - Number(bill.paid || 0)), 0);
   const today = new Date().toISOString().slice(0, 10);
   const overdueSupplierBills = supplierBills.filter((bill) => bill.status !== "paid" && bill.dueDate && bill.dueDate < today);
+  const upcomingPayables = supplierBills.filter((bill) => bill.status !== "paid" && (!bill.dueDate || bill.dueDate <= new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10))).reduce((sum, bill) => sum + Math.max(0, Number(bill.total) - Number(bill.paid)), 0);
+  const expectedClosingCash = availableCash + receivables - upcomingPayables;
+  const contributionPerOrder = deliveredOrderCount ? Math.max(0, (grossRevenue - deliveredCogs - gstTaxTotal - courierDeliveryCost) / deliveredOrderCount) : 0;
+  const breakEvenOrders = contributionPerOrder ? Math.ceil(Number(fixedCosts || 0) / contributionPerOrder) : 0;
+
+  async function saveFixedCosts(event) {
+    event.preventDefault(); setCashbookLoading(true); setCashbookError("");
+    try { const response = await fetch("/api/admin/finance-transactions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactions: cashbookTransactions, allocation: profitAllocation, supplierBills, fixedCosts: Number(fixedCosts || 0) }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to save fixed costs."); setFixedCosts(Number(result.fixedCosts || 0)); } catch (error) { setCashbookError(error.message); } finally { setCashbookLoading(false); }
+  }
 
   async function addSupplierBill(event) {
     event.preventDefault();
@@ -1958,6 +1969,11 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
         <label>Note (optional)<input name="note" placeholder="Reason or reference" /></label>
         <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save cashbook entry"}</button>
       </form>
+    </section>
+
+    <section className="financeGrid financeGridWide">
+      <div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>30-day cash-flow forecast</h2><p>Estimate based on current cash, pending COD and supplier bills due within 30 days.</p></div></div><div className="financeStatement"><div><span>Current available cash</span><b>{money(availableCash)}</b></div><div><span>Expected COD collections</span><b>+ {money(receivables)}</b></div><div><span>Supplier payables due</span><b>- {money(upcomingPayables)}</b></div><div className="statementTotal"><span>Expected closing cash</span><b>{money(expectedClosingCash)}</b></div></div></div>
+      <form className="adminCard financeExpenseForm" onSubmit={saveFixedCosts}><h2>Break-even calculator <HelpHint text="Fixed monthly costs are regular costs like rent, salaries, utilities and software. Contribution per order excludes fixed costs." /></h2><label>Monthly fixed costs<input type="number" min="0" value={fixedCosts} onChange={(event) => setFixedCosts(event.target.value)} placeholder="Rent, salaries, utilities..." /></label><div className="financeStatement"><div><span>Average contribution per delivered order</span><b>{money(contributionPerOrder)}</b></div><div><span>Break-even delivered orders</span><b>{breakEvenOrders || "Add sales data"}</b></div><div className="statementTotal"><span>Break-even sales target</span><b>{breakEvenOrders ? money(breakEvenOrders * (grossRevenue / deliveredOrderCount)) : "—"}</b></div></div><button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save fixed costs"}</button></form>
     </section>
 
     <section className="financeGrid financeGridWide">
