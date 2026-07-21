@@ -1648,6 +1648,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   const [cashbookLoading, setCashbookLoading] = useState(true);
   const [cashbookError, setCashbookError] = useState("");
   const [financePeriod, setFinancePeriod] = useState("all");
+  const [financeTab, setFinanceTab] = useState("overview");
 
   useEffect(() => {
     if (!isOwnerFinance) {
@@ -1701,6 +1702,14 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   }, [packagingExpense, deliveryExpense, expenses, financeReady, isOwnerFinance]);
 
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
+  const financeTabs = [
+    ["overview", "Overview"],
+    ["pnl", "P&L"],
+    ["cashbook", "Cashbook"],
+    ["suppliers", "Suppliers"],
+    ["marketing", "Marketing"],
+    ["reports", "Reports"],
+  ];
   const periodMatches = (order) => {
     if (financePeriod === "all") return true;
     const rawDate = order.createdAt || order.raw?.created_at || order.raw?.order_date || "";
@@ -1956,13 +1965,18 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
     URL.revokeObjectURL(link.href);
   }
 
-  return <div className="financeSystem">
+  return <div className={`financeSystem financeTab-${financeTab}`}>
     <div className="adminTitle">
       <div><p>FINANCE MANAGER</p><h1>Finances</h1><span>{connected ? "Live order totals with actual product costs." : "No finance data yet. Connect live orders or add expenses to start tracking."}</span></div>
       <div className="orderTabs">{[["all","All time"],["month","This month"],["lastMonth","Last month"]].map(([value,label]) => <button type="button" key={value} className={financePeriod === value ? "active" : ""} onClick={() => setFinancePeriod(value)}>{label}</button>)}</div>
       <button onClick={exportFinance}><ReceiptText /> Export report</button>
     </div>
 
+    <nav className="financeSectionTabs orderTabs" aria-label="Finance sections">
+      {financeTabs.map(([value, label]) => <button type="button" key={value} className={financeTab === value ? "active" : ""} onClick={() => setFinanceTab(value)}>{label}</button>)}
+    </nav>
+
+    {financeTab === "overview" && <>
     <div className="miniMetricGrid financeMetrics">
       <article><CircleDollarSign /><span><b>{money(grossRevenue)}</b>Total sales</span></article>
       <article><ShoppingBag /><span><b>{deliveredOrderCount}</b>Delivered orders</span></article>
@@ -1988,18 +2002,15 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
         <div className="financeStatement"><div><span>Current net profit to allocate</span><b>{money(allocatableProfit)}</b></div><div><span>Marketing budget ({profitAllocation.marketingPercent || 0}%)</span><b>{money(marketingAllocation)}</b></div><div><span>Owner / family amount ({profitAllocation.ownerPercent || 0}%)</span><b>{money(ownerAllocation)}</b></div><div className="statementTotal"><span>New stock / reinvestment ({Math.max(0, 100 - Number(profitAllocation.marketingPercent || 0) - Number(profitAllocation.ownerPercent || 0))}%)</span><b>{money(stockAllocation)}</b></div></div>
         <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save allocation plan"}</button>
       </form>
-      <form className="adminCard financeExpenseForm" onSubmit={addCashbookTransaction}>
-        <h2>Cashbook entry <HelpHint text="Use this for money actually received, spent, added by the owner, or withdrawn for personal use." /></h2>
-        <p className="trackingNumber">Record owner funds, personal withdrawals, or a business cost paid from received cash.</p>
-        {cashbookError && <div className="adminErrorBanner">{cashbookError}</div>}
-        <label>Transaction type<select name="type" defaultValue="business_expense"><option value="business_expense">Business expense (reduces profit + cash)</option><option value="owner_withdrawal">Owner withdrawal / personal use (reduces cash only)</option><option value="owner_investment">Owner investment / cash added (increases cash only)</option></select></label>
-        <label>Title<input name="title" required placeholder="e.g. Personal withdrawal or Instagram ads" /></label>
-        <div className="formRow"><label>Category<input name="category" defaultValue="Other" /></label><label>Amount<input name="amount" type="number" min="1" required placeholder="0" /></label></div>
-        <label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label>
-        <label>Note (optional)<input name="note" placeholder="Reason or reference" /></label>
-        <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save cashbook entry"}</button>
-      </form>
     </section>
+
+    <section className="financeGrid financeGridWide"><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Management KPIs</h2><p>Owner view of sales, customers, inventory and cash health.</p></div></div><div className="financeStatement"><div><span>Average order value</span><b>{money(deliveredOrderCount ? grossRevenue / deliveredOrderCount : 0)}</b></div><div><span>Return rate</span><b>{deliveredOrderCount + returnedOrderCount ? Math.round(returnedOrderCount / (deliveredOrderCount + returnedOrderCount) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{safeProducts.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div className="statementTotal"><span>Cash after 30-day forecast</span><b>{money(expectedClosingCash)}</b></div></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Inventory finance</h2><p>Retail and saved purchase value</p></div></div><div className="inventoryFinanceList"><div><span>Retail value on hand</span><b>{money(inventoryRetailValue)}</b></div><div><span>Purchase value on hand</span><b>{money(inventoryCostValue)}</b></div><div><span>Low-stock retail exposure</span><b>{money(lowStockValue)}</b></div><div><span>Products tracked</span><b>{safeProducts.length}</b></div></div></div></section>
+
+    <section className="financeGrid financeGridWide">
+      <div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>30-day cash-flow forecast</h2><p>Estimate based on current cash, pending COD and supplier bills due within 30 days.</p></div></div><div className="financeStatement"><div><span>Current available cash</span><b>{money(availableCash)}</b></div><div><span>Expected COD collections</span><b>+ {money(receivables)}</b></div><div><span>Supplier payables due</span><b>- {money(upcomingPayables)}</b></div><div className="statementTotal"><span>Expected closing cash</span><b>{money(expectedClosingCash)}</b></div></div></div>
+      <form className="adminCard financeExpenseForm" onSubmit={saveFixedCosts}><h2>Break-even calculator <HelpHint text="Fixed monthly costs are regular costs like rent, salaries, utilities and software. Contribution per order excludes fixed costs." /></h2><label>Monthly fixed costs<input type="number" min="0" value={fixedCosts} onChange={(event) => setFixedCosts(event.target.value)} placeholder="Rent, salaries, utilities..." /></label><div className="financeStatement"><div><span>Average contribution per delivered order</span><b>{money(contributionPerOrder)}</b></div><div><span>Break-even delivered orders</span><b>{breakEvenOrders || "Add sales data"}</b></div><div className="statementTotal"><span>Break-even sales target</span><b>{breakEvenOrders ? money(breakEvenOrders * (grossRevenue / deliveredOrderCount)) : "—"}</b></div></div><button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save fixed costs"}</button></form>
+    </section>
+    </>}
 
     <section className="financeGrid financeGridWide"><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Management KPIs</h2><p>Owner view of sales, customers, inventory and cash health.</p></div></div><div className="financeStatement"><div><span>Average order value</span><b>{money(deliveredOrderCount ? grossRevenue / deliveredOrderCount : 0)}</b></div><div><span>Return rate</span><b>{deliveredOrderCount + returnedOrderCount ? Math.round(returnedOrderCount / (deliveredOrderCount + returnedOrderCount) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{safeProducts.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div className="statementTotal"><span>Cash after 30-day forecast</span><b>{money(expectedClosingCash)}</b></div></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Marketing ROI</h2><p>Only campaign-attributed sales are included.</p></div></div><div className="financeStatement"><div><span>Campaign spend</span><b>{money(marketingSpendTotal)}</b></div><div><span>Attributed sales</span><b>{money(marketingSalesTotal)}</b></div><div><span>ROAS</span><b>{marketingSpendTotal ? `${(marketingSalesTotal / marketingSpendTotal).toFixed(2)}x` : "—"}</b></div><div className="statementTotal"><span>Customer acquisition cost</span><b>{marketingCustomersTotal ? money(marketingSpendTotal / marketingCustomersTotal) : "—"}</b></div></div></div></section>
     <section className="financeGrid financeGridWide"><div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>Marketing campaigns</h2><span>Spend and attributed results</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Campaign</th><th>Platform</th><th>Spend</th><th>Sales</th><th>ROAS</th></tr></thead><tbody>{marketingCampaigns.map((campaign) => <tr key={campaign.id}><td><b>{campaign.name}</b></td><td>{campaign.platform}</td><td>{money(campaign.spend)}</td><td>{money(campaign.sales)}</td><td>{campaign.spend ? `${(campaign.sales / campaign.spend).toFixed(2)}x` : "—"}</td></tr>)}{!marketingCampaigns.length && <tr><td colSpan="5" className="emptyFinanceCell">No campaigns added yet.</td></tr>}</tbody></table></div></div><form className="adminCard financeExpenseForm" onSubmit={addMarketingCampaign}><h2>Add marketing campaign</h2><label>Campaign name<input name="name" required placeholder="e.g. Eid Instagram campaign" /></label><div className="formRow"><label>Platform<select name="platform"><option>Instagram</option><option>Meta Ads</option><option>TikTok</option><option>Google</option><option>Other</option></select></label><label>Date<input name="date" type="date" defaultValue={today} /></label></div><div className="formRow"><label>Spend<input name="spend" type="number" min="0" defaultValue="0" /></label><label>Attributed sales<input name="sales" type="number" min="0" defaultValue="0" /></label></div><label>New customers<input name="customers" type="number" min="0" defaultValue="0" /></label><button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save campaign"}</button></form></section>
@@ -2098,6 +2109,14 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
         <button>Add expense</button>
       </form>
 
+    </section>
+
+    <section className="financeGrid financeGridWide financeReportsPanel">
+      <div className="adminCard financeSummaryCard">
+        <div className="cardHeading"><div><h2>Reports &amp; exports</h2><p>Download the current finance period for review or sharing.</p></div></div>
+        <div className="financeStatement"><div><span>Selected period</span><b>{financePeriod === "all" ? "All time" : financePeriod === "month" ? "This month" : "Last month"}</b></div><div><span>Delivered sales</span><b>{money(grossRevenue)}</b></div><div><span>Net profit / loss</span><b>{money(netProfit)}</b></div><div className="statementTotal"><span>Supplier payables</span><b>{money(supplierPayableTotal)}</b></div></div>
+      </div>
+      <div className="adminCard financeExpenseForm"><h2>Export finance report</h2><p className="trackingNumber">CSV includes sales, costs, courier, GST/tax, cash and inventory values for the selected period.</p><button type="button" onClick={exportFinance}><ReceiptText /> Download CSV report</button></div>
     </section>
   </div>;
 }
