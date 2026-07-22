@@ -107,6 +107,26 @@ a { text-decoration:none; }
   .hero .primaryButton { width:max-content; max-width:100%; min-height:2.9rem; margin-top:1.25rem; padding:.8rem 1rem; box-shadow:0 12px 25px #173d2922; }
 }
 
+/* Dashboard layout safeguards: keep controls and long time-series readable at every width. */
+.adminContent .dashboardTitleActions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; }
+.adminContent .dashboardTitleActions > button { width:auto; min-width:max-content; }
+.adminContent .analyticsSystem { margin-block:20px; }
+.adminContent .analyticsSystem .adminTitle { align-items:flex-end; }
+.adminContent .analyticsSystem .adminTitle h1 { font-size:22px; }
+.adminContent .analyticsSystem .adminTitle > div:first-child { min-width:0; }
+.adminContent .fakeChart { overflow-x:auto; gap:10px; scrollbar-width:thin; }
+.adminContent .fakeChart > div { min-width:30px; }
+.adminContent .fakeChart small { white-space:nowrap; }
+
+@media (max-width:600px) {
+  .adminContent .dashboardTitleActions { width:100%; display:grid; grid-template-columns:1fr 1fr; }
+  .adminContent .dashboardTitleActions > button { width:100%; min-width:0; }
+  .adminContent .analyticsSystem .adminTitle { align-items:flex-start; gap:12px; }
+  .adminContent .analyticsSystem .adminTitle h1 { font-size:22px; }
+  .adminContent .analyticsSystem .adminTitle > .orderTabs { width:100%; overflow-x:auto; flex-wrap:nowrap; }
+  .adminContent .fakeChart { padding-bottom:3px; }
+}
+
 /* Admin professional interface system. */
 .adminShell { --admin-ink:#153526; --admin-muted:#5d7166; --admin-subtle:#edf3ee; --admin-line:#d9e4dc; --admin-surface:#fff; --admin-danger:#b51948; --admin-warning:#a7660c; background:linear-gradient(135deg,#f5f8f4 0%,#f8faf7 55%,#f1f5ef 100%); }
 .adminShell :is(button,a,input,select,textarea) { transition:border-color .18s ease,background-color .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease; }
