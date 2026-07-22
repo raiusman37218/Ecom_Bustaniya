@@ -123,6 +123,20 @@ a { text-decoration:none; }
 .adminContent .fakeChart { overflow-x:auto; gap:10px; scrollbar-width:thin; }
 .adminContent .fakeChart > div { min-width:30px; }
 .adminContent .fakeChart small { white-space:nowrap; }
+.adminContent .dashboardSection { margin-bottom:22px; }
+.adminContent .dashboardSectionHeading { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin:0 0 11px; }
+.adminContent .dashboardSectionHeading p { margin:0 0 5px; color:var(--berry); font-size:8px; font-weight:800; letter-spacing:.14em; }
+.adminContent .dashboardSectionHeading h2 { margin:0; color:var(--admin-ink); font-size:20px; letter-spacing:-.02em; }
+.adminContent .dashboardSectionHeading span { display:block; margin-top:5px; color:var(--admin-muted); font-size:10px; }
+.adminContent .dashboardPrimaryMetrics { grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:0; }
+.adminContent .dashboardSecondaryMetrics { grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:0; }
+.adminContent .dashboardSecondaryMetrics article { min-height:92px; border:1px solid var(--admin-line); border-radius:12px; background:#fff; box-shadow:0 4px 14px #173d2906; }
+.adminContent .dashboardSecondaryMetrics article svg { color:var(--forest); }
+.adminContent .dashboardSecondaryMetrics .alertMetric { border-color:#f0d7a4; background:#fffdf7; }
+.adminContent .analyticsSystem { padding:20px; border:1px solid var(--admin-line); border-radius:14px; background:linear-gradient(135deg,#fff,#f8fbf8); box-shadow:0 4px 14px #173d2906; }
+.adminContent .analyticsSystem .adminTitle { margin:0 0 16px; }
+.adminContent .analyticsSystem .financeGrid { margin-bottom:0; }
+.adminContent .dashboardAlerts { border-left:4px solid var(--berry); }
 
 @media (max-width:600px) {
   .adminContent .dashboardTitleActions { width:100%; display:grid; grid-template-columns:1fr 1fr; }
@@ -132,6 +146,9 @@ a { text-decoration:none; }
   .adminContent .analyticsSystem .adminTitle h1 { font-size:22px; }
   .adminContent .analyticsSystem .adminTitle > .orderTabs { width:100%; overflow-x:auto; flex-wrap:nowrap; }
   .adminContent .fakeChart { padding-bottom:3px; }
+  .adminContent .dashboardSectionHeading { align-items:flex-start; }
+  .adminContent .dashboardPrimaryMetrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .adminContent .dashboardSecondaryMetrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 
 /* Admin professional interface system. */
