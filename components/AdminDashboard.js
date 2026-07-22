@@ -761,7 +761,7 @@ export default function AdminDashboard() {
     <main className="adminShell">
       <aside className={sidebarOpen ? "adminSidebar sidebarVisible" : "adminSidebar"}>
         <div className="adminLogo"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /><span>ADMIN</span></div>
-        <button className="closeSidebar" onClick={() => setSidebarOpen(false)}><X /></button>
+        <button className="closeSidebar" onClick={() => setSidebarOpen(false)} aria-label="Close admin navigation"><X /></button>
         <nav>
           {visibleNavItems.map(({ name, icon: Icon, count, section }, index) => (
             <div className="adminNavItem" key={name}>
@@ -783,11 +783,11 @@ export default function AdminDashboard() {
 
       <section className="adminMain">
         <header className="adminTopbar">
-          <button className="adminMenu" onClick={() => setSidebarOpen(true)}><Menu /></button>
-          <div className="adminSearch"><Search /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products, orders, customers..." /></div>
+          <button className="adminMenu" onClick={() => setSidebarOpen(true)} aria-label="Open admin navigation"><Menu /></button>
+          <div className="adminSearch"><Search /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products, orders, customers..." aria-label="Search admin products, orders and customers" /></div>
           <div className="adminTopActions">
             <a href="/" target="_blank">View store</a>
-            <button className="notification"><Bell /><span /></button>
+            <button className="notification" aria-label="Notifications"><Bell /><span /></button>
             <div className="adminAvatar">{(currentAdminUser?.name || "BA").slice(0, 2).toUpperCase()}</div>
             <button
               className="adminLogoutButton"
@@ -805,7 +805,7 @@ export default function AdminDashboard() {
         <div className="adminContent">
           {ordersError && active !== "Orders" && <div className="adminErrorBanner">{ordersError}</div>}
           {!canAccessActive && <div className="adminErrorBanner">You do not have access to this admin area.</div>}
-          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} onRefresh={() => loadOrders(ordersKey)} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} />}
+          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} currentAdminUser={currentAdminUser} onRefresh={() => loadOrders(ordersKey)} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} />}
@@ -934,7 +934,7 @@ export default function AdminDashboard() {
   );
 }
 
-function DashboardHome({ setActive, orders, products, metrics, connected, loading, onRefresh, onAddProduct, onOpenOrder }) {
+function DashboardHome({ setActive, orders, products, metrics, connected, loading, currentAdminUser, onRefresh, onAddProduct, onOpenOrder }) {
   // Dates are initialized only in the browser so the server and client render
   // the same initial markup regardless of their timezone.
   const [dashboardNow, setDashboardNow] = useState(null);
@@ -943,13 +943,17 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const [dashboardPeriod, setDashboardPeriod] = useState("7");
   const [dashboardUpdatedAt, setDashboardUpdatedAt] = useState(null);
   const [dashboardRefreshing, setDashboardRefreshing] = useState(false);
+  const isOwnerDashboard = !currentAdminUser || currentAdminUser.role === "Owner";
   useEffect(() => { setDashboardNow(new Date()); }, []);
   async function refreshDashboardFinance() {
+    if (!isOwnerDashboard) {
+      setDashboardUpdatedAt(new Date());
+      return;
+    }
     try {
       const response = await fetch("/api/admin/finance-transactions", { cache: "no-store" });
       const result = response.ok ? await response.json() : null;
-      const savedFinance = typeof window !== "undefined" ? JSON.parse(window.localStorage.getItem("bustaniya-admin-finance") || "{}") : {};
-      const snapshot = { transactions: result?.transactions || [], supplierBills: result?.supplierBills || [], packagingExpense: Number(savedFinance.packagingExpense || 0), deliveryExpense: Number(savedFinance.deliveryExpense || 0), expenses: Array.isArray(savedFinance.expenses) ? savedFinance.expenses : [] };
+      const snapshot = { transactions: result?.transactions || [], supplierBills: result?.supplierBills || [], packagingExpense: Number(result?.packagingExpense || 0), deliveryExpense: Number(result?.deliveryExpense || 0), expenses: Array.isArray(result?.manualExpenses) ? result.manualExpenses : [] };
       setFinanceSnapshot(snapshot);
       const today = new Date().toISOString().slice(0, 10);
       setOverduePayables(snapshot.supplierBills.filter((bill) => bill.status !== "paid" && bill.dueDate && bill.dueDate < today && Number(bill.total || 0) > Number(bill.paid || 0)).length);
@@ -1008,6 +1012,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const statusBuckets = {
     Booked: 0,
     Unbooked: 0,
+    Attempted: 0,
     Delivered: 0,
     Returned: 0,
     Cancelled: 0,
@@ -1015,11 +1020,11 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   liveOrders.forEach((order) => {
     const status = normalizePostexCategory(order.postexStatus || order.status);
     if (orderStatus(order).includes("cancel") || orderStatus(order).includes("fail")) statusBuckets.Cancelled += 1;
-    else if (status === "Delivered" || status === "Returned" || status === "Unbooked") statusBuckets[status] += 1;
+    else if (status === "Delivered" || status === "Returned" || status === "Unbooked" || status === "Attempted") statusBuckets[status] += 1;
     else if (status === "Total Orders") statusBuckets.Unbooked += 1;
     else statusBuckets.Booked += 1;
   });
-  const statusPalette = { Booked: "#1f6940", Unbooked: "#8bb39a", Delivered: "#2f8052", Returned: "#c5164d", Cancelled: "#dedfdc" };
+  const statusPalette = { Booked: "#1f6940", Unbooked: "#8bb39a", Attempted: "#d08a18", Delivered: "#2f8052", Returned: "#c5164d", Cancelled: "#dedfdc" };
   const statusEntries = Object.entries(statusBuckets).filter(([, count]) => count > 0);
   let completedPercent = 0;
   const donutStops = statusEntries.map(([label, count]) => {
@@ -1032,19 +1037,19 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   return <>
     <div className="adminTitle dashboardTitle"><div><p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" }) : "Loading date…"}</p><h1>{dashboardNow && dashboardNow.getHours() < 12 ? "Good morning" : dashboardNow && dashboardNow.getHours() < 17 ? "Good afternoon" : "Good evening"}, Bustaniya</h1><span>{connected ? `Live store data${dashboardUpdatedAt ? ` · Updated ${dashboardUpdatedAt.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}` : ""}` : "Connect Supabase orders to load live store data."}</span></div><div className="dashboardTitleActions"><button className="dashboardRefresh" onClick={refreshDashboard} disabled={dashboardRefreshing}><RefreshCw className={dashboardRefreshing ? "spinIcon" : ""} /> {dashboardRefreshing ? "Refreshing" : "Refresh"}</button><button className="dashboardPrimaryAction" onClick={onAddProduct}><Plus /> Add product</button></div></div>
     <section className="dashboardSection dashboardPrimarySection"><div className="dashboardSectionHeading"><div><p>STORE PULSE</p><h2>Today at a glance</h2><span>Live sales, cash and profitability from your connected store.</span></div></div><div className="metricGrid dashboardPrimaryMetrics">
-      <Metric icon={CircleDollarSign} label="Delivered sales" value={`Rs. ${dashboardSales.toLocaleString()}`} change="Live" note="delivered orders only" />
-      <Metric icon={WalletCards} label="Available cash" value={`Rs. ${dashboardAvailableCash.toLocaleString()}`} change="Finance" note="after recorded cash costs" />
-      <Metric icon={Landmark} label="Pending COD" value={`Rs. ${dashboardCod.toLocaleString()}`} change="Live" note="not received yet" />
-      <Metric icon={TrendingUp} label="Final net profit" value={`Rs. ${dashboardNetProfit.toLocaleString()}`} change="Finance" note="actual Finance P&L basis" />
+      <Metric icon={CircleDollarSign} label="Delivered sales" value={`Rs. ${dashboardSales.toLocaleString()}`} change="All time" note="delivered orders only" />
+      {isOwnerDashboard && <Metric icon={WalletCards} label="Available cash" value={`Rs. ${dashboardAvailableCash.toLocaleString()}`} change="All time" note="after recorded cash costs" />}
+      <Metric icon={Landmark} label="Pending COD" value={`Rs. ${dashboardCod.toLocaleString()}`} change="Current" note="not received yet" />
+      {isOwnerDashboard && <Metric icon={TrendingUp} label="Final net profit" value={`Rs. ${dashboardNetProfit.toLocaleString()}`} change="Finance" note="actual P&amp;L · all time" />}
     </div></section>
     <section className="dashboardSection dashboardHealthSection"><div className="dashboardSectionHeading"><div><p>OPERATIONS</p><h2>Store health</h2><span>Orders, customers, stock and returns that need daily attention.</span></div></div><div className="miniMetricGrid dashboardSecondaryMetrics">
       <article><ShoppingBag /><span><b>{dashboardOrderCount}</b>All orders</span></article>
       <article><Users /><span><b>{dashboardCustomerCount}</b>Unique customers</span></article>
-      <article className={Number(metrics.lowStock || 0) ? "alertMetric" : ""}><Package /><span><b>{metrics.lowStock || 0}</b>Low-stock products</span></article>
+      <article className={lowStockProducts.length ? "alertMetric" : ""}><Package /><span><b>{lowStockProducts.length}</b>Low-stock products</span></article>
       <article className={dashboardReturns ? "alertMetric" : ""}><ReceiptText /><span><b>{dashboardReturns}</b>Returns to inspect</span></article>
     </div></section>
     <DashboardAnalytics orders={orders} products={products} connected={connected} period={dashboardPeriod} setPeriod={setDashboardPeriod} />
-    {(dashboardNetProfit < 0 || zeroCostActive.length || lowStockProducts.length || overduePayables || dashboardReturns) && <section className="adminCard managementCard dashboardAlerts"><div className="inventoryListHead"><div><h2>Action alerts</h2><span>Items needing attention, ordered by urgency.</span></div></div><div className="financeStatement">{dashboardNetProfit < 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> Negative final net profit</span><button onClick={() => setActive("Finances")}>Review Finance</button></div>}{zeroCostActive.length > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {zeroCostActive.length} active product{zeroCostActive.length === 1 ? "" : "s"} with zero cost</span><button onClick={() => setActive("Products")}>Add cost</button></div>}{overduePayables > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {overduePayables} overdue supplier payable{overduePayables === 1 ? "" : "s"}</span><button onClick={() => setActive("Finances")}>Review payables</button></div>}{lowStockProducts.length > 0 && <div><span><b className="alertSeverity warning">Stock</b> {lowStockProducts.length} low-stock / out-of-stock products</span><button onClick={() => setActive("Inventory")}>Review stock</button></div>}{dashboardReturns > 0 && <div><span><b className="alertSeverity warning">Returns</b> {dashboardReturns} returned order{dashboardReturns === 1 ? "" : "s"} pending inspection</span><button onClick={() => setActive("Inventory")}>Inspect returns</button></div>}</div></section>}
+    {((isOwnerDashboard && (dashboardNetProfit < 0 || zeroCostActive.length || overduePayables)) || lowStockProducts.length || dashboardReturns) && <section className="adminCard managementCard dashboardAlerts"><div className="inventoryListHead"><div><h2>Action alerts</h2><span>Items needing attention, ordered by urgency.</span></div></div><div className="financeStatement">{isOwnerDashboard && dashboardNetProfit < 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> Negative final net profit</span><button onClick={() => setActive("Finances")}>Review Finance</button></div>}{isOwnerDashboard && zeroCostActive.length > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {zeroCostActive.length} active product{zeroCostActive.length === 1 ? "" : "s"} with zero cost</span><button onClick={() => setActive("Products")}>Add cost</button></div>}{isOwnerDashboard && overduePayables > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {overduePayables} overdue supplier payable{overduePayables === 1 ? "" : "s"}</span><button onClick={() => setActive("Finances")}>Review payables</button></div>}{lowStockProducts.length > 0 && <div><span><b className="alertSeverity warning">Stock</b> {lowStockProducts.length} low-stock / out-of-stock products</span><button onClick={() => setActive("Inventory")}>Review stock</button></div>}{dashboardReturns > 0 && <div><span><b className="alertSeverity warning">Returns</b> {dashboardReturns} returned order{dashboardReturns === 1 ? "" : "s"} pending inspection</span><button onClick={() => setActive("Inventory")}>Inspect returns</button></div>}</div></section>}
     <div className="dashboardGrid">
       <section className="salesChart adminCard">
         <div className="cardHeading"><div><h2>Sales overview</h2><p>Delivered revenue for the last {chartRange} days</p></div><span className="chartDataLabel">Delivered only</span></div>
@@ -1732,7 +1737,6 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   const [packagingExpense, setPackagingExpense] = useState(0);
   const [deliveryExpense, setDeliveryExpense] = useState(0);
   const [expenses, setExpenses] = useState([]);
-  const [financeReady, setFinanceReady] = useState(false);
   const [cashbookTransactions, setCashbookTransactions] = useState([]);
   const [supplierBills, setSupplierBills] = useState([]);
   const [fixedCosts, setFixedCosts] = useState(0);
@@ -1745,25 +1749,6 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
 
   useEffect(() => {
     if (!isOwnerFinance) {
-      setFinanceReady(true);
-      return;
-    }
-    const savedFinance = localStorage.getItem("bustaniya-admin-finance");
-    if (!savedFinance) {
-      setFinanceReady(true);
-      return;
-    }
-    try {
-      const parsed = JSON.parse(savedFinance);
-      setPackagingExpense(parsed.packagingExpense ?? 0);
-      setDeliveryExpense(parsed.deliveryExpense ?? 0);
-      setExpenses(Array.isArray(parsed.expenses) ? parsed.expenses : []);
-    } catch {}
-    setFinanceReady(true);
-  }, [isOwnerFinance]);
-
-  useEffect(() => {
-    if (!isOwnerFinance) {
       setCashbookLoading(false);
       return;
     }
@@ -1772,27 +1757,27 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
       .then((response) => response.json().then((result) => ({ ok: response.ok, result })))
       .then(({ ok, result }) => {
         if (!ok) throw new Error(result.error || "Unable to load cashbook.");
-        if (active) {
-          setCashbookTransactions(result.transactions || []);
-          setSupplierBills(result.supplierBills || []);
-          setFixedCosts(Number(result.fixedCosts || 0));
-          setMarketingCampaigns(result.marketingCampaigns || []);
-          setProfitAllocation(result.allocation || { marketingPercent: 25, ownerPercent: 30, stockPercent: 45 });
+        if (!active) return;
+        const legacy = (() => { try { return JSON.parse(localStorage.getItem("bustaniya-admin-finance") || "{}"); } catch { return {}; } })();
+        const serverHasManualData = Number(result.packagingExpense || 0) > 0 || Number(result.deliveryExpense || 0) > 0 || (result.manualExpenses || []).length > 0;
+        const legacyHasManualData = Number(legacy.packagingExpense || 0) > 0 || Number(legacy.deliveryExpense || 0) > 0 || (legacy.expenses || []).length > 0;
+        const manual = !serverHasManualData && legacyHasManualData ? { packagingExpense: Number(legacy.packagingExpense || 0), deliveryExpense: Number(legacy.deliveryExpense || 0), manualExpenses: Array.isArray(legacy.expenses) ? legacy.expenses : [] } : { packagingExpense: Number(result.packagingExpense || 0), deliveryExpense: Number(result.deliveryExpense || 0), manualExpenses: result.manualExpenses || [] };
+        setCashbookTransactions(result.transactions || []);
+        setSupplierBills(result.supplierBills || []);
+        setFixedCosts(Number(result.fixedCosts || 0));
+        setMarketingCampaigns(result.marketingCampaigns || []);
+        setProfitAllocation(result.allocation || { marketingPercent: 25, ownerPercent: 30, stockPercent: 45 });
+        setPackagingExpense(manual.packagingExpense);
+        setDeliveryExpense(manual.deliveryExpense);
+        setExpenses(manual.manualExpenses);
+        if (!serverHasManualData && legacyHasManualData) {
+          fetch("/api/admin/finance-transactions", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(manual) }).then((migrationResponse) => { if (migrationResponse.ok) localStorage.removeItem("bustaniya-admin-finance"); }).catch(() => {});
         }
       })
       .catch((error) => { if (active) setCashbookError(error.message); })
       .finally(() => { if (active) setCashbookLoading(false); });
     return () => { active = false; };
   }, [isOwnerFinance]);
-
-  useEffect(() => {
-    if (!isOwnerFinance || !financeReady) return;
-    localStorage.setItem("bustaniya-admin-finance", JSON.stringify({
-      packagingExpense,
-      deliveryExpense,
-      expenses,
-    }));
-  }, [packagingExpense, deliveryExpense, expenses, financeReady, isOwnerFinance]);
 
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
   const financeTabs = [
@@ -1962,16 +1947,35 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
     })),
   ];
 
-  function addExpense(event) {
+  async function saveManualFinance(next = {}) {
+    setCashbookLoading(true);
+    setCashbookError("");
+    const payload = { manualExpenses: next.manualExpenses ?? expenses, packagingExpense: Number(next.packagingExpense ?? packagingExpense ?? 0), deliveryExpense: Number(next.deliveryExpense ?? deliveryExpense ?? 0) };
+    try {
+      const response = await fetch("/api/admin/finance-transactions", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to save Finance expenses.");
+      setExpenses(result.manualExpenses || payload.manualExpenses);
+      setPackagingExpense(Number(result.packagingExpense ?? payload.packagingExpense));
+      setDeliveryExpense(Number(result.deliveryExpense ?? payload.deliveryExpense));
+    } catch (error) {
+      setCashbookError(error.message);
+    } finally {
+      setCashbookLoading(false);
+    }
+  }
+
+  async function addExpense(event) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    setExpenses((current) => [{
+    const nextExpenses = [{
       id: Date.now(),
       title: data.get("title"),
       category: data.get("category"),
       amount: Number(data.get("amount") || 0),
       date: data.get("date") || new Date().toISOString().slice(0, 10),
-    }, ...current]);
+    }, ...expenses];
+    await saveManualFinance({ manualExpenses: nextExpenses });
     event.currentTarget.reset();
   }
 
@@ -2169,8 +2173,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
         <div className="financeControls">
           <label>GST<input readOnly value="1% per product" /></label>
           <label>Tax<input readOnly value="4% per product" /></label>
-          <label>Packaging expense<input type="number" min="0" value={packagingExpense} onChange={(event) => setPackagingExpense(event.target.value)} /></label>
-          <label>Extra delivery expense<input type="number" min="0" value={deliveryExpense} onChange={(event) => setDeliveryExpense(event.target.value)} /></label>
+          <label>Packaging expense<input type="number" min="0" value={packagingExpense} onChange={(event) => setPackagingExpense(event.target.value)} onBlur={() => saveManualFinance({ packagingExpense })} /></label>
+          <label>Extra delivery expense<input type="number" min="0" value={deliveryExpense} onChange={(event) => setDeliveryExpense(event.target.value)} onBlur={() => saveManualFinance({ deliveryExpense })} /></label>
         </div>
       </div>
 
