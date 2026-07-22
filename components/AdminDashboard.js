@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Bell, BarChart3, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
+  Bell, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
   LogOut, Menu, Minus, MoreHorizontal, Package, Plus,
   ReceiptText, Search, Settings, ShoppingBag, Store, Tags, TrendingUp, Users,
   WalletCards, X
@@ -88,7 +88,6 @@ const navItems = [
   { name: "Categories", icon: Tags, section: "COMMERCE" },
   { name: "Inventory", icon: Boxes, section: "COMMERCE" },
   { name: "Customers", icon: Users, section: "COMMERCE" },
-  { name: "Analytics", icon: BarChart3, section: "COMMERCE" },
   { name: "Finances", icon: Landmark, section: "COMMERCE" },
   { name: "Settings", icon: Settings, section: "OPERATIONS" }
 ];
@@ -100,7 +99,6 @@ const navPermissionMap = {
   Categories: "products",
   Inventory: "inventory",
   Customers: "customers",
-  Analytics: "dashboard",
   Finances: "dashboard",
   Settings: "settings",
 };
@@ -794,7 +792,6 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
-          {canAccessActive && active === "Analytics" && <AnalyticsPanel orders={orders} products={products} connected={ordersConnected} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} />}
           {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} />}
         </div>
@@ -1004,6 +1001,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected }) {
         <ul>{Object.entries(statusBuckets).map(([label, count]) => <li key={label}><i style={{ background: statusPalette[label] }} />{label} <b>{count}</b></li>)}</ul>
       </section>
     </div>
+    <DashboardAnalytics orders={orders} products={products} connected={connected} />
     <section className="adminCard recentOrders">
       <div className="cardHeading"><div><h2>Recent orders</h2><p>Latest customer purchases</p></div><button onClick={() => setActive("Orders")}>View all orders</button></div>
       <OrderTable rows={orders.slice(0, 4)} />
@@ -2997,7 +2995,7 @@ function buildCustomerProfiles(orders) {
   });
 }
 
-function AnalyticsPanel({ orders, products, connected }) {
+function DashboardAnalytics({ orders, products, connected }) {
   const [period, setPeriod] = useState("30");
   const days = Number(period);
   const start = new Date(); start.setDate(start.getDate() - days);
