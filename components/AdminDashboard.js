@@ -157,6 +157,7 @@ export default function AdminDashboard() {
   const [adminAuthChecked, setAdminAuthChecked] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [requestedOrderId, setRequestedOrderId] = useState("");
+  const [requestedAdminFocus, setRequestedAdminFocus] = useState(null);
   const [metrics, setMetrics] = useState({
     totalSales: 0,
     orders: 0,
@@ -203,7 +204,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     const handlePopState = () => {
       const section = getSectionFromLocation();
-      if (section) setActive(section);
+      if (section) {
+        setRequestedAdminFocus(null);
+        setActive(section);
+      }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -211,6 +215,7 @@ export default function AdminDashboard() {
 
   function navigateAdminSection(section, options = {}) {
     if (!navItems.some((item) => item.name === section)) return;
+    setRequestedAdminFocus(options.focus ? { section, focus: options.focus } : null);
     setActive(section);
     setSidebarOpen(false);
     localStorage.setItem("bustaniya-admin-active-section", section);
@@ -805,12 +810,12 @@ export default function AdminDashboard() {
           {ordersError && active !== "Orders" && <div className="adminErrorBanner">{ordersError}</div>}
           {!canAccessActive && <div className="adminErrorBanner">You do not have access to this admin area.</div>}
           {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} currentAdminUser={currentAdminUser} onRefresh={() => loadOrders(ordersKey)} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} />}
-          {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} />}
+          {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} />}
-          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} />}
+          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
-          {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} />}
+          {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} />}
         </div>
       </section>
@@ -942,10 +947,12 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const [dashboardPeriod, setDashboardPeriod] = useState("7");
   const [dashboardUpdatedAt, setDashboardUpdatedAt] = useState(null);
   const [dashboardRefreshing, setDashboardRefreshing] = useState(false);
+  const [financeSnapshotStatus, setFinanceSnapshotStatus] = useState("loading");
   const isOwnerDashboard = !currentAdminUser || currentAdminUser.role === "Owner";
   useEffect(() => { setDashboardNow(new Date()); }, []);
   async function refreshDashboardFinance() {
     if (!isOwnerDashboard) {
+      setFinanceSnapshotStatus("ready");
       setDashboardUpdatedAt(new Date());
       return;
     }
@@ -954,9 +961,10 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
       const result = response.ok ? await response.json() : null;
       const snapshot = { transactions: result?.transactions || [], supplierBills: result?.supplierBills || [], packagingExpense: Number(result?.packagingExpense || 0), deliveryExpense: Number(result?.deliveryExpense || 0), expenses: Array.isArray(result?.manualExpenses) ? result.manualExpenses : [] };
       setFinanceSnapshot(snapshot);
+      setFinanceSnapshotStatus("ready");
       const today = new Date().toISOString().slice(0, 10);
       setOverduePayables(snapshot.supplierBills.filter((bill) => bill.status !== "paid" && bill.dueDate && bill.dueDate < today && Number(bill.total || 0) > Number(bill.paid || 0)).length);
-    } catch { /* Optional Finance snapshot unavailable; live order data remains visible. */ }
+    } catch { setFinanceSnapshotStatus("error"); }
     setDashboardUpdatedAt(new Date());
   }
   useEffect(() => { refreshDashboardFinance(); }, []);
@@ -974,7 +982,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     : Number(metrics.totalSales || 0);
   const dashboardOrderCount = connected ? liveOrders.length : Number(metrics.orders || 0);
   const dashboardCustomerCount = connected
-    ? new Set(liveOrders.map((order) => String(order.customer || order.shipping_full_name || "").trim()).filter(Boolean)).size
+    ? new Set(liveOrders.map(orderCustomerIdentity).filter(Boolean)).size
     : Number(metrics.customers || 0);
   const deliveredItems = liveOrders.filter(isDeliveredOrder).flatMap((order) => normalizeOrderItems(order.raw || order));
   const productCosts = new Map((products || []).map((product) => [String(product.id), Number(product.costTotalPkr || 0)]));
@@ -1007,6 +1015,15 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
       return date && orderDate && isDeliveredOrder(order) && startOfDay(orderDate).getTime() === date.getTime();
     }).reduce((sum, order) => sum + Number(order.total || 0), 0),
   }));
+  const salesPeriodTotal = salesByDay.reduce((sum, day) => sum + day.sales, 0);
+  const currentPeriodStart = chartDays[0]?.date;
+  const previousPeriodStart = currentPeriodStart ? new Date(currentPeriodStart) : null;
+  if (previousPeriodStart) previousPeriodStart.setDate(previousPeriodStart.getDate() - chartRange);
+  const previousPeriodSales = liveOrders.filter((order) => {
+    const orderDate = toOrderDate(order);
+    return previousPeriodStart && currentPeriodStart && orderDate && isDeliveredOrder(order) && orderDate >= previousPeriodStart && orderDate < currentPeriodStart;
+  }).reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const salesPeriodChange = previousPeriodSales > 0 ? Math.round(((salesPeriodTotal - previousPeriodSales) / previousPeriodSales) * 100) : null;
   const maxDailySales = Math.max(...salesByDay.map((day) => day.sales), 1);
   const statusBuckets = {
     Booked: 0,
@@ -1032,14 +1049,15 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     return `${statusPalette[label]} ${start}% ${completedPercent}%`;
   });
   const donutStyle = { background: donutStops.length ? `conic-gradient(${donutStops.join(",")})` : "#dedfdc" };
-  if (loading) return <DashboardLoadingState />;
+  if (loading || (isOwnerDashboard && financeSnapshotStatus === "loading")) return <DashboardLoadingState />;
   return <>
     <div className="adminTitle dashboardTitle"><div><p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" }) : "Loading date…"}</p><h1>{dashboardNow && dashboardNow.getHours() < 12 ? "Good morning" : dashboardNow && dashboardNow.getHours() < 17 ? "Good afternoon" : "Good evening"}, Bustaniya</h1><span>{connected ? `Live store data${dashboardUpdatedAt ? ` · Updated ${dashboardUpdatedAt.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}` : ""}` : "Connect Supabase orders to load live store data."}</span></div><div className="dashboardTitleActions"><button className="dashboardRefresh" onClick={refreshDashboard} disabled={dashboardRefreshing}><RefreshCw className={dashboardRefreshing ? "spinIcon" : ""} /> {dashboardRefreshing ? "Refreshing" : "Refresh"}</button><button className="dashboardPrimaryAction" onClick={onAddProduct}><Plus /> Add product</button></div></div>
+    {isOwnerDashboard && financeSnapshotStatus === "error" && <div className="adminErrorBanner">Finance data could not be loaded. Sales and COD remain live, but cash, profit and Finance alerts are hidden until Refresh succeeds.</div>}
     <section className="dashboardSection dashboardPrimarySection"><div className="dashboardSectionHeading"><div><p>STORE PULSE</p><h2>Today at a glance</h2><span>Live sales, cash and profitability from your connected store.</span></div></div><div className="metricGrid dashboardPrimaryMetrics">
       <Metric icon={CircleDollarSign} label="Delivered sales" value={`Rs. ${dashboardSales.toLocaleString()}`} change="All time" note="delivered orders only" />
-      {isOwnerDashboard && <Metric icon={WalletCards} label="Available cash" value={`Rs. ${dashboardAvailableCash.toLocaleString()}`} change="All time" note="after recorded cash costs" />}
+      {isOwnerDashboard && <Metric icon={WalletCards} label="Available cash" value={financeSnapshotStatus === "ready" ? `Rs. ${dashboardAvailableCash.toLocaleString()}` : "Unavailable"} change="All time" note="after recorded cash costs" />}
       <Metric icon={Landmark} label="Pending COD" value={`Rs. ${dashboardCod.toLocaleString()}`} change="Current" note="not received yet" />
-      {isOwnerDashboard && <Metric icon={TrendingUp} label="Final net profit" value={`Rs. ${dashboardNetProfit.toLocaleString()}`} change="Finance" note="actual P&amp;L · all time" />}
+      {isOwnerDashboard && <Metric icon={TrendingUp} label="Final net profit" value={financeSnapshotStatus === "ready" ? `Rs. ${dashboardNetProfit.toLocaleString()}` : "Unavailable"} change="Finance" note="actual P&amp;L · all time" />}
     </div></section>
     <section className="dashboardSection dashboardHealthSection"><div className="dashboardSectionHeading"><div><p>OPERATIONS</p><h2>Store health</h2><span>Orders, customers, stock and returns that need daily attention.</span></div></div><div className="miniMetricGrid dashboardSecondaryMetrics">
       <article><ShoppingBag /><span><b>{dashboardOrderCount}</b>All orders</span></article>
@@ -1047,14 +1065,14 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
       <article className={lowStockProducts.length ? "alertMetric" : ""}><Package /><span><b>{lowStockProducts.length}</b>Low-stock products</span></article>
       <article className={dashboardReturns ? "alertMetric" : ""}><ReceiptText /><span><b>{dashboardReturns}</b>Returns to inspect</span></article>
     </div></section>
+    {((isOwnerDashboard && ((financeSnapshotStatus === "ready" && (dashboardNetProfit < 0 || overduePayables)) || zeroCostActive.length)) || lowStockProducts.length || dashboardReturns) && <section className="adminCard managementCard dashboardAlerts"><div className="inventoryListHead"><div><h2>Action alerts</h2><span>Items needing attention, ordered by urgency.</span></div></div><div className="financeStatement">{isOwnerDashboard && financeSnapshotStatus === "ready" && dashboardNetProfit < 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> Negative final net profit</span><button onClick={() => setActive("Finances", { focus: "pnl" })}>Review P&amp;L</button></div>}{isOwnerDashboard && zeroCostActive.length > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {zeroCostActive.length} active product{zeroCostActive.length === 1 ? "" : "s"} with zero cost</span><button onClick={() => setActive("Products", { focus: "missing-cost" })}>Add cost</button></div>}{isOwnerDashboard && financeSnapshotStatus === "ready" && overduePayables > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {overduePayables} overdue supplier payable{overduePayables === 1 ? "" : "s"}</span><button onClick={() => setActive("Finances", { focus: "suppliers" })}>Review payables</button></div>}{lowStockProducts.length > 0 && <div><span><b className="alertSeverity warning">Stock</b> {lowStockProducts.length} low-stock / out-of-stock products</span><button onClick={() => setActive("Inventory", { focus: "low-stock" })}>Review stock</button></div>}{dashboardReturns > 0 && <div><span><b className="alertSeverity warning">Returns</b> {dashboardReturns} returned order{dashboardReturns === 1 ? "" : "s"} pending inspection</span><button onClick={() => setActive("Inventory", { focus: "returns-inspection" })}>Inspect returns</button></div>}</div></section>}
     <DashboardAnalytics orders={orders} products={products} connected={connected} period={dashboardPeriod} setPeriod={setDashboardPeriod} />
-    {((isOwnerDashboard && (dashboardNetProfit < 0 || zeroCostActive.length || overduePayables)) || lowStockProducts.length || dashboardReturns) && <section className="adminCard managementCard dashboardAlerts"><div className="inventoryListHead"><div><h2>Action alerts</h2><span>Items needing attention, ordered by urgency.</span></div></div><div className="financeStatement">{isOwnerDashboard && dashboardNetProfit < 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> Negative final net profit</span><button onClick={() => setActive("Finances")}>Review Finance</button></div>}{isOwnerDashboard && zeroCostActive.length > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {zeroCostActive.length} active product{zeroCostActive.length === 1 ? "" : "s"} with zero cost</span><button onClick={() => setActive("Products")}>Add cost</button></div>}{isOwnerDashboard && overduePayables > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {overduePayables} overdue supplier payable{overduePayables === 1 ? "" : "s"}</span><button onClick={() => setActive("Finances")}>Review payables</button></div>}{lowStockProducts.length > 0 && <div><span><b className="alertSeverity warning">Stock</b> {lowStockProducts.length} low-stock / out-of-stock products</span><button onClick={() => setActive("Inventory")}>Review stock</button></div>}{dashboardReturns > 0 && <div><span><b className="alertSeverity warning">Returns</b> {dashboardReturns} returned order{dashboardReturns === 1 ? "" : "s"} pending inspection</span><button onClick={() => setActive("Inventory")}>Inspect returns</button></div>}</div></section>}
     <div className="dashboardGrid">
       <section className="salesChart adminCard">
         <div className="cardHeading"><div><h2>Sales overview</h2><p>Delivered revenue for the last {chartRange} days</p></div><span className="chartDataLabel">Delivered only</span></div>
-        <div className="chartTotal"><b>Rs. {salesByDay.reduce((sum, day) => sum + day.sales, 0).toLocaleString()}</b><span>Delivered orders only</span></div>
-        <div className="fakeChart" role="img" aria-label={`Delivered sales chart for the last ${chartRange} days`}>
-          {salesByDay.map((day) => <div key={day.label}><span title={`Rs. ${day.sales.toLocaleString()}`} style={{ height: `${day.sales ? Math.max(4, (day.sales / maxDailySales) * 100) : 0}%` }} /><small>{day.label}</small></div>)}
+        <div className="chartTotal"><b>Rs. {salesPeriodTotal.toLocaleString()}</b><span className={salesPeriodChange !== null && salesPeriodChange < 0 ? "metricTrendDown" : "metricTrendUp"}>{salesPeriodChange === null ? "No previous-period baseline" : `${salesPeriodChange >= 0 ? "+" : ""}${salesPeriodChange}% vs previous ${chartRange} days`}</span></div>
+        <div className={`fakeChart ${chartRange > 7 ? "longRange" : ""}`} role="img" aria-label={`Delivered sales chart for the last ${chartRange} days`}>
+          {salesByDay.map((day, index) => <div key={`${day.label}-${index}`}><span title={`${day.label}: Rs. ${day.sales.toLocaleString()}`} style={{ height: `${day.sales ? Math.max(4, (day.sales / maxDailySales) * 100) : 0}%` }} />{(chartRange <= 7 || index % Math.ceil(chartRange / 6) === 0 || index === chartRange - 1) && <small>{day.label}</small>}</div>)}
         </div>
       </section>
       <section className="adminCard orderStatus">
@@ -1229,12 +1247,12 @@ function productVariants(product) {
   })));
 }
 
-function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, onDeliveryChange, loading }) {
-  const [tab, setTab] = useState("All");
+function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, onDeliveryChange, loading, initialView }) {
+  const [tab, setTab] = useState(initialView === "missing-cost" ? "Missing cost" : "All");
   const [variantProduct, setVariantProduct] = useState(null);
   const visibleProducts = products.filter((product) => {
     const status = productStatus(product);
-    return tab === "All" || status === tab || (tab === "Low stock" && Number(product.stock || 0) <= Number(product.lowStockThreshold || 5));
+    return tab === "All" || status === tab || (tab === "Low stock" && Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)) || (tab === "Missing cost" && !Number(product.costTotalPkr || 0));
   });
   const collections = [...new Set(products.map(productCollection))].filter(Boolean);
   const lowStockCount = products.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length;
@@ -1280,7 +1298,7 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
     </div>
     <section className="adminCard managementCard">
       <div className="catalogToolbar">
-        <div className="orderTabs">{["All","Active","Draft","Archived","Unlisted","Low stock"].map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item}</button>)}</div>
+        <div className="orderTabs">{["All","Active","Draft","Archived","Unlisted","Low stock","Missing cost"].map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item}</button>)}</div>
         <div className="catalogActions">
           <div className="inlineSearch"><Search /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." /></div>
           <button type="button" onClick={exportProducts}>Export CSV</button>
@@ -1304,6 +1322,17 @@ function orderStatus(order) {
   return String(order.postexStatus || order.status || "").toLowerCase();
 }
 
+function orderCustomerIdentity(order) {
+  const phone = String(order.phone || order.raw?.shipping_phone || order.raw?.guest_phone || "").replace(/\D/g, "");
+  const email = String(order.raw?.shipping_email || order.raw?.guest_email || "").trim().toLowerCase();
+  const id = String(order.raw?.customer_id || order.raw?.customerId || "").trim();
+  const fallback = [order.customer || order.shipping_full_name, order.city || order.shipping_city]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean)
+    .join("|");
+  return phone || email || id || fallback;
+}
+
 function formatOrderStatus(value = "") {
   return String(value || "pending")
     .replaceAll("_", " ")
@@ -1313,7 +1342,8 @@ function formatOrderStatus(value = "") {
 }
 
 function isRevenueOrder(order) {
-  return !["cancelled", "failed"].includes(orderStatus(order));
+  const status = orderStatus(order);
+  return !status.includes("cancel") && !status.includes("fail") && !status.includes("void");
 }
 
 function isDeliveredOrder(order) {
@@ -1729,7 +1759,7 @@ function OrdersPanel({ rows, products, accessKey, setAccessKey, connected, loadi
   </>;
 }
 
-function FinancePanel({ orders, products, connected, currentAdminUser }) {
+function FinancePanel({ orders, products, connected, currentAdminUser, initialTab }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeProducts = Array.isArray(products) ? products : [];
   const isOwnerFinance = !currentAdminUser || currentAdminUser.role === "Owner";
@@ -1744,7 +1774,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   const [cashbookLoading, setCashbookLoading] = useState(true);
   const [cashbookError, setCashbookError] = useState("");
   const [financePeriod, setFinancePeriod] = useState("all");
-  const [financeTab, setFinanceTab] = useState("overview");
+  const [financeTab, setFinanceTab] = useState(["overview","pnl","cashbook","suppliers","marketing","reports"].includes(initialTab) ? initialTab : "overview");
 
   useEffect(() => {
     if (!isOwnerFinance) {
@@ -2217,7 +2247,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   </div>;
 }
 
-function InventoryPanel({ products, movements, orders, connected, currentAdminUser, onAdjust, onCreateCustomInventory, onCreateProductionBatch }) {
+function InventoryPanel({ products, movements, orders, connected, currentAdminUser, onAdjust, onCreateCustomInventory, onCreateProductionBatch, initialView }) {
   const emptyProductionCosts = () => ({ fabric: 0, stitching: 0, stitchingMaterial: 0, packaging: 0, travel: 0, other: 0 });
   const inventoryMoney = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
   const newProductionItem = () => ({ key: `batch-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, productId: "", quantity: "", newProductName: "", newProductPrice: "", newProductCategory: "Kurtis", newProductImage: "", directCostBreakdown: emptyProductionCosts() });
@@ -2234,7 +2264,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
   const [voidingBatchId, setVoidingBatchId] = useState("");
   const [voidBatch, setVoidBatch] = useState(null);
   const [voidConfirmation, setVoidConfirmation] = useState("");
-  const [inventoryView, setInventoryView] = useState("All");
+  const [inventoryView, setInventoryView] = useState(initialView === "low-stock" ? "Low stock" : "All");
   const [inventorySearch, setInventorySearch] = useState("");
   const [localHistory, setLocalHistory] = useState([]);
   const [sourceSearch, setSourceSearch] = useState("");
@@ -2252,6 +2282,12 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     { id: "buttons", item: "Buttons", category: "Buttons", sourceId: "materials-general", quantity: 0, unit: "pcs", unitCost: 0, reorderAt: 50, notes: "", status: "Tracked" },
     { id: "laces", item: "Laces", category: "Laces", sourceId: "materials-general", quantity: 0, unit: "meters", unitCost: 0, reorderAt: 20, notes: "", status: "Tracked" },
   ]);
+
+  useEffect(() => {
+    if (initialView !== "returns-inspection") return;
+    const timer = window.setTimeout(() => document.getElementById("returned-order-inspection")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+    return () => window.clearTimeout(timer);
+  }, [initialView]);
 
   async function saveProductionBatch(event) {
     event.preventDefault();
@@ -2646,7 +2682,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     </div>
 
     {low + out > 0 && <div className="inventoryAlert"><Bell /><div><b>{low + out} products need attention</b><span>Out-of-stock products cannot be ordered, and low stock is highlighted here.</span></div><button onClick={() => setInventoryView(low ? "Low stock" : "Out of stock")}>Review items</button></div>}
-    {returnedHistoricalOrders.length > 0 && <section className="adminCard managementCard inventoryLedger"><div className="inventoryListHead"><div><h2>Returned-order inspection queue</h2><span>Inspect every returned parcel before adding any unit back to available stock.</span></div><b>{returnedHistoricalOrders.length} pending</b></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Finance impact</th><th>Required action</th></tr></thead><tbody>{returnedHistoricalOrders.slice(0, 10).map((order) => <tr key={order.id}><td><b>{order.id}</b></td><td>{order.customer || "—"}</td><td>{normalizeOrderItems(order.raw || order).map((item) => `${item.name} × ${item.quantity}`).join(", ")}</td><td className="expenseAmount">- Rs. 200 courier loss</td><td><b>Inspect → restock or mark damaged</b></td></tr>)}</tbody></table></div><p className="trackingNumber">Finance automatically deducts Rs. 200 once per returned order. Inventory is not restored automatically, so damaged or missing parcels cannot inflate stock.</p></section>}
+    {returnedHistoricalOrders.length > 0 && <section id="returned-order-inspection" className="adminCard managementCard inventoryLedger"><div className="inventoryListHead"><div><h2>Returned-order inspection queue</h2><span>Inspect every returned parcel before adding any unit back to available stock.</span></div><b>{returnedHistoricalOrders.length} pending</b></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Finance impact</th><th>Required action</th></tr></thead><tbody>{returnedHistoricalOrders.slice(0, 10).map((order) => <tr key={order.id}><td><b>{order.id}</b></td><td>{order.customer || "—"}</td><td>{normalizeOrderItems(order.raw || order).map((item) => `${item.name} × ${item.quantity}`).join(", ")}</td><td className="expenseAmount">- Rs. 200 courier loss</td><td><b>Inspect → restock or mark damaged</b></td></tr>)}</tbody></table></div><p className="trackingNumber">Finance automatically deducts Rs. 200 once per returned order. Inventory is not restored automatically, so damaged or missing parcels cannot inflate stock.</p></section>}
     {lowMaterialCount > 0 && <div className="inventoryAlert materialAlert"><Bell /><div><b>{lowMaterialCount} material items need reorder review</b><span>Buttons, laces, trims and other raw materials are tracked separately from finished product stock.</span></div><button onClick={() => setTab("Sources")}>Review materials</button></div>}
 
     <section className="adminCard managementCard inventoryLedger">
@@ -3071,18 +3107,35 @@ function buildCustomerProfiles(orders) {
 
 function DashboardAnalytics({ orders, products, connected, period, setPeriod }) {
   const days = Number(period);
-  const start = new Date(); start.setDate(start.getDate() - days);
-  const scoped = (orders || []).filter((order) => { const date = new Date(order.createdAt || order.raw?.created_at || 0); return !Number.isNaN(date.getTime()) && date >= start; });
+  const end = new Date();
+  const start = new Date(end); start.setDate(start.getDate() - days);
+  const previousStart = new Date(start); previousStart.setDate(previousStart.getDate() - days);
+  const orderDate = (order) => new Date(order.createdAt || order.raw?.created_at || 0);
+  const scoped = (orders || []).filter((order) => { const date = orderDate(order); return !Number.isNaN(date.getTime()) && date >= start; });
+  const previousScoped = (orders || []).filter((order) => { const date = orderDate(order); return !Number.isNaN(date.getTime()) && date >= previousStart && date < start; });
   const delivered = scoped.filter(isDeliveredOrder);
   const returned = scoped.filter(isReturnedOrder);
   const sales = delivered.reduce((sum, order) => sum + Number(order.total || 0), 0);
-  const customerNames = delivered.map((order) => String(order.customer || "").toLowerCase()).filter(Boolean);
-  const repeatCustomers = [...new Set(customerNames)].filter((name) => customerNames.filter((item) => item === name).length > 1).length;
+  const previousSales = previousScoped.filter(isDeliveredOrder).reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const salesChange = previousSales > 0 ? Math.round(((sales - previousSales) / previousSales) * 100) : null;
+  const customerKeys = delivered.map(orderCustomerIdentity).filter(Boolean);
+  const customerOrderCounts = customerKeys.reduce((map, key) => map.set(key, (map.get(key) || 0) + 1), new Map());
+  const repeatCustomers = [...customerOrderCounts.values()].filter((count) => count > 1).length;
   const items = delivered.flatMap((order) => normalizeOrderItems(order.raw || order));
-  const productSales = items.reduce((map, item) => { const key = item.name || "Unknown product"; map[key] = (map[key] || 0) + Number(item.quantity || 0); return map; }, {});
-  const topProducts = Object.entries(productSales).sort((a,b) => b[1] - a[1]).slice(0, 5);
+  const productsById = new Map((products || []).map((product) => [String(product.id), product]));
+  const productsBySku = new Map((products || []).map((product) => [String(product.sku || product.articleNumber || "").trim().toLowerCase(), product]).filter(([key]) => key));
+  const productsByName = new Map((products || []).map((product) => [String(product.name || "").trim().toLowerCase(), product]));
+  const productSales = items.reduce((map, item) => {
+    const product = productsById.get(String(item.productId)) || productsBySku.get(String(item.sku || "").trim().toLowerCase()) || productsByName.get(String(item.name || "").trim().toLowerCase());
+    const key = product ? `id:${product.id}` : `item:${String(item.sku || item.name || "unknown").trim().toLowerCase()}`;
+    const current = map.get(key) || { key, product, name: product?.name || item.name || "Unknown product", sku: product?.sku || product?.articleNumber || item.sku || "—", quantity: 0 };
+    current.quantity += Number(item.quantity || 0);
+    map.set(key, current);
+    return map;
+  }, new Map());
+  const topProducts = [...productSales.values()].sort((a,b) => b.quantity - a.quantity).slice(0, 5);
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
-  return <div className="analyticsSystem"><div className="adminTitle"><div><p>BUSINESS INTELLIGENCE</p><h1>Analytics</h1><span>{connected ? "Performance from live order, product and customer data." : "Connect live orders to view performance."}</span></div><div className="orderTabs">{[["7","7 days"],["30","30 days"],["90","90 days"]].map(([value,label]) => <button type="button" className={period === value ? "active" : ""} onClick={() => setPeriod(value)} key={value}>{label}</button>)}</div></div><div className="miniMetricGrid financeMetrics"><article><CircleDollarSign /><span><b>{money(sales)}</b>Delivered sales</span></article><article><ShoppingBag /><span><b>{delivered.length}</b>Fulfilled orders</span></article><article><TrendingUp /><span><b>{money(delivered.length ? sales / delivered.length : 0)}</b>Average order value</span></article><article><Users /><span><b>{customerNames.length ? Math.round(repeatCustomers / new Set(customerNames).size * 100) : 0}%</b>Repeat customer rate</span></article><article className={returned.length ? "alertMetric" : ""}><Package /><span><b>{returned.length}</b>Returned orders</span></article></div><section className="financeGrid financeGridWide"><div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>Top products sold</h2><span>Delivered units in the selected period</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Product</th><th>Units sold</th><th>Current stock</th></tr></thead><tbody>{topProducts.map(([name, quantity]) => <tr key={name}><td><b>{name}</b></td><td>{quantity}</td><td>{products.find((product) => product.name === name)?.stock ?? "—"}</td></tr>)}{!topProducts.length && <tr><td colSpan="3" className="emptyFinanceCell">No delivered product sales in this period.</td></tr>}</tbody></table></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Operations health</h2><p>Actionable indicators for the selected period.</p></div></div><div className="financeStatement"><div><span>Return rate</span><b>{delivered.length + returned.length ? Math.round(returned.length / (delivered.length + returned.length) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{products.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div><span>Products with missing cost</span><b>{products.filter((product) => !Number(product.costTotalPkr || 0)).length}</b></div><div className="statementTotal"><span>Next action</span><b>{products.some((product) => !Number(product.costTotalPkr || 0)) ? "Add missing product costs" : "Review low stock"}</b></div></div></div></section></div>;
+  return <section className="analyticsSystem" aria-labelledby="dashboard-analytics-heading"><div className="adminTitle dashboardAnalyticsTitle"><div><p>BUSINESS INTELLIGENCE</p><h2 id="dashboard-analytics-heading">Performance analytics</h2><span>{connected ? "Live delivered-order performance, matched by customer identity and product ID / SKU." : "Connect live orders to view performance."}</span></div><div className="orderTabs" aria-label="Analytics period">{[["7","7 days"],["30","30 days"],["90","90 days"]].map(([value,label]) => <button type="button" className={period === value ? "active" : ""} aria-pressed={period === value} onClick={() => setPeriod(value)} key={value}>{label}</button>)}</div></div><div className="miniMetricGrid financeMetrics"><article><CircleDollarSign /><span><b>{money(sales)}</b>Delivered sales <small className={salesChange !== null && salesChange < 0 ? "metricTrendDown" : "metricTrendUp"}>{salesChange === null ? "No prior-period baseline" : `${salesChange >= 0 ? "+" : ""}${salesChange}% vs previous ${days} days`}</small></span></article><article><ShoppingBag /><span><b>{delivered.length}</b>Fulfilled orders</span></article><article><TrendingUp /><span><b>{money(delivered.length ? sales / delivered.length : 0)}</b>Average order value</span></article><article><Users /><span><b>{customerOrderCounts.size ? Math.round(repeatCustomers / customerOrderCounts.size * 100) : 0}%</b>Repeat customer rate</span></article><article className={returned.length ? "alertMetric" : ""}><Package /><span><b>{returned.length}</b>Returned orders</span></article></div><div className="financeGrid financeGridWide"><div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>Top products sold</h2><span>Delivered units matched by product ID, then SKU, then exact product name.</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Product / SKU</th><th>Units sold</th><th>Current stock</th></tr></thead><tbody>{topProducts.map((row) => <tr key={row.key}><td><b>{row.name}</b><small className="trackingNumber">{row.sku}</small></td><td>{row.quantity}</td><td>{row.product?.stock ?? "—"}</td></tr>)}{!topProducts.length && <tr><td colSpan="3" className="emptyFinanceCell">No delivered product sales in this period.</td></tr>}</tbody></table></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Operations health</h2><p>Actionable indicators for the selected period.</p></div></div><div className="financeStatement"><div><span>Return rate</span><b>{delivered.length + returned.length ? Math.round(returned.length / (delivered.length + returned.length) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{products.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div><span>Products with missing cost</span><b>{products.filter((product) => !Number(product.costTotalPkr || 0)).length}</b></div><div className="statementTotal"><span>Next action</span><b>{products.some((product) => !Number(product.costTotalPkr || 0)) ? "Add missing product costs" : "Review low stock"}</b></div></div></div></div></section>;
 }
 
 function CustomersPanel({ orders, onOpen }) {
