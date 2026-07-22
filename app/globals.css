@@ -140,6 +140,10 @@ a { text-decoration:none; }
 .adminContent .dashboardGrid > * { min-width:0; width:100%; }
 .adminContent .dashboardDataLoading { min-height:420px; padding-top:8px; }
 .adminContent .spinIcon { animation:adminSpin .8s linear infinite; }
+.adminTopbarContext { min-width:0; display:flex; flex-direction:column; gap:2px; color:var(--admin-ink); }
+.adminTopbarContext b { font-size:12px; }
+.adminTopbarContext span { color:var(--admin-muted); font-size:9px; }
+.adminContent .dashboardPrimaryMetrics .metricCard h2 { font-size:clamp(18px,2vw,26px); overflow-wrap:anywhere; }
 @keyframes adminSpin { to { transform:rotate(360deg); } }
 
 @media (max-width:600px) {

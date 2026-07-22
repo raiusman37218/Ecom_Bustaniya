@@ -784,10 +784,9 @@ export default function AdminDashboard() {
       <section className="adminMain">
         <header className="adminTopbar">
           <button className="adminMenu" onClick={() => setSidebarOpen(true)} aria-label="Open admin navigation"><Menu /></button>
-          <div className="adminSearch"><Search /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products, orders, customers..." aria-label="Search admin products, orders and customers" /></div>
+          {active === "Products" ? <div className="adminSearch"><Search /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." aria-label="Search products" /></div> : <div className="adminTopbarContext"><b>{active}</b><span>Bustaniya admin</span></div>}
           <div className="adminTopActions">
             <a href="/" target="_blank">View store</a>
-            <button className="notification" aria-label="Notifications"><Bell /><span /></button>
             <div className="adminAvatar">{(currentAdminUser?.name || "BA").slice(0, 2).toUpperCase()}</div>
             <button
               className="adminLogoutButton"
@@ -1054,7 +1053,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
       <section className="salesChart adminCard">
         <div className="cardHeading"><div><h2>Sales overview</h2><p>Delivered revenue for the last {chartRange} days</p></div><span className="chartDataLabel">Delivered only</span></div>
         <div className="chartTotal"><b>Rs. {salesByDay.reduce((sum, day) => sum + day.sales, 0).toLocaleString()}</b><span>Delivered orders only</span></div>
-        <div className="fakeChart">
+        <div className="fakeChart" role="img" aria-label={`Delivered sales chart for the last ${chartRange} days`}>
           {salesByDay.map((day) => <div key={day.label}><span title={`Rs. ${day.sales.toLocaleString()}`} style={{ height: `${day.sales ? Math.max(4, (day.sales / maxDailySales) * 100) : 0}%` }} /><small>{day.label}</small></div>)}
         </div>
       </section>
@@ -3028,7 +3027,7 @@ function OrderDetailDrawer({ order, accessKey, onClose, onUpdate }) {
 
 function OrderTable({ rows, onSelect }) {
   return <div className="adminTableWrap"><table className="adminTable orderTable"><thead><tr><th>Order</th><th>Customer</th><th>Amount</th><th>PostEx status</th><th>Date</th><th>Risk</th><th /></tr></thead><tbody>
-    {rows.map((order) => <tr key={order.id}><td><b>{order.id}</b>{order.tracking&&<small className="trackingNumber">{order.tracking}</small>}{order.deliveryMethod&&<small className="trackingNumber">{order.deliveryMethod}</small>}</td><td>{order.customer}<small className="trackingNumber">{order.city}</small></td><td><b>Rs. {Number(order.total || 0).toLocaleString()}</b></td><td><span className={`statusBadge ${orderStatus(order).replaceAll(" ","")}`}>{order.postexStatus || order.status}</span></td><td>{order.date}</td><td>{order.risk || "Standard COD"}</td><td><button className="editProductButton" onClick={() => onSelect(order)}>Open</button></td></tr>)}
+    {rows.map((order) => <tr key={order.id}><td><b>{order.id}</b>{order.tracking&&<small className="trackingNumber">{order.tracking}</small>}{order.deliveryMethod&&<small className="trackingNumber">{order.deliveryMethod}</small>}</td><td>{order.customer}<small className="trackingNumber">{order.city}</small></td><td><b>Rs. {Number(order.total || 0).toLocaleString()}</b></td><td><span className={`statusBadge ${orderStatus(order).replaceAll(" ","")}`}>{order.postexStatus || order.status}</span></td><td>{order.date}</td><td>{order.risk || "Standard COD"}</td><td>{onSelect && <button className="editProductButton" onClick={() => onSelect(order)} aria-label={`Open order ${order.id}`}>Open</button>}</td></tr>)}
     {!rows.length && <tr><td colSpan="7"><div className="inventoryEmpty">No orders match this view.</div></td></tr>}
   </tbody></table></div>;
 }
