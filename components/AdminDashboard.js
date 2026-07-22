@@ -105,6 +105,12 @@ const navPermissionMap = {
   Settings: "settings",
 };
 
+function getSectionFromLocation() {
+  if (typeof window === "undefined") return "";
+  const section = new URLSearchParams(window.location.search).get("section");
+  return navItems.some((item) => item.name === section) ? section : "";
+}
+
 const PRODUCT_COST_KEYS = ["fabric", "stitching", "embellishment", "packaging", "delivery", "other"];
 
 function canUseAdminArea(user, area) {
@@ -115,7 +121,7 @@ function canUseAdminArea(user, area) {
 }
 
 export default function AdminDashboard() {
-  const [active, setActive] = useState("Dashboard");
+  const [active, setActive] = useState(() => getSectionFromLocation() || "Dashboard");
   const [activeSectionReady, setActiveSectionReady] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -161,8 +167,11 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
+    const requestedSection = getSectionFromLocation();
     const savedActiveSection = localStorage.getItem("bustaniya-admin-active-section");
-    if (navItems.some((item) => item.name === savedActiveSection)) {
+    if (requestedSection) {
+      setActive(requestedSection);
+    } else if (navItems.some((item) => item.name === savedActiveSection)) {
       setActive(savedActiveSection);
     }
     setActiveSectionReady(true);
@@ -191,6 +200,22 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeSectionReady) localStorage.setItem("bustaniya-admin-active-section", active);
   }, [active, activeSectionReady]);
+
+  useEffect(() => {
+    const syncSectionFromUrl = () => setActive(getSectionFromLocation() || "Dashboard");
+    window.addEventListener("popstate", syncSectionFromUrl);
+    return () => window.removeEventListener("popstate", syncSectionFromUrl);
+  }, []);
+
+  function goToSection(section) {
+    if (!navItems.some((item) => item.name === section)) return;
+    const nextUrl = new URL(window.location.href);
+    if (section === "Dashboard") nextUrl.searchParams.delete("section");
+    else nextUrl.searchParams.set("section", section);
+    window.history.pushState({}, "", `${nextUrl.pathname}${nextUrl.search}`);
+    setActive(section);
+    setSidebarOpen(false);
+  }
 
   const filteredProducts = useMemo(() => products.filter((product) =>
     product.name.toLowerCase().includes(search.toLowerCase())
@@ -740,9 +765,9 @@ export default function AdminDashboard() {
           {visibleNavItems.map(({ name, icon: Icon, count, section }, index) => (
             <div className="adminNavItem" key={name}>
               {(index === 0 || visibleNavItems[index - 1].section !== section) && <p>{section}</p>}
-              <button type="button" className={active === name ? "active" : ""} onClick={() => { setActive(name); setSidebarOpen(false); }}>
+              <a href={name === "Dashboard" ? "/admin" : `/admin?section=${encodeURIComponent(name)}`} className={active === name ? "active" : ""} onClick={(event) => { event.preventDefault(); goToSection(name); }}>
                 <Icon /> <span>{name}</span>{count && <b>{count}</b>}
-              </button>
+              </a>
             </div>
           ))}
         </nav>
