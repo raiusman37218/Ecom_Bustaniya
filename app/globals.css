@@ -159,7 +159,7 @@ a { text-decoration:none; }
 .orderTabs button,.inventoryTabs button { min-height:34px; border-radius:7px; font-size:10px; font-weight:750; }
 .orderTabs button.active,.inventoryTabs button.active { box-shadow:0 2px 8px #173d2916; }
 .adminContent table { border-collapse:separate; border-spacing:0; font-variant-numeric:tabular-nums; }
-.adminContent table thead { position:sticky; top:76px; z-index:10; box-shadow:0 1px 0 var(--admin-line); }
+.adminContent table thead { position:static; box-shadow:inset 0 -1px 0 var(--admin-line); }
 .adminContent table th { background:#f4f7f4; color:#52675a; font-size:9px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
 .adminContent table td { color:#31483a; font-size:11px; }
 .adminContent table tbody tr { transition:background-color .16s ease; }
@@ -171,7 +171,7 @@ a { text-decoration:none; }
 .financeStatement .statementTotal { border:1px solid #d8e7d9; background:linear-gradient(135deg,#edf7ef,#f8fcf8); }
 .inventoryAlert { border-radius:10px; box-shadow:0 3px 10px #9d6b1520; }
 .adminErrorBanner { border-radius:10px; box-shadow:0 3px 10px #bd194a12; }
-@media (max-width:900px) { .adminSidebar { width:min(290px,86vw); } .adminTopbar { height:64px; padding-inline:14px; } .adminContent { padding:23px 14px 34px; } .adminSearch { width:clamp(90px,36vw,250px); min-height:36px; padding-inline:8px; } .adminSearch input { min-width:0; } .adminTopActions { gap:8px; } .adminTopActions>a,.adminLogoutButton { display:none; } .adminTitle { align-items:flex-start; flex-direction:column; margin-bottom:20px; } .adminTitle>button { width:100%; justify-content:center; } .metricGrid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .metricCard { min-height:116px; padding:16px; border-radius:10px; } .metricCard h2 { margin-top:14px; font-size:22px; } .adminContent table thead { top:64px; } }
+@media (max-width:900px) { .adminSidebar { width:min(290px,86vw); } .adminTopbar { height:64px; padding-inline:14px; } .adminContent { padding:23px 14px 34px; } .adminSearch { width:clamp(90px,36vw,250px); min-height:36px; padding-inline:8px; } .adminSearch input { min-width:0; } .adminTopActions { gap:8px; } .adminTopActions>a,.adminLogoutButton { display:none; } .adminTitle { align-items:flex-start; flex-direction:column; margin-bottom:20px; } .adminTitle>button { width:100%; justify-content:center; } .metricGrid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .metricCard { min-height:116px; padding:16px; border-radius:10px; } .metricCard h2 { margin-top:14px; font-size:22px; } }
 
 @media (max-width:600px) {
   .hero { display:block; height:min(33rem,calc(100svh - 74px)); min-height:29rem; background:#eaf4d8; }
