@@ -137,6 +137,10 @@ a { text-decoration:none; }
 .adminContent .analyticsSystem .adminTitle { margin:0 0 16px; }
 .adminContent .analyticsSystem .financeGrid { margin-bottom:0; }
 .adminContent .dashboardAlerts { border-left:4px solid var(--berry); }
+.adminContent .dashboardGrid > * { min-width:0; width:100%; }
+.adminContent .dashboardDataLoading { min-height:420px; padding-top:8px; }
+.adminContent .spinIcon { animation:adminSpin .8s linear infinite; }
+@keyframes adminSpin { to { transform:rotate(360deg); } }
 
 @media (max-width:600px) {
   .adminContent .dashboardTitleActions { width:100%; display:grid; grid-template-columns:1fr 1fr; }
@@ -149,6 +153,8 @@ a { text-decoration:none; }
   .adminContent .dashboardSectionHeading { align-items:flex-start; }
   .adminContent .dashboardPrimaryMetrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .adminContent .dashboardSecondaryMetrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .adminContent .salesChart,.adminContent .orderStatus { min-width:0; width:100%; overflow:hidden; }
+  .adminContent .salesChart .cardHeading,.adminContent .orderStatus .cardHeading,.adminContent .chartTotal { width:100%; min-width:0; }
 }
 
 /* Admin professional interface system. */

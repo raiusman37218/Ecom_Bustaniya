@@ -143,10 +143,10 @@ export default function AdminDashboard() {
     stock: [12, 7, 3, 18, 5, 9, 4, 11, 2, 14, 8, 6][index] ?? 10,
   })));
   const [adminReady, setAdminReady] = useState(false);
-  const [orders, setOrders] = useState(demoOrders);
+  const [orders, setOrders] = useState([]);
   const [ordersKey, setOrdersKey] = useState("open-admin");
-  const [ordersConnected, setOrdersConnected] = useState(true);
-  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersConnected, setOrdersConnected] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState("");
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [inventoryMovements, setInventoryMovements] = useState([]);
@@ -156,6 +156,7 @@ export default function AdminDashboard() {
   const [currentAdminUser, setCurrentAdminUser] = useState(null);
   const [adminAuthChecked, setAdminAuthChecked] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [requestedOrderId, setRequestedOrderId] = useState("");
   const [metrics, setMetrics] = useState({
     totalSales: 0,
     orders: 0,
@@ -198,6 +199,24 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeSectionReady) localStorage.setItem("bustaniya-admin-active-section", active);
   }, [active, activeSectionReady]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const section = getSectionFromLocation();
+      if (section) setActive(section);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  function navigateAdminSection(section, options = {}) {
+    if (!navItems.some((item) => item.name === section)) return;
+    setActive(section);
+    setSidebarOpen(false);
+    localStorage.setItem("bustaniya-admin-active-section", section);
+    const url = `/admin?section=${encodeURIComponent(section)}`;
+    window.history[options.replace ? "replaceState" : "pushState"]({}, "", url);
+  }
 
   const filteredProducts = useMemo(() => products.filter((product) =>
     product.name.toLowerCase().includes(search.toLowerCase())
@@ -747,7 +766,7 @@ export default function AdminDashboard() {
           {visibleNavItems.map(({ name, icon: Icon, count, section }, index) => (
             <div className="adminNavItem" key={name}>
               {(index === 0 || visibleNavItems[index - 1].section !== section) && <p>{section}</p>}
-              <a href={`/admin?section=${encodeURIComponent(name)}`} className={active === name ? "active" : ""}>
+              <a href={`/admin?section=${encodeURIComponent(name)}`} className={active === name ? "active" : ""} onClick={(event) => { event.preventDefault(); navigateAdminSection(name); }}>
                 <Icon /> <span>{name}</span>{count && <b>{count}</b>}
               </a>
             </div>
@@ -786,10 +805,10 @@ export default function AdminDashboard() {
         <div className="adminContent">
           {ordersError && active !== "Orders" && <div className="adminErrorBanner">{ordersError}</div>}
           {!canAccessActive && <div className="adminErrorBanner">You do not have access to this admin area.</div>}
-          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={setActive} orders={orders} products={products} metrics={metrics} connected={ordersConnected} />}
+          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} onRefresh={() => loadOrders(ordersKey)} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
-          {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} />}
+          {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} />}
@@ -915,7 +934,7 @@ export default function AdminDashboard() {
   );
 }
 
-function DashboardHome({ setActive, orders, products, metrics, connected }) {
+function DashboardHome({ setActive, orders, products, metrics, connected, loading, onRefresh, onAddProduct, onOpenOrder }) {
   // Dates are initialized only in the browser so the server and client render
   // the same initial markup regardless of their timezone.
   const [dashboardNow, setDashboardNow] = useState(null);
@@ -923,6 +942,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected }) {
   const [financeSnapshot, setFinanceSnapshot] = useState({ transactions: [], supplierBills: [], packagingExpense: 0, deliveryExpense: 0, expenses: [] });
   const [dashboardPeriod, setDashboardPeriod] = useState("7");
   const [dashboardUpdatedAt, setDashboardUpdatedAt] = useState(null);
+  const [dashboardRefreshing, setDashboardRefreshing] = useState(false);
   useEffect(() => { setDashboardNow(new Date()); }, []);
   async function refreshDashboardFinance() {
     try {
@@ -937,6 +957,14 @@ function DashboardHome({ setActive, orders, products, metrics, connected }) {
     setDashboardUpdatedAt(new Date());
   }
   useEffect(() => { refreshDashboardFinance(); }, []);
+  async function refreshDashboard() {
+    setDashboardRefreshing(true);
+    try {
+      await Promise.all([refreshDashboardFinance(), onRefresh?.()]);
+    } finally {
+      setDashboardRefreshing(false);
+    }
+  }
   const liveOrders = connected ? orders : [];
   const dashboardSales = connected
     ? liveOrders.filter(isDeliveredOrder).reduce((sum, order) => sum + Number(order.total || 0), 0)
@@ -954,9 +982,11 @@ function DashboardHome({ setActive, orders, products, metrics, connected }) {
   const dashboardTaxes = Math.round(dashboardProductRevenue * .05);
   const dashboardManualExpenses = financeSnapshot.expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0) + Number(financeSnapshot.packagingExpense || 0) + Number(financeSnapshot.deliveryExpense || 0);
   const dashboardCashbookExpenses = financeSnapshot.transactions.filter((item) => item.type === "business_expense" && !item.productionBatchId && item.category !== "Inventory production" && !String(item.title || "").startsWith("Production batch ")).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardProductionCashOutflow = financeSnapshot.transactions.filter((item) => item.type === "business_expense" && (item.productionBatchId || item.category === "Inventory production" || String(item.title || "").startsWith("Production batch "))).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardSupplierPayments = financeSnapshot.transactions.filter((item) => item.type === "supplier_payment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardCourierCost = (liveOrders.filter(isDeliveredOrder).length * 200) + (dashboardReturns * 200);
   const dashboardNetProfit = dashboardSales - dashboardCogs - dashboardCourierCost - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses;
-  const dashboardAvailableCash = dashboardSales - dashboardCourierCost - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses + financeSnapshot.transactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0) - financeSnapshot.transactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardAvailableCash = dashboardSales - dashboardCourierCost - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments + financeSnapshot.transactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0) - financeSnapshot.transactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const zeroCostActive = (products || []).filter((product) => productStatus(product) === "Active" && !Number(product.costTotalPkr || 0));
   const lowStockProducts = (products || []).filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5));
   const chartRange = Number(dashboardPeriod);
@@ -998,8 +1028,9 @@ function DashboardHome({ setActive, orders, products, metrics, connected }) {
     return `${statusPalette[label]} ${start}% ${completedPercent}%`;
   });
   const donutStyle = { background: donutStops.length ? `conic-gradient(${donutStops.join(",")})` : "#dedfdc" };
+  if (loading) return <DashboardLoadingState />;
   return <>
-    <div className="adminTitle dashboardTitle"><div><p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" }) : "Loading date…"}</p><h1>Good afternoon, Bustaniya</h1><span>{connected ? `Live store data${dashboardUpdatedAt ? ` · Updated ${dashboardUpdatedAt.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}` : ""}` : "Connect Supabase orders to load live store data."}</span></div><div className="dashboardTitleActions"><button className="dashboardRefresh" onClick={refreshDashboardFinance}><RefreshCw /> Refresh</button><button className="dashboardPrimaryAction" onClick={() => setActive("Products")}><Plus /> Add product</button></div></div>
+    <div className="adminTitle dashboardTitle"><div><p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" }) : "Loading date…"}</p><h1>{dashboardNow && dashboardNow.getHours() < 12 ? "Good morning" : dashboardNow && dashboardNow.getHours() < 17 ? "Good afternoon" : "Good evening"}, Bustaniya</h1><span>{connected ? `Live store data${dashboardUpdatedAt ? ` · Updated ${dashboardUpdatedAt.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}` : ""}` : "Connect Supabase orders to load live store data."}</span></div><div className="dashboardTitleActions"><button className="dashboardRefresh" onClick={refreshDashboard} disabled={dashboardRefreshing}><RefreshCw className={dashboardRefreshing ? "spinIcon" : ""} /> {dashboardRefreshing ? "Refreshing" : "Refresh"}</button><button className="dashboardPrimaryAction" onClick={onAddProduct}><Plus /> Add product</button></div></div>
     <section className="dashboardSection dashboardPrimarySection"><div className="dashboardSectionHeading"><div><p>STORE PULSE</p><h2>Today at a glance</h2><span>Live sales, cash and profitability from your connected store.</span></div></div><div className="metricGrid dashboardPrimaryMetrics">
       <Metric icon={CircleDollarSign} label="Delivered sales" value={`Rs. ${dashboardSales.toLocaleString()}`} change="Live" note="delivered orders only" />
       <Metric icon={WalletCards} label="Available cash" value={`Rs. ${dashboardAvailableCash.toLocaleString()}`} change="Finance" note="after recorded cash costs" />
@@ -1030,13 +1061,21 @@ function DashboardHome({ setActive, orders, products, metrics, connected }) {
     </div>
     <section className="adminCard recentOrders">
       <div className="cardHeading"><div><h2>Recent orders</h2><p>Latest customer purchases</p></div><button onClick={() => setActive("Orders")}>View all orders</button></div>
-      <OrderTable rows={orders.slice(0, 4)} />
+      <OrderTable rows={orders.slice(0, 4)} onSelect={onOpenOrder} />
     </section>
   </>;
 }
 
 function Metric({ icon: Icon, label, value, change, note }) {
   return <article className="metricCard"><div><Icon /></div><p>{label}</p><h2>{value}</h2><span><b>{change}</b> {note}</span></article>;
+}
+
+function DashboardLoadingState() {
+  return <section className="dashboardDataLoading" aria-busy="true" aria-label="Loading live dashboard data">
+    <div className="adminLoadingHeading"><span className="adminSkeleton adminLoadingEyebrow" /><span className="adminSkeleton adminLoadingTitle" /><span className="adminSkeleton adminLoadingSubtitle" /></div>
+    <div className="adminLoadingMetricGrid">{[1,2,3,4].map((item) => <div className="adminLoadingMetric" key={item}><span className="adminSkeleton" /><span className="adminSkeleton" /><span className="adminSkeleton" /></div>)}</div>
+    <p className="adminLoadingStatus">Loading live orders, products and Finance data…</p>
+  </section>;
 }
 
 function productCollection(product) {
@@ -1522,7 +1561,7 @@ function formatSavedCustomOrder(order, fallback = {}) {
   };
 }
 
-function OrdersPanel({ rows, products, accessKey, setAccessKey, connected, loading, error, onConnect }) {
+function OrdersPanel({ rows, products, accessKey, setAccessKey, connected, loading, error, onConnect, initialSelectedId, onInitialSelectionHandled }) {
   const [localOrders, setLocalOrders] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [activeTab, setActiveTab] = useState("Total Orders");
@@ -1544,6 +1583,12 @@ function OrdersPanel({ rows, products, accessKey, setAccessKey, connected, loadi
     localStorage.removeItem("bustaniya-custom-orders");
     if (connected) setLocalOrders([]);
   }, [connected, rows]);
+
+  useEffect(() => {
+    if (!initialSelectedId || !allRows.some((order) => order.id === initialSelectedId)) return;
+    setSelectedId(initialSelectedId);
+    onInitialSelectionHandled?.();
+  }, [allRows, initialSelectedId, onInitialSelectionHandled]);
 
   const orderStatusCounts = useMemo(() => orderCategoryLabels.map((label) => ({
     label,
