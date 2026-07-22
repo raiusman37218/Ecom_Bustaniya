@@ -740,7 +740,7 @@ export default function AdminDashboard() {
           {visibleNavItems.map(({ name, icon: Icon, count, section }, index) => (
             <div className="adminNavItem" key={name}>
               {(index === 0 || visibleNavItems[index - 1].section !== section) && <p>{section}</p>}
-              <button className={active === name ? "active" : ""} onClick={() => { setActive(name); setSidebarOpen(false); }}>
+              <button type="button" className={active === name ? "active" : ""} onClick={() => { setActive(name); setSidebarOpen(false); }}>
                 <Icon /> <span>{name}</span>{count && <b>{count}</b>}
               </button>
             </div>
@@ -779,7 +779,7 @@ export default function AdminDashboard() {
         <div className="adminContent">
           {ordersError && active !== "Orders" && <div className="adminErrorBanner">{ordersError}</div>}
           {!canAccessActive && <div className="adminErrorBanner">You do not have access to this admin area.</div>}
-          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={setActive} orders={orders} metrics={metrics} connected={ordersConnected} />}
+          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={setActive} orders={orders} products={products} metrics={metrics} connected={ordersConnected} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} />}
@@ -909,7 +909,7 @@ export default function AdminDashboard() {
   );
 }
 
-function DashboardHome({ setActive, orders, metrics, connected }) {
+function DashboardHome({ setActive, orders, products, metrics, connected }) {
   // Dates are initialized only in the browser so the server and client render
   // the same initial markup regardless of their timezone.
   const [dashboardNow, setDashboardNow] = useState(null);
@@ -922,6 +922,12 @@ function DashboardHome({ setActive, orders, metrics, connected }) {
   const dashboardCustomerCount = connected
     ? new Set(liveOrders.map((order) => String(order.customer || order.shipping_full_name || "").trim()).filter(Boolean)).size
     : Number(metrics.customers || 0);
+  const deliveredItems = liveOrders.filter(isDeliveredOrder).flatMap((order) => normalizeOrderItems(order.raw || order));
+  const productCosts = new Map((products || []).map((product) => [String(product.id), Number(product.costTotalPkr || 0)]));
+  const dashboardCogs = deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(productCosts.get(String(item.productId)) || 0), 0);
+  const dashboardReturns = liveOrders.filter(isReturnedOrder).length;
+  const dashboardCod = liveOrders.filter(isPendingCodOrder).reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const dashboardNetProfit = dashboardSales - dashboardCogs - (liveOrders.filter(isDeliveredOrder).length * 200) - (dashboardReturns * 200) - Math.round(deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0) * .05);
   const chartDays = dashboardNow
     ? Array.from({ length: 7 }, (_, index) => {
       const date = startOfDay(dashboardNow);
@@ -967,6 +973,8 @@ function DashboardHome({ setActive, orders, metrics, connected }) {
       <Metric icon={ShoppingBag} label="Orders" value={dashboardOrderCount} change="Live" note="all orders" />
       <Metric icon={Users} label="Customers" value={dashboardCustomerCount} change="Live" note="unique customers" />
       <Metric icon={TrendingUp} label="Low stock" value={metrics.lowStock || 0} change={metrics.products || 0} note="catalogue products" />
+      <Metric icon={TrendingUp} label="Net profit" value={`Rs. ${dashboardNetProfit.toLocaleString()}`} change="Finance" note="delivered sales basis" />
+      <Metric icon={Landmark} label="Pending COD" value={`Rs. ${dashboardCod.toLocaleString()}`} change={dashboardReturns} note="returns awaiting review" />
     </div>
     <div className="dashboardGrid">
       <section className="salesChart adminCard">
@@ -1194,7 +1202,6 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
         <div className="orderTabs">{["All","Active","Draft","Archived","Unlisted","Low stock"].map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item}</button>)}</div>
         <div className="catalogActions">
           <div className="inlineSearch"><Search /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." /></div>
-          <label className="csvButton">Import CSV<input type="file" accept=".csv,text/csv" onChange={importProducts} /></label>
           <button type="button" onClick={exportProducts}>Export CSV</button>
         </div>
       </div>
