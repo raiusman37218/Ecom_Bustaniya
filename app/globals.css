@@ -110,9 +110,15 @@ a { text-decoration:none; }
 /* Dashboard layout safeguards: keep controls and long time-series readable at every width. */
 .adminContent .dashboardTitleActions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; }
 .adminContent .dashboardTitleActions > button { width:auto; min-width:max-content; }
+.adminContent .dashboardPrimaryAction { min-height:42px; padding-inline:17px; border:1px solid var(--berry); border-radius:8px; background:var(--berry); color:#fff; display:inline-flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 8px 18px #bd194a22; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+.adminContent .dashboardPrimaryAction:hover { background:#a21440; border-color:#a21440; transform:translateY(-1px); box-shadow:0 10px 22px #bd194a2d; }
+.adminContent .dashboardPrimaryAction svg { width:16px; height:16px; }
+.adminContent .dashboardRefresh { min-height:42px; padding-inline:14px; display:inline-flex; align-items:center; justify-content:center; gap:7px; font-size:10px; font-weight:750; }
 .adminContent .analyticsSystem { margin-block:20px; }
 .adminContent .analyticsSystem .adminTitle { align-items:flex-end; }
-.adminContent .analyticsSystem .adminTitle h1 { font-size:22px; }
+.adminContent .analyticsSystem .adminTitle h1 { font-size:24px; line-height:1.05; }
+.adminContent .analyticsSystem .adminTitle span { max-width:560px; }
+.adminContent .analyticsSystem .orderTabs { flex-shrink:0; }
 .adminContent .analyticsSystem .adminTitle > div:first-child { min-width:0; }
 .adminContent .fakeChart { overflow-x:auto; gap:10px; scrollbar-width:thin; }
 .adminContent .fakeChart > div { min-width:30px; }
@@ -121,6 +127,7 @@ a { text-decoration:none; }
 @media (max-width:600px) {
   .adminContent .dashboardTitleActions { width:100%; display:grid; grid-template-columns:1fr 1fr; }
   .adminContent .dashboardTitleActions > button { width:100%; min-width:0; }
+  .adminContent .dashboardPrimaryAction,.adminContent .dashboardRefresh { min-height:44px; padding-inline:8px; }
   .adminContent .analyticsSystem .adminTitle { align-items:flex-start; gap:12px; }
   .adminContent .analyticsSystem .adminTitle h1 { font-size:22px; }
   .adminContent .analyticsSystem .adminTitle > .orderTabs { width:100%; overflow-x:auto; flex-wrap:nowrap; }
