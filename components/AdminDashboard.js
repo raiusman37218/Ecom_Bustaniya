@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Bell, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
+  Bell, BarChart3, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
   LogOut, Menu, Minus, MoreHorizontal, Package, Plus,
   ReceiptText, Search, Settings, ShoppingBag, Store, Tags, TrendingUp, Users,
   WalletCards, X
@@ -88,6 +88,7 @@ const navItems = [
   { name: "Categories", icon: Tags, section: "COMMERCE" },
   { name: "Inventory", icon: Boxes, section: "COMMERCE" },
   { name: "Customers", icon: Users, section: "COMMERCE" },
+  { name: "Analytics", icon: BarChart3, section: "COMMERCE" },
   { name: "Finances", icon: Landmark, section: "COMMERCE" },
   { name: "Settings", icon: Settings, section: "OPERATIONS" }
 ];
@@ -99,6 +100,7 @@ const navPermissionMap = {
   Categories: "products",
   Inventory: "inventory",
   Customers: "customers",
+  Analytics: "dashboard",
   Finances: "dashboard",
   Settings: "settings",
 };
@@ -783,6 +785,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
+          {canAccessActive && active === "Analytics" && <AnalyticsPanel orders={orders} products={products} connected={ordersConnected} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} />}
           {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} />}
         </div>
@@ -2957,6 +2960,23 @@ function buildCustomerProfiles(orders) {
     if (!tags.size) tags.add("New customer");
     return { ...customer, tags: [...tags] };
   });
+}
+
+function AnalyticsPanel({ orders, products, connected }) {
+  const [period, setPeriod] = useState("30");
+  const days = Number(period);
+  const start = new Date(); start.setDate(start.getDate() - days);
+  const scoped = (orders || []).filter((order) => { const date = new Date(order.createdAt || order.raw?.created_at || 0); return !Number.isNaN(date.getTime()) && date >= start; });
+  const delivered = scoped.filter(isDeliveredOrder);
+  const returned = scoped.filter(isReturnedOrder);
+  const sales = delivered.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const customerNames = delivered.map((order) => String(order.customer || "").toLowerCase()).filter(Boolean);
+  const repeatCustomers = [...new Set(customerNames)].filter((name) => customerNames.filter((item) => item === name).length > 1).length;
+  const items = delivered.flatMap((order) => normalizeOrderItems(order.raw || order));
+  const productSales = items.reduce((map, item) => { const key = item.name || "Unknown product"; map[key] = (map[key] || 0) + Number(item.quantity || 0); return map; }, {});
+  const topProducts = Object.entries(productSales).sort((a,b) => b[1] - a[1]).slice(0, 5);
+  const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
+  return <div className="analyticsSystem"><div className="adminTitle"><div><p>BUSINESS INTELLIGENCE</p><h1>Analytics</h1><span>{connected ? "Performance from live order, product and customer data." : "Connect live orders to view performance."}</span></div><div className="orderTabs">{[["7","7 days"],["30","30 days"],["90","90 days"]].map(([value,label]) => <button type="button" className={period === value ? "active" : ""} onClick={() => setPeriod(value)} key={value}>{label}</button>)}</div></div><div className="miniMetricGrid financeMetrics"><article><CircleDollarSign /><span><b>{money(sales)}</b>Delivered sales</span></article><article><ShoppingBag /><span><b>{delivered.length}</b>Fulfilled orders</span></article><article><TrendingUp /><span><b>{money(delivered.length ? sales / delivered.length : 0)}</b>Average order value</span></article><article><Users /><span><b>{customerNames.length ? Math.round(repeatCustomers / new Set(customerNames).size * 100) : 0}%</b>Repeat customer rate</span></article><article className={returned.length ? "alertMetric" : ""}><Package /><span><b>{returned.length}</b>Returned orders</span></article></div><section className="financeGrid financeGridWide"><div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>Top products sold</h2><span>Delivered units in the selected period</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Product</th><th>Units sold</th><th>Current stock</th></tr></thead><tbody>{topProducts.map(([name, quantity]) => <tr key={name}><td><b>{name}</b></td><td>{quantity}</td><td>{products.find((product) => product.name === name)?.stock ?? "—"}</td></tr>)}{!topProducts.length && <tr><td colSpan="3" className="emptyFinanceCell">No delivered product sales in this period.</td></tr>}</tbody></table></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Operations health</h2><p>Actionable indicators for the selected period.</p></div></div><div className="financeStatement"><div><span>Return rate</span><b>{delivered.length + returned.length ? Math.round(returned.length / (delivered.length + returned.length) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{products.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div><span>Products with missing cost</span><b>{products.filter((product) => !Number(product.costTotalPkr || 0)).length}</b></div><div className="statementTotal"><span>Next action</span><b>{products.some((product) => !Number(product.costTotalPkr || 0)) ? "Add missing product costs" : "Review low stock"}</b></div></div></div></section></div>;
 }
 
 function CustomersPanel({ orders, onOpen }) {
