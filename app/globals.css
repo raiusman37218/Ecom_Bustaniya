@@ -170,6 +170,19 @@ a { text-decoration:none; }
 .financeStatement b,.inventoryFinanceList b { font-variant-numeric:tabular-nums; }
 .financeStatement .statementTotal { border:1px solid #d8e7d9; background:linear-gradient(135deg,#edf7ef,#f8fcf8); }
 .dashboardAnalytics { margin:20px 0; }
+.analyticsSystem { margin:20px 0; }
+.analyticsSystem .adminTitle { margin:4px 0 12px; align-items:flex-end; }
+.analyticsSystem .adminTitle h1 { font-size:22px; }
+.analyticsSystem .adminTitle p { color:var(--berry); }
+.dashboardTitleActions { display:flex; align-items:center; gap:10px; }
+.dashboardRefresh { color:var(--forest); border:1px solid var(--admin-line) !important; background:#fff !important; box-shadow:none !important; }
+.dashboardRefresh:hover { background:#f4f8f4 !important; }
+.dashboardRefresh svg { width:15px; }
+.chartDataLabel { color:var(--admin-muted); font-size:10px; font-weight:700; }
+.alertSeverity { display:inline-flex; margin-right:7px; padding:3px 6px; border-radius:999px; font-size:9px; line-height:1; letter-spacing:.03em; text-transform:uppercase; }
+.alertSeverity.critical { background:#fbe8ee; color:#a41440; }
+.alertSeverity.warning { background:#fff4da; color:#8b610b; }
+.dashboardAlerts .financeStatement button { min-height:32px; border:1px solid #d4e0d5; border-radius:7px; background:#fff; color:var(--forest); font-size:10px; font-weight:750; }
 .dashboardAnalyticsHeading { margin:4px 0 12px; display:flex; align-items:flex-end; justify-content:space-between; gap:16px; }
 .dashboardAnalyticsHeading p { margin:0 0 5px; color:var(--berry); font-size:8px; font-weight:800; letter-spacing:.14em; }
 .dashboardAnalyticsHeading h2 { margin:0; color:var(--admin-ink); font-size:22px; letter-spacing:-.02em; }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Bell, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
   LogOut, Menu, Minus, MoreHorizontal, Package, Plus,
-  ReceiptText, Search, Settings, ShoppingBag, Store, Tags, TrendingUp, Users,
+  ReceiptText, RefreshCw, Search, Settings, ShoppingBag, Store, Tags, TrendingUp, Users,
   WalletCards, X
 } from "lucide-react";
 import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, products as initialProducts, slugifyCategory } from "../data/store";
@@ -920,8 +920,23 @@ function DashboardHome({ setActive, orders, products, metrics, connected }) {
   // the same initial markup regardless of their timezone.
   const [dashboardNow, setDashboardNow] = useState(null);
   const [overduePayables, setOverduePayables] = useState(0);
+  const [financeSnapshot, setFinanceSnapshot] = useState({ transactions: [], supplierBills: [], packagingExpense: 0, deliveryExpense: 0, expenses: [] });
+  const [dashboardPeriod, setDashboardPeriod] = useState("7");
+  const [dashboardUpdatedAt, setDashboardUpdatedAt] = useState(null);
   useEffect(() => { setDashboardNow(new Date()); }, []);
-  useEffect(() => { let active = true; fetch("/api/admin/finance-transactions", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((result) => { if (!active) return; const today = new Date().toISOString().slice(0, 10); setOverduePayables((result?.supplierBills || []).filter((bill) => bill.status !== "paid" && bill.dueDate && bill.dueDate < today && Number(bill.total || 0) > Number(bill.paid || 0)).length); }).catch(() => {}); return () => { active = false; }; }, []);
+  async function refreshDashboardFinance() {
+    try {
+      const response = await fetch("/api/admin/finance-transactions", { cache: "no-store" });
+      const result = response.ok ? await response.json() : null;
+      const savedFinance = typeof window !== "undefined" ? JSON.parse(window.localStorage.getItem("bustaniya-admin-finance") || "{}") : {};
+      const snapshot = { transactions: result?.transactions || [], supplierBills: result?.supplierBills || [], packagingExpense: Number(savedFinance.packagingExpense || 0), deliveryExpense: Number(savedFinance.deliveryExpense || 0), expenses: Array.isArray(savedFinance.expenses) ? savedFinance.expenses : [] };
+      setFinanceSnapshot(snapshot);
+      const today = new Date().toISOString().slice(0, 10);
+      setOverduePayables(snapshot.supplierBills.filter((bill) => bill.status !== "paid" && bill.dueDate && bill.dueDate < today && Number(bill.total || 0) > Number(bill.paid || 0)).length);
+    } catch { /* Optional Finance snapshot unavailable; live order data remains visible. */ }
+    setDashboardUpdatedAt(new Date());
+  }
+  useEffect(() => { refreshDashboardFinance(); }, []);
   const liveOrders = connected ? orders : [];
   const dashboardSales = connected
     ? liveOrders.filter(isDeliveredOrder).reduce((sum, order) => sum + Number(order.total || 0), 0)
@@ -935,14 +950,21 @@ function DashboardHome({ setActive, orders, products, metrics, connected }) {
   const dashboardCogs = deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(productCosts.get(String(item.productId)) || 0), 0);
   const dashboardReturns = liveOrders.filter(isReturnedOrder).length;
   const dashboardCod = liveOrders.filter(isPendingCodOrder).reduce((sum, order) => sum + Number(order.total || 0), 0);
-  const dashboardNetProfit = dashboardSales - dashboardCogs - (liveOrders.filter(isDeliveredOrder).length * 200) - (dashboardReturns * 200) - Math.round(deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0) * .05);
+  const dashboardProductRevenue = deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0);
+  const dashboardTaxes = Math.round(dashboardProductRevenue * .05);
+  const dashboardManualExpenses = financeSnapshot.expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0) + Number(financeSnapshot.packagingExpense || 0) + Number(financeSnapshot.deliveryExpense || 0);
+  const dashboardCashbookExpenses = financeSnapshot.transactions.filter((item) => item.type === "business_expense" && !item.productionBatchId && item.category !== "Inventory production" && !String(item.title || "").startsWith("Production batch ")).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardCourierCost = (liveOrders.filter(isDeliveredOrder).length * 200) + (dashboardReturns * 200);
+  const dashboardNetProfit = dashboardSales - dashboardCogs - dashboardCourierCost - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses;
+  const dashboardAvailableCash = dashboardSales - dashboardCourierCost - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses + financeSnapshot.transactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0) - financeSnapshot.transactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const zeroCostActive = (products || []).filter((product) => productStatus(product) === "Active" && !Number(product.costTotalPkr || 0));
   const lowStockProducts = (products || []).filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5));
+  const chartRange = Number(dashboardPeriod);
   const chartDays = dashboardNow
-    ? Array.from({ length: 7 }, (_, index) => {
+    ? Array.from({ length: chartRange }, (_, index) => {
       const date = startOfDay(dashboardNow);
-      date.setDate(date.getDate() - (6 - index));
-      return { date, label: date.toLocaleDateString("en-PK", { weekday: "short" }) };
+      date.setDate(date.getDate() - (chartRange - 1 - index));
+      return { date, label: chartRange <= 7 ? date.toLocaleDateString("en-PK", { weekday: "short" }) : date.toLocaleDateString("en-PK", { day: "numeric", month: "short" }) };
     })
     : Array.from({ length: 7 }, () => ({ date: null, label: "—" }));
   const salesByDay = chartDays.map(({ date, label }) => ({
@@ -977,20 +999,22 @@ function DashboardHome({ setActive, orders, products, metrics, connected }) {
   });
   const donutStyle = { background: donutStops.length ? `conic-gradient(${donutStops.join(",")})` : "#dedfdc" };
   return <>
-    <div className="adminTitle"><div><p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" }) : "Loading date…"}</p><h1>Good afternoon, Bustaniya</h1><span>{connected ? "Live data from your Supabase store." : "Connect Supabase orders to load live store data."}</span></div><button onClick={() => setActive("Products")}><Plus /> Add product</button></div>
+    <div className="adminTitle"><div><p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" }) : "Loading date…"}</p><h1>Good afternoon, Bustaniya</h1><span>{connected ? `Live store data${dashboardUpdatedAt ? ` · Updated ${dashboardUpdatedAt.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}` : ""}` : "Connect Supabase orders to load live store data."}</span></div><div className="dashboardTitleActions"><button className="dashboardRefresh" onClick={refreshDashboardFinance}><RefreshCw /> Refresh</button><button onClick={() => setActive("Products")}><Plus /> Add product</button></div></div>
     <div className="metricGrid">
-      <Metric icon={CircleDollarSign} label="Total sales" value={`Rs. ${dashboardSales.toLocaleString()}`} change="Live" note="delivered orders" />
-      <Metric icon={ShoppingBag} label="Orders" value={dashboardOrderCount} change="Live" note="all orders" />
-      <Metric icon={Users} label="Customers" value={dashboardCustomerCount} change="Live" note="unique customers" />
+      <Metric icon={CircleDollarSign} label="Delivered sales" value={`Rs. ${dashboardSales.toLocaleString()}`} change="Live" note="delivered orders only" />
+      <Metric icon={WalletCards} label="Available cash" value={`Rs. ${dashboardAvailableCash.toLocaleString()}`} change="Finance" note="after recorded cash costs" />
+      <Metric icon={Landmark} label="Pending COD" value={`Rs. ${dashboardCod.toLocaleString()}`} change="Live" note="not received yet" />
+      <Metric icon={TrendingUp} label="Final net profit" value={`Rs. ${dashboardNetProfit.toLocaleString()}`} change="Finance" note="actual Finance P&L basis" />
+      <Metric icon={ShoppingBag} label="Orders" value={dashboardOrderCount} change="Live" note="all order statuses" />
+      <Metric icon={Package} label="Returns to inspect" value={dashboardReturns} change="Inventory" note="separate from COD" />
       <Metric icon={TrendingUp} label="Low stock" value={metrics.lowStock || 0} change={metrics.products || 0} note="catalogue products" />
-      <Metric icon={TrendingUp} label="Net profit" value={`Rs. ${dashboardNetProfit.toLocaleString()}`} change="Finance" note="delivered sales basis" />
-      <Metric icon={Landmark} label="Pending COD" value={`Rs. ${dashboardCod.toLocaleString()}`} change={dashboardReturns} note="returns awaiting review" />
+      <Metric icon={Users} label="Customers" value={dashboardCustomerCount} change="Live" note="unique customers" />
     </div>
-    <DashboardAnalytics orders={orders} products={products} connected={connected} />
-    {(dashboardNetProfit < 0 || zeroCostActive.length || lowStockProducts.length || overduePayables || dashboardReturns) && <section className="adminCard managementCard"><div className="inventoryListHead"><div><h2>Action alerts</h2><span>Items that need owner or staff attention.</span></div></div><div className="financeStatement">{dashboardNetProfit < 0 && <div className="expenseAmount"><span>Negative delivered-order margin</span><b>Review Finance costs and pricing</b></div>}{zeroCostActive.length > 0 && <div className="expenseAmount"><span>{zeroCostActive.length} active product{zeroCostActive.length === 1 ? "" : "s"} with zero cost</span><button onClick={() => setActive("Products")}>Add cost</button></div>}{lowStockProducts.length > 0 && <div><span>{lowStockProducts.length} low-stock / out-of-stock products</span><button onClick={() => setActive("Inventory")}>Review stock</button></div>}{overduePayables > 0 && <div className="expenseAmount"><span>{overduePayables} overdue supplier payable{overduePayables === 1 ? "" : "s"}</span><button onClick={() => setActive("Finances")}>Review payables</button></div>}{dashboardReturns > 0 && <div className="expenseAmount"><span>{dashboardReturns} returned order{dashboardReturns === 1 ? "" : "s"} pending inspection</span><button onClick={() => setActive("Inventory")}>Inspect returns</button></div>}</div></section>}
+    <DashboardAnalytics orders={orders} products={products} connected={connected} period={dashboardPeriod} setPeriod={setDashboardPeriod} />
+    {(dashboardNetProfit < 0 || zeroCostActive.length || lowStockProducts.length || overduePayables || dashboardReturns) && <section className="adminCard managementCard dashboardAlerts"><div className="inventoryListHead"><div><h2>Action alerts</h2><span>Items needing attention, ordered by urgency.</span></div></div><div className="financeStatement">{dashboardNetProfit < 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> Negative final net profit</span><button onClick={() => setActive("Finances")}>Review Finance</button></div>}{zeroCostActive.length > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {zeroCostActive.length} active product{zeroCostActive.length === 1 ? "" : "s"} with zero cost</span><button onClick={() => setActive("Products")}>Add cost</button></div>}{overduePayables > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {overduePayables} overdue supplier payable{overduePayables === 1 ? "" : "s"}</span><button onClick={() => setActive("Finances")}>Review payables</button></div>}{lowStockProducts.length > 0 && <div><span><b className="alertSeverity warning">Stock</b> {lowStockProducts.length} low-stock / out-of-stock products</span><button onClick={() => setActive("Inventory")}>Review stock</button></div>}{dashboardReturns > 0 && <div><span><b className="alertSeverity warning">Returns</b> {dashboardReturns} returned order{dashboardReturns === 1 ? "" : "s"} pending inspection</span><button onClick={() => setActive("Inventory")}>Inspect returns</button></div>}</div></section>}
     <div className="dashboardGrid">
       <section className="salesChart adminCard">
-        <div className="cardHeading"><div><h2>Sales overview</h2><p>Delivered revenue for the last 7 days</p></div><button>Live data <ChevronDown /></button></div>
+        <div className="cardHeading"><div><h2>Sales overview</h2><p>Delivered revenue for the last {chartRange} days</p></div><span className="chartDataLabel">Delivered only</span></div>
         <div className="chartTotal"><b>Rs. {salesByDay.reduce((sum, day) => sum + day.sales, 0).toLocaleString()}</b><span>Delivered orders only</span></div>
         <div className="fakeChart">
           {salesByDay.map((day) => <div key={day.label}><span title={`Rs. ${day.sales.toLocaleString()}`} style={{ height: `${day.sales ? Math.max(4, (day.sales / maxDailySales) * 100) : 0}%` }} /><small>{day.label}</small></div>)}
@@ -1724,11 +1748,6 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   }, [packagingExpense, deliveryExpense, expenses, financeReady, isOwnerFinance]);
 
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
-  return <section className="dashboardAnalytics">
-    <div className="dashboardAnalyticsHeading"><div><p>PERFORMANCE</p><h2>Business performance</h2><span>{connected ? "Live sales, customer and product performance for the selected period." : "Connect live orders to view performance."}</span></div><div className="orderTabs">{[["7","7 days"],["30","30 days"],["90","90 days"]].map(([value,label]) => <button type="button" className={period === value ? "active" : ""} onClick={() => setPeriod(value)} key={value}>{label}</button>)}</div></div>
-    <div className="miniMetricGrid financeMetrics"><article><CircleDollarSign /><span><b>{money(sales)}</b>Delivered sales</span></article><article><ShoppingBag /><span><b>{delivered.length}</b>Fulfilled orders</span></article><article><TrendingUp /><span><b>{money(delivered.length ? sales / delivered.length : 0)}</b>Average order value</span></article><article><Users /><span><b>{customerNames.length ? Math.round(repeatCustomers / new Set(customerNames).size * 100) : 0}%</b>Repeat customer rate</span></article><article className={returned.length ? "alertMetric" : ""}><Package /><span><b>{returned.length}</b>Returned orders</span></article></div>
-    <section className="financeGrid financeGridWide"><div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>Top products sold</h2><span>Delivered units in the selected period</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Product</th><th>Units sold</th><th>Current stock</th></tr></thead><tbody>{topProducts.map(([name, quantity]) => <tr key={name}><td><b>{name}</b></td><td>{quantity}</td><td>{products.find((product) => product.name === name)?.stock ?? "—"}</td></tr>)}{!topProducts.length && <tr><td colSpan="3" className="emptyFinanceCell">No delivered product sales in this period.</td></tr>}</tbody></table></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Operations health</h2><p>Actionable indicators for the selected period.</p></div></div><div className="financeStatement"><div><span>Return rate</span><b>{delivered.length + returned.length ? Math.round(returned.length / (delivered.length + returned.length) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{products.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div><span>Products with missing cost</span><b>{products.filter((product) => !Number(product.costTotalPkr || 0)).length}</b></div><div className="statementTotal"><span>Next action</span><b>{products.some((product) => !Number(product.costTotalPkr || 0)) ? "Add missing product costs" : "Review low stock"}</b></div></div></div></section>
-  </section>;
   const financeTabs = [
     ["overview", "Overview"],
     ["pnl", "P&L"],
@@ -3000,8 +3019,7 @@ function buildCustomerProfiles(orders) {
   });
 }
 
-function DashboardAnalytics({ orders, products, connected }) {
-  const [period, setPeriod] = useState("30");
+function DashboardAnalytics({ orders, products, connected, period, setPeriod }) {
   const days = Number(period);
   const start = new Date(); start.setDate(start.getDate() - days);
   const scoped = (orders || []).filter((order) => { const date = new Date(order.createdAt || order.raw?.created_at || 0); return !Number.isNaN(date.getTime()) && date >= start; });
