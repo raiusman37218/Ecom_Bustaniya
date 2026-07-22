@@ -144,16 +144,16 @@ export default function Home({
         <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
         <nav className={mobileOpen ? "nav navOpen" : "nav"} id="site-menu" aria-hidden={!mobileOpen}>
           <button className="mobileClose" type="button" aria-label="Close menu" onClick={() => setMobileOpen(false)}><X /></button>
-          <a className="navActive" href="/" onClick={() => setMobileOpen(false)}>Home</a>
-          <a href="#products" onClick={() => setMobileOpen(false)}>New In</a>
+          <a className="navActive" href="/" onClick={() => setMobileOpen(false)}>New In</a>
           {categoryRecords.map((category) => <a href={`/category/${category.slug}`} key={category.slug} onClick={() => setMobileOpen(false)}>{category.name}</a>)}
+          <a className="navSale" href="#products" onClick={() => setMobileOpen(false)}>Sale</a>
           <a href="#story" onClick={() => setMobileOpen(false)}>Our Story</a>
         </nav>
         <div className="headerActions">
-          <button aria-label="Search" onClick={() => setSearchOpen(!searchOpen)}><Search /></button>
-          <button aria-label="Account"><UserRound /></button>
-          <button aria-label="Cart" className="cartButton" onClick={() => setCartOpen(true)}>
-            <ShoppingBag />{cartCount > 0 && <span>{cartCount}</span>}
+          <button className="headerAction" aria-label="Search" onClick={() => setSearchOpen(!searchOpen)}><Search /><em>Search</em></button>
+          <a className="headerAction" href="/contact" aria-label="Account and support"><UserRound /><em>Account</em></a>
+          <button className="headerAction cartButton" aria-label="Cart" onClick={() => setCartOpen(true)}>
+            <ShoppingBag /><em>Bag</em>{cartCount > 0 && <span>{cartCount}</span>}
           </button>
           <button className="menuButton" type="button" aria-label="Menu" aria-controls="site-menu" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}><Menu /></button>
         </div>
