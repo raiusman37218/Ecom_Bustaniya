@@ -201,22 +201,6 @@ export default function AdminDashboard() {
     if (activeSectionReady) localStorage.setItem("bustaniya-admin-active-section", active);
   }, [active, activeSectionReady]);
 
-  useEffect(() => {
-    const syncSectionFromUrl = () => setActive(getSectionFromLocation() || "Dashboard");
-    window.addEventListener("popstate", syncSectionFromUrl);
-    return () => window.removeEventListener("popstate", syncSectionFromUrl);
-  }, []);
-
-  function goToSection(section) {
-    if (!navItems.some((item) => item.name === section)) return;
-    const nextUrl = new URL(window.location.href);
-    if (section === "Dashboard") nextUrl.searchParams.delete("section");
-    else nextUrl.searchParams.set("section", section);
-    window.history.pushState({}, "", `${nextUrl.pathname}${nextUrl.search}`);
-    setActive(section);
-    setSidebarOpen(false);
-  }
-
   const filteredProducts = useMemo(() => products.filter((product) =>
     product.name.toLowerCase().includes(search.toLowerCase())
   ), [products, search]);
@@ -765,7 +749,7 @@ export default function AdminDashboard() {
           {visibleNavItems.map(({ name, icon: Icon, count, section }, index) => (
             <div className="adminNavItem" key={name}>
               {(index === 0 || visibleNavItems[index - 1].section !== section) && <p>{section}</p>}
-              <a href={name === "Dashboard" ? "/admin" : `/admin?section=${encodeURIComponent(name)}`} className={active === name ? "active" : ""} onClick={(event) => { event.preventDefault(); goToSection(name); }}>
+              <a href={name === "Dashboard" ? "/admin" : `/admin?section=${encodeURIComponent(name)}`} className={active === name ? "active" : ""}>
                 <Icon /> <span>{name}</span>{count && <b>{count}</b>}
               </a>
             </div>
