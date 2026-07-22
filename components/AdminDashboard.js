@@ -2333,6 +2333,15 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
   const returnedHistoricalOrders = historicalOrders.filter(isReturnedOrder);
   const historicalSoldUnits = deliveredHistoricalOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order)
     .reduce((itemTotal, item) => itemTotal + Number(item.quantity || 0), 0), 0);
+  const cogsSold = deliveredHistoricalOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order).reduce((itemsTotal, item) => {
+    const product = products.find((entry) => String(entry.id) === String(item.productId));
+    return itemsTotal + Number(item.quantity || 0) * Number(product?.costTotalPkr || 0);
+  }, 0), 0);
+  const stockPurchaseCash = projectionTransactions.filter((entry) => entry.type === "business_expense" && (entry.productionBatchId || entry.category === "Inventory production" || String(entry.title || "").startsWith("Production batch "))).reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const restockCashRequired = products.reduce((sum, product) => {
+    const target = Math.max(Number(product.lowStockThreshold || 5) * 2, 10);
+    return sum + Math.max(0, target - Number(product.stock || 0)) * Number(product.costTotalPkr || 0);
+  }, 0);
   const skuProfitRows = products.map((product) => {
     const soldItems = deliveredHistoricalOrders.flatMap((order) => normalizeOrderItems(order.raw || order)).filter((item) => String(item.productId) === String(product.id));
     const unitsSold = soldItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -2538,6 +2547,10 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     <div className="adminTitle"><div><p>OPERATIONS</p><h1>Inventory</h1><span>Track finished products, stitching units, suppliers and materials like buttons, laces and trims.</span></div><button onClick={() => tab === "Sources" ? setTab("Sources") : openAdjust()}><Plus /> {tab === "Sources" ? "Add source below" : "Adjust stock"}</button></div>
     <div className="miniMetricGrid">
       <article><Boxes /><span><b>{total}</b>Available units</span></article>
+      <article><WalletCards /><span><b>{inventoryMoney(stockCostValue)}</b>Stock value on hand</span></article>
+      <article><CircleDollarSign /><span><b>{inventoryMoney(cogsSold)}</b>COGS sold</span></article>
+      <article><Landmark /><span><b>{inventoryMoney(stockPurchaseCash)}</b>Stock purchase cash</span></article>
+      <article className={restockCashRequired ? "alertMetric" : ""}><TrendingUp /><span><b>{inventoryMoney(restockCashRequired)}</b>Restock cash required</span></article>
       <article className={low ? "alertMetric" : ""}><TrendingUp /><span><b>{low}</b>Low stock</span></article>
       <article><Store /><span><b>{inventorySources.length}</b>Sources</span></article>
       <article><WalletCards /><span><b>Rs. {stockCostValue.toLocaleString()}</b>Stock cost value</span></article>
