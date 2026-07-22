@@ -913,7 +913,9 @@ function DashboardHome({ setActive, orders, products, metrics, connected }) {
   // Dates are initialized only in the browser so the server and client render
   // the same initial markup regardless of their timezone.
   const [dashboardNow, setDashboardNow] = useState(null);
+  const [overduePayables, setOverduePayables] = useState(0);
   useEffect(() => { setDashboardNow(new Date()); }, []);
+  useEffect(() => { let active = true; fetch("/api/admin/finance-transactions", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((result) => { if (!active) return; const today = new Date().toISOString().slice(0, 10); setOverduePayables((result?.supplierBills || []).filter((bill) => bill.status !== "paid" && bill.dueDate && bill.dueDate < today && Number(bill.total || 0) > Number(bill.paid || 0)).length); }).catch(() => {}); return () => { active = false; }; }, []);
   const liveOrders = connected ? orders : [];
   const dashboardSales = connected
     ? liveOrders.filter(isDeliveredOrder).reduce((sum, order) => sum + Number(order.total || 0), 0)
@@ -928,6 +930,8 @@ function DashboardHome({ setActive, orders, products, metrics, connected }) {
   const dashboardReturns = liveOrders.filter(isReturnedOrder).length;
   const dashboardCod = liveOrders.filter(isPendingCodOrder).reduce((sum, order) => sum + Number(order.total || 0), 0);
   const dashboardNetProfit = dashboardSales - dashboardCogs - (liveOrders.filter(isDeliveredOrder).length * 200) - (dashboardReturns * 200) - Math.round(deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0) * .05);
+  const zeroCostActive = (products || []).filter((product) => productStatus(product) === "Active" && !Number(product.costTotalPkr || 0));
+  const lowStockProducts = (products || []).filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5));
   const chartDays = dashboardNow
     ? Array.from({ length: 7 }, (_, index) => {
       const date = startOfDay(dashboardNow);
@@ -976,6 +980,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected }) {
       <Metric icon={TrendingUp} label="Net profit" value={`Rs. ${dashboardNetProfit.toLocaleString()}`} change="Finance" note="delivered sales basis" />
       <Metric icon={Landmark} label="Pending COD" value={`Rs. ${dashboardCod.toLocaleString()}`} change={dashboardReturns} note="returns awaiting review" />
     </div>
+    {(dashboardNetProfit < 0 || zeroCostActive.length || lowStockProducts.length || overduePayables || dashboardReturns) && <section className="adminCard managementCard"><div className="inventoryListHead"><div><h2>Action alerts</h2><span>Items that need owner or staff attention.</span></div></div><div className="financeStatement">{dashboardNetProfit < 0 && <div className="expenseAmount"><span>Negative delivered-order margin</span><b>Review Finance costs and pricing</b></div>}{zeroCostActive.length > 0 && <div className="expenseAmount"><span>{zeroCostActive.length} active product{zeroCostActive.length === 1 ? "" : "s"} with zero cost</span><button onClick={() => setActive("Products")}>Add cost</button></div>}{lowStockProducts.length > 0 && <div><span>{lowStockProducts.length} low-stock / out-of-stock products</span><button onClick={() => setActive("Inventory")}>Review stock</button></div>}{overduePayables > 0 && <div className="expenseAmount"><span>{overduePayables} overdue supplier payable{overduePayables === 1 ? "" : "s"}</span><button onClick={() => setActive("Finances")}>Review payables</button></div>}{dashboardReturns > 0 && <div className="expenseAmount"><span>{dashboardReturns} returned order{dashboardReturns === 1 ? "" : "s"} pending inspection</span><button onClick={() => setActive("Inventory")}>Inspect returns</button></div>}</div></section>}
     <div className="dashboardGrid">
       <section className="salesChart adminCard">
         <div className="cardHeading"><div><h2>Sales overview</h2><p>Delivered revenue for the last 7 days</p></div><button>Live data <ChevronDown /></button></div>
