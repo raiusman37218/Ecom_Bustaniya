@@ -749,7 +749,7 @@ export default function AdminDashboard() {
           {visibleNavItems.map(({ name, icon: Icon, count, section }, index) => (
             <div className="adminNavItem" key={name}>
               {(index === 0 || visibleNavItems[index - 1].section !== section) && <p>{section}</p>}
-              <a href={name === "Dashboard" ? "/admin" : `/admin?section=${encodeURIComponent(name)}`} className={active === name ? "active" : ""}>
+              <a href={`/admin?section=${encodeURIComponent(name)}`} className={active === name ? "active" : ""}>
                 <Icon /> <span>{name}</span>{count && <b>{count}</b>}
               </a>
             </div>
