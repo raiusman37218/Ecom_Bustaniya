@@ -990,14 +990,19 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const dashboardReturns = liveOrders.filter(isReturnedOrder).length;
   const dashboardCod = liveOrders.filter(isPendingCodOrder).reduce((sum, order) => sum + Number(order.total || 0), 0);
   const dashboardProductRevenue = deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0);
-  const dashboardTaxes = Math.round(dashboardProductRevenue * .05);
+  const dashboardDeliveryCollected = Math.max(0, dashboardSales - dashboardProductRevenue);
+  const dashboardGst = Math.round(dashboardProductRevenue * .01);
+  const dashboardTax = Math.round(dashboardProductRevenue * .04);
+  const dashboardTaxes = dashboardGst + dashboardTax;
   const dashboardManualExpenses = financeSnapshot.expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0) + Number(financeSnapshot.packagingExpense || 0) + Number(financeSnapshot.deliveryExpense || 0);
   const dashboardCashbookExpenses = financeSnapshot.transactions.filter((item) => item.type === "business_expense" && !item.productionBatchId && item.category !== "Inventory production" && !String(item.title || "").startsWith("Production batch ")).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardProductionCashOutflow = financeSnapshot.transactions.filter((item) => item.type === "business_expense" && (item.productionBatchId || item.category === "Inventory production" || String(item.title || "").startsWith("Production batch "))).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardSupplierPayments = financeSnapshot.transactions.filter((item) => item.type === "supplier_payment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardOwnerInvestments = financeSnapshot.transactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardOwnerWithdrawals = financeSnapshot.transactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardCourierCost = (liveOrders.filter(isDeliveredOrder).length * 200) + (dashboardReturns * 200);
   const dashboardNetProfit = dashboardSales - dashboardCogs - dashboardCourierCost - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses;
-  const dashboardAvailableCash = dashboardSales - dashboardCourierCost - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments + financeSnapshot.transactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0) - financeSnapshot.transactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardAvailableCash = dashboardSales + dashboardOwnerInvestments - dashboardCourierCost - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments - dashboardOwnerWithdrawals;
   const zeroCostActive = (products || []).filter((product) => productStatus(product) === "Active" && !Number(product.costTotalPkr || 0));
   const lowStockProducts = (products || []).filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5));
   const chartRange = Number(dashboardPeriod);
@@ -1059,6 +1064,41 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
       <Metric icon={Landmark} label="Pending COD" value={`Rs. ${dashboardCod.toLocaleString()}`} change="Current" note="not received yet" />
       {isOwnerDashboard && <Metric icon={TrendingUp} label="Final net profit" value={financeSnapshotStatus === "ready" ? `Rs. ${dashboardNetProfit.toLocaleString()}` : "Unavailable"} change="Finance" note="actual P&amp;L · all time" />}
     </div></section>
+    {isOwnerDashboard && financeSnapshotStatus === "ready" && <details className="adminCard dashboardCashBreakdown" open>
+      <summary><div><p>CASH EXPLAINER</p><h2>How available cash is calculated</h2><span>Every addition and deduction behind the amount shown above.</span></div><b>Rs. {dashboardAvailableCash.toLocaleString()}</b></summary>
+      <div className="cashBreakdownGrid">
+        <section>
+          <div className="cashBreakdownHeading"><div><h3>Sale and profit breakdown</h3><span>Shows what the delivered sales earned.</span></div><span className="cashBreakdownTag">P&amp;L</span></div>
+          <div className="financeStatement">
+            <div><span>Total delivered order value</span><b>Rs. {dashboardSales.toLocaleString()}</b></div>
+            <div><span>Products sold (without delivery)</span><b>Rs. {dashboardProductRevenue.toLocaleString()}</b></div>
+            <div><span>Delivery collected from customers</span><b className="cashPlus">+ Rs. {dashboardDeliveryCollected.toLocaleString()}</b></div>
+            <div><span>Product cost of sold items (COGS)</span><b className="cashMinus">- Rs. {dashboardCogs.toLocaleString()}</b></div>
+            <div><span>GST on product selling price (1%)</span><b className="cashMinus">- Rs. {dashboardGst.toLocaleString()}</b></div>
+            <div><span>Tax on product selling price (4%)</span><b className="cashMinus">- Rs. {dashboardTax.toLocaleString()}</b></div>
+            <div><span>Courier cost ({liveOrders.filter(isDeliveredOrder).length} delivered + {dashboardReturns} returned)</span><b className="cashMinus">- Rs. {dashboardCourierCost.toLocaleString()}</b></div>
+            <div><span>Other operating expenses</span><b className="cashMinus">- Rs. {(dashboardManualExpenses + dashboardCashbookExpenses).toLocaleString()}</b></div>
+            <div className="statementTotal"><span>Final net profit</span><b>Rs. {dashboardNetProfit.toLocaleString()}</b></div>
+          </div>
+        </section>
+        <section>
+          <div className="cashBreakdownHeading"><div><h3>Cash movement breakdown</h3><span>Shows the money currently available to use.</span></div><span className="cashBreakdownTag">CASH</span></div>
+          <div className="financeStatement">
+            <div><span>Delivered sales received</span><b className="cashPlus">+ Rs. {dashboardSales.toLocaleString()}</b></div>
+            <div><span>Owner funds added</span><b className="cashPlus">+ Rs. {dashboardOwnerInvestments.toLocaleString()}</b></div>
+            <div><span>Courier paid / payable</span><b className="cashMinus">- Rs. {dashboardCourierCost.toLocaleString()}</b></div>
+            <div><span>GST (1%)</span><b className="cashMinus">- Rs. {dashboardGst.toLocaleString()}</b></div>
+            <div><span>Tax (4%)</span><b className="cashMinus">- Rs. {dashboardTax.toLocaleString()}</b></div>
+            <div><span>Operating expenses paid</span><b className="cashMinus">- Rs. {(dashboardManualExpenses + dashboardCashbookExpenses).toLocaleString()}</b></div>
+            <div><span>Production / stock purchase cash paid</span><b className="cashMinus">- Rs. {dashboardProductionCashOutflow.toLocaleString()}</b></div>
+            <div><span>Supplier payments</span><b className="cashMinus">- Rs. {dashboardSupplierPayments.toLocaleString()}</b></div>
+            <div><span>Owner withdrawals</span><b className="cashMinus">- Rs. {dashboardOwnerWithdrawals.toLocaleString()}</b></div>
+            <div className="statementTotal"><span>Available business cash</span><b>Rs. {dashboardAvailableCash.toLocaleString()}</b></div>
+          </div>
+        </section>
+      </div>
+      <p className="cashBreakdownNote"><b>Why product cost is not deducted twice from cash:</b> COGS reduces profit when an item sells. The actual fabric/stock payment reduces cash when it is recorded as a production batch, stock purchase or supplier payment. If a product cost was entered manually but its purchase payment was never recorded, add that payment in Finance so Available Cash remains accurate.</p>
+    </details>}
     <section className="dashboardSection dashboardHealthSection"><div className="dashboardSectionHeading"><div><p>OPERATIONS</p><h2>Store health</h2><span>Orders, customers, stock and returns that need daily attention.</span></div></div><div className="miniMetricGrid dashboardSecondaryMetrics">
       <article><ShoppingBag /><span><b>{dashboardOrderCount}</b>All orders</span></article>
       <article><Users /><span><b>{dashboardCustomerCount}</b>Unique customers</span></article>
