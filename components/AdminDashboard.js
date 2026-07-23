@@ -300,6 +300,9 @@ export default function AdminDashboard() {
         notes: order.internal_notes || "",
         tags: Array.isArray(order.tags) ? order.tags : [],
         risk: order.risk || "Standard COD",
+        operation: order.operation || null,
+        operationStorageAvailable: order.operation_storage_available !== false,
+        operationEvents: Array.isArray(order.operation_events) ? order.operation_events : [],
         createdAt: order.created_at,
         date: new Date(order.created_at).toLocaleString("en-PK", {
           day: "numeric",
@@ -806,7 +809,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} ordersError={ordersLoadError} currentAdminUser={currentAdminUser} onRefresh={() => loadOrders()} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
-          {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} />}
+          {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}
@@ -1630,7 +1633,7 @@ function formatSavedCustomOrder(order, fallback = {}) {
   };
 }
 
-function OrdersPanel({ rows, products, pagination, canExport, connected, loading, error, onRetry, onPageChange, initialSelectedId, onInitialSelectionHandled }) {
+function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, connected, loading, error, onRetry, onPageChange, initialSelectedId, onInitialSelectionHandled }) {
   const [localOrders, setLocalOrders] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [activeTab, setActiveTab] = useState("Total Orders");
@@ -1684,6 +1687,33 @@ function OrdersPanel({ rows, products, pagination, canExport, connected, loading
   function updateLocalOrder(orderId, changes) {
     setLocalOrders((current) => current.map((order) => order.id === orderId ? { ...order, ...changes } : order));
     setOrderEdits((current) => ({ ...current, [orderId]: { ...(current[orderId] || {}), ...changes } }));
+  }
+
+  async function persistOrderUpdate(order, changes) {
+    const response = await fetch("/api/admin/orders", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: order.rawId,
+        orderStage: changes.postexStatus || changes.status,
+        paymentStatus: changes.paymentStatus,
+        fulfillmentStatus: changes.fulfillmentStatus,
+        tracking: changes.tracking,
+        notes: changes.notes,
+        tags: changes.tags,
+        operation: changes.operation,
+      }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result?.error?.message || "Order changes could not be saved.");
+    const nextChanges = {
+      ...changes,
+      ...(result.operation ? { operation: result.operation } : {}),
+      ...(result.operation ? { operationEvents: [{ event_type: "order_operation_updated", new_value: { operation: result.operation }, created_at: new Date().toISOString() }, ...(order.operationEvents || [])] } : {}),
+      ...(result.operationPersistence !== "saved" && result.operationPersistence !== "not_requested" ? { operationStorageAvailable: false } : {}),
+    };
+    updateLocalOrder(order.id, nextChanges);
+    return nextChanges;
   }
 
   async function saveCustomOrderToSupabase(order) {
@@ -1785,7 +1815,7 @@ function OrdersPanel({ rows, products, pagination, canExport, connected, loading
       {pagination?.totalPages > 1 && <div className="ordersPagination"><button disabled={pagination.page <= 1} onClick={() => onPageChange(pagination.page - 1)}>Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button disabled={pagination.page >= pagination.totalPages} onClick={() => onPageChange(pagination.page + 1)}>Next</button></div>}
     </section>
     {showDraft && <DraftOrderDialog products={products} onClose={() => setShowDraft(false)} onCreate={createDraft} />}
-    {selectedOrder && <OrderDetailDrawer order={selectedOrder} onClose={() => setSelectedId("")} onUpdate={updateLocalOrder} />}
+    {selectedOrder && <OrderDetailDrawer order={selectedOrder} onClose={() => setSelectedId("")} onUpdate={persistOrderUpdate} canRecordRefund={currentAdminUser?.role === "Owner"} />}
     </>}
   </>;
 }
@@ -2938,7 +2968,7 @@ function DraftOrderDialog({ products = [], onClose, onCreate }) {
   </form></>;
 }
 
-function OrderDetailDrawer({ order, onClose, onUpdate }) {
+function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
   const [tracking, setTracking] = useState(order.tracking || "");
   const [orderStage, setOrderStage] = useState(order.postexStatus || order.status || "Un-Assigned By Me");
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || "COD pending");
@@ -2947,11 +2977,18 @@ function OrderDetailDrawer({ order, onClose, onUpdate }) {
   const [risk, setRisk] = useState(order.risk || "Standard COD");
   const [tags, setTags] = useState((order.tags || []).join(", "));
   const [notes, setNotes] = useState(order.notes || "");
-  const [returnStatus, setReturnStatus] = useState(order.returnStatus || "No return");
+  const [returnStatus, setReturnStatus] = useState(order.operation?.returnStatus || "No return");
+  const [returnReason, setReturnReason] = useState(order.operation?.returnReason || "");
+  const [returnResolution, setReturnResolution] = useState(order.operation?.returnResolution || "");
+  const [refundAmount, setRefundAmount] = useState(order.operation?.refundAmount || 0);
+  const [refundMethod, setRefundMethod] = useState(order.operation?.refundMethod || "");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
   const items = normalizeOrderItems(order);
 
-  function saveChanges() {
-    onUpdate(order.id, {
+  function changes(overrides = {}) {
+    return {
       tracking,
       status: orderStage,
       postexStatus: orderStage,
@@ -2961,8 +2998,35 @@ function OrderDetailDrawer({ order, onClose, onUpdate }) {
       risk,
       tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
       notes,
-      returnStatus,
-    });
+      operation: {
+        returnStatus,
+        returnReason,
+        returnResolution,
+        refundAmount: Number(refundAmount || 0),
+        refundMethod,
+      },
+      ...overrides,
+    };
+  }
+
+  async function saveChanges(overrides = {}) {
+    setSaving(true);
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      const saved = await onUpdate(order, changes(overrides));
+      if (saved.operationPersistence === "unavailable" || saved.operationPersistence === "failed") {
+        setSaveMessage(saved.operationError || "Core order details saved, but return/refund workflow data was not saved.");
+      } else {
+        setSaveMessage("Order changes saved.");
+      }
+      return saved;
+    } catch (error) {
+      setSaveError(error.message || "Order changes could not be saved.");
+      return null;
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function bookWithPostex() {
@@ -2995,21 +3059,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate }) {
       setOrderStage(result.courierStatus || "Booked");
       setFulfillmentStatus("Booked with PostEx");
       setDeliveryMethod("PostEx");
-      onUpdate(order.id, {
-        tracking: result.trackingNumber,
-        rawId: result.supabaseOrder?.id || order.rawId,
-        id: result.orderRef ? `#${result.orderRef}` : order.id,
-        status: result.courierStatus || "Booked",
-        postexStatus: result.courierStatus || "Booked",
-        paymentStatus,
-        fulfillmentStatus: "Booked with PostEx",
-        deliveryMethod: "PostEx",
-        postexBooked: true,
-        risk,
-        tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-        notes: [notes, `PostEx tracking: ${result.trackingNumber}`].filter(Boolean).join("\n"),
-        returnStatus,
-      });
+      await saveChanges({ tracking: result.trackingNumber, status: result.courierStatus || "Booked", postexStatus: result.courierStatus || "Booked", fulfillmentStatus: "Booked with PostEx" });
     } catch (error) {
       window.alert(error.message || "Unable to create PostEx booking.");
     }
@@ -3055,33 +3105,34 @@ function OrderDetailDrawer({ order, onClose, onUpdate }) {
       <section className="adminCard orderOpsCard">
         <h3>Fulfill order</h3>
         <div className="formRow"><label>Tracking number<input value={tracking} onChange={(event) => setTracking(event.target.value)} placeholder="PostEx tracking number" /></label></div>
-        <div className="orderActionRow"><button onClick={printPackingSlip}>Print packing slip</button>{!order.postexBooked && !order.tracking && <button onClick={bookWithPostex}>Book with PostEx</button>}<button onClick={() => {
-          setFulfillmentStatus("Booked with PostEx");
-          onUpdate(order.id, {
-            tracking,
-            status: orderStage,
-            postexStatus: orderStage,
-            paymentStatus,
-            fulfillmentStatus: "Booked with PostEx",
-            deliveryMethod,
-            risk,
-            tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-            notes,
-            returnStatus,
-          });
-        }}>Save tracking</button></div>
+        <div className="orderActionRow"><button onClick={printPackingSlip}>Print packing slip</button>{!order.postexBooked && !order.tracking && <button onClick={bookWithPostex} disabled={saving}>Book with PostEx</button>}<button onClick={() => saveChanges({ fulfillmentStatus: "Booked with PostEx" })} disabled={saving}>{saving ? "Saving..." : "Save tracking"}</button></div>
       </section>
 
       <section className="adminCard orderOpsCard">
         <h3>Returns, exchanges, refunds</h3>
-        <div className="formRow"><label>Status<select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)}><option>No return</option><option>Return requested</option><option>Exchange requested</option><option>Refund requested</option><option>Refund processed</option></select></label><label>Tags<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Urgent, DM, Exchange" /></label></div>
-        <p className="shippingRuleHint">When PostEx marks this order as Returned, Finance records Rs. 200 as courier loss. Product cost stays out of the loss; add stock back only after the parcel is physically received and checked.</p>
+        <div className="formRow"><label>Status<select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)}><option>No return</option><option>Return requested</option><option>Return approved</option><option>Return received</option><option>Exchange requested</option><option>Exchange approved</option><option>Refund requested</option><option>Refund approved</option><option>Refund processed</option><option>Closed</option></select></label><label>Reason<input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Size, defect, incorrect item..." /></label></div>
+        <div className="formRow"><label>Resolution<textarea value={returnResolution} onChange={(event) => setReturnResolution(event.target.value)} rows="2" placeholder="Approved replacement, customer contacted..." /></label><label>Tags<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Urgent, DM, Exchange" /></label></div>
+        <div className="formRow"><label>Refund amount (PKR)<input type="number" min="0" max={order.total} step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} /></label><label>Refund method<select value={refundMethod} onChange={(event) => setRefundMethod(event.target.value)} disabled={!canRecordRefund}><option value="">Select method</option><option>Bank transfer</option><option>Easypaisa</option><option>JazzCash</option><option>Card reversal</option><option>Cash</option><option>Other</option></select></label></div>
+        {!canRecordRefund && <p className="shippingRuleHint">Only an Owner can approve or record refund details.</p>}
+        <p className="shippingRuleHint">A refund here is an internal record only; it does not send money, change a payment-provider transaction, deduct cash, or change inventory. Returned items must be physically received and inspected before any separate stock adjustment.</p>
       </section>
 
       <section className="adminCard orderOpsCard">
         <h3>Internal notes</h3>
         <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows="5" placeholder="Team notes, DM context, phone verification result" />
-        <button onClick={saveChanges}>Save order notes</button>
+        {saveError && <p className="checkoutError" role="alert">{saveError}</p>}
+        {saveMessage && <p className="adminSuccessBanner" role="status">{saveMessage}</p>}
+        <button onClick={() => saveChanges()} disabled={saving}>{saving ? "Saving..." : "Save order changes"}</button>
+      </section>
+
+      <section className="adminCard orderOpsCard">
+        <h3>Order timeline</h3>
+        <div className="orderTimeline">
+          <div><b>Order created</b><span>{order.date}</span></div>
+          {order.tracking && <div><b>Tracking assigned</b><span>{order.tracking}</span></div>}
+          {(order.operationEvents || []).map((event, index) => <div key={`${event.created_at || "event"}-${index}`}><b>{event.event_type === "order_operation_updated" ? "Return / refund workflow updated" : formatOrderStatus(event.event_type)}</b><span>{event.created_at ? new Date(event.created_at).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Just now"}</span>{event.new_value?.operation?.returnStatus && <small>{event.new_value.operation.returnStatus}{Number(event.new_value.operation.refundAmount || 0) ? ` · Refund Rs. ${Number(event.new_value.operation.refundAmount).toLocaleString()}` : ""}</small>}</div>)}
+          {!order.operationStorageAvailable && <p className="shippingRuleHint">The audit timeline will be retained after the order-operations SQL migration is applied.</p>}
+        </div>
       </section>
     </div>
   </aside></>;
