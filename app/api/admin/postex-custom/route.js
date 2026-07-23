@@ -177,7 +177,7 @@ export async function POST(request) {
   let reservedOrder = null;
 
   try {
-    const { accessKey } = await authorizeAdminRequest(request, "orders");
+    await authorizeAdminRequest(request, "orders");
 
     const body = await request.json().catch(() => null);
     const customer = body?.customer || {};
@@ -358,12 +358,8 @@ export async function POST(request) {
       completedOrder = updatedOrder || { ...completedOrder, courier_tracking_number: trackingNumber, courier_status: courierStatus };
     }
 
-    await supabaseAdminRpc("admin_sync_courier_status_rpc", {
-      access_key: accessKey,
-      p_order_id: completedOrder.id,
-      p_courier_status: courierStatus,
-      p_response: postexResponse,
-    }).catch(() => {});
+    // Courier status is persisted above. Do not call the legacy RPC here: it
+    // required a browser-supplied access key, which is no longer accepted.
 
     return NextResponse.json({
       success: true,

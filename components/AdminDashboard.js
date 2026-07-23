@@ -144,10 +144,11 @@ export default function AdminDashboard() {
   })));
   const [adminReady, setAdminReady] = useState(false);
   const [orders, setOrders] = useState([]);
-  const [ordersKey, setOrdersKey] = useState("open-admin");
   const [ordersConnected, setOrdersConnected] = useState(false);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState("");
+  const [ordersLoadError, setOrdersLoadError] = useState("");
+  const [ordersPagination, setOrdersPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [inventoryMovements, setInventoryMovements] = useState([]);
   const [catalogCategories, setCatalogCategories] = useState(fallbackCategoryRecords);
@@ -185,9 +186,7 @@ export default function AdminDashboard() {
       .then((result) => {
         if (!result?.user) return;
         setCurrentAdminUser(result.user);
-        const savedOrdersKey = sessionStorage.getItem("bustaniya-orders-key") || "open-admin";
-        setOrdersKey(savedOrdersKey);
-        loadOrders(savedOrdersKey);
+        loadOrders();
       })
       .catch(() => {})
       .finally(() => setAdminAuthChecked(true));
@@ -267,18 +266,23 @@ export default function AdminDashboard() {
     setShowProductForm(true);
   }
 
-  async function loadOrders(key = ordersKey) {
-    if (!key) return;
+  async function loadOrders({ page = 1 } = {}) {
     setOrdersLoading(true);
     setOrdersError("");
+    setOrdersLoadError("");
     try {
       const response = await fetch("/api/admin/orders", {
         method: "POST",
-        headers: { "x-admin-access-key": key },
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ page, pageSize: ordersPagination.pageSize }),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Unable to load orders.");
-      const formatted = (result.orders || []).map((order) => ({
+      if (!response.ok) {
+        const error = new Error(result?.error?.message || "Orders could not be loaded.");
+        error.status = response.status;
+        throw error;
+      }
+      const formatted = (result.data || []).map((order) => ({
         rawId: order.id,
         raw: order,
         id: `#${order.order_number}`,
@@ -305,30 +309,30 @@ export default function AdminDashboard() {
         }),
       }));
       setOrders(formatted);
+      setOrdersPagination(result.pagination || { page, pageSize: ordersPagination.pageSize, total: formatted.length, totalPages: formatted.length ? 1 : 0 });
       setOrdersConnected(true);
-      sessionStorage.setItem("bustaniya-orders-key", key);
       try {
-        await loadAdminData(key);
+        await loadAdminData();
       } catch (adminDataError) {
-        setOrdersError(`Orders connected, but store dashboard data could not load: ${adminDataError.message}`);
+        // Orders remain usable when a separate dashboard/catalog request fails.
+        console.error("Admin workspace data load failed", adminDataError);
       }
     } catch (loadError) {
       setOrdersConnected(false);
       setOrdersError(loadError.message);
+      setOrdersLoadError(loadError.message);
     } finally {
       setOrdersLoading(false);
     }
   }
 
-  async function loadAdminData(key = ordersKey) {
-    if (!key) return;
+  async function loadAdminData() {
     setCatalogLoading(true);
     try {
-      const headers = { "x-admin-access-key": key };
       const [catalogResponse, dashboardResponse, categoriesResponse] = await Promise.all([
-        fetch("/api/admin/catalog", { method: "POST", headers }),
-        fetch("/api/admin/dashboard", { method: "POST", headers }),
-        fetch("/api/admin/categories", { method: "POST", headers }),
+        fetch("/api/admin/catalog", { method: "POST" }),
+        fetch("/api/admin/dashboard", { method: "POST" }),
+        fetch("/api/admin/categories", { method: "POST" }),
       ]);
       const catalog = await catalogResponse.json();
       const dashboard = await dashboardResponse.json();
@@ -407,7 +411,6 @@ export default function AdminDashboard() {
         method: editingProduct ? "PATCH" : "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-access-key": ordersKey,
         },
         body: JSON.stringify({
           ...(editingProduct ? { productId: editingProduct.id } : {}),
@@ -417,7 +420,7 @@ export default function AdminDashboard() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to save product.");
-      await loadAdminData(ordersKey);
+      await loadAdminData();
       setProductMedia([]);
       setMediaError("");
       setEditingProduct(null);
@@ -436,7 +439,6 @@ export default function AdminDashboard() {
     try {
       await fetch("/api/admin/logout", { method: "POST" });
     } finally {
-      sessionStorage.removeItem("bustaniya-orders-key");
       window.location.href = "/admin";
     }
   }
@@ -453,14 +455,13 @@ export default function AdminDashboard() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-access-key": ordersKey,
         },
         body: JSON.stringify({ productId: product.id }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to remove product.");
       setProducts((current) => current.filter((item) => item.id !== product.id));
-      await loadAdminData(ordersKey);
+      await loadAdminData();
       if (result.archived) {
         setOrdersError(`${product.name} was archived because it may be linked to existing records.`);
       }
@@ -553,7 +554,6 @@ export default function AdminDashboard() {
 
     const response = await fetch("/api/admin/uploads", {
       method: "POST",
-      headers: { "x-admin-access-key": ordersKey },
       body: form,
     });
     const result = await response.json();
@@ -573,7 +573,6 @@ export default function AdminDashboard() {
   }
 
   async function updateProductDelivery(product, mode) {
-    if (!ordersKey) return;
     let fee = null;
     if (mode === "paid") {
       const entered = window.prompt(
@@ -593,7 +592,6 @@ export default function AdminDashboard() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-access-key": ordersKey,
         },
         body: JSON.stringify({
           productId: product.id,
@@ -605,7 +603,7 @@ export default function AdminDashboard() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to update delivery rule.");
-      await loadAdminData(ordersKey);
+      await loadAdminData();
     } catch (saveError) {
       setOrdersError(saveError.message);
     } finally {
@@ -618,7 +616,6 @@ export default function AdminDashboard() {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-access-key": ordersKey,
       },
       body: JSON.stringify({ action: "adjust", productId, change, reason }),
     });
@@ -628,7 +625,7 @@ export default function AdminDashboard() {
       setOrdersError(error.message);
       throw error;
     }
-    await loadAdminData(ordersKey);
+    await loadAdminData();
   }
 
   async function createCustomInventory(item) {
@@ -638,7 +635,6 @@ export default function AdminDashboard() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-access-key": ordersKey,
         },
         body: JSON.stringify({
           product: {
@@ -660,7 +656,7 @@ export default function AdminDashboard() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to add custom inventory.");
-      await loadAdminData(ordersKey);
+      await loadAdminData();
       return true;
     } catch (saveError) {
       setOrdersError(saveError.message);
@@ -676,7 +672,7 @@ export default function AdminDashboard() {
       const response = await fetch("/api/admin/production-batches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(batch) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to save production batch.");
-      await loadAdminData(ordersKey);
+      await loadAdminData();
       return result.batch;
     } catch (error) {
       setOrdersError(error.message);
@@ -692,7 +688,6 @@ export default function AdminDashboard() {
         method: payload.id ? "PATCH" : "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-access-key": ordersKey,
         },
         body: JSON.stringify({
           ...(payload.id ? { categoryId: payload.id } : {}),
@@ -707,7 +702,7 @@ export default function AdminDashboard() {
         setOrdersError(`Run ${result.setupSql || "scripts/supabase-catalog-categories.sql"} in Supabase before saving live categories.`);
         return;
       }
-      await loadAdminData(ordersKey);
+      await loadAdminData();
     } catch (error) {
       setOrdersError(error.message);
     } finally {
@@ -724,7 +719,6 @@ export default function AdminDashboard() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-access-key": ordersKey,
         },
         body: JSON.stringify({ categoryId: category.id }),
       });
@@ -735,7 +729,7 @@ export default function AdminDashboard() {
         setOrdersError(`Run ${result.setupSql || "scripts/supabase-catalog-categories.sql"} in Supabase before archiving categories.`);
         return;
       }
-      await loadAdminData(ordersKey);
+      await loadAdminData();
     } catch (error) {
       setOrdersError(error.message);
     } finally {
@@ -809,10 +803,10 @@ export default function AdminDashboard() {
         <div className="adminContent">
           {ordersError && active !== "Orders" && <div className="adminErrorBanner">{ordersError}</div>}
           {!canAccessActive && <div className="adminErrorBanner">You do not have access to this admin area.</div>}
-          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} currentAdminUser={currentAdminUser} onRefresh={() => loadOrders(ordersKey)} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} />}
+          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} ordersError={ordersLoadError} currentAdminUser={currentAdminUser} onRefresh={() => loadOrders()} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
-          {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} accessKey={ordersKey} setAccessKey={setOrdersKey} connected={ordersConnected} loading={ordersLoading} error={ordersError} onConnect={loadOrders} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} />}
+          {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}
@@ -938,7 +932,7 @@ export default function AdminDashboard() {
   );
 }
 
-function DashboardHome({ setActive, orders, products, metrics, connected, loading, currentAdminUser, onRefresh, onAddProduct, onOpenOrder }) {
+function DashboardHome({ setActive, orders, products, metrics, connected, loading, ordersError, currentAdminUser, onRefresh, onAddProduct, onOpenOrder }) {
   // Dates are initialized only in the browser so the server and client render
   // the same initial markup regardless of their timezone.
   const [dashboardNow, setDashboardNow] = useState(null);
@@ -1055,6 +1049,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   });
   const donutStyle = { background: donutStops.length ? `conic-gradient(${donutStops.join(",")})` : "#dedfdc" };
   if (loading || (isOwnerDashboard && financeSnapshotStatus === "loading")) return <DashboardLoadingState />;
+  if (ordersError) return <section className="adminCard ordersConnect"><div><b>Dashboard order data could not be loaded.</b><span>{ordersError}</span></div><button onClick={onRefresh}>Retry</button></section>;
   return <>
     <div className="adminTitle dashboardTitle"><div><p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" }) : "Loading date…"}</p><h1>{dashboardNow && dashboardNow.getHours() < 12 ? "Good morning" : dashboardNow && dashboardNow.getHours() < 17 ? "Good afternoon" : "Good evening"}, Bustaniya</h1><span>{connected ? `Live store data${dashboardUpdatedAt ? ` · Updated ${dashboardUpdatedAt.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}` : ""}` : "Connect Supabase orders to load live store data."}</span></div><div className="dashboardTitleActions"><button className="dashboardRefresh" onClick={refreshDashboard} disabled={dashboardRefreshing}><RefreshCw className={dashboardRefreshing ? "spinIcon" : ""} /> {dashboardRefreshing ? "Refreshing" : "Refresh"}</button><button className="dashboardPrimaryAction" onClick={onAddProduct}><Plus /> Add product</button></div></div>
     {isOwnerDashboard && financeSnapshotStatus === "error" && <div className="adminErrorBanner">Finance data could not be loaded. Sales and COD remain live, but cash, profit and Finance alerts are hidden until Refresh succeeds.</div>}
@@ -1635,7 +1630,7 @@ function formatSavedCustomOrder(order, fallback = {}) {
   };
 }
 
-function OrdersPanel({ rows, products, accessKey, setAccessKey, connected, loading, error, onConnect, initialSelectedId, onInitialSelectionHandled }) {
+function OrdersPanel({ rows, products, pagination, canExport, connected, loading, error, onRetry, onPageChange, initialSelectedId, onInitialSelectionHandled }) {
   const [localOrders, setLocalOrders] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [activeTab, setActiveTab] = useState("Total Orders");
@@ -1692,18 +1687,12 @@ function OrdersPanel({ rows, products, accessKey, setAccessKey, connected, loadi
   }
 
   async function saveCustomOrderToSupabase(order) {
-    if (!accessKey) {
-      window.alert("Custom order Supabase mein save karne ke liye pehle Orders admin access key connect karein.");
-      return null;
-    }
-
     try {
       const shouldBookPostex = String(order.deliveryMethod || "").trim().toLowerCase() === "postex";
       const response = await fetch("/api/admin/postex-custom", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-access-key": accessKey,
         },
         body: JSON.stringify({
           orderRef: order.id,
@@ -1752,29 +1741,29 @@ function OrdersPanel({ rows, products, accessKey, setAccessKey, connected, loadi
     const finalOrder = await saveCustomOrderToSupabase(draftOrder);
     if (!finalOrder) return;
     setShowDraft(false);
-    if (accessKey) await onConnect(accessKey);
+    await onRetry();
     setSelectedId(finalOrder.id);
   }
 
-  function exportOrders() {
-    const csv = [
-      ["Order","Customer","City","Date","Total","Status","Payment","Fulfillment","Delivery Method","Tracking","Tags","Notes"],
-      ...allRows.map((order) => [order.id,order.customer,order.city,order.date,order.total,order.postexStatus || order.status,order.paymentStatus || "",order.fulfillmentStatus || "",order.deliveryMethod || "",order.tracking || "",(order.tags || []).join(" | "),order.notes || ""]),
-    ].map((row) => row.map((cell) => `"${String(cell).replaceAll('"','""')}"`).join(",")).join("\n");
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([csv], { type:"text/csv" }));
-    link.download = `bustaniya-orders-${new Date().toISOString().slice(0,10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+  async function exportOrders() {
+    try {
+      const response = await fetch("/api/admin/orders/export", { method: "POST" });
+      if (!response.ok) throw new Error("Orders could not be exported.");
+      const csv = await response.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(csv);
+      link.download = `bustaniya-orders-${new Date().toISOString().slice(0,10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (exportError) {
+      window.alert(exportError.message || "Orders could not be exported.");
+    }
   }
-  return <><div className="adminTitle"><div><p>FULFILMENT</p><h1>Orders</h1><span>PostEx status, custom admin orders, fulfillment, returns and team notes.</span></div><button onClick={exportOrders} disabled={!allRows.length}>Export orders</button></div>
-    {!connected && <form className="ordersConnect" onSubmit={(event)=>{event.preventDefault();onConnect(accessKey)}}>
-      <div><b>Connect live Supabase orders</b><span>Enter the existing Orders admin access key. It stays in this browser session only.</span></div>
-      <input type="password" value={accessKey} onChange={(event)=>setAccessKey(event.target.value)} placeholder="Admin orders access key" required />
-      <button disabled={loading}>{loading?"Connecting...":"Connect orders"}</button>
-      {error && <p>{error}</p>}
-    </form>}
-    {connected && error && <div className="adminErrorBanner">{error}</div>}
+  return <><div className="adminTitle"><div><p>FULFILMENT</p><h1>Orders</h1><span>PostEx status, custom admin orders, fulfillment, returns and team notes.</span></div><button onClick={exportOrders} disabled={loading || !canExport || !connected || !allRows.length}>Export orders</button></div>
+    {loading && <div className="ordersConnect" aria-busy="true"><div><b>Loading ordersâ€¦</b><span>Fetching the latest stored order data.</span></div></div>}
+    {!loading && error && <div className="ordersConnect"><div><b>Orders could not be loaded.</b><span>{error}</span></div><button onClick={onRetry}>Retry</button></div>}
+    {!loading && !connected && !error && <div className="ordersConnect"><div><b>Session expired</b><span>Please sign in again to view orders.</span></div></div>}
+    {connected && !loading && <>
     <div className="moduleQuickLinks"><button className="customOrderCta" onClick={() => setShowDraft(true)}><Plus /> Create custom order</button></div>
     <section className="orderPeriodGrid">
       {periodSummary.map((period) => <article className="adminCard orderPeriodCard" key={period.label}>
@@ -1792,10 +1781,12 @@ function OrdersPanel({ rows, products, accessKey, setAccessKey, connected, loadi
         <label className="orderStatusFilter">Order status<select value={activeTab} onChange={(event) => setActiveTab(event.target.value)}>{orderStatusCounts.map((category) => <option key={category.label} value={category.label}>{category.label} ({category.count})</option>)}</select></label>
         <div className="inlineSearch"><Search /><input value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Search order, customer, tracking..." /></div>
       </div>
-      <OrderTable rows={visibleRows} onSelect={(order) => setSelectedId(order.id)} />
+      {allRows.length === 0 ? <div className="inventoryEmpty">No orders have been received yet.</div> : <OrderTable rows={visibleRows} onSelect={(order) => setSelectedId(order.id)} />}
+      {pagination?.totalPages > 1 && <div className="ordersPagination"><button disabled={pagination.page <= 1} onClick={() => onPageChange(pagination.page - 1)}>Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button disabled={pagination.page >= pagination.totalPages} onClick={() => onPageChange(pagination.page + 1)}>Next</button></div>}
     </section>
     {showDraft && <DraftOrderDialog products={products} onClose={() => setShowDraft(false)} onCreate={createDraft} />}
-    {selectedOrder && <OrderDetailDrawer order={selectedOrder} accessKey={accessKey} onClose={() => setSelectedId("")} onUpdate={updateLocalOrder} />}
+    {selectedOrder && <OrderDetailDrawer order={selectedOrder} onClose={() => setSelectedId("")} onUpdate={updateLocalOrder} />}
+    </>}
   </>;
 }
 
@@ -2947,7 +2938,7 @@ function DraftOrderDialog({ products = [], onClose, onCreate }) {
   </form></>;
 }
 
-function OrderDetailDrawer({ order, accessKey, onClose, onUpdate }) {
+function OrderDetailDrawer({ order, onClose, onUpdate }) {
   const [tracking, setTracking] = useState(order.tracking || "");
   const [orderStage, setOrderStage] = useState(order.postexStatus || order.status || "Un-Assigned By Me");
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || "COD pending");
@@ -2975,16 +2966,11 @@ function OrderDetailDrawer({ order, accessKey, onClose, onUpdate }) {
   }
 
   async function bookWithPostex() {
-    if (!accessKey) {
-      window.alert("PostEx booking ke liye pehle Orders admin access key connect karein.");
-      return;
-    }
     try {
       const response = await fetch("/api/admin/postex-custom", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-access-key": accessKey,
         },
         body: JSON.stringify({
           orderRef: order.id,

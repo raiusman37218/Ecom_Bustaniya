@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { authorizeAdminRequest, adminAuthErrorResponse } from "../../../../lib/adminAuth";
+import { authorizeAdminSession, adminAuthErrorResponse } from "../../../../lib/adminAuth";
+import { getAdminOrdersForDashboard } from "../../../../lib/adminOrders";
 import { supabaseAdminRequest } from "../../../../lib/supabaseRest";
 
 function isDeliveredStatus(value = "") {
@@ -13,10 +14,10 @@ function isDeliveredStatus(value = "") {
 
 export async function POST(request) {
   try {
-    await authorizeAdminRequest(request, "dashboard");
+    await authorizeAdminSession(request, "dashboard");
 
     const [orders, products, inventory] = await Promise.all([
-      supabaseAdminRequest("orders?select=id,total_pkr,status,courier_status,shipping_full_name,guest_name,customer_email,guest_email,created_at&order=created_at.desc"),
+      getAdminOrdersForDashboard(),
       supabaseAdminRequest("products?select=id,name,instock"),
       supabaseAdminRequest("inventory?select=product_id,stock_quantity,low_stock_threshold"),
     ]);
