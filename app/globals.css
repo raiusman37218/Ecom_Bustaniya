@@ -477,6 +477,10 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .checkoutForm input,.checkoutForm textarea,.checkoutForm select { width:100%; min-width:0; padding:15px; border:1px solid var(--line); border-radius:4px; background:#fff; outline:0; text-transform:none; letter-spacing:0; resize:vertical; color:var(--forest); transition:border-color .2s ease,box-shadow .2s ease,background .2s ease; }
 .checkoutForm input:focus,.checkoutForm textarea:focus,.checkoutForm select:focus { border-color:var(--forest); box-shadow:0 0 0 3px #16452c14; }
 .checkoutForm select:disabled { color:#7d887f; background:#f4f5f1; }
+.checkoutAddressFields { margin:0; padding:18px; border:1px solid #d9e2da; border-radius:7px; background:#f8faf7; }
+.checkoutAddressFields legend { padding:0 7px; color:var(--forest); font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.checkoutAddressFields>p { margin:0 0 15px; color:#65736a; font-size:10px; line-height:1.5; }
+.checkoutAddressFields .formRow+.formRow { margin-top:15px; }
 .formRow { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px; }
 .paymentBox { margin-top:8px; padding:16px 18px; border:1px solid var(--forest); border-radius:6px; display:flex; align-items:center; gap:13px; background:var(--lime); cursor:pointer; text-transform:none; letter-spacing:0; transition:border-color .2s ease,box-shadow .2s ease,background .2s ease,transform .2s ease; }
 .paymentBox:hover { transform:translateY(-1px); box-shadow:0 12px 28px #153b270d; }
@@ -1296,6 +1300,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .backShopping { margin-bottom:40px; }
   .formRow { grid-template-columns:1fr; }
   .checkoutForm input,.checkoutForm textarea,.checkoutForm select { min-height:48px; padding:14px; font-size:16px; border-radius:2px; }
+  .checkoutAddressFields { padding:14px; }
   .paymentBox,.advancePaymentNote { border-radius:2px; align-items:flex-start; }
   .paymentBox:hover { transform:none; }
   .placeOrder { min-height:52px; border-radius:2px; }

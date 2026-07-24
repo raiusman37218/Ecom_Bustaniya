@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCatalogProducts } from "../../../../lib/catalog";
 import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabaseRest";
 import { sendOrderConfirmation } from "../../../../lib/orderEmail";
+import { buildShippingAddress, hasStructuredShippingAddress } from "../../../../lib/shippingAddress";
 
 const POSTEX_CREATE_ORDER_URL =
   "https://api.postex.pk/services/integration/api/order/v3/create-order";
@@ -116,10 +117,25 @@ export async function POST(request) {
     const fullName = String(customer.fullName || `${customer.firstName || ""} ${customer.lastName || ""}`).trim();
     const [firstName, ...lastNameParts] = fullName.split(/\s+/);
     const lastName = lastNameParts.join(" ") || "-";
+    const deliveryAddress = buildShippingAddress(customer);
+    const hasAnyStructuredAddress = [customer.houseNo, customer.street, customer.block, customer.landmark]
+      .some((value) => Boolean(String(value || "").trim()));
+    const hasValidAddress = hasAnyStructuredAddress
+      ? hasStructuredShippingAddress(customer)
+      : Boolean(customer.address?.trim());
+    const normalizedCustomer = {
+      ...customer,
+      address: deliveryAddress,
+      firstName,
+      lastName,
+      phone,
+      paymentMethod,
+    };
 
     if (
       !fullName ||
-      !customer.address?.trim() ||
+      !hasValidAddress ||
+      !deliveryAddress ||
       !customer.city?.trim() ||
       !phone ||
       requestedItems.length === 0
@@ -152,7 +168,7 @@ export async function POST(request) {
     });
 
     reservedOrder = await supabaseAdminRpc("create_checkout_order", {
-      p_customer: { ...customer, firstName, lastName, phone, paymentMethod },
+      p_customer: normalizedCustomer,
       p_items: verifiedItems.map((item) => ({
         article_number: item.articleNumber,
         quantity: item.quantity,
@@ -174,7 +190,7 @@ export async function POST(request) {
         .slice(0, 500),
       customerName: fullName,
       customerPhone: courierPhone,
-      deliveryAddress: customer.address.trim(),
+      deliveryAddress,
       transactionNotes: [
         paymentMethod === "bank_deposit"
           ? "Payment: Bank deposit / advance - collect Rs. 0"
@@ -247,7 +263,7 @@ export async function POST(request) {
     reservedOrder = null;
 
     const emailSent = await sendOrderConfirmation({
-      customer,
+      customer: normalizedCustomer,
       order: completedOrder,
       trackingNumber,
       items: verifiedItems,

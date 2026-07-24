@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, Lock, ShoppingBag, Truck } from "lucide-react";
+import { buildShippingAddress } from "../../lib/shippingAddress";
 
 export default function CheckoutPage() {
   const [cart, setCart] = useState([]);
@@ -9,7 +10,10 @@ export default function CheckoutPage() {
     fullName: "",
     phone: "",
     email: "",
-    address: "",
+    houseNo: "",
+    street: "",
+    block: "",
+    landmark: "",
     city: "",
     postalCode: "",
   });
@@ -91,13 +95,15 @@ export default function CheckoutPage() {
     event.preventDefault();
     setSubmitting(true);
     setError("");
+    const completeAddress = buildShippingAddress(form);
+    const customer = { ...form, address: completeAddress };
 
     try {
       const response = await fetch("/api/postex/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customer: form,
+          customer,
           paymentMethod,
           items: cart.map(({ id, articleNumber, article_number, sku, name, quantity, size, color }) => ({
             id,
@@ -116,7 +122,7 @@ export default function CheckoutPage() {
 
       setOrder({
         ...result,
-        customer: { ...form },
+        customer,
         items: [...cart],
         subtotal,
         delivery,
@@ -155,7 +161,18 @@ export default function CheckoutPage() {
             <label>Full name<input required name="fullName" value={form.fullName} onChange={updateField} placeholder="Your full name" /></label>
             <label>Phone number<input required name="phone" value={form.phone} onChange={updateField} type="tel" inputMode="tel" placeholder="Phone / WhatsApp number" /></label>
             <label>Email address (optional)<input name="email" value={form.email} onChange={updateField} type="email" placeholder="you@example.com" /></label>
-            <label>Complete address<textarea required name="address" value={form.address} onChange={updateField} placeholder="House, street, area" rows="3" /></label>
+            <fieldset className="checkoutAddressFields">
+              <legend>Delivery address</legend>
+              <p>Please enter each part separately so the courier can find your address easily.</p>
+              <div className="formRow">
+                <label>House / Flat No.<input required name="houseNo" value={form.houseNo} onChange={updateField} autoComplete="address-line1" placeholder="e.g. House 24, Flat 3B" /></label>
+                <label>Street / Road<input required name="street" value={form.street} onChange={updateField} autoComplete="address-line2" placeholder="e.g. Street 8, Main Boulevard" /></label>
+              </div>
+              <div className="formRow">
+                <label>Block / Area<input required name="block" value={form.block} onChange={updateField} placeholder="e.g. Block C, Gulberg III" /></label>
+                <label>Nearby landmark (optional)<input name="landmark" value={form.landmark} onChange={updateField} placeholder="e.g. Near Central Mosque" /></label>
+              </div>
+            </fieldset>
             <div className="formRow">
               <label>City
                 {citiesError ? (
