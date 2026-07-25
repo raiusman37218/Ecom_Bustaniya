@@ -1034,6 +1034,23 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .financeSystem.financeTab-pnl > section:not(:nth-of-type(5)):not(:nth-of-type(6)) { display:none; }
 .financeSystem.financeTab-cashbook > section:not(:nth-of-type(7)) { display:none; }
 .financeSystem.financeTab-reports > section:not(:nth-of-type(8)) { display:none; }
+.financeSystem.financeTab-settlements > section:not(.postexSettlementPanel) { display:none; }
+.financeErrorBanner { margin:-4px 0 18px; }
+.postexSettlementPanel { display:flex; flex-direction:column; gap:16px; }
+.settlementIntro { padding:20px 22px; border:1px solid #dce5dd; border-radius:9px; background:linear-gradient(135deg,#f8fbf5,#fff); display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.settlementIntro>div { display:flex; flex-direction:column; gap:5px; }
+.settlementIntro p { margin:0; color:var(--berry); font-size:8px; font-weight:700; letter-spacing:.14em; }
+.settlementIntro h2 { margin:0; color:var(--forest-dark); font-family:var(--font-display); font-size:26px; font-weight:600; }
+.settlementIntro span { color:#596b60; font-size:10px; line-height:1.5; }
+.settlementIntro button { flex:none; }
+.settlementMetrics { margin-bottom:0; }
+.settlementWorkspace { margin-bottom:0; }
+.settlementTable { min-width:1040px; }
+.settlementTable td small { display:block; margin-top:5px; }
+.settlementForm textarea { width:100%; padding:10px; border:1px solid #d8dfd9; border-radius:5px; background:#fff; color:var(--forest-dark); font:inherit; line-height:1.45; resize:vertical; outline:0; }
+.settlementFileInput { padding:10px; border:1px dashed #bfcbbf; border-radius:6px; background:#f8faf7; }
+.settlementFileInput input { min-height:auto; padding:5px 0 0; border:0; background:transparent; }
+.settlementHistory { margin-bottom:16px; }
 .financeGrid { display:grid; grid-template-columns:1.25fr .75fr; gap:16px; margin-bottom:16px; }
 .financeGridWide { grid-template-columns:1.35fr .65fr; align-items:start; }
 .financeSummaryCard { padding:21px; }
@@ -1079,6 +1096,8 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .orderPeriodGrid { grid-template-columns:1fr; }
   .postexCategoryGrid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .financeGrid,.financeGridWide { grid-template-columns:1fr; }
+  .settlementIntro { align-items:flex-start; flex-direction:column; }
+  .settlementIntro button { width:100%; justify-content:center; }
   .moduleGrid { grid-template-columns:1fr 1fr; }
   .nav { position:fixed; inset:0 0 0 25%; align-items:stretch; justify-content:flex-start; gap:5px; background:#fafaf7; border:0; border-radius:0; box-shadow:-20px 0 60px #153b2720; flex-direction:column; padding:90px 35px; font-family:var(--font-display); font-size:25px; font-weight:600; letter-spacing:0; text-transform:none; transform:translateX(110%); transition:.3s; z-index:90; }
   .nav a { justify-content:flex-start; min-height:52px; padding:0 4px; border-radius:0; border-bottom:1px solid #e1e5df; }

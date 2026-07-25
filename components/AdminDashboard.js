@@ -940,7 +940,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   // the same initial markup regardless of their timezone.
   const [dashboardNow, setDashboardNow] = useState(null);
   const [overduePayables, setOverduePayables] = useState(0);
-  const [financeSnapshot, setFinanceSnapshot] = useState({ transactions: [], supplierBills: [], packagingExpense: 0, deliveryExpense: 0, expenses: [] });
+  const [financeSnapshot, setFinanceSnapshot] = useState({ transactions: [], supplierBills: [], packagingExpense: 0, deliveryExpense: 0, expenses: [], postex: { summary: {} } });
   const [dashboardPeriod, setDashboardPeriod] = useState("7");
   const [dashboardUpdatedAt, setDashboardUpdatedAt] = useState(null);
   const [dashboardRefreshing, setDashboardRefreshing] = useState(false);
@@ -956,7 +956,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     try {
       const response = await fetch("/api/admin/finance-transactions", { cache: "no-store" });
       const result = response.ok ? await response.json() : null;
-      const snapshot = { transactions: result?.transactions || [], supplierBills: result?.supplierBills || [], packagingExpense: Number(result?.packagingExpense || 0), deliveryExpense: Number(result?.deliveryExpense || 0), expenses: Array.isArray(result?.manualExpenses) ? result.manualExpenses : [] };
+      const snapshot = { transactions: result?.transactions || [], supplierBills: result?.supplierBills || [], packagingExpense: Number(result?.packagingExpense || 0), deliveryExpense: Number(result?.deliveryExpense || 0), expenses: Array.isArray(result?.manualExpenses) ? result.manualExpenses : [], postex: result?.postex || { summary: {} } };
       setFinanceSnapshot(snapshot);
       setFinanceSnapshotStatus("ready");
       const today = new Date().toISOString().slice(0, 10);
@@ -997,9 +997,11 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const dashboardSupplierPayments = financeSnapshot.transactions.filter((item) => item.type === "supplier_payment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardOwnerInvestments = financeSnapshot.transactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardOwnerWithdrawals = financeSnapshot.transactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardPostexBankReceived = Number(financeSnapshot.postex?.summary?.bankReceivedPkr || 0);
+  const dashboardPostexReceivable = Number(financeSnapshot.postex?.summary?.outstandingPkr || dashboardCod);
   const dashboardCourierCost = (liveOrders.filter(isDeliveredOrder).length * 200) + (dashboardReturns * 200);
   const dashboardNetProfit = dashboardSales - dashboardCogs - dashboardCourierCost - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses;
-  const dashboardAvailableCash = dashboardSales + dashboardOwnerInvestments - dashboardCourierCost - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments - dashboardOwnerWithdrawals;
+  const dashboardAvailableCash = dashboardPostexBankReceived + dashboardOwnerInvestments - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments - dashboardOwnerWithdrawals;
   const zeroCostActive = (products || []).filter((product) => productStatus(product) === "Active" && !Number(product.costTotalPkr || 0));
   const lowStockProducts = (products || []).filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5));
   const chartRange = Number(dashboardPeriod);
@@ -1059,7 +1061,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     <section className="dashboardSection dashboardPrimarySection"><div className="dashboardSectionHeading"><div><p>STORE PULSE</p><h2>Today at a glance</h2><span>Live sales, cash and profitability from your connected store.</span></div></div><div className="metricGrid dashboardPrimaryMetrics">
       <Metric icon={CircleDollarSign} label="Delivered sales" value={`Rs. ${dashboardSales.toLocaleString()}`} change="All time" note="delivered orders only" />
       {isOwnerDashboard && <Metric icon={WalletCards} label="Available cash" value={financeSnapshotStatus === "ready" ? `Rs. ${dashboardAvailableCash.toLocaleString()}` : "Unavailable"} change="All time" note="after recorded cash costs" />}
-      <Metric icon={Landmark} label="Pending COD" value={`Rs. ${dashboardCod.toLocaleString()}`} change="Current" note="not received yet" />
+      <Metric icon={Landmark} label="PostEx receivable" value={`Rs. ${dashboardPostexReceivable.toLocaleString()}`} change="Current" note="settled or carried forward" />
       {isOwnerDashboard && <Metric icon={TrendingUp} label="Final net profit" value={financeSnapshotStatus === "ready" ? `Rs. ${dashboardNetProfit.toLocaleString()}` : "Unavailable"} change="Finance" note="actual P&amp;L · all time" />}
     </div></section>
     {isOwnerDashboard && financeSnapshotStatus === "ready" && <details className="adminCard dashboardCashBreakdown" open>
@@ -1082,9 +1084,9 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
         <section>
           <div className="cashBreakdownHeading"><div><h3>Cash movement breakdown</h3><span>Shows the money currently available to use.</span></div><span className="cashBreakdownTag">CASH</span></div>
           <div className="financeStatement">
-            <div><span>Delivered sales received</span><b className="cashPlus">+ Rs. {dashboardSales.toLocaleString()}</b></div>
+            <div><span>Verified PostEx bank receipts</span><b className="cashPlus">+ Rs. {dashboardPostexBankReceived.toLocaleString()}</b></div>
+            <div><span>PostEx receivable (not available cash)</span><b>Rs. {dashboardPostexReceivable.toLocaleString()}</b></div>
             <div><span>Owner funds added</span><b className="cashPlus">+ Rs. {dashboardOwnerInvestments.toLocaleString()}</b></div>
-            <div><span>Courier paid / payable</span><b className="cashMinus">- Rs. {dashboardCourierCost.toLocaleString()}</b></div>
             <div><span>GST (1%)</span><b className="cashMinus">- Rs. {dashboardGst.toLocaleString()}</b></div>
             <div><span>Tax (4%)</span><b className="cashMinus">- Rs. {dashboardTax.toLocaleString()}</b></div>
             <div><span>Operating expenses paid</span><b className="cashMinus">- Rs. {(dashboardManualExpenses + dashboardCashbookExpenses).toLocaleString()}</b></div>
@@ -1095,7 +1097,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
           </div>
         </section>
       </div>
-      <p className="cashBreakdownNote"><b>Why product cost is not deducted twice from cash:</b> COGS reduces profit when an item sells. The actual fabric/stock payment reduces cash when it is recorded as a production batch, stock purchase or supplier payment. If a product cost was entered manually but its purchase payment was never recorded, add that payment in Finance so Available Cash remains accurate.</p>
+      <p className="cashBreakdownNote"><b>How PostEx cash works:</b> delivered sales increase revenue and profit, but they do not become available cash until a CPR/bank receipt is reconciled. PostEx bank receipts are already net of PostEx deductions, so courier is shown in P&amp;L but is not subtracted from the same bank receipt again. Product purchases reduce cash when their payment is recorded.</p>
     </details>}
     <section className="dashboardSection dashboardHealthSection"><div className="dashboardSectionHeading"><div><p>OPERATIONS</p><h2>Store health</h2><span>Orders, customers, stock and returns that need daily attention.</span></div></div><div className="miniMetricGrid dashboardSecondaryMetrics">
       <article><ShoppingBag /><span><b>{dashboardOrderCount}</b>All orders</span></article>
@@ -1835,7 +1837,10 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const [cashbookLoading, setCashbookLoading] = useState(true);
   const [cashbookError, setCashbookError] = useState("");
   const [financePeriod, setFinancePeriod] = useState("all");
-  const [financeTab, setFinanceTab] = useState(["overview","pnl","cashbook","suppliers","marketing","reports"].includes(initialTab) ? initialTab : "overview");
+  const [postexSnapshot, setPostexSnapshot] = useState({ setupAvailable: false, payments: [], batches: [], items: [], summary: {} });
+  const [postexSyncing, setPostexSyncing] = useState(false);
+  const [cprTrackingText, setCprTrackingText] = useState("");
+  const [financeTab, setFinanceTab] = useState(["overview","settlements","pnl","cashbook","suppliers","marketing","reports"].includes(initialTab) ? initialTab : "overview");
 
   useEffect(() => {
     if (!isOwnerFinance) {
@@ -1856,6 +1861,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
         setSupplierBills(result.supplierBills || []);
         setFixedCosts(Number(result.fixedCosts || 0));
         setMarketingCampaigns(result.marketingCampaigns || []);
+        setPostexSnapshot(result.postex || { setupAvailable: false, payments: [], batches: [], items: [], summary: {} });
         setProfitAllocation(result.allocation || { marketingPercent: 25, ownerPercent: 30, stockPercent: 45 });
         setPackagingExpense(manual.packagingExpense);
         setDeliveryExpense(manual.deliveryExpense);
@@ -1872,6 +1878,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
   const financeTabs = [
     ["overview", "Overview"],
+    ["settlements", "PostEx settlements"],
     ["pnl", "P&L"],
     ["cashbook", "Cashbook"],
     ["suppliers", "Suppliers"],
@@ -1897,8 +1904,18 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const returnedOrderCount = returnedOrders.length;
   const totalProductsSold = deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const grossRevenue = deliveredOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
-  const receivedCash = deliveredOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
-  const receivables = pendingOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const postexSummary = postexSnapshot?.summary || {};
+  const postexPayments = Array.isArray(postexSnapshot?.payments) ? postexSnapshot.payments : [];
+  const postexBatches = Array.isArray(postexSnapshot?.batches) ? postexSnapshot.batches : [];
+  const postexAllocatedByPayment = (Array.isArray(postexSnapshot?.items) ? postexSnapshot.items : []).reduce((map, item) => {
+    const key = String(item.order_payment_id);
+    map.set(key, Number(map.get(key) || 0) + Number(item.allocated_received_pkr || 0));
+    return map;
+  }, new Map());
+  const receivedCash = Number(postexSummary.bankReceivedPkr || 0);
+  const receivables = postexPayments.length
+    ? Number(postexSummary.outstandingPkr || 0)
+    : grossRevenue;
   const productCosts = new Map(safeProducts.map((product) => [String(product.id), Number(product.costTotalPkr || 0)]));
   const deliveredProductRevenue = deliveredItems
     .reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0);
@@ -1931,7 +1948,10 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const deliveryCollected = grossRevenue - deliveredProductRevenue;
   const profitAfterProductCost = grossRevenue - deliveredCogs;
   const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - profitExpenseTotal - gstTaxTotal;
-  const availableCash = grossRevenue - courierDeliveryCost - returnCourierCost - gstTaxTotal - cashOutflowTotal + ownerInvestments - ownerWithdrawals;
+  // PostEx bank receipts are already net of courier deductions. Delivered
+  // revenue remains in P&L, but it becomes spendable cash only after a CPR
+  // receipt is verified.
+  const availableCash = receivedCash - gstTaxTotal - cashOutflowTotal + ownerInvestments - ownerWithdrawals;
   const allocatableProfit = Math.max(0, netProfit);
   const marketingAllocation = Math.round(allocatableProfit * Number(profitAllocation.marketingPercent || 0) / 100);
   const ownerAllocation = Math.round(allocatableProfit * Number(profitAllocation.ownerPercent || 0) / 100);
@@ -1987,6 +2007,72 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     try { const response = await fetch("/api/admin/finance-transactions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactions: nextTransactions, allocation: profitAllocation, supplierBills: nextBills, fixedCosts: Number(fixedCosts || 0), marketingCampaigns }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to record supplier payment."); setSupplierBills(result.supplierBills || nextBills); setCashbookTransactions(result.transactions || nextTransactions); } catch (error) { setCashbookError(error.message); } finally { setCashbookLoading(false); }
   }
 
+  async function syncPostexSettlementData() {
+    setPostexSyncing(true);
+    setCashbookError("");
+    try {
+      const response = await fetch("/api/admin/postex-settlements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync" }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to sync PostEx payments.");
+      setPostexSnapshot(result.snapshot || postexSnapshot);
+      if (result.failed?.length) {
+        setCashbookError(`${result.synced} orders synced; ${result.failed.length} could not be refreshed.`);
+      }
+    } catch (error) {
+      setCashbookError(error.message);
+    } finally {
+      setPostexSyncing(false);
+    }
+  }
+
+  async function saveCprBatch(event) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setPostexSyncing(true);
+    setCashbookError("");
+    try {
+      const response = await fetch("/api/admin/postex-settlements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_batch",
+          cprNumber: data.get("cprNumber"),
+          cprDate: data.get("cprDate"),
+          periodStart: data.get("periodStart"),
+          periodEnd: data.get("periodEnd"),
+          expectedAmountPkr: Number(data.get("expectedAmountPkr") || 0),
+          additionalDeductionsPkr: Number(data.get("additionalDeductionsPkr") || 0),
+          bankReceivedPkr: Number(data.get("bankReceivedPkr") || 0),
+          bankReceivedDate: data.get("bankReceivedDate"),
+          trackingNumbers: cprTrackingText,
+          notes: data.get("notes"),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to save CPR reconciliation.");
+      setPostexSnapshot(result.snapshot || postexSnapshot);
+      setCprTrackingText("");
+      event.currentTarget.reset();
+    } catch (error) {
+      setCashbookError(error.message);
+    } finally {
+      setPostexSyncing(false);
+    }
+  }
+
+  async function importCprTrackingFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const fileText = await file.text();
+    const trackingNumbers = fileText.match(/(?:CX-[A-Z0-9-]{6,30}|\b\d{10,20}\b)/gi) || [];
+    setCprTrackingText([...new Set(trackingNumbers)].join("\n"));
+    event.target.value = "";
+  }
+
   if (!isOwnerFinance) {
     return <div className="financeSystem">
       <div className="adminTitle"><div><p>SALES OVERVIEW</p><h1>Finances</h1><span>Operational sales and delivery information for staff.</span></div></div>
@@ -2006,10 +2092,18 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     ...deliveredOrders.slice(0, 8).map((order) => ({
       id: order.id,
       date: order.date,
-      type: "Income received",
+      type: "Sale earned",
       account: order.customer,
       amount: Number(order.total || 0),
       status: order.status,
+    })),
+    ...postexBatches.map((batch) => ({
+      id: batch.cpr_number,
+      date: formatFinanceDate(batch.bank_received_date || batch.cpr_date),
+      type: "PostEx bank receipt",
+      account: `${batch.items?.length || 0} reconciled order${batch.items?.length === 1 ? "" : "s"}`,
+      amount: Number(batch.bank_received_pkr || 0),
+      status: batch.status,
     })),
     ...expenses.slice(0, 5).map((expense) => ({
       id: `EXP-${expense.id}`,
@@ -2123,8 +2217,11 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       ["Delivered orders", deliveredOrderCount],
       ["Total products sold", totalProductsSold],
       ["Product sales total", deliveredProductRevenue],
-      ["Received cash", receivedCash],
-      ["Pending COD / receivables", receivables],
+      ["Verified PostEx bank receipts", receivedCash],
+      ["PostEx receivable / carry forward", receivables],
+      ["PostEx marked settled", Number(postexSummary.postexSettledPkr || 0)],
+      ["PostEx settled but not bank reconciled", Number(postexSummary.settledNotBankedPkr || 0)],
+      ["Open / partial CPR batches", Number(postexSummary.unreconciledBatchCount || 0)],
       ["Actual product cost (COGS)", deliveredCogs],
       ["Profit after product cost", profitAfterProductCost],
       ["Manual expenses", manualExpenseTotal],
@@ -2163,6 +2260,82 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       {financeTabs.map(([value, label]) => <button type="button" key={value} className={financeTab === value ? "active" : ""} onClick={() => setFinanceTab(value)}>{label}</button>)}
     </nav>
 
+    {cashbookError && <div className="adminErrorBanner financeErrorBanner">{cashbookError}</div>}
+
+    {financeTab === "settlements" && <section className="postexSettlementPanel">
+      <div className="settlementIntro">
+        <div>
+          <p>POSTEX RECONCILIATION</p>
+          <h2>CPR &amp; bank receipts</h2>
+          <span>Delivered sales become available cash only after their PostEx payment is matched with an actual bank receipt.</span>
+        </div>
+        <button type="button" className="dashboardPrimaryAction" onClick={syncPostexSettlementData} disabled={postexSyncing}>
+          <RefreshCw className={postexSyncing ? "spinIcon" : ""} /> {postexSyncing ? "Syncing..." : "Sync PostEx"}
+        </button>
+      </div>
+
+      {!postexSnapshot.setupAvailable && <div className="inventoryAlert materialAlert">
+        <Landmark />
+        <div><b>Settlement database setup required</b><span>The secure PostEx settlement tables must be installed before reconciliation can be saved.</span></div>
+      </div>}
+
+      <div className="miniMetricGrid settlementMetrics">
+        <article><CircleDollarSign /><span><b>{money(postexSummary.totalExpectedNetPkr)}</b>Expected after PostEx deductions</span></article>
+        <article><Landmark /><span><b>{money(postexSummary.postexSettledPkr)}</b>Marked settled by PostEx</span></article>
+        <article><WalletCards /><span><b>{money(postexSummary.bankReceivedPkr)}</b>Verified in bank</span></article>
+        <article className={Number(postexSummary.awaitingPostexPkr || 0) ? "alertMetric" : ""}><ReceiptText /><span><b>{money(postexSummary.awaitingPostexPkr)}</b>Awaiting PostEx settlement</span></article>
+        <article className={Number(postexSummary.settledNotBankedPkr || 0) ? "alertMetric" : ""}><Landmark /><span><b>{money(postexSummary.settledNotBankedPkr)}</b>Settled, not bank verified</span></article>
+        <article className={Number(postexSummary.outstandingPkr || 0) ? "alertMetric" : ""}><ReceiptText /><span><b>{money(postexSummary.outstandingPkr)}</b>Outstanding / carry forward</span></article>
+      </div>
+
+      <div className="financeGrid financeGridWide settlementWorkspace">
+        <div className="adminCard managementCard">
+          <div className="inventoryListHead"><div><h2>Order settlement status</h2><span>Live PostEx deductions, settlement status and bank allocation by tracking number.</span></div><b>{postexPayments.length} tracked</b></div>
+          <div className="adminTableWrap"><table className="adminTable financeTable settlementTable">
+            <thead><tr><th>Order / tracking</th><th>PostEx status</th><th>Invoice</th><th>Deductions</th><th>Expected net</th><th>Bank allocated</th><th>Remaining</th></tr></thead>
+            <tbody>
+              {postexPayments.map((payment) => {
+                const deductions = Number(payment.transaction_tax_pkr || 0) + Number(payment.transaction_fee_pkr || 0) + Number(payment.reversal_tax_pkr || 0) + Number(payment.reversal_fee_pkr || 0);
+                const expected = Number(payment.expected_net_pkr || 0);
+                const allocated = Number(postexAllocatedByPayment.get(String(payment.id)) || 0);
+                return <tr key={payment.id}>
+                  <td><b>{payment.order_number}</b><small className="trackingNumber">{payment.tracking_number}</small></td>
+                  <td><span className={`statusBadge ${payment.payment_status}`}>{payment.postex_settled ? "PostEx settled" : payment.payment_status === "awaiting" ? "Awaiting settlement" : payment.payment_status.replaceAll("_", " ")}</span>{payment.settlement_date && <small className="trackingNumber">{formatFinanceDate(payment.settlement_date)}</small>}</td>
+                  <td>{money(payment.invoice_payment_pkr)}</td>
+                  <td className={deductions ? "expenseAmount" : ""}>{deductions ? `- ${money(deductions)}` : money(0)}</td>
+                  <td><b>{money(expected)}</b></td>
+                  <td className={allocated ? "incomeAmount" : ""}>{money(allocated)}</td>
+                  <td className={expected > allocated ? "expenseAmount" : "incomeAmount"}>{money(Math.max(0, expected - allocated))}</td>
+                </tr>;
+              })}
+              {!postexPayments.length && <tr><td colSpan="7" className="emptyFinanceCell">Click “Sync PostEx” to load payment status for booked orders.</td></tr>}
+            </tbody>
+          </table></div>
+        </div>
+
+        <form className="adminCard financeExpenseForm settlementForm" onSubmit={saveCprBatch}>
+          <h2>Record CPR / weekly receipt</h2>
+          <p className="trackingNumber">Use the CPR statement amount and the exact amount credited to your bank. A short payment automatically becomes carry-forward.</p>
+          <div className="formRow"><label>CPR number<input name="cprNumber" required placeholder="e.g. CPR-2026-W30" /></label><label>CPR date<input name="cprDate" type="date" /></label></div>
+          <div className="formRow"><label>Period start<input name="periodStart" type="date" /></label><label>Period end<input name="periodEnd" type="date" /></label></div>
+          <label>Tracking numbers<textarea rows="6" required value={cprTrackingText} onChange={(event) => setCprTrackingText(event.target.value)} placeholder={"One tracking number per line\n28640330000063"} /></label>
+          <label className="settlementFileInput">Import tracking list (CSV/TXT)<input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={importCprTrackingFile} /></label>
+          <div className="formRow"><label>Expected CPR amount<input name="expectedAmountPkr" type="number" min="0" step="0.01" placeholder="Auto from selected orders" /></label><label>Other statement deductions<input name="additionalDeductionsPkr" type="number" min="0" step="0.01" defaultValue="0" /></label></div>
+          <div className="formRow"><label>Actual bank receipt<input name="bankReceivedPkr" type="number" min="0" step="0.01" required /></label><label>Bank receipt date<input name="bankReceivedDate" type="date" /></label></div>
+          <label>Notes<input name="notes" placeholder="Short payment, adjustment, bank reference..." /></label>
+          <button disabled={postexSyncing || !postexSnapshot.setupAvailable}>{postexSyncing ? "Saving..." : "Save reconciliation"}</button>
+        </form>
+      </div>
+
+      <div className="adminCard managementCard settlementHistory">
+        <div className="inventoryListHead"><div><h2>CPR history</h2><span>Every weekly or biweekly receipt with its expected, received and carried-forward balance.</span></div><b>{postexBatches.length} batches</b></div>
+        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>CPR</th><th>Period</th><th>Orders</th><th>Expected bank</th><th>Received</th><th>Carry forward</th><th>Status</th></tr></thead><tbody>
+          {postexBatches.map((batch) => <tr key={batch.id}><td><b>{batch.cpr_number}</b><small className="trackingNumber">{batch.cpr_date || "No CPR date"}</small></td><td>{batch.period_start || "—"} to {batch.period_end || "—"}</td><td>{batch.items?.length || 0}</td><td>{money(batch.expected_bank_pkr)}</td><td className="incomeAmount">{money(batch.bank_received_pkr)}</td><td className={Number(batch.carried_forward_pkr || 0) ? "expenseAmount" : ""}>{money(batch.carried_forward_pkr)}</td><td><span className={`statusBadge ${batch.status}`}>{batch.status}</span></td></tr>)}
+          {!postexBatches.length && <tr><td colSpan="7" className="emptyFinanceCell">No CPR receipts have been recorded yet.</td></tr>}
+        </tbody></table></div>
+      </div>
+    </section>}
+
     {financeTab === "overview" && <>
     <div className="miniMetricGrid financeMetrics">
       <article><CircleDollarSign /><span><b>{money(grossRevenue)}</b>Total sales</span></article>
@@ -2171,11 +2344,12 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       <article><WalletCards /><span><b>{money(deliveredCogs)}</b>Total product cost</span></article>
       <article><ShoppingBag /><span><b>{money(courierDeliveryCost)}</b>Courier delivery cost</span></article>
       <article><WalletCards /><span><b>{money(availableCash)}</b>Available business cash</span></article>
+      <article><Landmark /><span><b>{money(receivedCash)}</b>Verified PostEx bank receipts</span></article>
       <article><CircleDollarSign /><span><b>{money(ownerInvestments)}</b>Owner funds added</span></article>
       <article className={ownerWithdrawals ? "alertMetric" : ""}><CircleDollarSign /><span><b>{money(ownerWithdrawals)}</b>Owner withdrawals</span></article>
       <article className={returnedOrderCount ? "alertMetric" : ""}><Package /><span><b>{returnedOrderCount}</b>Returned orders</span></article>
       <article className={returnCourierCost ? "alertMetric" : ""}><TrendingUp /><span><b>{money(returnCourierCost)}</b>Return courier loss</span></article>
-      <article><Landmark /><span><b>{money(receivables)}</b>Pending COD</span></article>
+      <article className={receivables ? "alertMetric" : ""}><Landmark /><span><b>{money(receivables)}</b>PostEx receivable</span></article>
       <article className={overdueSupplierBills.length ? "alertMetric" : ""}><Landmark /><span><b>{money(supplierPayableTotal)}</b>Supplier payables</span></article>
       <article><TrendingUp /><span><b>{money(profitAfterProductCost)}</b>Profit before deductions</span></article>
       <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Final net profit</span></article>
