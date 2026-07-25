@@ -1082,6 +1082,48 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .financeExpenseForm h2 { margin:0 0 2px; font-size:14px; }
 .financeExpenseForm button { height:39px; border:0; border-radius:5px; background:var(--forest); color:#fff; text-transform:uppercase; letter-spacing:.07em; font-size:9px; }
 
+/* Admin readability pass: operational screens are used for long periods, so
+   labels, controls and supporting copy need to remain legible at a glance. */
+.adminContent { font-size:14px; }
+.adminTopbarContext b { font-size:15px; }
+.adminTopbarContext span { display:block; margin-top:2px; color:#718078; font-size:12px; }
+.adminSidebar nav a { height:48px; font-size:14px; font-weight:600; }
+.adminNavItem>p { margin-bottom:8px; font-size:9px; font-weight:700; }
+.adminStoreCard span { font-size:13px; font-weight:600; }
+.adminStoreCard small { font-size:11px; }
+.adminTitle p,.orderDetailDrawer>header p,.productDrawerHeader p,.workspaceDrawer>header p,.settlementIntro p { font-size:10px; font-weight:800; }
+.adminTitle h1 { font-size:46px; }
+.adminTitle span { font-size:14px; line-height:1.5; }
+.dashboardAnalyticsTitle h2 { font-size:36px; }
+.adminTitle>button,.saveProduct,.adminSidebarLogout,.adminLogoutButton { min-height:44px; font-size:11px; font-weight:800; }
+.metricCard p { font-size:13px; font-weight:600; }
+.metricCard h2 { font-size:28px; }
+.metricCard>span,.cardHeading p,.chartTotal span { font-size:11px; line-height:1.45; }
+.cardHeading h2,.inventoryListHead h2,.sourceFormCard h2,.financeExpenseForm h2 { font-size:18px; }
+.cardHeading button,.tableTools>button,.catalogActions button,.csvButton,.inventoryListHead>button,.simpleInventoryControls>button { min-height:40px; font-size:11px; font-weight:800; }
+.adminTable { font-size:13px; }
+.adminTable th { padding-block:13px; font-size:10px; font-weight:800; }
+.adminTable td { padding-block:14px; }
+.statusBadge,.collectionStrip span,.tagList span { font-size:10px; font-weight:800; }
+.editProductButton,.removeProductButton,.adjustStockButton { min-height:34px; font-size:10px; }
+.adminSearch input,.inlineSearch input,.ordersConnect input,.tableSelect,.orderStatusFilter,.orderStatusFilter select { font-size:13px; }
+.inlineSearch,.orderStatusFilter select { min-height:40px; }
+.orderTabs button,.inventoryTabs button,.inventoryViewBar button { min-height:38px; font-size:11px; font-weight:700; }
+.orderDetailCard h3,.orderOpsCard h3,.fieldTitle,.variantGroup>b,.variantLabel>b { font-size:11px; font-weight:800; }
+.orderDetailCard b { font-size:16px; }
+.orderDetailCard span,.orderDetailCard p,.inventoryAlert>div,.inventoryAlert span { font-size:12px; line-height:1.55; }
+.orderDetailCard label,.sourceFormCard label,.inventoryDialog label,.financeControls label,.financeExpenseForm label,.workspaceForm label { font-size:11px; font-weight:700; }
+.orderDetailCard select,.orderOpsCard input,.orderOpsCard select,.orderOpsCard textarea,.orderDialog input,.orderDialog select,.orderDialog textarea,.sourceFormCard input,.sourceFormCard select,.sourceFormCard textarea,.inventoryDialog input,.inventoryDialog select,.inventoryDialog textarea,.financeControls input,.financeControls select,.financeExpenseForm input,.financeExpenseForm select,.workspaceForm input,.workspaceForm select { min-height:42px; font-size:13px; }
+.productEditorCard h3,.editorHeading h3 { font-size:17px; }
+.editorHeading p,.shippingRuleHint,.editorHeading>span,.variantLabel>span,.variantLabel>button { font-size:11px; line-height:1.5; }
+.formRow label,.productEditorCard>label { font-size:11px; font-weight:700; }
+.formRow input,.formRow select,.productEditorCard textarea { min-height:42px; font-size:13px; }
+.variantChips button { min-height:36px; font-size:11px; }
+.inventoryListHead span,.tableProduct small,.trackingNumber,.workspaceInfo span { font-size:11px; }
+.inventoryEmpty,.emptyFinanceCell,.workspaceEmpty p { font-size:12px; line-height:1.6; }
+.settlementIntro h2 { font-size:30px; }
+.settlementIntro span,.financeStatement span,.inventoryFinanceList span { font-size:12px; line-height:1.5; }
+
 @media (max-width:900px) {
   .adminShell { display:block; }
   .adminLoadingSidebar { display:none; }
