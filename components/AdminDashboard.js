@@ -999,9 +999,13 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const dashboardOwnerWithdrawals = financeSnapshot.transactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardPostexBankReceived = Number(financeSnapshot.postex?.summary?.bankReceivedPkr || 0);
   const dashboardPostexReceivable = Number(financeSnapshot.postex?.summary?.outstandingPkr || dashboardCod);
+  const dashboardExpectedPostexNet = Number(financeSnapshot.postex?.summary?.totalExpectedNetPkr || 0);
+  const dashboardReceivedRatio = dashboardExpectedPostexNet > 0 ? Math.min(1, dashboardPostexBankReceived / dashboardExpectedPostexNet) : 0;
+  const dashboardCashGstReserve = Math.round(dashboardGst * dashboardReceivedRatio);
+  const dashboardCashTaxReserve = Math.round(dashboardTax * dashboardReceivedRatio);
   const dashboardCourierCost = (liveOrders.filter(isDeliveredOrder).length * 200) + (dashboardReturns * 200);
   const dashboardNetProfit = dashboardSales - dashboardCogs - dashboardCourierCost - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses;
-  const dashboardAvailableCash = dashboardPostexBankReceived + dashboardOwnerInvestments - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments - dashboardOwnerWithdrawals;
+  const dashboardAvailableCash = dashboardPostexBankReceived + dashboardOwnerInvestments - dashboardCashGstReserve - dashboardCashTaxReserve - dashboardManualExpenses - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments - dashboardOwnerWithdrawals;
   const zeroCostActive = (products || []).filter((product) => productStatus(product) === "Active" && !Number(product.costTotalPkr || 0));
   const lowStockProducts = (products || []).filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5));
   const chartRange = Number(dashboardPeriod);
@@ -1087,8 +1091,8 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
             <div><span>Verified PostEx bank receipts</span><b className="cashPlus">+ Rs. {dashboardPostexBankReceived.toLocaleString()}</b></div>
             <div><span>PostEx receivable (not available cash)</span><b>Rs. {dashboardPostexReceivable.toLocaleString()}</b></div>
             <div><span>Owner funds added</span><b className="cashPlus">+ Rs. {dashboardOwnerInvestments.toLocaleString()}</b></div>
-            <div><span>GST (1%)</span><b className="cashMinus">- Rs. {dashboardGst.toLocaleString()}</b></div>
-            <div><span>Tax (4%)</span><b className="cashMinus">- Rs. {dashboardTax.toLocaleString()}</b></div>
+            <div><span>GST reserve on received settlements (1%)</span><b className="cashMinus">- Rs. {dashboardCashGstReserve.toLocaleString()}</b></div>
+            <div><span>Tax reserve on received settlements (4%)</span><b className="cashMinus">- Rs. {dashboardCashTaxReserve.toLocaleString()}</b></div>
             <div><span>Operating expenses paid</span><b className="cashMinus">- Rs. {(dashboardManualExpenses + dashboardCashbookExpenses).toLocaleString()}</b></div>
             <div><span>Production / stock purchase cash paid</span><b className="cashMinus">- Rs. {dashboardProductionCashOutflow.toLocaleString()}</b></div>
             <div><span>Supplier payments</span><b className="cashMinus">- Rs. {dashboardSupplierPayments.toLocaleString()}</b></div>
@@ -1945,13 +1949,16 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const gstProvision = Math.round(deliveredProductRevenue * 0.01);
   const taxProvision = Math.round(deliveredProductRevenue * 0.04);
   const gstTaxTotal = Math.round(deliveredProductRevenue * 0.05);
+  const postexExpectedNet = Number(postexSummary.totalExpectedNetPkr || 0);
+  const receivedSettlementRatio = postexExpectedNet > 0 ? Math.min(1, receivedCash / postexExpectedNet) : 0;
+  const cashGstTaxReserve = Math.round(gstTaxTotal * receivedSettlementRatio);
   const deliveryCollected = grossRevenue - deliveredProductRevenue;
   const profitAfterProductCost = grossRevenue - deliveredCogs;
   const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - profitExpenseTotal - gstTaxTotal;
   // PostEx bank receipts are already net of courier deductions. Delivered
   // revenue remains in P&L, but it becomes spendable cash only after a CPR
   // receipt is verified.
-  const availableCash = receivedCash - gstTaxTotal - cashOutflowTotal + ownerInvestments - ownerWithdrawals;
+  const availableCash = receivedCash - cashGstTaxReserve - cashOutflowTotal + ownerInvestments - ownerWithdrawals;
   const allocatableProfit = Math.max(0, netProfit);
   const marketingAllocation = Math.round(allocatableProfit * Number(profitAllocation.marketingPercent || 0) / 100);
   const ownerAllocation = Math.round(allocatableProfit * Number(profitAllocation.ownerPercent || 0) / 100);
