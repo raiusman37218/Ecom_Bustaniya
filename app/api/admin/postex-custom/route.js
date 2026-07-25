@@ -3,9 +3,8 @@ import { NextResponse } from "next/server";
 import { authorizeAdminRequest } from "../../../../lib/adminAuth";
 import { getCatalogProducts } from "../../../../lib/catalog";
 import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabaseRest";
-
-const POSTEX_CREATE_ORDER_URL =
-  "https://api.postex.pk/services/integration/api/order/v3/create-order";
+import { getCourierAdapter, postexTrackingNumberFromBooking } from "../../../../lib/courierAdapters";
+import { recordShipmentState } from "../../../../lib/shipments";
 
 async function ensureOrderItems(orderId, items) {
   if (!orderId || !items.length) return;
@@ -264,6 +263,7 @@ export async function POST(request) {
       price: Number(item.price || 0),
     }));
 
+    const courier = await getCourierAdapter("postex");
     const payload = {
       orderRefNumber: completedOrder.order_number || orderNumber,
       invoicePayment: String(postexCollectionAmount),
@@ -283,7 +283,7 @@ export async function POST(request) {
       invoiceDivision: 1,
       items: postexItems,
       orderType: "Normal",
-      pickupAddressCode: process.env.POSTEX_PICKUP_ADDRESS_CODE,
+      pickupAddressCode: courier.pickupAddressCode,
     };
 
     let trackingNumber = `MANUAL-${completedOrder.order_number || orderNumber}`;
@@ -297,30 +297,20 @@ export async function POST(request) {
     let courierMessage = "";
 
     if (shouldBookPostex) {
-      if (process.env.POSTEX_API_TOKEN) {
+      if (courier.configured) {
         try {
-          const response = await fetch(POSTEX_CREATE_ORDER_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              token: process.env.POSTEX_API_TOKEN,
-            },
-            body: JSON.stringify(payload),
-            cache: "no-store",
-            signal: AbortSignal.timeout(20000),
-          });
-          const result = await response.json().catch(() => null);
-          const postexTrackingNumber = result?.dist?.trackingNumber;
+          const result = await courier.createShipment(payload);
+          const postexTrackingNumber = postexTrackingNumberFromBooking(result);
 
-          if (response.ok && Number(result?.statusCode || response.status) === 200 && postexTrackingNumber) {
+          if (postexTrackingNumber) {
             trackingNumber = postexTrackingNumber;
             courierStatus = result?.dist?.transactionStatus || "Booked";
             postexResponse = result;
             courierBooked = true;
           } else {
-            courierMessage = postexErrorMessage(result, response.status);
+            courierMessage = postexErrorMessage(result, 502);
             console.error("Custom PostEx booking failed", {
-              status: response.status,
+              status: 502,
               result,
               payload: { ...payload, customerPhone: "***" },
             });
@@ -357,6 +347,8 @@ export async function POST(request) {
       }).catch(() => null);
       completedOrder = updatedOrder || { ...completedOrder, courier_tracking_number: trackingNumber, courier_status: courierStatus };
     }
+
+    await recordShipmentState({ orderId: completedOrder?.id, courier: courierBooked ? courier : null, trackingNumber, rawStatus: courierStatus, serviceType: paymentMethod === "bank_deposit" ? "prepaid" : "COD", manual: !courierBooked });
 
     // Courier status is persisted above. Do not call the legacy RPC here: it
     // required a browser-supplied access key, which is no longer accepted.

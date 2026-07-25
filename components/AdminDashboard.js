@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Bell, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
   LogOut, Menu, Minus, MoreHorizontal, Package, Plus,
-  ReceiptText, RefreshCw, Search, Settings, ShoppingBag, Store, Tags, TrendingUp, Users,
+  ReceiptText, RefreshCw, Search, Settings, ShoppingBag, Store, Tags, TrendingUp, Truck, Users,
   WalletCards, X
 } from "lucide-react";
 import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, products as initialProducts, slugifyCategory } from "../data/store";
@@ -89,6 +89,8 @@ const navItems = [
   { name: "Inventory", icon: Boxes, section: "COMMERCE" },
   { name: "Customers", icon: Users, section: "COMMERCE" },
   { name: "Finances", icon: Landmark, section: "COMMERCE" },
+  { name: "Courier Ops", icon: Truck, section: "OPERATIONS" },
+  { name: "Couriers", icon: Truck, section: "OPERATIONS" },
   { name: "Settings", icon: Settings, section: "OPERATIONS" }
 ];
 
@@ -100,6 +102,8 @@ const navPermissionMap = {
   Inventory: "inventory",
   Customers: "customers",
   Finances: "dashboard",
+  "Courier Ops": "orders",
+  Couriers: "settings",
   Settings: "settings",
 };
 
@@ -289,8 +293,11 @@ export default function AdminDashboard() {
         customer: order.shipping_full_name || order.guest_name || "Guest",
         city: order.shipping_city || "—",
         total: Number(order.total_pkr || 0),
-        status: formatOrderStatus(order.courier_status || order.status || "pending"),
+        status: formatOrderStatus(order.courier_normalized_status || order.courier_status || order.status || "pending"),
         postexStatus: formatOrderStatus(order.courier_status || order.status || "pending"),
+        courierRawStatus: order.courier_raw_status || order.courier_status || "",
+        courierNormalizedStatus: order.courier_normalized_status || "unassigned",
+        courierServiceType: order.courier_service_type || "",
         paymentStatus: order.payment_status || (order.payment_method === "bank_deposit" ? "Verification due" : "COD pending"),
         fulfillmentStatus: order.fulfillment_status || (order.courier_tracking_number ? "Booked with PostEx" : "Unfulfilled"),
         tracking: order.courier_tracking_number || "",
@@ -813,6 +820,8 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}
+          {canAccessActive && active === "Courier Ops" && <CourierOperationsPanel />}
+          {canAccessActive && active === "Couriers" && <CouriersPanel />}
           {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} />}
         </div>
       </section>
@@ -1826,6 +1835,119 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
   </>;
 }
 
+const courierProviderOptions = [
+  ["postex", "PostEx"], ["leopards", "Leopards Courier"], ["tcs", "TCS"], ["mnp", "M&P"],
+  ["trax", "Trax"], ["callcourier", "Call Courier"], ["blueex", "BlueEx"], ["manual", "Manual / rider"], ["custom", "Custom API"],
+];
+
+function CourierOperationsPanel() {
+  const [snapshot, setSnapshot] = useState({ couriers: [], shipments: [] });
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState("");
+  const [error, setError] = useState("");
+  const [filters, setFilters] = useState({ courier: "all", status: "all", queue: "all" });
+  async function load() {
+    setLoading(true); setError("");
+    try { const response = await fetch("/api/admin/courier-operations"); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to load courier operations."); setSnapshot(result); }
+    catch (loadError) { setError(loadError.message); } finally { setLoading(false); }
+  }
+  useEffect(() => { load(); }, []);
+  async function syncShipment(orderId) {
+    setSyncing(orderId); setError("");
+    try { const response = await fetch("/api/admin/courier-operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "sync_shipment", orderId }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Sync failed."); setSnapshot({ couriers: result.couriers, shipments: result.shipments }); }
+    catch (syncError) { setError(syncError.message); await load(); } finally { setSyncing(""); }
+  }
+  const rows = snapshot.shipments.filter((shipment) => (filters.courier === "all" || shipment.provider === filters.courier) && (filters.status === "all" || shipment.courier_normalized_status === filters.status) && (filters.queue === "all" || (filters.queue === "delayed" ? shipment.isDelayed : Boolean(shipment.courier_sync_error))));
+  const delayed = snapshot.shipments.filter((shipment) => shipment.isDelayed).length;
+  const failed = snapshot.shipments.filter((shipment) => shipment.courier_sync_error).length;
+  return <>
+    <div className="adminTitle"><div><p>COURIER HUB</p><h1>Courier operations</h1><span>Track every courier shipment, resolve exceptions and refresh live delivery status from one queue.</span></div><button type="button" onClick={load} disabled={loading}><RefreshCw className={loading ? "spinIcon" : ""} /> Refresh list</button></div>
+    {error && <div className="adminErrorBanner">{error}</div>}
+    <section className="financeMetricGrid"><article><Truck /><span><b>{snapshot.shipments.length}</b>Tracked shipments</span></article><article className={delayed ? "alertMetric" : ""}><ReceiptText /><span><b>{delayed}</b>Delayed over 5 days</span></article><article className={failed ? "alertMetric" : ""}><RefreshCw /><span><b>{failed}</b>Sync failures</span></article></section>
+    <section className="adminCard settingsForm settingsWideForm"><div className="formRow"><label>Courier<select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}><option value="all">All couriers</option>{snapshot.couriers.map((courier) => <option key={courier.id} value={courier.provider}>{courier.name}</option>)}</select></label><label>Status<select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">All statuses</option>{["booked","picked_up","in_transit","out_for_delivery","delivered","attempted","on_hold","returned","cancelled","manual_delivery"].map((status) => <option value={status} key={status}>{status.replaceAll("_", " ")}</option>)}</select></label><label>Queue<select value={filters.queue} onChange={(event) => setFilters((current) => ({ ...current, queue: event.target.value }))}><option value="all">All shipments</option><option value="delayed">Delayed only</option><option value="failed">Failed sync only</option></select></label></div></section>
+    <section className="adminCard settingsForm settingsWideForm"><div className="inventoryListHead"><div><h2>Shipment queue</h2><span>{rows.length} shipment{rows.length === 1 ? "" : "s"} shown</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order / tracking</th><th>Courier</th><th>Service</th><th>Live status</th><th>Last sync</th><th>Issue</th><th /></tr></thead><tbody>{rows.map((shipment) => <tr key={shipment.id}><td><b>#{shipment.order_number}</b><small className="trackingNumber"><br />{shipment.courier_tracking_number || "No tracking number"}</small></td><td>{shipment.courierName}</td><td>{shipment.courier_service_type || "—"}</td><td><span className={`statusBadge ${shipment.courier_normalized_status}`}>{String(shipment.courier_normalized_status || "unassigned").replaceAll("_", " ")}</span><small className="trackingNumber"><br />{shipment.courier_raw_status || "—"}</small></td><td>{shipment.courier_last_synced_at ? new Date(shipment.courier_last_synced_at).toLocaleString("en-PK") : "Never"}</td><td>{shipment.courier_sync_error ? <small className="expenseAmount">{shipment.courier_sync_error}</small> : shipment.isDelayed ? <small className="expenseAmount">Delayed</small> : "—"}</td><td>{shipment.provider === "postex" && shipment.courier_tracking_number && <button type="button" className="editProductButton" onClick={() => syncShipment(shipment.id)} disabled={syncing === shipment.id}>{syncing === shipment.id ? "Syncing..." : shipment.courier_sync_error ? "Retry" : "Sync"}</button>}</td></tr>)}{!loading && !rows.length && <tr><td colSpan="7" className="emptyFinanceCell">No shipment matches these filters.</td></tr>}{loading && <tr><td colSpan="7" className="emptyFinanceCell">Loading shipment queue...</td></tr>}</tbody></table></div></section>
+  </>;
+}
+
+function CouriersPanel() {
+  const [snapshot, setSnapshot] = useState({ setupAvailable: true, couriers: [] });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [editing, setEditing] = useState(null);
+
+  async function loadCouriers() {
+    setLoading(true); setError("");
+    try {
+      const response = await fetch("/api/admin/couriers");
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to load couriers.");
+      setSnapshot(result);
+    } catch (loadError) { setError(loadError.message); } finally { setLoading(false); }
+  }
+
+  useEffect(() => { loadCouriers(); }, []);
+
+  async function saveCourier(event) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const name = String(data.get("name") || "").trim();
+    const provider = String(data.get("provider") || "custom");
+    const code = String(data.get("code") || name).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+    setSaving(true); setError("");
+    try {
+      const response = await fetch("/api/admin/couriers", {
+        method: editing?.id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editing?.id, name, code, provider, status: data.get("status"), isDefault: data.get("isDefault") === "on",
+          apiBaseUrl: data.get("apiBaseUrl"), merchantId: data.get("merchantId"), pickupAddressCode: data.get("pickupAddressCode"),
+          settings: { ...(editing?.settings || {}), coveredCities: String(data.get("coveredCities") || "").split(",").map((city) => city.trim()).filter(Boolean), estimatedCostPkr: Number(data.get("estimatedCostPkr") || 0), priority: Number(data.get("priority") || 0), codEnabled: data.get("codEnabled") === "on", prepaidEnabled: data.get("prepaidEnabled") === "on" },
+          credentials: { apiToken: data.get("apiToken"), apiKey: data.get("apiKey"), apiSecret: data.get("apiSecret"), webhookSecret: data.get("webhookSecret") },
+          capabilities: { booking: data.get("booking") === "on", tracking: data.get("tracking") === "on", settlements: data.get("settlements") === "on", cities: data.get("cities") === "on", webhooks: data.get("webhooks") === "on" },
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to save courier.");
+      setEditing(null); await loadCouriers();
+    } catch (saveError) { setError(saveError.message); } finally { setSaving(false); }
+  }
+
+  const courier = editing || { provider: "postex", status: "active", capabilities: { booking: true, tracking: true, settlements: true, cities: true, webhooks: false } };
+  return <>
+    <div className="adminTitle"><div><p>COURIER HUB</p><h1>Couriers</h1><span>Add delivery partners once and manage their API connection, capabilities and default routing from one place.</span></div></div>
+    {error && <div className="adminErrorBanner">{error}</div>}
+    {!snapshot.setupAvailable && <div className="inventoryAlert materialAlert"><Truck /><div><b>Courier database setup required</b><span>Run <code>scripts/supabase-couriers.sql</code> in Supabase before saving courier connections.</span></div></div>}
+    <section className="financeMetricGrid">
+      <article><Truck /><span><b>{snapshot.couriers.length}</b>Connected couriers</span></article>
+      <article><RefreshCw /><span><b>{snapshot.couriers.filter((item) => item.status === "active").length}</b>Active for operations</span></article>
+      <article><Landmark /><span><b>{snapshot.couriers.find((item) => item.isDefault)?.name || "Not set"}</b>Default courier</span></article>
+    </section>
+    <section className="adminCard settingsForm settingsWideForm">
+      <div className="inventoryListHead"><div><h2>Courier accounts</h2><span>Credentials stay server-side and are never returned to the browser.</span></div><button type="button" onClick={() => setEditing({ provider: "postex", status: "active", capabilities: { booking: true, tracking: true, settlements: true, cities: true, webhooks: false } })}> <Plus /> Add courier</button></div>
+      <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Courier</th><th>Provider</th><th>Capabilities</th><th>Status</th><th>API credentials</th><th /></tr></thead><tbody>
+        {snapshot.couriers.map((item) => <tr key={item.id}><td><b>{item.name}</b>{item.isDefault && <small className="trackingNumber"><br />Default routing</small>}</td><td>{courierProviderOptions.find(([id]) => id === item.provider)?.[1] || item.provider}</td><td><div className="tagList">{Object.entries(item.capabilities || {}).filter(([, active]) => active).map(([capability]) => <span key={capability}>{capability}</span>) || "—"}</div></td><td><span className={`statusBadge ${item.status}`}>{item.status}</span></td><td>{item.credentialState?.apiToken || item.credentialState?.apiKey ? "Saved" : "Not added"}</td><td><button type="button" className="editProductButton" onClick={() => setEditing(item)}>Edit</button></td></tr>)}
+        {!loading && !snapshot.couriers.length && <tr><td colSpan="6" className="emptyFinanceCell">No courier has been configured yet.</td></tr>}
+        {loading && <tr><td colSpan="6" className="emptyFinanceCell">Loading courier accounts...</td></tr>}
+      </tbody></table></div>
+    </section>
+    {editing && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveCourier}>
+      <div className="inventoryListHead"><div><h2>{editing.id ? "Edit courier" : "Add courier"}</h2><span>Enable only features supported by this courier's API.</span></div><button type="button" onClick={() => setEditing(null)}>Cancel</button></div>
+      <div className="formRow"><label>Courier name<input name="name" required defaultValue={courier.name || ""} placeholder="e.g. PostEx COD" /></label><label>Provider<select name="provider" defaultValue={courier.provider}>{courierProviderOptions.map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select></label></div>
+      <div className="formRow"><label>Internal code<input name="code" required defaultValue={courier.code || ""} placeholder="postex-cod" pattern="[A-Za-z0-9_-]+" /></label><label>Status<select name="status" defaultValue={courier.status || "active"}><option value="active">Active</option><option value="paused">Paused</option><option value="disconnected">Disconnected</option></select></label></div>
+      <div className="formRow"><label>API base URL<input name="apiBaseUrl" type="url" defaultValue={courier.apiBaseUrl || ""} placeholder="https://api.courier.pk/..." /></label><label>Merchant / account ID<input name="merchantId" defaultValue={courier.merchantId || ""} /></label></div>
+      <div className="formRow"><label>Pickup address code<input name="pickupAddressCode" defaultValue={courier.pickupAddressCode || ""} /></label><label className="switchLabel"><input name="isDefault" type="checkbox" defaultChecked={Boolean(courier.isDefault)} /> Use as default courier</label></div>
+      <h3>Routing rules</h3><p className="trackingNumber">Used to recommend the lowest-cost eligible courier when an order is booked.</p>
+      <div className="formRow"><label>Covered cities<input name="coveredCities" defaultValue={Array.isArray(courier.settings?.coveredCities) ? courier.settings.coveredCities.join(", ") : ""} placeholder="Lahore, Karachi, Islamabad (blank = all)" /></label><label>Estimated cost (PKR)<input name="estimatedCostPkr" type="number" min="0" defaultValue={courier.settings?.estimatedCostPkr || 0} /></label></div>
+      <div className="formRow"><label>Priority<input name="priority" type="number" min="0" defaultValue={courier.settings?.priority || 0} placeholder="Higher wins after cost" /></label><div className="settingsPermissionGrid"><label className="switchLabel"><input name="codEnabled" type="checkbox" defaultChecked={courier.settings?.codEnabled !== false} /> COD supported</label><label className="switchLabel"><input name="prepaidEnabled" type="checkbox" defaultChecked={courier.settings?.prepaidEnabled !== false} /> Prepaid supported</label></div></div>
+      <h3>Secure API credentials</h3><p className="trackingNumber">Leave a credential blank to retain its saved value. These values are accepted by the server but never displayed again.</p>
+      <div className="formRow"><label>API token<input name="apiToken" type="password" autoComplete="new-password" placeholder={courier.credentialPreview?.apiToken || "Paste API token"} /></label><label>API key<input name="apiKey" type="password" autoComplete="new-password" placeholder={courier.credentialPreview?.apiKey || "Paste API key"} /></label></div>
+      <div className="formRow"><label>API secret<input name="apiSecret" type="password" autoComplete="new-password" placeholder={courier.credentialState?.apiSecret ? "Saved — enter a new value to replace" : "Optional API secret"} /></label><label>Webhook secret<input name="webhookSecret" type="password" autoComplete="new-password" placeholder={courier.credentialState?.webhookSecret ? "Saved — enter a new value to replace" : "Optional webhook secret"} /></label></div>
+      <h3>Supported features</h3><div className="settingsPermissionGrid">{[["booking", "Create shipment"], ["tracking", "Tracking sync"], ["settlements", "COD settlements"], ["cities", "City lookup"], ["webhooks", "Webhook updates"]].map(([key, label]) => <label className="switchLabel" key={key}><input name={key} type="checkbox" defaultChecked={Boolean(courier.capabilities?.[key])} /> {label}</label>)}</div>
+      <button disabled={saving || !snapshot.setupAvailable}>{saving ? "Saving..." : "Save courier connection"}</button>
+    </form>}
+  </>;
+}
+
 function FinancePanel({ orders, products, connected, currentAdminUser, initialTab }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeProducts = Array.isArray(products) ? products : [];
@@ -1882,7 +2004,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
   const financeTabs = [
     ["overview", "Overview"],
-    ["settlements", "PostEx settlements"],
+    ["settlements", "Courier settlements"],
     ["pnl", "P&L"],
     ["cashbook", "Cashbook"],
     ["suppliers", "Suppliers"],
@@ -2272,12 +2394,12 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     {financeTab === "settlements" && <section className="postexSettlementPanel">
       <div className="settlementIntro">
         <div>
-          <p>POSTEX RECONCILIATION</p>
-          <h2>CPR &amp; bank receipts</h2>
-          <span>Delivered sales become available cash only after their PostEx payment is matched with an actual bank receipt.</span>
+          <p>COURIER RECONCILIATION</p>
+          <h2>Settlements &amp; bank receipts</h2>
+          <span>Delivered sales become available cash only after their courier settlement is matched with an actual bank receipt.</span>
         </div>
         <button type="button" className="dashboardPrimaryAction" onClick={syncPostexSettlementData} disabled={postexSyncing}>
-          <RefreshCw className={postexSyncing ? "spinIcon" : ""} /> {postexSyncing ? "Syncing..." : "Sync PostEx"}
+          <RefreshCw className={postexSyncing ? "spinIcon" : ""} /> {postexSyncing ? "Syncing..." : "Sync courier"}
         </button>
       </div>
 

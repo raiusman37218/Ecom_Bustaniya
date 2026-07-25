@@ -3,9 +3,8 @@ import { getCatalogProducts } from "../../../../lib/catalog";
 import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabaseRest";
 import { sendOrderConfirmation } from "../../../../lib/orderEmail";
 import { buildShippingAddress, hasStructuredShippingAddress } from "../../../../lib/shippingAddress";
-
-const POSTEX_CREATE_ORDER_URL =
-  "https://api.postex.pk/services/integration/api/order/v3/create-order";
+import { getCourierAdapter, postexTrackingNumberFromBooking } from "../../../../lib/courierAdapters";
+import { recordShipmentState } from "../../../../lib/shipments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -179,7 +178,8 @@ export async function POST(request) {
     await ensureOrderItems(reservedOrder.order_id, verifiedItems);
 
     const postexCollectionAmount = paymentMethod === "bank_deposit" ? 0 : Number(reservedOrder.total);
-    const courierConfigured = Boolean(process.env.POSTEX_API_TOKEN);
+    const courier = await getCourierAdapter("postex");
+    const courierConfigured = courier.configured;
 
     const postexPayload = {
       orderRefNumber: reservedOrder.order_number,
@@ -206,7 +206,7 @@ export async function POST(request) {
       invoiceDivision: 1,
       items: reservedOrder.items,
       orderType: "Normal",
-      pickupAddressCode: process.env.POSTEX_PICKUP_ADDRESS_CODE,
+      pickupAddressCode: courier.pickupAddressCode,
     };
 
     let completedOrder;
@@ -215,40 +215,29 @@ export async function POST(request) {
     let courierMessage = "";
 
     if (courierConfigured) {
-      let postexResponse;
       let postexResult;
       try {
-        postexResponse = await fetch(POSTEX_CREATE_ORDER_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            token: process.env.POSTEX_API_TOKEN,
-          },
-          body: JSON.stringify(postexPayload),
-          cache: "no-store",
-          signal: AbortSignal.timeout(20000),
-        });
-        postexResult = await postexResponse.json().catch(() => null);
+        postexResult = await courier.createShipment(postexPayload);
       } catch (courierError) {
         courierMessage = courierError.message;
       }
 
-      const statusCode = Number(postexResult?.statusCode || postexResponse?.status || 0);
-      trackingNumber = postexResult?.dist?.trackingNumber;
+      trackingNumber = postexTrackingNumberFromBooking(postexResult);
 
-      if (postexResponse?.ok && statusCode === 200 && trackingNumber) {
+      if (trackingNumber) {
         completedOrder = await supabaseAdminRpc("complete_postex_booking", {
           p_order_id: reservedOrder.order_id,
           p_checkout_token: reservedOrder.checkout_token,
           p_tracking_number: trackingNumber,
           p_response: postexResult,
         });
+        await recordShipmentState({ orderId: reservedOrder.order_id, courier, trackingNumber, rawStatus: postexResult?.dist?.transactionStatus || "Booked", serviceType: paymentMethod === "bank_deposit" ? "prepaid" : "COD" });
         courierBooked = true;
       } else {
         courierMessage =
           courierMessage ||
           postexResult?.statusMessage ||
-          `PostEx HTTP ${postexResponse?.status || "unavailable"}`;
+          "PostEx booking did not return a tracking number.";
       }
     } else {
       courierMessage = "PostEx API token is missing on this server.";
@@ -258,6 +247,7 @@ export async function POST(request) {
       const manualOrder = await completeManualCourierOrder(reservedOrder, courierMessage);
       completedOrder = manualOrder.completedOrder;
       trackingNumber = manualOrder.trackingNumber;
+      await recordShipmentState({ orderId: reservedOrder?.order_id, trackingNumber, rawStatus: "Manual delivery", serviceType: paymentMethod === "bank_deposit" ? "prepaid" : "COD", manual: true });
     }
 
     reservedOrder = null;

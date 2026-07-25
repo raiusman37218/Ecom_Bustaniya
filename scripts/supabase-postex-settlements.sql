@@ -36,6 +36,8 @@ create table if not exists public.postex_order_payments (
   constraint postex_order_payments_tracking_number_key unique (tracking_number)
 );
 
+alter table public.postex_order_payments add column if not exists courier_account_id uuid references public.courier_accounts(id) on delete set null, add column if not exists courier_provider text not null default 'postex';
+
 create table if not exists public.postex_cpr_batches (
   id bigint generated always as identity primary key,
   cpr_number text not null unique,
@@ -55,6 +57,8 @@ create table if not exists public.postex_cpr_batches (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.postex_cpr_batches add column if not exists courier_account_id uuid references public.courier_accounts(id) on delete set null, add column if not exists courier_provider text not null default 'postex';
 
 create table if not exists public.postex_cpr_items (
   id bigint generated always as identity primary key,
