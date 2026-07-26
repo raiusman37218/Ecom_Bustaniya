@@ -3719,6 +3719,11 @@ function SettingsPanel({ onOpen, signedInUser }) {
     }
   }
 
+  function saveSettings(event) {
+    event.preventDefault();
+    setSavedAt(new Date().toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }));
+  }
+
   function updateAnnouncement(index, changes) {
     setStoreSettings((current) => ({
       ...current,
