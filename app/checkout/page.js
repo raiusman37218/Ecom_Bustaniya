@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, Lock, ShoppingBag, Truck } from "lucide-react";
 import { buildShippingAddress } from "../../lib/shippingAddress";
+import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 
 export default function CheckoutPage() {
   const [cart, setCart] = useState([]);
@@ -25,6 +26,7 @@ export default function CheckoutPage() {
   const [citiesError, setCitiesError] = useState(false);
   const [quotedDelivery, setQuotedDelivery] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [paymentSettings, setPaymentSettings] = useState(DEFAULT_STORE_SETTINGS.paymentSettings);
 
   useEffect(() => {
     const saved = localStorage.getItem("bustaniya-cart");
@@ -44,6 +46,19 @@ export default function CheckoutPage() {
       })
       .catch(() => setCitiesError(true))
       .finally(() => setCitiesLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/store-settings", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((result) => {
+        const nextPaymentSettings = result.paymentSettings || DEFAULT_STORE_SETTINGS.paymentSettings;
+        setPaymentSettings(nextPaymentSettings);
+        if (nextPaymentSettings.codEnabled === false && nextPaymentSettings.manualTransferEnabled !== false) {
+          setPaymentMethod("bank_deposit");
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const subtotal = useMemo(
@@ -188,16 +203,24 @@ export default function CheckoutPage() {
             </div>
 
             <label className={paymentMethod === "cod" ? "paymentBox" : "paymentBox paymentChoice"}>
-              <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} />
+              <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} disabled={paymentSettings.codEnabled === false} onChange={() => setPaymentMethod("cod")} />
               <div><b>Cash on Delivery</b><span>Pay when your order arrives</span></div>
             </label>
-            <label className={paymentMethod === "bank_deposit" ? "paymentBox" : "paymentBox paymentChoice"}>
-              <input type="radio" name="paymentMethod" value="bank_deposit" checked={paymentMethod === "bank_deposit"} onChange={() => setPaymentMethod("bank_deposit")} />
-              <div><b>Bank deposit / advance payment</b><span>Courier collection amount will be Rs. 0</span></div>
-            </label>
+            {paymentSettings.onlineGatewayEnabled && (
+              <label className="paymentBox paymentUnavailable">
+                <input type="radio" name="paymentMethod" value="online_gateway" disabled />
+                <div><b>Online prepaid payment</b><span>Hosted gateway will activate after merchant credentials are connected.</span></div>
+              </label>
+            )}
+            {paymentSettings.manualTransferEnabled !== false && (
+              <label className={paymentMethod === "bank_deposit" ? "paymentBox" : "paymentBox paymentChoice"}>
+                <input type="radio" name="paymentMethod" value="bank_deposit" checked={paymentMethod === "bank_deposit"} onChange={() => setPaymentMethod("bank_deposit")} />
+                <div><b>Manual bank / wallet transfer</b><span>Enter the exact order reference in your transfer notes. Courier collection amount will be Rs. 0 after verification.</span></div>
+              </label>
+            )}
             <div className="advancePaymentNote">
               <b>{paymentMethod === "bank_deposit" ? "Bank deposit selected" : "COD selected"}</b>
-              <span>{paymentMethod === "bank_deposit" ? "Confirm bank payment before dispatch. Delivery fee is Rs. 200 per order." : "Flat delivery fee is Rs. 200 per order, regardless of item quantity."}</span>
+              <span>{paymentMethod === "bank_deposit" ? (paymentSettings.instructions || "Admin will verify your payment before dispatch. Delivery fee is Rs. 200 per order.") : "Flat delivery fee is Rs. 200 per order, regardless of item quantity."}</span>
             </div>
             {error && <p className="checkoutError" role="alert">{error}</p>}
             <button className="placeOrder" type="submit" disabled={!cart.length || submitting}>

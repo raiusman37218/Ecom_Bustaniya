@@ -5,6 +5,7 @@ import { sendOrderConfirmation } from "../../../../lib/orderEmail";
 import { buildShippingAddress, hasStructuredShippingAddress } from "../../../../lib/shippingAddress";
 import { getCourierAdapter, postexTrackingNumberFromBooking } from "../../../../lib/courierAdapters";
 import { recordShipmentState } from "../../../../lib/shipments";
+import { getStoreSettings } from "../../../../lib/storeSettings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,7 +111,15 @@ export async function POST(request) {
     }
     const customer = body?.customer || {};
     const requestedItems = Array.isArray(body?.items) ? body.items : [];
+    const settings = await getStoreSettings();
+    const paymentSettings = settings.paymentSettings || {};
     const paymentMethod = body?.paymentMethod === "bank_deposit" ? "bank_deposit" : "cod";
+    if (paymentMethod === "cod" && paymentSettings.codEnabled === false) {
+      return NextResponse.json({ error: "Cash on Delivery is not available right now." }, { status: 400 });
+    }
+    if (paymentMethod === "bank_deposit" && paymentSettings.manualTransferEnabled === false) {
+      return NextResponse.json({ error: "Manual transfer is not available right now." }, { status: 400 });
+    }
     const phone = String(customer.phone || "").trim();
     const courierPhone = normalizePhone(phone);
     const fullName = String(customer.fullName || `${customer.firstName || ""} ${customer.lastName || ""}`).trim();
@@ -165,6 +174,18 @@ export async function POST(request) {
         color: requested.color || null,
       };
     });
+
+    const cartTotalBeforeDelivery = verifiedItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1), 0);
+    if (paymentMethod === "cod") {
+      const minOrder = Number(paymentSettings.codMinOrderPkr || 0);
+      const maxOrder = Number(paymentSettings.codMaxOrderPkr || 0);
+      if (minOrder > 0 && cartTotalBeforeDelivery < minOrder) {
+        return NextResponse.json({ error: `COD is available from Rs. ${minOrder.toLocaleString()} and above.` }, { status: 400 });
+      }
+      if (maxOrder > 0 && cartTotalBeforeDelivery > maxOrder) {
+        return NextResponse.json({ error: `COD is available up to Rs. ${maxOrder.toLocaleString()}. Please select advance payment.` }, { status: 400 });
+      }
+    }
 
     reservedOrder = await supabaseAdminRpc("create_checkout_order", {
       p_customer: normalizedCustomer,

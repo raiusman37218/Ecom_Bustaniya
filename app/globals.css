@@ -817,6 +817,11 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .settingsOption>div { display:flex; flex-direction:column; gap:4px; }
 .settingsOption b { font-size:12px; color:#263c30; }
 .settingsOption span { color:#5f6d64; font-size:9px; line-height:1.5; }
+.paymentSettingsGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.paymentSettingsGrid .settingsOption { align-items:flex-start; flex-direction:column; justify-content:space-between; min-height:138px; }
+.paymentRulesCard { padding:15px; border:1px solid #e3e8e3; border-radius:7px; background:#fbfcfa; display:flex; flex-direction:column; gap:13px; }
+.paymentRulesCard h3 { margin:0; color:#263c30; font-size:12px; }
+.paymentSecurityNote { margin:0; padding:11px 12px; border:1px solid #ddebdc; border-radius:6px; background:#f3faf1; color:#52645a; font-size:10px; line-height:1.55; }
 .switchLabel { flex-direction:row!important; align-items:center; white-space:nowrap; }
 .switchLabel input { width:auto; accent-color:var(--forest); }
 .settingsSaved { border-color:#b9d9bf; background:#f1fbf3; color:#247042; }
@@ -1198,6 +1203,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .settingsLayout { grid-template-columns:1fr; }
   .settingsNav { position:static; overflow-x:auto; flex-direction:row; }
   .settingsNav button { min-width:135px; }
+  .paymentSettingsGrid { grid-template-columns:1fr; }
   .settingsOption { align-items:flex-start; flex-direction:column; }
   .dashboardGrid { grid-template-columns:1fr; }
   .salesChart,.orderStatus { min-height:330px; padding:16px; }
