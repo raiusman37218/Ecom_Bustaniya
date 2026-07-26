@@ -6,10 +6,16 @@ import { getPostexSettlementSnapshot } from "../../../../lib/postexSettlements";
 export async function GET(request) {
   try {
     await authorizeAdminSession(request, "finance");
-    const [settings, postex] = await Promise.all([
-      getStoreSettings({ includeFinance: true }),
-      getPostexSettlementSnapshot(),
-    ]);
+    // Cashbook settings and PostEx settlement tables are separate systems.
+    // A missing/incomplete PostEx setup must not stop the whole Finance area
+    // from loading (especially the Courier settlements tab).
+    const settings = await getStoreSettings({ includeFinance: true });
+    let postex = { setupAvailable: false, payments: [], batches: [], items: [], summary: {} };
+    try {
+      postex = await getPostexSettlementSnapshot();
+    } catch (postexError) {
+      console.error("PostEx settlement snapshot unavailable", { message: postexError?.message });
+    }
     return NextResponse.json({ transactions: settings.financeTransactions || [], allocation: settings.financeAllocation, supplierBills: settings.supplierBills || [], fixedCosts: settings.financeFixedCosts || 0, manualExpenses: settings.financeManualExpenses || [], packagingExpense: settings.financePackagingExpense || 0, deliveryExpense: settings.financeDeliveryExpense || 0, marketingCampaigns: settings.marketingCampaigns || [], postex });
   } catch (error) {
     if (error?.status === 401 || error?.status === 403) {
