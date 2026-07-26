@@ -12,6 +12,17 @@ import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import { apparelSizes, fashionColors } from "../data/variantOptions";
 import AdminLogin from "./AdminLogin";
 
+const HOMEPAGE_COLOR_OPTIONS = [
+  { name: "Ivory", value: "#fffefb" }, { name: "Cream", value: "#f7f2e8" }, { name: "Blush", value: "#f8e8e8" }, { name: "Rose", value: "#e9b9bd" },
+  { name: "Sand", value: "#e8dcc8" }, { name: "Sage", value: "#dce8d8" }, { name: "Sky", value: "#dcebf2" }, { name: "Lavender", value: "#e6def2" },
+  { name: "Forest", value: "#173d29" }, { name: "Olive", value: "#536b43" }, { name: "Berry", value: "#8d2449" }, { name: "Charcoal", value: "#252b28" },
+];
+
+const HOMEPAGE_COLOR_SECTIONS = [
+  { key: "heroOverlay", label: "Hero overlay" }, { key: "products", label: "Top picks" }, { key: "categories", label: "Shop by category" },
+  { key: "story", label: "Our story" }, { key: "newsletter", label: "Newsletter" },
+];
+
 function HelpHint({ text }) {
   return <span className="helpHint" tabIndex="0" role="note" aria-label={text} data-tooltip={text}><Info /></span>;
 }
@@ -3640,19 +3651,12 @@ function SettingsPanel({ onOpen, signedInUser }) {
       setStoreSettingsError("Paste a Cloudinary delivery URL beginning with https://res.cloudinary.com/.");
       return;
     }
-    try {
-      await new Promise((resolve, reject) => {
-        const image = new Image();
-        image.onload = () => resolve();
-        image.onerror = () => reject(new Error("This Cloudinary URL does not load an image."));
-        image.src = url;
-      });
-      setStoreSettingsError("");
-      setStoreSettings((current) => ({ ...current, [field]: [...(current[field] || []), url] }));
-      setHeroUrlInputs((current) => ({ ...current, [field]: "" }));
-    } catch (error) {
-      setStoreSettingsError(error.message || "This Cloudinary URL does not load an image.");
-    }
+    // Do not preload here. Browser-side preloading can fail because of a
+    // Cloudinary delivery policy even though the image URL itself is valid.
+    // The server verifies the URL when the settings are saved.
+    setStoreSettingsError("");
+    setStoreSettings((current) => ({ ...current, [field]: [...(current[field] || []), url] }));
+    setHeroUrlInputs((current) => ({ ...current, [field]: "" }));
   }
 
   async function loadStoreSettings() {
@@ -3869,6 +3873,20 @@ function SettingsPanel({ onOpen, signedInUser }) {
             <div className="formRow"><label>Secondary Button Text (optional)<input value={storeSettings.heroSecondaryButtonText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSecondaryButtonText: event.target.value }))} /></label><label>Secondary Button Link (optional)<input value={storeSettings.heroSecondaryButtonLink || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSecondaryButtonLink: event.target.value }))} /></label></div>
             <div className="formRow"><label>Text Alignment<select value={storeSettings.heroTextAlignment || "left"} onChange={(event) => setStoreSettings((current) => ({ ...current, heroTextAlignment: event.target.value }))}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>Text Position<select value={storeSettings.heroTextPosition || "left"} onChange={(event) => setStoreSettings((current) => ({ ...current, heroTextPosition: event.target.value }))}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label></div>
             <label>Overlay Intensity — {Number(storeSettings.heroOverlayIntensity || 0)}%<input type="range" min="0" max="80" step="1" value={Number(storeSettings.heroOverlayIntensity || 0)} onChange={(event) => setStoreSettings((current) => ({ ...current, heroOverlayIntensity: Number(event.target.value) }))} /></label>
+          </section>
+          <section className="sectionColorEditor">
+            <div className="heroSettingsHeading"><div><p>HOMEPAGE DESIGN</p><h2>Section Colors</h2><span>Select a common color for each landing-page section.</span></div></div>
+            <div className="sectionColorGrid">
+              {HOMEPAGE_COLOR_SECTIONS.map((section) => {
+                const selected = storeSettings.sectionColors?.[section.key] || DEFAULT_STORE_SETTINGS.sectionColors[section.key];
+                return <div className="sectionColorOption" key={section.key}>
+                  <div><b>{section.label}</b><span><i style={{ background: selected }} />{HOMEPAGE_COLOR_OPTIONS.find((color) => color.value === selected)?.name || selected}</span></div>
+                  <div className="sectionColorSwatches" role="group" aria-label={`${section.label} color`}>
+                    {HOMEPAGE_COLOR_OPTIONS.map((color) => <button type="button" key={color.value} title={color.name} aria-label={`${section.label}: ${color.name}`} className={selected === color.value ? "selected" : ""} style={{ background: color.value }} onClick={() => setStoreSettings((current) => ({ ...current, sectionColors: { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(current.sectionColors || {}), [section.key]: color.value } }))} />)}
+                  </div>
+                </div>;
+              })}
+            </div>
           </section>
           <div className="settingsOption"><div><b>Announcement bar</b><span>Shown above the main header. Multiple active announcements rotate automatically.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.announcementEnabled} onChange={(event) => setStoreSettings((current) => ({ ...current, announcementEnabled: event.target.checked }))} /> Enabled</label></div>
           <section className="announcementEditor">

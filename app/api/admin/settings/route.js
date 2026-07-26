@@ -23,7 +23,16 @@ async function validateHeroImageUrl(value) {
   if (url.protocol !== "https:" || url.hostname !== "res.cloudinary.com") {
     throw new Error("Use a secure Cloudinary delivery URL from res.cloudinary.com for hero images.");
   }
-  const response = await fetch(url, { method: "HEAD", redirect: "follow", signal: AbortSignal.timeout(8000), cache: "no-store" });
+  // Cloudinary delivery URLs are valid image URLs, but some Cloudinary
+  // configurations reject HEAD requests. Request just the first byte instead
+  // so a valid delivery URL is not incorrectly rejected while saving.
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { Range: "bytes=0-0" },
+    redirect: "follow",
+    signal: AbortSignal.timeout(8000),
+    cache: "no-store",
+  });
   const contentType = response.headers.get("content-type") || "";
   if (!response.ok || !contentType.startsWith("image/")) {
     throw new Error(`Hero image could not be verified: ${value}`);

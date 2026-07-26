@@ -47,6 +47,7 @@ export default function Home({
   initialCategories = fallbackCategoryRecords,
   storeSettings = DEFAULT_STORE_SETTINGS,
 }) {
+  const sectionColors = { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(storeSettings.sectionColors || {}) };
   const [activeCategory, setActiveCategory] = useState("All");
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -168,7 +169,7 @@ export default function Home({
         {storeSettings.heroEnabled && <section
           className={`campaignHero campaignHero--position-${storeSettings.heroTextPosition} campaignHero--align-${storeSettings.heroTextAlignment}`}
           id="new"
-          style={{ "--campaign-overlay": Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0))) / 100 }}
+          style={{ "--campaign-overlay": Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0))) / 100, "--campaign-overlay-color": sectionColors.heroOverlay }}
         >
           <div className="campaignHeroMedia">
             <CampaignHeroImage
@@ -192,7 +193,7 @@ export default function Home({
           </div>
         </section>}
 
-        <section className="shopSection khaadiTopPicks scrollReveal" data-scroll-reveal id="products">
+        <section className="shopSection khaadiTopPicks scrollReveal" data-scroll-reveal id="products" style={{ "--section-bg": sectionColors.products }}>
           <div className="sectionHeading">
             <div><p className="eyebrow">NEW ARRIVALS</p><h2>Top Picks for You</h2><span>Fresh styles selected for everyday elegance.</span></div>
           </div>
@@ -222,7 +223,7 @@ export default function Home({
           {!visibleProducts.length && <p className="empty">No products found.</p>}
         </section>
 
-        <section className="categoryShowcase scrollReveal" data-scroll-reveal>
+        <section className="categoryShowcase scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories }}>
           <p className="eyebrow">FIND YOUR FAVOURITE</p>
           <h2>Shop by category</h2>
           <div className="categoryCards">
@@ -234,7 +235,7 @@ export default function Home({
           </div>
         </section>
 
-        <section className="story scrollReveal" data-scroll-reveal id="story">
+        <section className="story scrollReveal" data-scroll-reveal id="story" style={{ "--section-bg": sectionColors.story }}>
           <div className="storyImage" />
           <div className="storyContent">
             <p className="eyebrow">THE BUSTANIYA STORY</p>
@@ -245,7 +246,7 @@ export default function Home({
           </div>
         </section>
 
-        <section className="newsletter scrollReveal" data-scroll-reveal>
+        <section className="newsletter scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.newsletter }}>
           <p className="eyebrow">STAY IN THE LOOP</p>
           <h2>A little beauty, delivered.</h2>
           <p>New collections, styling inspiration and 10% off your first order.</p>

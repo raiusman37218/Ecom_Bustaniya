@@ -14,7 +14,7 @@
 .campaignHeroMedia { z-index:-2; overflow:hidden; }
 .campaignHeroMedia picture { display:block; }
 .campaignHeroMedia img { object-fit:cover; object-position:center center; animation:campaignImageIn 1.2s cubic-bezier(.22,.7,.25,1) both, campaignImageDrift 18s ease-in-out 1.2s infinite alternate; }
-.campaignHeroOverlay { z-index:-1; pointer-events:none; background:linear-gradient(90deg,rgba(252,248,239,var(--campaign-overlay)) 0%,rgba(252,248,239,calc(var(--campaign-overlay) * .72)) 31%,rgba(24,61,41,calc(var(--campaign-overlay) * .08)) 62%,transparent 100%); }
+.campaignHeroOverlay { z-index:-1; pointer-events:none; opacity:var(--campaign-overlay); background:linear-gradient(90deg,var(--campaign-overlay-color,#fcf8ef) 0%,var(--campaign-overlay-color,#fcf8ef) 31%,transparent 100%); }
 
 .campaignHeroInner { width:min(100%,94rem); height:100%; margin:0 auto; padding:clamp(2rem,5vw,5rem); display:flex; align-items:center; }
 .campaignHeroCopy { width:min(34rem,44vw); display:flex; flex-direction:column; align-items:flex-start; text-align:left; animation:campaignCopyIn .8s .18s cubic-bezier(.22,.7,.25,1) both; }
@@ -31,6 +31,15 @@
 .campaignHero--align-right .campaignHeroCopy { align-items:flex-end; text-align:right; }
 
 .heroSettingsEditor { padding:18px; border:1px solid #d9e2d7; border-radius:8px; background:#fbfcf8; display:grid; gap:17px; }
+.sectionColorEditor { padding:18px; border:1px solid #d9e2d7; border-radius:8px; background:#fbfcf8; display:grid; gap:15px; }
+.sectionColorGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.sectionColorOption { padding:12px; border:1px solid #e0e6df; border-radius:7px; background:#fff; }
+.sectionColorOption>div:first-child { display:flex; align-items:center; justify-content:space-between; gap:8px; color:#263c30; font-size:11px; }
+.sectionColorOption span { display:flex; align-items:center; gap:4px; color:#6c7b71; font-size:9px; }
+.sectionColorOption span i { width:11px; height:11px; border:1px solid #d5ddd3; border-radius:50%; }
+.sectionColorSwatches { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
+.sectionColorSwatches button { width:19px; height:19px; padding:0; border:1px solid #d7ded5; border-radius:50%; box-shadow:none; }
+.sectionColorSwatches button.selected { outline:2px solid #173d29; outline-offset:2px; }
 .heroSettingsHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
 .heroSettingsHeading p { margin:0 0 5px; color:var(--berry); font-size:8px; font-weight:800; letter-spacing:.16em; }
 .heroSettingsHeading h2 { margin:0 0 5px!important; padding:0!important; border:0!important; color:#21382b; font-family:var(--font-display); font-size:27px!important; font-weight:600; }
@@ -58,7 +67,7 @@
 @media (max-width:767px) {
   .campaignHero { height:clamp(29rem,74svh,38rem); min-height:29rem; max-height:38rem; }
   .campaignHeroMedia img { object-position:center center; }
-  .campaignHeroOverlay { background:linear-gradient(180deg,rgba(23,61,41,.08) 0%,transparent 32%,rgba(15,39,27,calc(.42 + var(--campaign-overlay) * .45)) 100%); }
+  .campaignHeroOverlay { opacity:max(.5,var(--campaign-overlay)); background:linear-gradient(180deg,transparent 20%,var(--campaign-overlay-color,#173d29) 100%); }
   .campaignHeroInner { padding:max(1.25rem,env(safe-area-inset-top)) clamp(1rem,5vw,1.4rem) max(1.35rem,env(safe-area-inset-bottom)); align-items:flex-end; justify-content:flex-start!important; }
   .campaignHeroCopy { width:min(100%,29rem); align-items:flex-start!important; text-align:left!important; color:#fffdf7; }
   .campaignHeroCopy>p { margin-bottom:.65rem; color:#fff6ed; font-size:clamp(.5rem,.42rem + .25vw,.58rem); text-shadow:0 1px 12px #132b20b8; }
@@ -68,6 +77,7 @@
   .campaignHeroPrimary { min-height:2.75rem; padding:.7rem .95rem; background:#fffdf7; color:#173d29; font-size:.54rem; }
   .campaignHeroSecondary { color:#fffdf7; font-size:.53rem; }
   .heroImageSettingsGrid { grid-template-columns:1fr; }
+  .sectionColorGrid { grid-template-columns:1fr; }
   .heroSettingsHeading { flex-direction:column; }
 }
 
