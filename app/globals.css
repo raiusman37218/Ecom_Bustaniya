@@ -166,6 +166,27 @@ a { text-decoration:none; }
 @keyframes adminSpin { to { transform:rotate(360deg); } }
 
 @media (max-width:600px) {
+  .adminContent .moduleQuickLinks .customOrderCta {
+    width:100%;
+    justify-content:center;
+  }
+  .orderDetailDrawer>header {
+    padding:16px;
+  }
+  .orderDetailDrawer>header h2 {
+    font-size:22px;
+  }
+  .orderDetailBody {
+    padding:14px 14px 80px;
+  }
+  .orderActionRow {
+    display:grid;
+    grid-template-columns:1fr;
+  }
+  .orderActionRow button {
+    width:100%;
+    justify-content:center;
+  }
   .adminContent .dashboardTitleActions { width:100%; display:grid; grid-template-columns:1fr 1fr; }
   .adminContent .dashboardTitleActions > button { width:100%; min-width:0; }
   .adminContent .dashboardPrimaryAction,.adminContent .dashboardRefresh { min-height:44px; padding-inline:8px; }
@@ -1356,7 +1377,308 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   text-overflow:ellipsis;
 }
 
+/* Orders polish: compact operations screen with clear statuses and calmer drawers. */
+.adminContent .orderPeriodGrid {
+  gap:16px;
+}
+.adminContent .orderPeriodCard {
+  min-height:156px;
+  border-color:#dce7dd;
+  border-radius:14px;
+  background:linear-gradient(135deg,#fff,#f8fbf7);
+  box-shadow:0 10px 24px #173d2907;
+}
+.adminContent .orderPeriodCard>p {
+  color:#bd194b;
+  font-size:10px;
+  font-weight:850;
+}
+.adminContent .orderPeriodCard>div b {
+  color:#132f22;
+  font-family:var(--font-sans);
+  font-weight:850;
+}
+.adminContent .moduleQuickLinks {
+  margin:-12px 0 18px;
+}
+.adminContent .moduleQuickLinks .customOrderCta {
+  min-height:46px;
+  border-radius:9px;
+}
+.adminContent .managementCard:has(.ordersToolbar) {
+  border-color:#dce7dd;
+  border-radius:14px;
+  box-shadow:0 10px 26px #173d2908;
+}
+.adminContent .ordersToolbar {
+  min-height:74px;
+  padding:14px 18px;
+  background:linear-gradient(135deg,#fff,#f8fbf8);
+  border-bottom-color:#dce7dd;
+}
+.adminContent .ordersToolbar .inlineSearch {
+  width:min(390px,42vw);
+  border-radius:9px;
+  background:#fff;
+}
+.adminContent .orderStatusFilter {
+  color:#405449;
+  font-size:12px;
+}
+.adminContent .orderStatusFilter select {
+  min-height:42px;
+  border-radius:9px;
+  border-color:#d5e2d7;
+  color:#173d29;
+  font-weight:750;
+}
+.adminContent .orderTable {
+  min-width:980px;
+}
+.adminContent .orderTable th {
+  background:#f5f8f5;
+}
+.adminContent .orderTable td {
+  vertical-align:middle;
+}
+.adminContent .orderTable td:first-child b,
+.adminContent .orderTable td:nth-child(2) {
+  color:#132f22;
+  font-weight:850;
+}
+.adminContent .orderTable .trackingNumber {
+  display:block;
+  max-width:220px;
+  overflow:hidden;
+  color:#63746b;
+  text-overflow:ellipsis;
+}
+.adminContent .orderTable .statusBadge {
+  min-width:114px;
+  text-align:center;
+}
+.adminContent .orderTable tr:hover td {
+  background:#fbfdfb;
+}
+.adminContent .ordersPagination {
+  min-height:58px;
+  padding:12px 18px;
+  border-top:1px solid #dce7dd;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+  color:#53675c;
+  font-size:12px;
+}
+.adminContent .ordersPagination button {
+  min-height:36px;
+  padding:0 12px;
+  border:1px solid #d5e2d7;
+  border-radius:8px;
+  background:#fff;
+  color:#173d29;
+  font-weight:800;
+}
+.adminContent .ordersPagination button:disabled {
+  opacity:.48;
+  cursor:not-allowed;
+}
+.statusBadge.booked,
+.statusBadge.postexwarehouse,
+.statusBadge.outfordelivery,
+.statusBadge.transferred {
+  background:#e8f0fb;
+  color:#315d95;
+}
+.statusBadge.delivered,
+.statusBadge.completed {
+  background:#e5f3e9;
+  color:#247042;
+}
+.statusBadge.returned,
+.statusBadge.outforreturn,
+.statusBadge.cancelled {
+  background:#f8e8ec;
+  color:#a51c47;
+}
+.statusBadge.attempted,
+.statusBadge.deliveryunderreview {
+  background:#fff3dc;
+  color:#9b5d06;
+}
+.orderDetailDrawer {
+  width:min(860px,100%);
+  background:#f3f6f2;
+}
+.orderDetailDrawer>header {
+  min-height:104px;
+  padding:20px 26px;
+  background:linear-gradient(135deg,#fff,#f8fbf7);
+  box-shadow:0 8px 24px #173d2908;
+}
+.orderDetailDrawer>header h2 {
+  font-family:var(--font-sans);
+  font-size:30px;
+  font-weight:850;
+  letter-spacing:0;
+}
+.orderDetailDrawer>header span {
+  color:#52665b;
+  font-size:13px;
+}
+.orderDetailDrawer>header button {
+  width:38px;
+  height:38px;
+  border:1px solid #dce7dd;
+  border-radius:50%;
+  background:#fff;
+  color:#173d29;
+  display:grid;
+  place-items:center;
+}
+.orderDetailDrawer>header button svg {
+  width:18px;
+}
+.orderDetailBody {
+  padding:20px 24px 90px;
+  gap:16px;
+}
+.orderDetailGrid {
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+}
+.orderDetailGrid .orderDetailCard:first-child {
+  grid-column:span 3;
+  min-height:116px;
+}
+.orderDetailCard,
+.orderOpsCard,
+.orderItemsCard {
+  border-color:#dce7dd;
+  border-radius:14px;
+  box-shadow:0 8px 22px #173d2906;
+}
+.orderDetailCard {
+  min-height:118px;
+  padding:17px;
+}
+.orderDetailCard h3,
+.orderOpsCard h3 {
+  color:#41564b;
+  font-size:11px;
+  font-weight:850;
+}
+.orderDetailCard b {
+  color:#132f22;
+  font-size:18px;
+}
+.orderDetailCard span,
+.orderDetailCard p {
+  color:#5f7067;
+  font-size:12px;
+}
+.orderDetailCard select,
+.orderOpsCard input,
+.orderOpsCard select,
+.orderOpsCard textarea,
+.orderDialog input,
+.orderDialog select,
+.orderDialog textarea {
+  min-height:44px;
+  border-radius:9px;
+  border-color:#d5e2d7;
+  font-size:13px;
+}
+.orderOpsCard {
+  padding:19px;
+}
+.orderItemsCard .inventoryListHead,
+.orderOpsCard .inventoryListHead {
+  padding:17px 19px;
+}
+.orderItemsCard .adminTable {
+  min-width:690px;
+}
+.orderActionRow {
+  flex-wrap:wrap;
+}
+.orderActionRow button,
+.orderOpsCard>button,
+.orderDialog>button {
+  min-height:42px;
+  border-radius:9px;
+  font-size:11px;
+}
+.orderTimeline {
+  position:relative;
+  display:grid;
+  gap:13px;
+}
+.orderTimeline::before {
+  content:"";
+  position:absolute;
+  left:8px;
+  top:8px;
+  bottom:8px;
+  width:1px;
+  background:#d8e4da;
+}
+.orderTimeline>div {
+  position:relative;
+  padding-left:28px;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.orderTimeline>div::before {
+  content:"";
+  position:absolute;
+  left:3px;
+  top:5px;
+  width:11px;
+  height:11px;
+  border:2px solid #fff;
+  border-radius:50%;
+  background:#16452c;
+  box-shadow:0 0 0 1px #b9ccb9;
+}
+.orderTimeline b {
+  color:#132f22;
+  font-size:13px;
+}
+.orderTimeline span,
+.orderTimeline small {
+  color:#5f7067;
+  font-size:12px;
+  line-height:1.45;
+}
+
 @media (max-width:900px) {
+  .adminContent .orderPeriodGrid {
+    grid-template-columns:1fr;
+  }
+  .adminContent .ordersToolbar {
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .adminContent .ordersToolbar .inlineSearch {
+    width:100%;
+  }
+  .adminContent .orderStatusFilter {
+    align-items:flex-start;
+    flex-direction:column;
+    gap:8px;
+  }
+  .adminContent .orderStatusFilter select {
+    width:100%;
+    max-width:none;
+  }
+  .orderDetailGrid,
+  .orderDetailGrid .orderDetailCard:first-child {
+    grid-template-columns:1fr;
+    grid-column:auto;
+  }
   .adminContent .dashboardTitle {
     padding:18px;
   }
