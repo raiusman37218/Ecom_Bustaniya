@@ -166,6 +166,30 @@ a { text-decoration:none; }
 @keyframes adminSpin { to { transform:rotate(360deg); } }
 
 @media (max-width:600px) {
+  .productDrawerHeader {
+    padding:16px;
+  }
+  .productFormDrawer h2 {
+    font-size:23px;
+  }
+  .productFormDrawer form {
+    padding:14px 14px 96px;
+  }
+  .productEditorCard {
+    padding:15px;
+    border-radius:12px;
+  }
+  .mediaPreviewGrid {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .drawerActions {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+  }
+  .drawerActions .saveProduct {
+    min-width:0;
+  }
   .adminContent .moduleQuickLinks .customOrderCta {
     width:100%;
     justify-content:center;
@@ -1654,7 +1678,303 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   line-height:1.45;
 }
 
+/* Product polish: catalogue surfaces, dense tables and editing drawer refinement. */
+.adminContent .productMetrics {
+  gap:14px;
+}
+.adminContent .productMetrics article {
+  min-height:104px;
+  border-color:#dce7dd;
+  border-radius:14px;
+  background:linear-gradient(135deg,#fff,#f8fbf7);
+  box-shadow:0 10px 24px #173d2907;
+}
+.adminContent .productMetrics article b {
+  color:#132f22;
+  font-size:23px;
+}
+.adminContent .managementCard:has(.productAdminTable) {
+  border-color:#dce7dd;
+  border-radius:14px;
+  box-shadow:0 10px 26px #173d2908;
+}
+.adminContent .catalogToolbar {
+  min-height:76px;
+  padding:14px 18px;
+  background:linear-gradient(135deg,#fff,#f8fbf8);
+  border-bottom-color:#dce7dd;
+}
+.adminContent .catalogToolbar .orderTabs {
+  max-width:100%;
+  overflow-x:auto;
+  scrollbar-width:thin;
+}
+.adminContent .catalogToolbar .orderTabs button {
+  flex:0 0 auto;
+  border-radius:999px;
+}
+.adminContent .catalogActions {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.adminContent .catalogActions .inlineSearch {
+  width:min(360px,38vw);
+  min-height:42px;
+  border-radius:9px;
+  background:#fff;
+}
+.adminContent .catalogActions button {
+  min-height:42px;
+  padding:0 13px;
+  border:1px solid #d5e2d7;
+  border-radius:9px;
+  background:#fff;
+  color:#173d29;
+  font-weight:850;
+}
+.adminContent .collectionStrip {
+  padding:12px 18px;
+  border-bottom:1px solid #eef3ee;
+  background:#fbfdfb;
+}
+.adminContent .collectionStrip span {
+  border:1px solid #dbe8dc;
+  background:#fff;
+  color:#41564b;
+}
+.adminContent .productAdminTable {
+  min-width:1180px;
+}
+.adminContent .productAdminTable th {
+  background:#f5f8f5;
+}
+.adminContent .productAdminTable tr:hover td {
+  background:#fbfdfb;
+}
+.adminContent .productAdminTable td {
+  vertical-align:middle;
+}
+.adminContent .productAdminTable .tableProduct {
+  min-width:270px;
+}
+.adminContent .productAdminTable .tableProduct>span {
+  width:54px;
+  height:68px;
+  border-radius:10px;
+  border:1px solid #dce7dd;
+  box-shadow:0 8px 18px #173d2910;
+}
+.adminContent .productAdminTable .tableProduct b {
+  display:block;
+  max-width:210px;
+  color:#132f22;
+  font-size:14px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.adminContent .productAdminTable .trackingNumber {
+  display:block;
+  max-width:210px;
+  color:#63746b;
+  text-overflow:ellipsis;
+  overflow:hidden;
+}
+.adminContent .productAdminTable .adjustStockButton {
+  min-height:34px;
+  padding:0 11px;
+  border-radius:8px;
+  background:#f7fbf7;
+}
+.adminContent .productAdminTable .productRowActions {
+  min-width:150px;
+}
+.adminContent .productAdminTable .editProductButton,
+.adminContent .productAdminTable .removeProductButton {
+  border-radius:8px;
+}
+.productFormDrawer {
+  width:min(760px,100%);
+  background:#f3f6f2;
+}
+.productDrawerHeader {
+  min-height:104px;
+  padding:20px 26px;
+  background:linear-gradient(135deg,#fff,#f8fbf7);
+  border-bottom-color:#dce7dd;
+  box-shadow:0 8px 24px #173d2908;
+}
+.productDrawerHeader p {
+  font-size:10px;
+  font-weight:850;
+}
+.productFormDrawer h2 {
+  font-family:var(--font-sans);
+  color:#132f22;
+  font-size:30px;
+  font-weight:850;
+  letter-spacing:0;
+}
+.productDrawerHeader>button {
+  width:38px;
+  height:38px;
+  border:1px solid #dce7dd;
+  border-radius:50%;
+  background:#fff;
+  color:#173d29;
+  display:grid;
+  place-items:center;
+}
+.productDrawerHeader>button svg {
+  width:18px;
+}
+.productFormDrawer form {
+  gap:16px;
+  padding:20px 26px 104px;
+}
+.productEditorCard {
+  padding:20px;
+  border-color:#dce7dd;
+  border-radius:14px;
+  box-shadow:0 8px 22px #173d2906;
+}
+.productEditorCard h3,
+.editorHeading h3 {
+  color:#132f22;
+  font-size:18px;
+}
+.editorHeading p,
+.editorHeading>span {
+  color:#5f7067;
+  font-size:12px;
+}
+.productFormDrawer label,
+.formRow label,
+.productEditorCard>label {
+  color:#41564b;
+  font-size:12px;
+}
+.productFormDrawer input,
+.productFormDrawer select,
+.productFormDrawer textarea,
+.formRow input,
+.formRow select,
+.productEditorCard textarea {
+  min-height:44px;
+  border-radius:9px;
+  border-color:#d5e2d7;
+  color:#173d29;
+}
+.uploadBox {
+  min-height:156px;
+  border-radius:12px;
+  border-color:#b9ccb9;
+  background:linear-gradient(135deg,#fbfdfb,#f2f8f2);
+}
+.uploadBox span {
+  color:#53675c;
+  font-size:12px;
+  font-weight:750;
+}
+.mediaLinkRow input,
+.mediaLinkRow button {
+  border-radius:9px;
+}
+.mediaPreviewGrid {
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:11px;
+}
+.mediaPreview {
+  border-radius:12px;
+  border-color:#dce7dd;
+  box-shadow:0 8px 18px #173d2908;
+}
+.mediaPreview button {
+  width:30px;
+  height:30px;
+  color:#9e183f;
+}
+.stockLocation {
+  padding:15px;
+  border-color:#dce7dd;
+  border-radius:12px;
+  background:#fbfdfb;
+}
+.variantGroup>b,
+.fieldTitle,
+.variantLabel>b {
+  color:#41564b;
+  font-size:11px;
+  font-weight:850;
+}
+.variantSearch,
+.variantChips button,
+.variantPreview,
+.seoPreview {
+  border-radius:9px;
+}
+.variantChips button {
+  min-height:38px;
+  color:#344f41;
+}
+.variantChips button.selected {
+  border-color:#16452c;
+  background:#e9f3ea;
+  box-shadow:0 0 0 3px #16452c10;
+}
+.variantPreview {
+  padding:14px;
+  background:#f5faf4;
+  font-size:12px;
+}
+.seoPreview {
+  border-color:#dce7dd;
+  background:#fbfdfb;
+}
+.seoPreview b {
+  font-size:14px;
+}
+.seoPreview span,
+.seoPreview p {
+  font-size:12px;
+}
+.drawerActions {
+  width:min(760px,100%);
+  padding:15px 26px calc(15px + env(safe-area-inset-bottom));
+  border-top-color:#dce7dd;
+  box-shadow:0 -10px 28px #173d290a;
+}
+.drawerActions>button {
+  min-height:44px;
+  border-radius:9px;
+  font-size:11px;
+  font-weight:850;
+}
+.drawerActions .saveProduct {
+  min-width:150px;
+  border-radius:9px;
+}
+
 @media (max-width:900px) {
+  .adminContent .catalogToolbar {
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .adminContent .catalogActions {
+    width:100%;
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .adminContent .catalogActions .inlineSearch,
+  .adminContent .catalogActions button {
+    width:100%;
+  }
+  .productFormDrawer {
+    width:100%;
+  }
+  .drawerActions {
+    width:100%;
+  }
   .adminContent .orderPeriodGrid {
     grid-template-columns:1fr;
   }
