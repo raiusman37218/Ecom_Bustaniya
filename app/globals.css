@@ -169,9 +169,28 @@ a { text-decoration:none; }
   .adminContent .dashboardTitleActions { width:100%; display:grid; grid-template-columns:1fr 1fr; }
   .adminContent .dashboardTitleActions > button { width:100%; min-width:0; }
   .adminContent .dashboardPrimaryAction,.adminContent .dashboardRefresh { min-height:44px; padding-inline:8px; }
+  .adminContent .dashboardTitle {
+    border-radius:12px;
+  }
+  .adminContent .dashboardTitle h1 {
+    font-size:25px;
+  }
   .adminContent .analyticsSystem .adminTitle { align-items:flex-start; gap:12px; }
   .adminContent .analyticsSystem .adminTitle h1 { font-size:22px; }
   .adminContent .analyticsSystem .adminTitle > .orderTabs { width:100%; overflow-x:auto; flex-wrap:nowrap; }
+  .adminContent .analyticsSystem,
+  .adminContent .salesChart,
+  .adminContent .orderStatus {
+    padding:16px;
+  }
+  .adminContent .analyticsSystem .financeMetrics,
+  .adminContent .dashboardPrimaryMetrics,
+  .adminContent .dashboardSecondaryMetrics {
+    grid-template-columns:1fr;
+  }
+  .adminContent .dashboardPrimaryMetrics .metricCard {
+    min-height:128px;
+  }
   .adminContent .fakeChart { padding-bottom:3px; }
   .adminContent .dashboardSectionHeading { align-items:flex-start; }
   .adminContent .dashboardPrimaryMetrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -1129,7 +1148,232 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .settlementIntro h2 { font-size:30px; }
 .settlementIntro span,.financeStatement span,.inventoryFinanceList span { font-size:12px; line-height:1.5; }
 
+/* Dashboard polish: tighter hierarchy, calmer surfaces and safer responsive cards. */
+.adminContent .dashboardTitle {
+  margin-bottom:22px;
+  padding:22px;
+  border:1px solid #dce7dd;
+  border-radius:14px;
+  background:linear-gradient(135deg,#fff 0%,#f4f8f3 58%,#fff7fb 100%);
+  box-shadow:0 12px 34px #173d2908;
+}
+.adminContent .dashboardTitle h1 {
+  font-family:var(--font-sans);
+  font-size:clamp(26px,2.5vw,38px);
+  line-height:1.08;
+  letter-spacing:0;
+}
+.adminContent .dashboardTitle span {
+  max-width:680px;
+  color:#53675c;
+}
+.adminContent .dashboardSectionHeading h2,
+.adminContent .dashboardAnalyticsTitle h2 {
+  font-family:var(--font-sans);
+  font-size:clamp(18px,1.5vw,24px);
+  line-height:1.18;
+  letter-spacing:0;
+}
+.adminContent .dashboardSectionHeading span,
+.adminContent .dashboardAnalyticsTitle span {
+  color:#5f7067;
+  font-size:13px;
+}
+.adminContent .dashboardPrimaryMetrics {
+  gap:16px;
+}
+.adminContent .dashboardPrimaryMetrics .metricCard {
+  min-height:146px;
+  padding:18px;
+  border-color:#dce7dd;
+  border-radius:14px;
+  background:#fff;
+  box-shadow:0 12px 26px #173d2908;
+  overflow:hidden;
+}
+.adminContent .dashboardPrimaryMetrics .metricCard::after {
+  content:"";
+  position:absolute;
+  inset:auto -28px -36px auto;
+  width:96px;
+  height:96px;
+  border-radius:50%;
+  background:#f4f8ef;
+}
+.adminContent .dashboardPrimaryMetrics .metricCard>div {
+  z-index:1;
+  right:16px;
+  top:16px;
+  width:40px;
+  height:40px;
+  border-radius:11px;
+  background:#edf6ee;
+}
+.adminContent .dashboardPrimaryMetrics .metricCard p {
+  max-width:calc(100% - 50px);
+  color:#4f6258;
+  font-size:12px;
+}
+.adminContent .dashboardPrimaryMetrics .metricCard h2 {
+  position:relative;
+  z-index:1;
+  margin:20px 0 8px;
+  color:#132f22;
+  font-weight:850;
+  letter-spacing:0;
+}
+.adminContent .dashboardPrimaryMetrics .metricCard>span {
+  position:relative;
+  z-index:1;
+  color:#64766c;
+}
+.adminContent .dashboardCashBreakdown {
+  border-radius:14px;
+  box-shadow:0 10px 28px #173d2908;
+}
+.adminContent .dashboardCashBreakdown summary {
+  background:linear-gradient(135deg,#f5faf4,#fff);
+}
+.adminContent .dashboardSecondaryMetrics {
+  gap:14px;
+}
+.adminContent .dashboardSecondaryMetrics article,
+.adminContent .analyticsSystem,
+.adminContent .salesChart,
+.adminContent .orderStatus,
+.adminContent .recentOrders,
+.adminContent .dashboardAlerts {
+  border-color:#dce7dd;
+  border-radius:14px;
+  box-shadow:0 10px 24px #173d2907;
+}
+.adminContent .dashboardSecondaryMetrics article {
+  min-height:104px;
+  padding:18px;
+}
+.adminContent .dashboardSecondaryMetrics b,
+.adminContent .financeMetrics b {
+  color:#132f22;
+  font-size:22px;
+}
+.adminContent .dashboardAlerts {
+  margin-bottom:20px;
+}
+.adminContent .dashboardAlerts .financeStatement>div {
+  min-height:46px;
+  padding:12px 0;
+  gap:16px;
+}
+.adminContent .dashboardAlerts .financeStatement button {
+  flex:0 0 auto;
+  padding:0 12px;
+}
+.adminContent .analyticsSystem {
+  margin:22px 0;
+  padding:22px;
+}
+.adminContent .analyticsSystem .adminTitle {
+  padding:0;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+}
+.adminContent .analyticsSystem .financeMetrics {
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:12px;
+}
+.adminContent .analyticsSystem .financeMetrics article {
+  min-height:106px;
+  border-color:#dce7dd;
+  border-radius:12px;
+}
+.adminContent .analyticsSystem .financeGridWide {
+  align-items:stretch;
+}
+.adminContent .salesChart,
+.adminContent .orderStatus {
+  padding:22px;
+}
+.adminContent .cardHeading h2 {
+  color:#132f22;
+  font-size:18px;
+  line-height:1.2;
+}
+.adminContent .cardHeading p {
+  color:#63746b;
+  font-size:12px;
+}
+.adminContent .chartTotal {
+  margin-top:22px;
+  justify-content:space-between;
+  flex-wrap:wrap;
+}
+.adminContent .chartTotal b {
+  color:#132f22;
+  font-size:26px;
+}
+.adminContent .fakeChart {
+  height:220px;
+  margin-top:8px;
+  border-bottom-color:#dfe8df;
+  border-radius:10px 10px 0 0;
+  background:repeating-linear-gradient(to bottom,#fff 0,#fff 53px,#eef3ee 54px);
+}
+.adminContent .fakeChart>div span {
+  background:linear-gradient(180deg,#3c9b61 0%,#16452c 100%);
+  box-shadow:0 8px 18px #16452c1f;
+}
+.adminContent .donut {
+  width:156px;
+  height:156px;
+}
+.adminContent .donut>div {
+  width:102px;
+  height:102px;
+  box-shadow:inset 0 0 0 1px #e5ece6;
+}
+.adminContent .orderStatus ul {
+  gap:11px 14px;
+  font-size:12px;
+}
+.adminContent .recentOrders {
+  padding-top:22px;
+}
+.adminContent .recentOrders>.cardHeading {
+  padding:0 22px 18px;
+}
+.adminContent .recentOrders .adminTable {
+  min-width:920px;
+}
+.adminContent .recentOrders .adminTable td,
+.adminContent .recentOrders .adminTable th {
+  vertical-align:middle;
+}
+.adminContent .recentOrders .adminTable td:first-child b {
+  display:block;
+  max-width:190px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
 @media (max-width:900px) {
+  .adminContent .dashboardTitle {
+    padding:18px;
+  }
+  .adminContent .analyticsSystem .financeMetrics {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .adminContent .dashboardPrimaryMetrics {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .adminContent .dashboardAlerts .financeStatement>div {
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .adminContent .dashboardAlerts .financeStatement button {
+    width:100%;
+    justify-content:center;
+  }
   .adminShell { display:block; }
   .adminLoadingSidebar { display:none; }
   .adminSidebar { transform:translateX(-105%); transition:.25s; }
