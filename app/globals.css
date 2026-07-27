@@ -1955,6 +1955,262 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   border-radius:9px;
 }
 
+/* Settings / notifications / reports polish: a calmer configuration workspace
+   with clearer tabs, stronger cards and easier-to-scan operational forms. */
+.settingsLayout {
+  grid-template-columns:260px minmax(0,1fr);
+  gap:18px;
+}
+.adminContent>.adminTitle:has(+ .settingsLayout),
+.adminContent>.adminTitle:has(+ .settingsSaved + .settingsLayout) {
+  margin-bottom:18px;
+  padding:22px;
+  border:1px solid #dce7dd;
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 10% 0%,#f9eef2 0,transparent 30%),
+    linear-gradient(135deg,#fff,#f8fbf6 62%,#f3f8f2);
+  box-shadow:0 18px 45px #173d290a;
+}
+.adminContent>.adminTitle:has(+ .settingsLayout) h1,
+.adminContent>.adminTitle:has(+ .settingsSaved + .settingsLayout) h1 {
+  color:#132f22;
+  letter-spacing:-.04em;
+}
+.adminContent>.adminTitle:has(+ .settingsLayout) span,
+.adminContent>.adminTitle:has(+ .settingsSaved + .settingsLayout) span {
+  max-width:720px;
+  color:#53675c;
+}
+.settingsNav {
+  top:84px;
+  padding:10px;
+  border-color:#dce7dd;
+  border-radius:18px;
+  background:linear-gradient(180deg,#fff,#fbfdfb);
+  box-shadow:0 14px 34px #173d2908;
+}
+.settingsNav button {
+  min-height:58px;
+  padding:10px 12px;
+  border-radius:13px;
+  color:#40574b;
+  font-size:12px;
+  font-weight:900;
+  transition:background .18s ease,color .18s ease,transform .18s ease,box-shadow .18s ease;
+}
+.settingsNav button span {
+  color:#6a7c70;
+  font-size:10px;
+  line-height:1.35;
+}
+.settingsNav button:hover {
+  transform:translateX(2px);
+}
+.settingsNav button.active,
+.settingsNav button:hover {
+  background:linear-gradient(135deg,#edf7ef,#fff);
+  color:#173d29;
+  box-shadow:inset 3px 0 0 #173d29,0 8px 18px #173d2908;
+}
+.settingsPanel {
+  min-width:0;
+}
+.settingsStack {
+  gap:16px;
+}
+.settingsWideForm,
+.settingsStack .settingsForm {
+  max-width:none;
+  padding:24px;
+  border-color:#dce7dd;
+  border-radius:18px;
+  background:linear-gradient(180deg,#fff,#fbfdfb);
+  box-shadow:0 14px 34px #173d2908;
+}
+.settingsForm h2 {
+  margin:0;
+  padding:0 0 15px;
+  border-bottom-color:#edf2ed;
+  color:#132f22;
+  font-size:22px;
+  letter-spacing:-.02em;
+}
+.settingsForm h3,
+.paymentRulesCard h3 {
+  margin:0;
+  color:#132f22;
+  font-size:15px;
+  letter-spacing:-.01em;
+}
+.settingsForm label {
+  color:#40574b;
+  font-size:12px;
+  font-weight:800;
+}
+.settingsForm input,
+.settingsForm textarea,
+.settingsForm select {
+  min-height:44px;
+  border-color:#d5e2d7;
+  border-radius:10px;
+  color:#173d29;
+  font-size:13px;
+  box-shadow:inset 0 1px 0 #fff;
+}
+.settingsForm input:focus,
+.settingsForm textarea:focus,
+.settingsForm select:focus {
+  border-color:#86b891;
+  box-shadow:0 0 0 4px #1d684012;
+}
+.settingsWideForm>button,
+.settingsForm>button,
+.settingsStack .settingsForm button:not(.announcementEditorHead>button) {
+  width:max-content;
+  min-height:44px;
+  padding:0 18px;
+  border:0;
+  border-radius:11px;
+  background:linear-gradient(135deg,#173d29,#245d3f);
+  color:#fff;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  box-shadow:0 12px 24px #173d2918;
+}
+.settingsOption {
+  padding:16px;
+  border-color:#dce7dd;
+  border-radius:14px;
+  background:linear-gradient(135deg,#fff,#f8fbf6);
+  box-shadow:0 8px 20px #173d2905;
+}
+.settingsOption b {
+  color:#132f22;
+  font-size:14px;
+}
+.settingsOption span {
+  color:#53675c;
+  font-size:12px;
+  line-height:1.55;
+}
+.paymentSettingsGrid {
+  gap:12px;
+}
+.paymentSettingsGrid .settingsOption {
+  min-height:154px;
+}
+.paymentRulesCard {
+  padding:18px;
+  border-color:#dce7dd;
+  border-radius:16px;
+  background:linear-gradient(180deg,#fff,#f8fbf6);
+  box-shadow:0 10px 22px #173d2906;
+}
+.paymentSecurityNote,
+.shippingRuleHint {
+  border-color:#d7e8d7;
+  border-radius:12px;
+  background:#f2faf3;
+  color:#4f6558;
+  font-size:12px;
+}
+.settingsPermissionGrid {
+  border-color:#dce7dd;
+  border-radius:14px;
+  background:#f8fbf6;
+}
+.settingsSaved {
+  margin:-4px 0 18px;
+  padding:13px 16px;
+  border-radius:14px;
+  font-size:12px;
+  font-weight:800;
+}
+.settingsForm .inventoryListHead {
+  min-height:76px;
+  margin:-4px -4px 10px;
+  padding:0 0 16px;
+  border-bottom:1px solid #edf2ed;
+}
+.settingsForm .inventoryListHead h2 {
+  color:#132f22;
+  font-size:20px;
+}
+.settingsForm .inventoryListHead span {
+  color:#53675c;
+  font-size:12px;
+}
+.settingsForm .adminTableWrap {
+  border-color:#dce7dd;
+  border-radius:14px;
+  background:#fff;
+}
+.settingsForm .adminTable th {
+  background:#f5faf4;
+  color:#53675c;
+}
+.announcementEditor {
+  padding:18px;
+  border-color:#dce7dd;
+  border-radius:16px;
+  background:linear-gradient(180deg,#fff,#f8fbf6);
+  box-shadow:0 10px 22px #173d2906;
+}
+.announcementEditor .inventoryListHead {
+  min-height:62px;
+  margin:0;
+  padding:0 0 14px;
+}
+.announcementEditor .inventoryListHead button {
+  min-height:40px;
+  border-radius:11px;
+  background:linear-gradient(135deg,#173d29,#245d3f);
+  font-size:10px;
+}
+.announcementEditorItem {
+  padding:16px;
+  border-color:#dce7dd;
+  border-radius:14px;
+  box-shadow:0 8px 18px #173d2905;
+}
+.announcementEditorHead b {
+  color:#132f22;
+  font-size:13px;
+}
+.announcementEditorHead>button {
+  width:34px;
+  height:34px;
+  border-color:#f0cad5;
+  color:#a11c44;
+}
+.heroSettingsEditor,
+.sectionColorEditor {
+  border-color:#dce7dd;
+  border-radius:18px;
+  box-shadow:0 12px 28px #173d2907;
+}
+.heroSettingsHeading h2 {
+  color:#132f22;
+}
+.sectionColorOption,
+.heroImageSetting {
+  border-color:#dce7dd;
+  border-radius:14px;
+}
+.financeReportsPanel .financeSummaryCard,
+.financeReportsPanel .financeExpenseForm {
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 92% 0%,#eef8ef 0,transparent 34%),
+    linear-gradient(180deg,#fff,#fbfdfb);
+}
+.financeReportsPanel button {
+  gap:8px;
+}
+
 /* Inventory batch / stock polish: clearer operational surfaces, stronger batch
    dialog hierarchy and stock controls that feel safer for daily warehouse use. */
 .inventorySystem {
@@ -2971,8 +3227,8 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   }
   .settingsModules { grid-template-columns:1fr; }
   .settingsLayout { grid-template-columns:1fr; }
-  .settingsNav { position:static; overflow-x:auto; flex-direction:row; }
-  .settingsNav button { min-width:135px; }
+  .settingsNav { position:static; overflow-x:auto; flex-direction:row; border-radius:14px; }
+  .settingsNav button { min-width:150px; }
   .paymentSettingsGrid { grid-template-columns:1fr; }
   .settingsOption { align-items:flex-start; flex-direction:column; }
   .dashboardGrid { grid-template-columns:1fr; }
@@ -2985,6 +3241,26 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .adminTableWrap { margin:0 -1px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .adminTable { min-width:720px; }
   .settingsForm { padding:16px; }
+  .settingsWideForm,
+  .settingsStack .settingsForm {
+    padding:16px;
+  }
+  .settingsForm h2 {
+    font-size:20px;
+  }
+  .settingsWideForm>button,
+  .settingsForm>button,
+  .settingsStack .settingsForm button:not(.announcementEditorHead>button) {
+    width:100%;
+    justify-content:center;
+  }
+  .announcementEditor {
+    padding:14px;
+  }
+  .announcementEditorHead {
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
   .settingsForm .formRow,.productFormDrawer .formRow { grid-template-columns:1fr; }
   .productFormDrawer,.workspaceDrawer { width:100%; }
   .productDrawerHeader,.workspaceDrawer>header { padding:15px 16px; }
