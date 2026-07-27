@@ -1955,6 +1955,206 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   border-radius:9px;
 }
 
+/* Customers detail polish: cleaner CRM-style list, readable segments and a
+   drawer that makes customer history / notes feel deliberate instead of basic. */
+.customerTable {
+  min-width:980px;
+}
+.customerTable th {
+  background:#f5faf4;
+  color:#53675c;
+}
+.customerTable td {
+  vertical-align:middle;
+}
+.customerTable td:first-child b {
+  color:#132f22;
+  font-size:14px;
+}
+.customerTable td:nth-child(4) b {
+  color:#173d29;
+  font-size:15px;
+}
+.customerTable tr:hover td {
+  background:#fbfdfb;
+}
+.customerTable .editProductButton {
+  min-width:74px;
+  border-radius:999px;
+  border-color:#cfe0d2;
+  background:#fff;
+  color:#173d29;
+}
+.customerTable .editProductButton:hover {
+  border-color:#173d29;
+  background:#173d29;
+  color:#fff;
+}
+.managementCard:has(.customerTable) {
+  overflow:hidden;
+  border-color:#dce7dd;
+  border-radius:18px;
+  background:linear-gradient(180deg,#fff,#fbfdfb);
+  box-shadow:0 14px 34px #173d2908;
+}
+.managementCard:has(.customerTable) .catalogToolbar {
+  min-height:78px;
+  padding:14px 18px;
+  background:
+    radial-gradient(circle at 4% 0%,#f9eef2 0,transparent 28%),
+    linear-gradient(135deg,#fff,#f7fbf5);
+}
+.managementCard:has(.customerTable) .catalogToolbar .orderTabs {
+  padding:6px;
+  border:1px solid #d9e7db;
+  border-radius:999px;
+  background:#fff;
+  box-shadow:inset 0 1px 0 #fff,0 8px 18px #173d2907;
+}
+.managementCard:has(.customerTable) .catalogToolbar .orderTabs button {
+  min-height:36px;
+  padding:0 13px;
+  border-radius:999px;
+  color:#40574b;
+  font-size:11px;
+  font-weight:850;
+}
+.managementCard:has(.customerTable) .catalogToolbar .orderTabs button.active {
+  border-color:#173d29;
+  background:linear-gradient(135deg,#173d29,#235d3f);
+  color:#fff;
+  box-shadow:0 9px 18px #173d2920;
+}
+.managementCard:has(.customerTable) .catalogActions .inlineSearch {
+  width:min(360px,36vw);
+  border-radius:999px;
+  background:#fff;
+  box-shadow:0 8px 18px #173d2907;
+}
+.managementCard:has(.customerTable) .catalogActions button {
+  min-height:40px;
+  border-radius:999px;
+  background:#fff;
+  color:#173d29;
+  font-size:10px;
+  box-shadow:0 8px 18px #173d2907;
+}
+.managementCard:has(.customerTable) .catalogActions button:hover {
+  border-color:#173d29;
+  background:#173d29;
+  color:#fff;
+}
+.tagList {
+  gap:6px;
+}
+.tagList span {
+  padding:6px 10px;
+  border:1px solid #d8e7d9;
+  background:#edf7ef;
+  color:#28553a;
+  font-size:10px;
+  font-weight:850;
+}
+.tagList span:is(:first-child) {
+  background:#fff1f5;
+  border-color:#f0cad5;
+  color:#a11c44;
+}
+.orderDetailDrawer:has(.customerProfileGrid)>header {
+  min-height:116px;
+  background:
+    radial-gradient(circle at 92% 0%,#e9f7eb 0,transparent 32%),
+    linear-gradient(135deg,#fff,#f8fbf6);
+}
+.orderDetailDrawer:has(.customerProfileGrid)>header h2 {
+  color:#132f22;
+  letter-spacing:-.03em;
+}
+.orderDetailDrawer:has(.customerProfileGrid)>header span {
+  color:#52675b;
+  font-size:13px;
+}
+.customerProfileGrid {
+  gap:14px;
+  grid-template-columns:1.25fr .9fr .9fr;
+}
+.customerProfileGrid .orderDetailCard {
+  min-height:150px;
+  border-color:#dce7dd;
+  border-radius:16px;
+  background:linear-gradient(180deg,#fff,#fbfdfb);
+  box-shadow:0 12px 28px #173d2907;
+}
+.customerProfileGrid .orderDetailCard h3 {
+  color:#566a5f;
+  font-size:11px;
+}
+.customerProfileGrid .orderDetailCard b {
+  color:#132f22;
+  font-size:20px;
+  letter-spacing:-.02em;
+}
+.customerProfileGrid .orderDetailCard span,
+.customerProfileGrid .orderDetailCard p {
+  color:#52675b;
+  font-size:12px;
+}
+.customerProfileGrid .orderDetailCard label {
+  color:#40574b;
+  font-size:12px;
+  font-weight:800;
+}
+.customerProfileGrid .orderDetailCard input {
+  min-height:42px;
+  border-color:#d5e2d7;
+  border-radius:10px;
+  color:#173d29;
+}
+.customerProfileGrid .orderDetailCard input:focus,
+.orderDetailDrawer:has(.customerProfileGrid) .orderOpsCard input:focus,
+.orderDetailDrawer:has(.customerProfileGrid) .orderOpsCard textarea:focus {
+  border-color:#86b891;
+  box-shadow:0 0 0 4px #1d684012;
+}
+.orderDetailDrawer:has(.customerProfileGrid) .orderOpsCard,
+.orderDetailDrawer:has(.customerProfileGrid) .orderItemsCard {
+  border-color:#dce7dd;
+  border-radius:16px;
+  background:linear-gradient(180deg,#fff,#fbfdfb);
+  box-shadow:0 12px 28px #173d2907;
+}
+.orderDetailDrawer:has(.customerProfileGrid) .orderOpsCard h3 {
+  color:#132f22;
+  font-size:18px;
+}
+.orderDetailDrawer:has(.customerProfileGrid) .orderOpsCard label {
+  color:#40574b;
+  font-size:12px;
+  font-weight:800;
+}
+.orderDetailDrawer:has(.customerProfileGrid) .orderOpsCard input,
+.orderDetailDrawer:has(.customerProfileGrid) .orderOpsCard textarea {
+  border-color:#d5e2d7;
+  border-radius:10px;
+  color:#173d29;
+}
+.orderDetailDrawer:has(.customerProfileGrid) .orderOpsCard>button {
+  min-height:44px;
+  border-radius:11px;
+  background:linear-gradient(135deg,#173d29,#235d3f);
+  color:#fff;
+  font-size:11px;
+  font-weight:850;
+  box-shadow:0 12px 24px #173d2918;
+}
+.orderDetailDrawer:has(.customerProfileGrid) .orderItemsCard .inventoryListHead {
+  border-bottom:1px solid #edf2ed;
+}
+.orderDetailDrawer:has(.customerProfileGrid) .orderItemsCard .adminTableWrap {
+  border:0;
+  border-radius:0 0 16px 16px;
+}
+
 /* Finance tabs polish: segmented navigation, clearer statements and owner-grade
    working cards without changing the underlying finance calculations. */
 .financeSystem {
@@ -2449,6 +2649,22 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .catalogToolbar { height:auto; min-height:0; padding:14px; align-items:stretch; flex-direction:column; }
   .catalogActions { align-items:stretch; flex-direction:column; }
   .catalogActions .inlineSearch,.catalogActions button,.csvButton { width:100%; }
+  .managementCard:has(.customerTable) .catalogToolbar {
+    padding:14px;
+  }
+  .managementCard:has(.customerTable) .catalogToolbar .orderTabs {
+    overflow-x:auto;
+    flex-wrap:nowrap;
+  }
+  .managementCard:has(.customerTable) .catalogToolbar .orderTabs button {
+    flex:0 0 auto;
+  }
+  .managementCard:has(.customerTable) .catalogActions .inlineSearch {
+    width:100%;
+  }
+  .customerProfileGrid .orderDetailCard {
+    min-height:0;
+  }
   .collectionStrip { padding:10px 14px; }
   .categoryManagerGrid { grid-template-columns:1fr; }
   .categoryParentSummary { align-items:flex-start; flex-direction:column; }
