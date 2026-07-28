@@ -805,6 +805,80 @@ footer {
   }
 }
 
+/* Courier hub polish. */
+.courierMetricGrid {
+  grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+}
+.courierCommandCard {
+  margin-bottom:18px;
+  border:1px solid #dce7dd;
+  background:
+    radial-gradient(circle at 94% 12%,rgba(220,255,184,.42),transparent 28%),
+    linear-gradient(135deg,#fffefb,#f7fbf3);
+}
+.courierFlowSteps {
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:12px;
+  margin-top:16px;
+}
+.courierFlowSteps>div {
+  min-height:88px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:8px;
+  padding:16px;
+  border:1px solid #dfe8dd;
+  border-radius:16px;
+  background:#fffefb;
+  box-shadow:0 12px 28px rgba(23,61,41,.07);
+}
+.courierFlowSteps b {
+  width:30px;
+  height:30px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:#173d29;
+  color:#fff;
+  font-size:12px;
+}
+.courierFlowSteps span {
+  color:#173d29;
+  font-size:12px;
+  font-weight:850;
+}
+.courierFilters {
+  gap:14px;
+}
+.courierQuickFilters {
+  justify-content:flex-start;
+  margin-top:12px;
+}
+.courierTable .statusBadge {
+  text-transform:capitalize;
+}
+.courierNeedsAttention {
+  background:#fff7f8;
+}
+.moduleQuickLinks {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+}
+
+@media (max-width:900px) {
+  .courierFlowSteps {
+    grid-template-columns:1fr;
+  }
+  .moduleQuickLinks {
+    justify-content:flex-start;
+  }
+}
+
 /* Dashboard layout safeguards: keep controls and long time-series readable at every width. */
 .adminContent .dashboardTitleActions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; }
 .adminContent .dashboardTitleActions > button { width:auto; min-width:max-content; }
