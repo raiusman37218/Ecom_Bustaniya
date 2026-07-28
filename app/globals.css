@@ -906,19 +906,20 @@ footer {
   flex-direction:column;
   justify-content:center;
   padding:clamp(24px,3vw,38px);
-  border:1px solid rgba(220,255,184,.26);
+  border:1px solid rgba(205,221,207,.95);
   border-radius:30px;
-  background:rgba(255,254,251,.08);
-  box-shadow:inset 0 1px rgba(255,255,255,.12),0 24px 54px rgba(4,21,12,.16);
+  background:rgba(255,254,251,.94);
+  box-shadow:inset 0 1px rgba(255,255,255,.86),0 24px 54px rgba(23,61,41,.12);
   backdrop-filter:blur(8px);
 }
 .categoryShowcaseIntro .eyebrow {
-  color:#dcffb8;
+  color:#bd194b;
+  text-shadow:none;
 }
 .categoryShowcaseIntro h2 {
   max-width:7ch;
   margin:10px 0 18px;
-  color:#fffdf4;
+  color:#132f22;
   font-family:var(--font-display);
   font-size:clamp(52px,5vw,78px);
   line-height:.86;
@@ -926,7 +927,7 @@ footer {
   letter-spacing:-.045em;
 }
 .categoryShowcaseIntro span {
-  color:#eef7df;
+  color:#53675c;
   font-size:14px;
   line-height:1.75;
 }
@@ -962,7 +963,7 @@ footer {
   border-radius:22px;
 }
 .categoryShowcaseEditorial .categoryCard::after {
-  background:linear-gradient(180deg,rgba(8,36,23,.02) 10%,rgba(8,36,23,.20) 46%,rgba(6,29,18,.88) 100%);
+  background:linear-gradient(180deg,rgba(8,36,23,.04) 8%,rgba(8,36,23,.22) 44%,rgba(6,29,18,.92) 100%);
 }
 .categoryShowcaseEditorial .categoryCard small {
   position:absolute;
