@@ -879,6 +879,164 @@ footer {
   }
 }
 
+/* Editorial category showcase refresh. */
+.categoryShowcaseEditorial {
+  position:relative;
+  display:grid;
+  grid-template-columns:minmax(250px,360px) 1fr;
+  gap:clamp(26px,4vw,58px);
+  align-items:stretch;
+  padding:clamp(78px,8vw,122px) clamp(18px,4vw,64px);
+  text-align:left;
+  background:
+    radial-gradient(circle at 8% 18%,rgba(220,255,184,.26),transparent 30%),
+    linear-gradient(135deg,#0d321f,var(--section-bg,#173d29) 58%,#102a1d);
+}
+.categoryShowcaseEditorial::before {
+  left:auto;
+  right:-210px;
+  bottom:-260px;
+  opacity:.8;
+}
+.categoryShowcaseIntro {
+  position:relative;
+  z-index:2;
+  min-height:100%;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:clamp(24px,3vw,38px);
+  border:1px solid rgba(220,255,184,.26);
+  border-radius:30px;
+  background:rgba(255,254,251,.08);
+  box-shadow:inset 0 1px rgba(255,255,255,.12),0 24px 54px rgba(4,21,12,.16);
+  backdrop-filter:blur(8px);
+}
+.categoryShowcaseIntro .eyebrow {
+  color:#dcffb8;
+}
+.categoryShowcaseIntro h2 {
+  max-width:7ch;
+  margin:10px 0 18px;
+  color:#fffdf4;
+  font-family:var(--font-display);
+  font-size:clamp(52px,5vw,78px);
+  line-height:.86;
+  font-weight:600;
+  letter-spacing:-.045em;
+}
+.categoryShowcaseIntro span {
+  color:#eef7df;
+  font-size:14px;
+  line-height:1.75;
+}
+.categoryShowcaseEditorial .categoryCards {
+  margin-top:0;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  align-items:stretch;
+  gap:clamp(14px,2vw,24px);
+}
+.categoryShowcaseEditorial .categoryCard,
+.categoryShowcaseEditorial .categoryCard:nth-child(even) {
+  height:clamp(340px,36vw,520px);
+  margin-top:0;
+  border:1px solid rgba(255,254,251,.36);
+  border-radius:30px;
+  background-size:cover;
+  background-position:center top;
+  box-shadow:0 28px 64px rgba(4,21,12,.34);
+}
+.categoryShowcaseEditorial .categoryCard:nth-child(3n+2) {
+  transform:translateY(28px);
+}
+.categoryShowcaseEditorial .categoryCard:hover,
+.categoryShowcaseEditorial .categoryCard:nth-child(even):hover {
+  transform:translateY(-8px);
+  box-shadow:0 38px 82px rgba(4,21,12,.48);
+}
+.categoryShowcaseEditorial .categoryCard:nth-child(3n+2):hover {
+  transform:translateY(18px);
+}
+.categoryShowcaseEditorial .categoryCard::before {
+  inset:14px;
+  border-radius:22px;
+}
+.categoryShowcaseEditorial .categoryCard::after {
+  background:linear-gradient(180deg,rgba(8,36,23,.02) 10%,rgba(8,36,23,.20) 46%,rgba(6,29,18,.88) 100%);
+}
+.categoryShowcaseEditorial .categoryCard small {
+  position:absolute;
+  left:24px;
+  top:24px;
+  z-index:3;
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(255,254,251,.5);
+  border-radius:50%;
+  background:rgba(255,254,251,.16);
+  color:#fffdf4;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.08em;
+  backdrop-filter:blur(6px);
+}
+.categoryShowcaseEditorial .categoryCard span {
+  left:24px;
+  right:24px;
+  bottom:62px;
+  text-align:left;
+  font-size:clamp(31px,3vw,44px);
+}
+.categoryShowcaseEditorial .categoryCard span::after {
+  display:none;
+}
+.categoryShowcaseEditorial .categoryCard b {
+  position:absolute;
+  left:24px;
+  bottom:28px;
+  z-index:3;
+  color:#dcffb8;
+  font-size:9px;
+  font-weight:950;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+}
+
+@media (max-width:1050px) {
+  .categoryShowcaseEditorial {
+    grid-template-columns:1fr;
+  }
+  .categoryShowcaseIntro {
+    min-height:auto;
+  }
+  .categoryShowcaseIntro h2 {
+    max-width:none;
+  }
+}
+
+@media (max-width:760px) {
+  .categoryShowcaseEditorial {
+    padding:58px 14px 76px;
+  }
+  .categoryShowcaseEditorial .categoryCards {
+    grid-template-columns:1fr;
+    gap:16px;
+  }
+  .categoryShowcaseEditorial .categoryCard,
+  .categoryShowcaseEditorial .categoryCard:nth-child(even),
+  .categoryShowcaseEditorial .categoryCard:nth-child(3n+2) {
+    height:360px;
+    transform:none;
+  }
+  .categoryShowcaseEditorial .categoryCard:hover,
+  .categoryShowcaseEditorial .categoryCard:nth-child(even):hover,
+  .categoryShowcaseEditorial .categoryCard:nth-child(3n+2):hover {
+    transform:translateY(-5px);
+  }
+}
+
 /* Dashboard layout safeguards: keep controls and long time-series readable at every width. */
 .adminContent .dashboardTitleActions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; }
 .adminContent .dashboardTitleActions > button { width:auto; min-width:max-content; }

@@ -223,13 +223,18 @@ export default function Home({
           {!visibleProducts.length && <p className="empty">No products found.</p>}
         </section>
 
-        <section className="categoryShowcase scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories }}>
-          <p className="eyebrow">FIND YOUR FAVOURITE</p>
-          <h2>Shop by category</h2>
+        <section className="categoryShowcase categoryShowcaseEditorial scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories }}>
+          <div className="categoryShowcaseIntro">
+            <p className="eyebrow">CURATED COLLECTIONS</p>
+            <h2>Choose your mood</h2>
+            <span>Fresh silhouettes, easy everyday fits and statement pieces grouped so customers can find the right style faster.</span>
+          </div>
           <div className="categoryCards">
             {categoryCards.map((category, index) => (
               <a className={`categoryCard card${index + 1}`} href={`/category/${category.slug}`} key={category.slug} style={category.image ? { backgroundImage: `url(${category.image})` } : undefined}>
+                <small>{String(index + 1).padStart(2, "0")}</small>
                 <span>{category.name}</span>
+                <b>Explore</b>
               </a>
             ))}
           </div>
