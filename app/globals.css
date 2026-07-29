@@ -4986,6 +4986,169 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   border-radius:18px;
   box-shadow:0 14px 34px #173d2908;
 }
+.adminVisualGrid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+  margin:0 0 22px;
+}
+.adminVisualCard {
+  padding:18px;
+  border:1px solid #dce7dd;
+  border-radius:18px;
+  background:linear-gradient(145deg,#fff,#f8fbf7);
+  box-shadow:0 14px 34px #173d2908;
+}
+.adminVisualCard.compact { padding:15px; }
+.adminVisualHead {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:15px;
+}
+.adminVisualHead h3 {
+  margin:0;
+  color:#0d2f21;
+  font-size:17px;
+  letter-spacing:-.02em;
+}
+.adminVisualHead p,
+.visualEmpty {
+  margin:4px 0 0;
+  color:#5d7065;
+  font-size:12px;
+  line-height:1.45;
+}
+.visualBarList {
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.visualBarRow>div {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:7px;
+  color:#506559;
+  font-size:12px;
+}
+.visualBarRow b {
+  color:#102f22;
+  font-variant-numeric:tabular-nums;
+}
+.visualBarRow>i,
+.visualProgress>i {
+  display:block;
+  height:10px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#edf3ee;
+}
+.visualBarRow>i::before {
+  content:"";
+  display:block;
+  width:var(--bar-width);
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,var(--bar-color),color-mix(in srgb,var(--bar-color) 72%,#fff));
+}
+.visualDonutWrap {
+  display:grid;
+  grid-template-columns:150px 1fr;
+  align-items:center;
+  gap:18px;
+}
+.visualDonut {
+  width:142px;
+  aspect-ratio:1;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  position:relative;
+  background:var(--donut);
+  box-shadow:inset 0 0 0 1px #ffffff80;
+}
+.visualDonut::after {
+  content:"";
+  position:absolute;
+  inset:28px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:inset 0 0 0 1px #e8efe8;
+}
+.visualDonut span,
+.visualDonut small {
+  position:relative;
+  z-index:1;
+  display:block;
+  text-align:center;
+}
+.visualDonut span {
+  color:#0d2f21;
+  max-width:92px;
+  overflow-wrap:anywhere;
+  font-size:clamp(15px,1.6vw,22px);
+  font-weight:900;
+}
+.visualDonut small {
+  max-width:75px;
+  color:#66786d;
+  font-size:10px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.visualLegend {
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+}
+.visualLegend div {
+  display:grid;
+  grid-template-columns:10px 1fr auto;
+  align-items:center;
+  gap:9px;
+  color:#506559;
+  font-size:12px;
+}
+.visualLegend i {
+  width:10px;
+  height:10px;
+  border-radius:50%;
+}
+.visualLegend b {
+  color:#102f22;
+}
+.visualProgress {
+  padding:13px;
+  border:1px solid #e4ece4;
+  border-radius:14px;
+  background:#fff;
+}
+.visualProgress+ .visualProgress { margin-top:10px; }
+.visualProgress>div {
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+  color:#506559;
+  font-size:12px;
+}
+.visualProgress b { color:#102f22; }
+.visualProgress em {
+  display:block;
+  height:100%;
+  border-radius:inherit;
+}
+.visualProgress small {
+  display:block;
+  margin-top:7px;
+  color:#687a70;
+  font-size:11px;
+  line-height:1.35;
+}
 .financeSystem .managementCard,
 .financeSummaryCard,
 .financeExpenseForm {
@@ -5338,6 +5501,10 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .metricGrid { grid-template-columns:1fr; }
   .moduleGrid { grid-template-columns:1fr; }
   .miniMetricGrid { grid-template-columns:1fr 1fr; }
+  .adminVisualGrid { grid-template-columns:1fr; }
+  .visualDonutWrap { grid-template-columns:120px 1fr; }
+  .visualDonut { width:118px; }
+  .visualDonut::after { inset:23px; }
   .orderPeriodGrid { grid-template-columns:1fr; }
   .postexCategoryGrid { grid-template-columns:1fr; }
   .financeControls { grid-template-columns:1fr; }

@@ -27,6 +27,57 @@ function HelpHint({ text }) {
   return <span className="helpHint" tabIndex="0" role="note" aria-label={text} data-tooltip={text}><Info /></span>;
 }
 
+function clampPercent(value) {
+  const number = Number(value || 0);
+  return Math.max(0, Math.min(100, Number.isFinite(number) ? number : 0));
+}
+
+function VisualBars({ title, subtitle, items = [], format = (value) => value, compact = false }) {
+  const max = Math.max(1, ...items.map((item) => Math.abs(Number(item.value || 0))));
+  return <section className={`adminVisualCard ${compact ? "compact" : ""}`}>
+    <div className="adminVisualHead"><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div></div>
+    <div className="visualBarList">
+      {items.map((item, index) => {
+        const width = clampPercent((Math.abs(Number(item.value || 0)) / max) * 100);
+        return <div className="visualBarRow" key={`${item.label}-${index}`}>
+          <div><span>{item.label}</span><b>{format(item.value)}</b></div>
+          <i style={{ "--bar-width": `${width}%`, "--bar-color": item.color || "#1d6840" }} />
+        </div>;
+      })}
+      {!items.length && <p className="visualEmpty">No data yet.</p>}
+    </div>
+  </section>;
+}
+
+function VisualDonut({ title, subtitle, items = [], centerLabel = "", centerValue = "" }) {
+  const total = items.reduce((sum, item) => sum + Math.max(0, Number(item.value || 0)), 0);
+  let cursor = 0;
+  const stops = items.length && total
+    ? items.map((item) => {
+        const start = cursor;
+        cursor += (Math.max(0, Number(item.value || 0)) / total) * 100;
+        return `${item.color || "#1d6840"} ${start}% ${cursor}%`;
+      }).join(", ")
+    : "#edf2ed 0 100%";
+  return <section className="adminVisualCard">
+    <div className="adminVisualHead"><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div></div>
+    <div className="visualDonutWrap">
+      <div className="visualDonut" style={{ "--donut": `conic-gradient(${stops})` }}><span>{centerValue}</span><small>{centerLabel}</small></div>
+      <div className="visualLegend">
+        {items.map((item) => <div key={item.label}><i style={{ background: item.color || "#1d6840" }} /><span>{item.label}</span><b>{item.value}</b></div>)}
+      </div>
+    </div>
+  </section>;
+}
+
+function VisualProgress({ label, value, helper, color = "#1d6840" }) {
+  return <div className="visualProgress">
+    <div><span>{label}</span><b>{clampPercent(value)}%</b></div>
+    <i><em style={{ width: `${clampPercent(value)}%`, background: color }} /></i>
+    {helper && <small>{helper}</small>}
+  </div>;
+}
+
 function AdminLoadingShell() {
   return (
     <main className="adminShell adminLoadingShell" aria-busy="true" aria-label="Loading Bustaniya admin">
@@ -1176,6 +1227,26 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
       <Metric icon={Landmark} label="PostEx receivable" value={`Rs. ${dashboardPostexReceivable.toLocaleString()}`} change="Current" note="settled or carried forward" />
       {isOwnerDashboard && <Metric icon={TrendingUp} label="Final net profit" value={financeSnapshotStatus === "ready" ? `Rs. ${dashboardNetProfit.toLocaleString()}` : "Unavailable"} change="Finance" note="actual P&amp;L · all time" />}
     </div></section>
+    <div className="adminVisualGrid">
+      <VisualDonut
+        title="Order status mix"
+        subtitle="Quick courier/fulfilment health by current order status."
+        centerValue={dashboardOrderCount}
+        centerLabel="orders"
+        items={Object.entries(statusBuckets).map(([label, value]) => ({ label, value, color: statusPalette[label] || "#8aa08f" })).filter((item) => item.value > 0)}
+      />
+      <VisualBars
+        title="Profit pressure"
+        subtitle="Clear view of where delivered sales are going."
+        format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`}
+        items={[
+          { label: "Sales", value: dashboardSales, color: "#1d6840" },
+          { label: "COGS", value: dashboardCogs, color: "#c78b2b" },
+          { label: "PostEx costs", value: dashboardCourierCost + dashboardTaxes + dashboardReturnPostexLoss, color: "#b73543" },
+          { label: "Net profit", value: Math.max(0, dashboardNetProfit), color: "#245d9a" },
+        ]}
+      />
+    </div>
     {isOwnerDashboard && financeSnapshotStatus === "ready" && <details className="adminCard dashboardCashBreakdown" open>
       <summary><div><p>CASH EXPLAINER</p><h2>How available cash is calculated</h2><span>Every addition and deduction behind the amount shown above.</span></div><b>Rs. {dashboardAvailableCash.toLocaleString()}</b></summary>
       <div className="cashBreakdownGrid">
@@ -1351,6 +1422,24 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
       <article><X /><span><b>{archivedCategories.length}</b>Archived/removed</span></article>
       <article><Boxes /><span><b>{products.length}</b>Products mapped</span></article>
     </div>
+    <div className="adminVisualGrid">
+      <VisualBars
+        title="Products by main category"
+        subtitle="Quickly see which storefront sections carry the catalogue."
+        items={mainCategories.map((category, index) => ({ label: category.name, value: productCount(category), color: ["#1d6840", "#4777a8", "#c78b2b", "#8d2449", "#6c7b43"][index % 5] }))}
+      />
+      <VisualDonut
+        title="Category structure"
+        subtitle="Main vs nested categories and removed records."
+        centerValue={visibleCategories.length}
+        centerLabel="visible"
+        items={[
+          { label: "Main", value: mainCategories.length, color: "#1d6840" },
+          { label: "Nested", value: visibleCategories.filter((category) => category.parentSlug).length, color: "#4777a8" },
+          { label: "Archived", value: archivedCategories.length, color: "#b73543" },
+        ]}
+      />
+    </div>
 
     <section className="categoryManagerGrid">
       <div className="adminCard managementCard">
@@ -1423,6 +1512,19 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
   });
   const collections = [...new Set(products.map(productCollection))].filter(Boolean);
   const lowStockCount = products.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length;
+  const missingCostCount = products.filter((product) => !Number(product.costTotalPkr || 0)).length;
+  const activeCount = products.filter((p) => productStatus(p) === "Active").length;
+  const productStatusVisual = [
+    { label: "Active", value: activeCount, color: "#1d6840" },
+    { label: "Low stock", value: lowStockCount, color: "#d08a18" },
+    { label: "Missing cost", value: missingCostCount, color: "#b73543" },
+    { label: "Other", value: Math.max(0, products.length - activeCount), color: "#8aa08f" },
+  ].filter((item) => item.value > 0);
+  const collectionVisual = collections.slice(0, 6).map((collection, index) => ({
+    label: collection,
+    value: products.filter((product) => productCollection(product) === collection).length,
+    color: ["#1d6840", "#4777a8", "#c78b2b", "#8d2449", "#6c7b43", "#7d5ba6"][index] || "#1d6840",
+  }));
 
   function exportProducts() {
     const csv = [
@@ -1461,7 +1563,11 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
       <article><Package /><span><b>{products.length}</b>Total products</span></article>
       <article><Tags /><span><b>{collections.length}</b>Collections</span></article>
       <article className={lowStockCount ? "alertMetric" : ""}><Boxes /><span><b>{lowStockCount}</b>Low stock</span></article>
-      <article><Store /><span><b>{products.filter((p) => productStatus(p) === "Active").length}</b>Active</span></article>
+      <article><Store /><span><b>{activeCount}</b>Active</span></article>
+    </div>
+    <div className="adminVisualGrid">
+      <VisualDonut title="Product readiness" subtitle="Active products, low stock risk and missing cost coverage." centerValue={products.length} centerLabel="products" items={productStatusVisual} />
+      <VisualBars title="Products by collection" subtitle="Top collections by catalogue count." items={collectionVisual} />
     </div>
     <section className="adminCard managementCard">
       <div className="catalogToolbar">
@@ -1812,6 +1918,20 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       .includes(query);
     return matchesTab && matchesSearch;
   });
+  const orderStatusVisual = orderStatusCounts.filter((item) => item.label !== "Total Orders" && item.count > 0).map((item) => ({
+    label: item.label,
+    value: item.count,
+    color: item.label === "Delivered" ? "#1d6840" : item.label === "Returned" ? "#b73543" : item.label === "Attempted" ? "#d08a18" : item.label === "Cancelled" ? "#8c3b4a" : "#4777a8",
+  }));
+  const cityVisual = Object.entries(allRows.reduce((map, order) => {
+    const city = order.city || "Unknown";
+    map[city] = (map[city] || 0) + Number(order.total || 0);
+    return map;
+  }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, value], index) => ({
+    label,
+    value,
+    color: ["#1d6840", "#4777a8", "#c78b2b", "#8d2449", "#6c7b43", "#7d5ba6"][index] || "#1d6840",
+  }));
 
   function updateLocalOrder(orderId, changes) {
     setLocalOrders((current) => current.map((order) => order.id === orderId ? { ...order, ...changes } : order));
@@ -1935,6 +2055,10 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
         </ul>
       </article>)}
     </section>
+    <div className="adminVisualGrid">
+      <VisualDonut title="Fulfilment status" subtitle="Status split for all visible orders." centerValue={allRows.length} centerLabel="orders" items={orderStatusVisual} />
+      <VisualBars title="Sales by city" subtitle="Top destination cities by order value." format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`} items={cityVisual} />
+    </div>
     <section className="adminCard managementCard">
       <div className="ordersToolbar">
         <label className="orderStatusFilter">Order status<select value={activeTab} onChange={(event) => setActiveTab(event.target.value)}>{orderStatusCounts.map((category) => <option key={category.label} value={category.label}>{category.label} ({category.count})</option>)}</select></label>
@@ -1998,6 +2122,17 @@ function CourierOperationsPanel() {
   const delivered = snapshot.shipments.filter((shipment) => shipment.courier_normalized_status === "delivered").length;
   const inTransit = snapshot.shipments.filter((shipment) => ["booked", "picked_up", "in_transit", "out_for_delivery", "attempted", "on_hold"].includes(shipment.courier_normalized_status)).length;
   const syncableRows = rows.filter((shipment) => shipment.provider === "postex" && shipment.courier_tracking_number).length;
+  const courierStatusVisual = [
+    { label: "In process", value: inTransit, color: "#4777a8" },
+    { label: "Delivered", value: delivered, color: "#1d6840" },
+    { label: "Delayed", value: delayed, color: "#d08a18" },
+    { label: "Sync failed", value: failed, color: "#b73543" },
+  ].filter((item) => item.value > 0);
+  const courierProviderVisual = Object.entries(snapshot.shipments.reduce((map, shipment) => {
+    const key = shipment.courierName || shipment.provider || "Manual";
+    map[key] = (map[key] || 0) + 1;
+    return map;
+  }, {})).map(([label, value], index) => ({ label, value, color: ["#1d6840", "#4777a8", "#c78b2b", "#8d2449"][index] || "#1d6840" }));
   const statusLabel = (status) => String(status || "unassigned").replaceAll("_", " ");
   const issueLabel = (shipment) => {
     if (shipment.courier_sync_error) return shipment.courier_sync_error;
@@ -2009,6 +2144,10 @@ function CourierOperationsPanel() {
     <div className="adminTitle"><div><p>COURIER HUB</p><h1>Courier operations</h1><span>Track every courier shipment, resolve exceptions and refresh live delivery status from one queue.</span></div><div className="moduleQuickLinks"><button type="button" onClick={syncVisiblePostex} disabled={bulkSyncing || loading || !syncableRows}><RefreshCw className={bulkSyncing ? "spinIcon" : ""} /> {bulkSyncing ? "Syncing..." : `Sync visible (${Math.min(syncableRows, 25)})`}</button><button type="button" onClick={load} disabled={loading}><RefreshCw className={loading ? "spinIcon" : ""} /> Refresh list</button></div></div>
     {error && <div className="adminErrorBanner">{error}</div>}
     <section className="financeMetricGrid courierMetricGrid"><article><Truck /><span><b>{snapshot.shipments.length}</b>Total tracked</span></article><article><Package /><span><b>{inTransit}</b>In process</span></article><article><CircleDollarSign /><span><b>{delivered}</b>Delivered</span></article><article className={delayed ? "alertMetric" : ""}><ReceiptText /><span><b>{delayed}</b>Delayed</span></article><article className={failed ? "alertMetric" : ""}><RefreshCw /><span><b>{failed}</b>Sync failures</span></article></section>
+    <div className="adminVisualGrid">
+      <VisualDonut title="Courier status" subtitle="Daily fulfilment health with delayed/error visibility." centerValue={snapshot.shipments.length} centerLabel="shipments" items={courierStatusVisual} />
+      <VisualBars title="Courier provider load" subtitle="Shipment count by connected courier." items={courierProviderVisual} />
+    </div>
     <section className="adminCard courierCommandCard"><div className="inventoryListHead"><div><h2>Courier workflow</h2><span>Daily staff routine from booking to Finance settlement.</span></div></div><div className="courierFlowSteps"><div><b>1</b><span>Book order</span></div><div><b>2</b><span>Tracking saved</span></div><div><b>3</b><span>Sync status</span></div><div><b>4</b><span>Delivered / returned</span></div><div><b>5</b><span>PostEx Wallet</span></div></div></section>
     <section className="adminCard settingsForm settingsWideForm courierFilters"><div className="formRow"><label>Courier<select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}><option value="all">All couriers</option>{snapshot.couriers.map((courier) => <option key={courier.id} value={courier.provider}>{courier.name}</option>)}</select></label><label>Status<select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">All statuses</option>{["booked","picked_up","in_transit","out_for_delivery","delivered","attempted","on_hold","returned","cancelled","manual_delivery"].map((status) => <option value={status} key={status}>{statusLabel(status)}</option>)}</select></label><label>Queue<select value={filters.queue} onChange={(event) => setFilters((current) => ({ ...current, queue: event.target.value }))}><option value="all">All shipments</option><option value="delayed">Delayed only</option><option value="failed">Failed sync only</option></select></label></div><div className="orderTabs courierQuickFilters"><button type="button" className={filters.queue === "all" && filters.status === "all" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "all", status: "all" }))}>All</button><button type="button" className={filters.status === "out_for_delivery" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, status: "out_for_delivery", queue: "all" }))}>Out for delivery</button><button type="button" className={filters.status === "delivered" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, status: "delivered", queue: "all" }))}>Delivered</button><button type="button" className={filters.queue === "delayed" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "delayed", status: "all" }))}>Delayed</button><button type="button" className={filters.queue === "failed" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "failed", status: "all" }))}>Needs retry</button></div></section>
     <section className="adminCard settingsForm settingsWideForm"><div className="inventoryListHead"><div><h2>Shipment queue</h2><span>{rows.length} shipment{rows.length === 1 ? "" : "s"} shown</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order / tracking</th><th>Courier</th><th>Service</th><th>Live status</th><th>Last sync</th><th>Issue</th><th /></tr></thead><tbody>{rows.map((shipment) => <tr key={shipment.id}><td><b>#{shipment.order_number}</b><small className="trackingNumber"><br />{shipment.courier_tracking_number || "No tracking number"}</small></td><td>{shipment.courierName}</td><td>{shipment.courier_service_type || "—"}</td><td><span className={`statusBadge ${shipment.courier_normalized_status}`}>{String(shipment.courier_normalized_status || "unassigned").replaceAll("_", " ")}</span><small className="trackingNumber"><br />{shipment.courier_raw_status || "—"}</small></td><td>{shipment.courier_last_synced_at ? new Date(shipment.courier_last_synced_at).toLocaleString("en-PK") : "Never"}</td><td>{shipment.courier_sync_error ? <small className="expenseAmount">{shipment.courier_sync_error}</small> : shipment.isDelayed ? <small className="expenseAmount">Delayed</small> : "—"}</td><td>{shipment.provider === "postex" && shipment.courier_tracking_number && <button type="button" className="editProductButton" onClick={() => syncShipment(shipment.id)} disabled={syncing === shipment.id}>{syncing === shipment.id ? "Syncing..." : shipment.courier_sync_error ? "Retry" : "Sync"}</button>}</td></tr>)}{!loading && !rows.length && <tr><td colSpan="7" className="emptyFinanceCell">No shipment matches these filters.</td></tr>}{loading && <tr><td colSpan="7" className="emptyFinanceCell">Loading shipment queue...</td></tr>}</tbody></table></div></section>
@@ -2295,6 +2434,19 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const marketingSpendTotal = marketingCampaigns.reduce((sum, item) => sum + Number(item.spend || 0), 0);
   const marketingSalesTotal = marketingCampaigns.reduce((sum, item) => sum + Number(item.sales || 0), 0);
   const marketingCustomersTotal = marketingCampaigns.reduce((sum, item) => sum + Number(item.customers || 0), 0);
+  const financeCashVisual = [
+    { label: "Available cash", value: Math.max(0, availableCash), color: "#1d6840" },
+    { label: "PostEx receivable", value: receivables, color: "#4777a8" },
+    { label: "Owner funds", value: ownerInvestments, color: "#6c7b43" },
+    { label: "Withdrawals", value: ownerWithdrawals, color: "#b73543" },
+  ].filter((item) => item.value > 0);
+  const financeCostVisual = [
+    { label: "Sales", value: grossRevenue, color: "#1d6840" },
+    { label: "COGS", value: deliveredCogs, color: "#c78b2b" },
+    { label: "PostEx costs", value: courierDeliveryCost + returnCourierCost + gstTaxTotal, color: "#b73543" },
+    { label: "Operating expenses", value: profitExpenseTotal, color: "#8d2449" },
+    { label: "Net profit", value: Math.max(0, netProfit), color: "#4777a8" },
+  ].filter((item) => item.value > 0);
 
   async function addMarketingCampaign(event) { event.preventDefault(); const formElement = event.currentTarget; const data = new FormData(formElement); const next = [{ id: `campaign-${Date.now()}`, name: String(data.get("name") || "").trim(), platform: data.get("platform") || "Other", spend: Number(data.get("spend") || 0), sales: Number(data.get("sales") || 0), customers: Number(data.get("customers") || 0), date: data.get("date") || today }, ...marketingCampaigns]; if (!next[0].name) return; setCashbookLoading(true); try { const response = await fetch("/api/admin/finance-transactions", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ transactions:cashbookTransactions, allocation:profitAllocation, supplierBills, fixedCosts:Number(fixedCosts||0), marketingCampaigns:next }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to save campaign."); setMarketingCampaigns(result.marketingCampaigns || next); formElement?.reset(); } catch (error) { setCashbookError(error.message); } finally { setCashbookLoading(false); } }
 
@@ -2822,6 +2974,10 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       <article><TrendingUp /><span><b>{money(profitAfterProductCost)}</b>Profit before deductions</span></article>
       <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Final net profit</span></article>
     </div>
+    <div className="adminVisualGrid">
+      <VisualDonut title="Cash position" subtitle="Available cash, pending PostEx money and owner movements." centerValue={money(Math.max(0, availableCash))} centerLabel="cash" items={financeCashVisual} />
+      <VisualBars title="P&L flow" subtitle="Sales compared with COGS, PostEx costs, expenses and net profit." format={(value) => money(value)} items={financeCostVisual} />
+    </div>
 
     <section className="financeGrid financeGridWide">
       <form className="adminCard financeExpenseForm" onSubmit={saveProfitAllocation}>
@@ -2945,6 +3101,17 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
         <div className="cardHeading"><div><h2>Reports &amp; exports</h2><p>Download the current finance period for review or sharing.</p></div></div>
         <div className="financeStatement"><div><span>Selected period</span><b>{financePeriod === "all" ? "All time" : financePeriod === "month" ? "This month" : "Last month"}</b></div><div><span>Delivered sales</span><b>{money(grossRevenue)}</b></div><div><span>Net profit / loss</span><b>{money(netProfit)}</b></div><div className="statementTotal"><span>Supplier payables</span><b>{money(supplierPayableTotal)}</b></div></div>
       </div>
+      <VisualBars
+        title="Report snapshot"
+        subtitle="Quick export preview before downloading CSV."
+        format={(value) => money(value)}
+        items={[
+          { label: "Delivered sales", value: grossRevenue, color: "#1d6840" },
+          { label: "Product cost", value: deliveredCogs, color: "#c78b2b" },
+          { label: "PostEx deductions", value: courierDeliveryCost + returnCourierCost + gstTaxTotal, color: "#b73543" },
+          { label: "Supplier payables", value: supplierPayableTotal, color: "#8d2449" },
+        ]}
+      />
       <div className="adminCard financeExpenseForm"><h2>Export finance report</h2><p className="trackingNumber">CSV includes sales, costs, courier, GST/tax, cash and inventory values for the selected period.</p><button type="button" onClick={exportFinance}><ReceiptText /> Download CSV report</button></div>
     </section>
   </div>;
@@ -3169,6 +3336,18 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     const target = Math.max(Number(product.lowStockThreshold || 5) * 2, 10);
     return sum + Math.max(0, target - Number(product.stock || 0)) * Number(product.costTotalPkr || 0);
   }, 0);
+  const healthyStockCount = products.filter((product) => Number(product.stock || 0) > Number(product.lowStockThreshold || 5)).length;
+  const inventoryStockVisual = [
+    { label: "Healthy", value: healthyStockCount, color: "#1d6840" },
+    { label: "Low", value: low, color: "#d08a18" },
+    { label: "Out", value: out, color: "#b73543" },
+  ].filter((item) => item.value > 0);
+  const inventoryValueVisual = [
+    { label: "Stock cost value", value: stockCostValue, color: "#1d6840" },
+    { label: "COGS sold", value: cogsSold, color: "#4777a8" },
+    { label: "Stock purchase cash", value: stockPurchaseCash, color: "#c78b2b" },
+    { label: "Restock cash required", value: restockCashRequired, color: "#b73543" },
+  ].filter((item) => item.value > 0);
   const skuProfitRows = products.map((product) => {
     const soldItems = deliveredHistoricalOrders.flatMap((order) => normalizeOrderItems(order.raw || order)).filter((item) => String(item.productId) === String(product.id));
     const unitsSold = soldItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -3389,6 +3568,10 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       <article><TrendingUp /><span><b>Rs. {value.toLocaleString()}</b>Potential sales value</span></article>
       <article className={displayedStockProfit < 0 ? "alertMetric" : ""}><CircleDollarSign /><span><b>Rs. {displayedStockProfit.toLocaleString()}</b>{profitProjectionView === "all" ? "All-cost projected profit" : "Product-only stock profit"}</span></article>
       <article className={lowMaterialCount ? "alertMetric" : ""}><Tags /><span><b>Rs. {materialValue.toLocaleString()}</b>Material value</span></article>
+    </div>
+    <div className="adminVisualGrid">
+      <VisualDonut title="Stock health" subtitle="Clear split of healthy, low and out-of-stock products." centerValue={products.length} centerLabel="products" items={inventoryStockVisual} />
+      <VisualBars title="Inventory cash view" subtitle="Separate stock value, sold COGS, purchase cash and required restock cash." format={(value) => inventoryMoney(value)} items={inventoryValueVisual} />
     </div>
 
     {low + out > 0 && <div className="inventoryAlert"><Bell /><div><b>{low + out} products need attention</b><span>Out-of-stock products cannot be ordered, and low stock is highlighted here.</span></div><button onClick={() => setInventoryView(low ? "Low stock" : "Out of stock")}>Review items</button></div>}
@@ -3924,6 +4107,16 @@ function CustomersPanel({ orders, onOpen }) {
     return matchesSegment && matchesSearch;
   });
   const selectedCustomer = customers.find((customer) => customer.id === selectedId);
+  const segmentVisual = segments.filter((item) => item !== "All").map((item, index) => ({
+    label: item,
+    value: customers.filter((customer) => (customer.tags || []).includes(item)).length,
+    color: ["#1d6840", "#4777a8", "#c78b2b", "#8d2449"][index] || "#1d6840",
+  })).filter((item) => item.value > 0);
+  const spendVisual = customers.slice().sort((a, b) => Number(b.totalSpent || 0) - Number(a.totalSpent || 0)).slice(0, 6).map((customer, index) => ({
+    label: customer.name,
+    value: Number(customer.totalSpent || 0),
+    color: ["#1d6840", "#4777a8", "#c78b2b", "#8d2449", "#6c7b43", "#7d5ba6"][index] || "#1d6840",
+  }));
 
   function updateCustomer(customerId, changes) {
     setEdits((current) => ({ ...current, [customerId]: { ...(current[customerId] || {}), ...changes } }));
@@ -3943,6 +4136,10 @@ function CustomersPanel({ orders, onOpen }) {
 
   return <><div className="adminTitle"><div><p>CUSTOMERS</p><h1>Customers</h1><span>Profiles, order history, total spent, segments, tags and notes.</span></div><button onClick={() => onOpen({ module: "Customers", feature: "Add customer", create: true })}><Plus /> Add customer</button></div>
     <div className="miniMetricGrid productMetrics"><article><Users /><span><b>{customers.length}</b>Customers</span></article><article><Tags /><span><b>{customers.filter((c) => c.tags.includes("VIP")).length}</b>VIP</span></article><article><ShoppingBag /><span><b>{customers.reduce((sum, customer) => sum + customer.orders.length, 0)}</b>Orders</span></article><article><CircleDollarSign /><span><b>Rs. {customers.reduce((sum, customer) => sum + Number(customer.totalSpent || 0), 0).toLocaleString()}</b>Total spent</span></article></div>
+    <div className="adminVisualGrid">
+      <VisualDonut title="Customer segments" subtitle="VIP, repeat, new and social customers at a glance." centerValue={customers.length} centerLabel="customers" items={segmentVisual} />
+      <VisualBars title="Top customer value" subtitle="Highest customer spend for quick retention follow-up." format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`} items={spendVisual} />
+    </div>
     <section className="adminCard managementCard">
       <div className="catalogToolbar">
         <div className="orderTabs">{segments.map((item) => <button key={item} className={segment === item ? "active" : ""} onClick={() => setSegment(item)}>{item}</button>)}</div>
@@ -4018,6 +4215,9 @@ function BackendHealthPanel() {
   const deploymentAudit = health?.deploymentAudit || [];
   const performanceSummary = health?.performanceSummary || { ok: 0, warning: 0, fail: 0 };
   const performanceAudit = health?.performanceAudit || [];
+  const healthTotal = Math.max(1, Number(summary.ok || 0) + Number(summary.warning || 0) + Number(summary.fail || 0));
+  const completenessTotal = Math.max(1, Number(completenessSummary.complete || 0) + Number(completenessSummary.partial || 0) + Number(completenessSummary.missing || 0));
+  const securityTotal = Math.max(1, Number(securitySummary.ok || 0) + Number(securitySummary.warning || 0) + Number(securitySummary.fail || 0));
   const statusClass = (status) => status === "ok" ? "activeStatus" : status === "warning" ? "processing" : "cancelled";
   const completenessStatusClass = (status) => status === "complete" ? "activeStatus" : status === "partial" ? "processing" : "cancelled";
 
@@ -4035,6 +4235,25 @@ function BackendHealthPanel() {
         <article className="miniMetricCard"><span>Healthy</span><b>{summary.ok || 0}</b><small>Passing checks</small></article>
         <article className="miniMetricCard"><span>Needs review</span><b>{summary.warning || 0}</b><small>Warnings</small></article>
         <article className="miniMetricCard"><span>Fix now</span><b>{summary.fail || 0}</b><small>Failed checks</small></article>
+      </div>
+      <div className="adminVisualGrid">
+        <section className="adminVisualCard">
+          <div className="adminVisualHead"><div><h3>Readiness score</h3><p>Color-coded health, completeness and security coverage.</p></div></div>
+          <VisualProgress label="Backend health" value={(Number(summary.ok || 0) / healthTotal) * 100} helper={`${summary.ok || 0} passing, ${summary.warning || 0} warnings, ${summary.fail || 0} failed`} color="#1d6840" />
+          <VisualProgress label="Feature completeness" value={(Number(completenessSummary.complete || 0) / completenessTotal) * 100} helper={`${completenessSummary.complete || 0} complete modules`} color="#4777a8" />
+          <VisualProgress label="Security checks" value={(Number(securitySummary.ok || 0) / securityTotal) * 100} helper={`${securitySummary.ok || 0} secure checks`} color="#8d2449" />
+        </section>
+        <VisualDonut
+          title="Backend status split"
+          subtitle="Instant pass/warn/fail view."
+          centerValue={summary.ok || 0}
+          centerLabel="passing"
+          items={[
+            { label: "OK", value: summary.ok || 0, color: "#1d6840" },
+            { label: "Warning", value: summary.warning || 0, color: "#d08a18" },
+            { label: "Fail", value: summary.fail || 0, color: "#b73543" },
+          ]}
+        />
       </div>
       <div className="adminTableWrap">
         <table className="adminTable">
@@ -4489,6 +4708,25 @@ function SettingsPanel({ onOpen, signedInUser }) {
           <h2>Payment methods</h2>
           {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
           {storeSettingsSetup && <div className="adminErrorBanner">{storeSettingsSetup}</div>}
+          <div className="adminVisualGrid">
+            <section className="adminVisualCard">
+              <div className="adminVisualHead"><div><h3>Payment readiness</h3><p>Enabled methods and operational safeguards.</p></div></div>
+              <VisualProgress label="COD flow" value={storeSettings.paymentSettings?.codEnabled !== false ? 100 : 0} helper={storeSettings.paymentSettings?.codEnabled !== false ? "COD is available at checkout." : "COD disabled."} color="#1d6840" />
+              <VisualProgress label="Manual transfer fallback" value={storeSettings.paymentSettings?.manualTransferEnabled !== false ? 100 : 0} helper="Bank/JazzCash/Easypaisa instructions can be shown to customer." color="#4777a8" />
+              <VisualProgress label="Hosted gateway" value={storeSettings.paymentSettings?.onlineGatewayEnabled === true ? 70 : 20} helper={storeSettings.paymentSettings?.onlineGatewayEnabled === true ? "Enabled; add provider credentials/webhook before trusting auto-paid status." : "Enable after PayFast/Easypaisa/JazzCash credentials are ready."} color="#8d2449" />
+            </section>
+            <VisualDonut
+              title="Payment methods"
+              subtitle="Current checkout method visibility."
+              centerValue={[storeSettings.paymentSettings?.codEnabled !== false, storeSettings.paymentSettings?.onlineGatewayEnabled === true, storeSettings.paymentSettings?.manualTransferEnabled !== false].filter(Boolean).length}
+              centerLabel="enabled"
+              items={[
+                { label: "COD", value: storeSettings.paymentSettings?.codEnabled !== false ? 1 : 0, color: "#1d6840" },
+                { label: "Online", value: storeSettings.paymentSettings?.onlineGatewayEnabled === true ? 1 : 0, color: "#8d2449" },
+                { label: "Manual", value: storeSettings.paymentSettings?.manualTransferEnabled !== false ? 1 : 0, color: "#4777a8" },
+              ]}
+            />
+          </div>
           <div className="paymentSettingsGrid">
             <div className="settingsOption"><div><b>Cash on Delivery</b><span>Default customer option. PostEx collection stays equal to order total.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.codEnabled !== false} onChange={(event) => updatePaymentSettings({ codEnabled: event.target.checked })} /> Enabled</label></div>
             <div className="settingsOption"><div><b>Online prepaid gateway</b><span>Hosted checkout placeholder. Enable after PayFast/Easypaisa/JazzCash credentials are live.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.onlineGatewayEnabled === true} onChange={(event) => updatePaymentSettings({ onlineGatewayEnabled: event.target.checked })} /> Enabled</label></div>
