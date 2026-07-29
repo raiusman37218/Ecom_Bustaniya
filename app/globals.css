@@ -2432,9 +2432,30 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .productDescription { line-height:1.8; color:#58665c; font-size:13px; padding-bottom:25px; border-bottom:1px solid var(--line); }
 .selectorHeading { display:flex; justify-content:space-between; margin:25px 0 12px; font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
 .selectorHeading a { border-bottom:1px solid; }
-.sizeOptions { display:grid; grid-template-columns:repeat(5,1fr); gap:7px; }
-.sizeOptions button { height:45px; border:1px solid var(--line); background:transparent; }
-.sizeOptions button.selected { border-color:var(--forest); background:var(--forest); color:#fff; }
+.sizeOptions { display:flex; flex-wrap:wrap; gap:11px; }
+.sizeOptions button {
+  min-width:88px;
+  min-height:52px;
+  padding:0 24px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:transparent;
+  color:var(--forest);
+  font-weight:800;
+  letter-spacing:.04em;
+  box-shadow:inset 0 1px rgba(255,255,255,.9),0 10px 22px rgba(23,61,41,.06);
+  transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease,background .22s ease,color .22s ease;
+}
+.sizeOptions button:hover {
+  transform:translateY(-1px);
+  box-shadow:inset 0 1px rgba(255,255,255,.95),0 12px 24px rgba(23,61,41,.1);
+}
+.sizeOptions button.selected {
+  border-color:var(--forest);
+  background:var(--forest);
+  color:#fff;
+  box-shadow:0 10px 22px rgba(23,61,41,.17);
+}
 .quantityHeading { margin:22px 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
 .productQuantity { margin-top:0; }
 .productActions { display:grid; grid-template-columns:1fr 52px; gap:8px; margin-top:25px; }
@@ -5989,8 +6010,8 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .productPurchase h1 { font-size:40px; line-height:.96; letter-spacing:0; }
   .detailPrice { font-size:19px; }
   .selectorHeading { margin-top:24px; }
-  .sizeOptions { grid-template-columns:repeat(5,minmax(0,1fr)); }
-  .sizeOptions button { min-width:0; padding:0; }
+  .sizeOptions { gap:8px; }
+  .sizeOptions button { min-width:70px; padding:0 18px; }
   .productActions { gap:8px; }
   .addBagButton { flex:1; }
   .wishButton { width:54px; flex:0 0 54px; }
