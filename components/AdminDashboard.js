@@ -3808,6 +3808,8 @@ function BackendHealthPanel() {
   const securityAudit = health?.securityAudit || [];
   const deploymentSummary = health?.deploymentSummary || { ok: 0, warning: 0, fail: 0 };
   const deploymentAudit = health?.deploymentAudit || [];
+  const performanceSummary = health?.performanceSummary || { ok: 0, warning: 0, fail: 0 };
+  const performanceAudit = health?.performanceAudit || [];
   const statusClass = (status) => status === "ok" ? "activeStatus" : status === "warning" ? "processing" : "cancelled";
   const completenessStatusClass = (status) => status === "complete" ? "activeStatus" : status === "partial" ? "processing" : "cancelled";
 
@@ -3842,6 +3844,35 @@ function BackendHealthPanel() {
         {!checks.length && <div className="inventoryEmpty">{loading ? "Running backend checks..." : "No health checks available."}</div>}
       </div>
       <p className="paymentSecurityNote">Note: secret values are never shown here. This panel only confirms whether backend configuration and critical tables are reachable.</p>
+    </section>
+    <section className="adminCard settingsForm settingsWideForm">
+      <div className="inventoryListHead">
+        <div>
+          <h2>Performance audit</h2>
+          <span>API latency, image optimisation, bundle size, caching, loading states and layout stability.</span>
+        </div>
+      </div>
+      <div className="dashboardMiniGrid">
+        <article className="miniMetricCard"><span>Good</span><b>{performanceSummary.ok || 0}</b><small>Passing checks</small></article>
+        <article className="miniMetricCard"><span>Review</span><b>{performanceSummary.warning || 0}</b><small>Optimise soon</small></article>
+        <article className="miniMetricCard"><span>Slow/Risk</span><b>{performanceSummary.fail || 0}</b><small>Must fix</small></article>
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead><tr><th>Area</th><th>Performance check</th><th>Status</th><th>Detail</th><th>Action</th></tr></thead>
+          <tbody>
+            {performanceAudit.map((item) => <tr key={`${item.area}-${item.check}`}>
+              <td>{item.area}</td>
+              <td><b>{item.check}</b></td>
+              <td><span className={`statusBadge ${statusClass(item.status)}`}>{item.status}</span></td>
+              <td>{item.detail}</td>
+              <td>{item.action || "No action needed."}</td>
+            </tr>)}
+          </tbody>
+        </table>
+        {!performanceAudit.length && <div className="inventoryEmpty">{loading ? "Checking performance..." : "No performance audit data available."}</div>}
+      </div>
+      <p className="paymentSecurityNote">Performance note: these are lightweight server-side samples, not a replacement for Lighthouse/Web Vitals, but they quickly highlight the biggest operational bottlenecks.</p>
     </section>
     <section className="adminCard settingsForm settingsWideForm">
       <div className="inventoryListHead">

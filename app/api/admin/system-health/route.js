@@ -461,6 +461,136 @@ function buildDeploymentAudit(request) {
   return audit;
 }
 
+async function timedCheck(label, runner) {
+  const startedAt = Date.now();
+  try {
+    const result = await runner();
+    return { label, durationMs: Date.now() - startedAt, ok: true, result };
+  } catch (error) {
+    return { label, durationMs: Date.now() - startedAt, ok: false, error };
+  }
+}
+
+function cloudinaryOptimized(url = "") {
+  const value = String(url || "");
+  return value.includes("res.cloudinary.com") && /\/(?:c_|q_auto|f_auto|w_|h_)/i.test(value);
+}
+
+function extractImageUrls(product) {
+  const urls = [];
+  if (product?.img) urls.push(product.img);
+  const media = Array.isArray(product?.media) ? product.media : [];
+  for (const item of media) {
+    if (typeof item === "string") urls.push(item);
+    if (item?.src) urls.push(item.src);
+    if (item?.url) urls.push(item.url);
+  }
+  return urls.filter(Boolean);
+}
+
+async function buildPerformanceAudit() {
+  const audit = [];
+  const push = (status, area, check, detail, action = "") => audit.push({ status, area, check, detail, action });
+
+  const catalogTiming = await timedCheck("Public catalog API", () =>
+    supabaseRequest("products?select=id,name,price,img,media,instock&instock=eq.true&limit=12")
+  );
+  push(
+    !catalogTiming.ok ? "fail" : catalogTiming.durationMs <= 700 ? "ok" : catalogTiming.durationMs <= 1500 ? "warning" : "fail",
+    "API latency",
+    "Public catalog query",
+    catalogTiming.ok
+      ? `Sample public catalog query completed in ${catalogTiming.durationMs}ms.`
+      : `Catalog query failed: ${formatSupabaseError(catalogTiming.error)}`,
+    catalogTiming.ok && catalogTiming.durationMs <= 700 ? "" : "Review Supabase indexes, selected columns and API caching for product listing."
+  );
+
+  const adminOrdersTiming = await timedCheck("Admin orders API data", () =>
+    supabaseAdminRequest("orders?select=id,total_pkr,status,courier_status,created_at&order=created_at.desc&limit=25")
+  );
+  push(
+    !adminOrdersTiming.ok ? "fail" : adminOrdersTiming.durationMs <= 900 ? "ok" : adminOrdersTiming.durationMs <= 1800 ? "warning" : "fail",
+    "API latency",
+    "Admin orders query",
+    adminOrdersTiming.ok
+      ? `Sample admin orders query completed in ${adminOrdersTiming.durationMs}ms.`
+      : `Admin orders query failed: ${formatSupabaseError(adminOrdersTiming.error)}`,
+    adminOrdersTiming.ok && adminOrdersTiming.durationMs <= 900 ? "" : "Add/verify indexes on order date/status fields and keep admin selects lean."
+  );
+
+  const imageTiming = await timedCheck("Product image sample", () =>
+    supabaseAdminRequest("products?select=id,img,media&limit=20")
+  );
+  if (imageTiming.ok) {
+    const imageUrls = (imageTiming.result || []).flatMap(extractImageUrls);
+    const cloudinaryImages = imageUrls.filter((url) => String(url).includes("res.cloudinary.com"));
+    const optimizedImages = cloudinaryImages.filter(cloudinaryOptimized);
+    const localImages = imageUrls.filter((url) => String(url).startsWith("/"));
+    push(
+      !imageUrls.length ? "warning" : optimizedImages.length === cloudinaryImages.length ? "ok" : "warning",
+      "Images",
+      "Product image optimization",
+      `${imageUrls.length} image URL(s) sampled. ${optimizedImages.length}/${cloudinaryImages.length} Cloudinary URL(s) include transformation hints.`,
+      optimizedImages.length === cloudinaryImages.length
+        ? ""
+        : "Use Cloudinary delivery transformations such as f_auto,q_auto,w_... for heavy product/hero images."
+    );
+    push(
+      localImages.length ? "warning" : "ok",
+      "Images",
+      "Static/local image risk",
+      localImages.length ? `${localImages.length} sampled product image(s) are local/static paths.` : "Sampled product images are externally optimized URLs.",
+      localImages.length ? "Move production product media to Cloudinary optimized URLs where possible." : ""
+    );
+  } else {
+    push(
+      "warning",
+      "Images",
+      "Product image optimization",
+      `Could not sample product images: ${formatSupabaseError(imageTiming.error)}`,
+      "Refresh after Supabase product table is reachable."
+    );
+  }
+
+  push(
+    "ok",
+    "Caching",
+    "Static storefront pages",
+    "Policy/contact/static pages are statically generated in the build; dynamic product/category pages render on demand.",
+    "For high traffic, add explicit revalidation/caching to catalog APIs once inventory freshness rules are finalized."
+  );
+  push(
+    "warning",
+    "JavaScript bundle",
+    "Admin bundle size",
+    "Admin is a large single client component, so first-load JS grows as features are added.",
+    "Next polish phase: split heavy admin modules into lazy-loaded chunks by section."
+  );
+  push(
+    "ok",
+    "Loading states",
+    "Admin loading shell",
+    "Admin has a professional skeleton loading shell and table empty/loading states.",
+    ""
+  );
+  push(
+    "warning",
+    "Layout shifts",
+    "Image dimensions",
+    "Cloudinary/product images rely on CSS containers; some remote images may still shift if dimensions are unknown.",
+    "Prefer fixed aspect-ratio containers and optimized image components for all product/hero media."
+  );
+  push(
+    "warning",
+    "Duplicate requests",
+    "Client-side data refresh",
+    "Some admin sections refresh independently and can duplicate requests during rapid navigation.",
+    "Add shared fetch/cache layer later if admin traffic or latency increases."
+  );
+
+  return audit;
+}
+
 export async function GET(request) {
   try {
     await authorizeAdminSession(request, "settings");
@@ -529,6 +659,7 @@ export async function GET(request) {
 
     const securityAudit = await buildSecurityAudit();
     const deploymentAudit = buildDeploymentAudit(request);
+    const performanceAudit = await buildPerformanceAudit();
 
     const summary = checks.reduce(
       (total, check) => ({ ...total, [check.status]: (total[check.status] || 0) + 1 }),
@@ -551,6 +682,11 @@ export async function GET(request) {
       ),
       deploymentAudit,
       deploymentSummary: deploymentAudit.reduce(
+        (total, item) => ({ ...total, [item.status]: (total[item.status] || 0) + 1 }),
+        { ok: 0, warning: 0, fail: 0 }
+      ),
+      performanceAudit,
+      performanceSummary: performanceAudit.reduce(
         (total, item) => ({ ...total, [item.status]: (total[item.status] || 0) + 1 }),
         { ok: 0, warning: 0, fail: 0 }
       ),
