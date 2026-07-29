@@ -3506,27 +3506,71 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
     }
   }
 
-  function printPackingSlip() {
-    const lines = [
-      "Bustaniya Packing Slip",
-      `Order: ${order.id}`,
-      `Customer: ${order.customer}`,
-      `Phone: ${order.phone || ""}`,
-      `Address: ${order.address || order.city || ""}`,
-      "",
-      ...items.map((item) => `${item.quantity} x ${item.name}${item.size ? ` / ${item.size}` : ""}${item.color ? ` / ${item.color}` : ""}`),
-      "",
-      `Amount: Rs. ${Number(order.total || 0).toLocaleString()}`,
-      `Status: ${orderStage}`,
-      `Delivery method: ${deliveryMethod}`,
-      `Tracking: ${tracking || "Pending"}`,
-      `Notes: ${notes || ""}`,
-    ].join("\n");
-    const slip = window.open("", "_blank", "width=720,height=820");
+  function escapePrintText(value = "") {
+    return String(value || "").replace(/[&<>"]/g, (char) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "\"": "&quot;",
+    }[char]));
+  }
+
+  function printDocument({ title, subtitle, compact = false }) {
+    const total = Number(order.total || 0);
+    const rows = items.map((item) => {
+      const quantity = Number(item.quantity || 0);
+      const unitPrice = Number(item.price || 0);
+      const lineTotal = quantity * unitPrice;
+      return `<tr>
+        <td><b>${escapePrintText(item.name)}</b><small>${escapePrintText([item.sku, item.size, item.color].filter(Boolean).join(" / "))}</small></td>
+        <td>${quantity}</td>
+        ${compact ? "" : `<td>Rs. ${unitPrice.toLocaleString()}</td><td>Rs. ${lineTotal.toLocaleString()}</td>`}
+      </tr>`;
+    }).join("");
+    const slip = window.open("", "_blank", "width=760,height=900");
     if (!slip) return;
-    slip.document.write(`<pre style="font-family:Arial,sans-serif;white-space:pre-wrap;padding:28px;line-height:1.6">${lines.replace(/[&<>]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[char]))}</pre>`);
+    slip.document.write(`<!doctype html><html><head><title>${escapePrintText(title)} ${escapePrintText(order.id)}</title><style>
+      body{font-family:Arial,sans-serif;margin:0;color:#173d29;background:#fff}
+      main{padding:32px}
+      header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #173d29;padding-bottom:18px;margin-bottom:22px}
+      h1{margin:0;font-size:28px;letter-spacing:.02em}
+      p{margin:4px 0;color:#59675d;line-height:1.45}
+      .box{border:1px solid #dfe7df;border-radius:10px;padding:16px;margin:14px 0}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+      table{width:100%;border-collapse:collapse;margin-top:18px}
+      th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#59675d;border-bottom:1px solid #dfe7df;padding:10px}
+      td{border-bottom:1px solid #eef2ee;padding:12px 10px;vertical-align:top}
+      td small{display:block;color:#6b766e;margin-top:4px}
+      .total{margin-left:auto;max-width:320px}
+      .total div{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eef2ee}
+      .total b{font-size:18px}
+      @media print{button{display:none} main{padding:20px}}
+    </style></head><body><main>
+      <header><div><h1>Bustaniya</h1><p>${escapePrintText(subtitle)}</p></div><div><p><b>Order</b> ${escapePrintText(order.id)}</p><p><b>Date</b> ${escapePrintText(order.date || "")}</p><p><b>Status</b> ${escapePrintText(orderStage)}</p></div></header>
+      <section class="grid">
+        <div class="box"><b>Customer</b><p>${escapePrintText(order.customer)}</p><p>${escapePrintText(order.phone || "No phone saved")}</p></div>
+        <div class="box"><b>Delivery</b><p>${escapePrintText(order.address || order.city || "No address saved")}</p><p>${escapePrintText(deliveryMethod)}${tracking ? ` — ${escapePrintText(tracking)}` : ""}</p></div>
+      </section>
+      <table><thead><tr><th>Item</th><th>Qty</th>${compact ? "" : "<th>Unit price</th><th>Total</th>"}</tr></thead><tbody>${rows}</tbody></table>
+      ${compact ? `<div class="box"><b>Packing note</b><p>${escapePrintText(notes || "Check product, size, colour and packaging before dispatch.")}</p></div>` : `<section class="total"><div><span>Items</span><span>${items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)}</span></div><div><span>Payment</span><span>${escapePrintText(paymentStatus)}</span></div><div><b>Total</b><b>Rs. ${total.toLocaleString()}</b></div></section>`}
+    </main><script>window.onload=()=>{window.print();}</script></body></html>`);
     slip.document.close();
-    slip.print();
+  }
+
+  function printInvoice() {
+    printDocument({
+      title: "Invoice",
+      subtitle: "Customer invoice / order receipt",
+      compact: false,
+    });
+  }
+
+  function printPackingSlip() {
+    printDocument({
+      title: "Packing Slip",
+      subtitle: "Warehouse packing slip — prices hidden",
+      compact: true,
+    });
   }
 
   return <><div className="adminOverlay" onClick={onClose} /><aside className="orderDetailDrawer">
@@ -3541,12 +3585,12 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
         <article className="adminCard orderDetailCard"><h3>Risk</h3><select value={risk} onChange={(event) => setRisk(event.target.value)}><option>Standard COD</option><option>High risk COD</option><option>Repeat customer</option></select></article>
       </section>
 
-      <section className="adminCard orderItemsCard"><div className="inventoryListHead"><div><h2>Items</h2><span>{items.length} line items</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Item</th><th>SKU</th><th>Variant</th><th>Qty</th><th>Amount</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><b>{item.name}</b></td><td>{item.sku || "-"}</td><td>{[item.size,item.color].filter(Boolean).join(" / ") || "-"}</td><td>{item.quantity}</td><td>Rs. {Number(item.price || 0).toLocaleString()}</td></tr>)}</tbody></table></div></section>
+      <section className="adminCard orderItemsCard"><div className="inventoryListHead"><div><h2>Items</h2><span>{items.length} line items</span></div><div className="orderActionRow"><button type="button" onClick={printInvoice}>Print invoice</button><button type="button" onClick={printPackingSlip}>Packing slip</button></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Item</th><th>SKU</th><th>Variant</th><th>Qty</th><th>Unit</th><th>Line total</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><b>{item.name}</b></td><td>{item.sku || "-"}</td><td>{[item.size,item.color].filter(Boolean).join(" / ") || "-"}</td><td>{item.quantity}</td><td>Rs. {Number(item.price || 0).toLocaleString()}</td><td>Rs. {(Number(item.price || 0) * Number(item.quantity || 0)).toLocaleString()}</td></tr>)}</tbody></table></div></section>
 
       <section className="adminCard orderOpsCard">
         <h3>Fulfill order</h3>
         <div className="formRow"><label>Tracking number<input value={tracking} onChange={(event) => setTracking(event.target.value)} placeholder="PostEx tracking number" /></label></div>
-        <div className="orderActionRow"><button onClick={printPackingSlip}>Print packing slip</button>{!order.postexBooked && !order.tracking && <button onClick={bookWithPostex} disabled={saving}>Book with PostEx</button>}<button onClick={() => saveChanges({ fulfillmentStatus: "Booked with PostEx" })} disabled={saving}>{saving ? "Saving..." : "Save tracking"}</button></div>
+        <div className="orderActionRow"><button onClick={printInvoice}>Print invoice</button><button onClick={printPackingSlip}>Print packing slip</button>{!order.postexBooked && !order.tracking && <button onClick={bookWithPostex} disabled={saving}>Book with PostEx</button>}<button onClick={() => saveChanges({ fulfillmentStatus: "Booked with PostEx" })} disabled={saving}>{saving ? "Saving..." : "Save tracking"}</button></div>
       </section>
 
       <section className="adminCard orderOpsCard">
