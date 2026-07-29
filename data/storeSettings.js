@@ -37,6 +37,13 @@ export const DEFAULT_STORE_SETTINGS = {
     story: "#173d29",
     newsletter: "#f7f2e8",
   },
+  sectionTextColors: {
+    heroOverlay: "#173d29",
+    products: "#173d29",
+    categories: "#132f22",
+    story: "#fffdf7",
+    newsletter: "#173d29",
+  },
   heroEnabled: true,
   heroDesktopImage: "/bustaniya-campaign-hero-v5.png",
   heroMobileImage: "/bustaniya-campaign-hero-mobile-v1.png",

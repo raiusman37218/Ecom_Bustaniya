@@ -13,14 +13,20 @@ import { apparelSizes, fashionColors } from "../data/variantOptions";
 import AdminLogin from "./AdminLogin";
 
 const HOMEPAGE_COLOR_OPTIONS = [
-  { name: "Ivory", value: "#fffefb" }, { name: "Cream", value: "#f7f2e8" }, { name: "Blush", value: "#f8e8e8" }, { name: "Rose", value: "#e9b9bd" },
-  { name: "Sand", value: "#e8dcc8" }, { name: "Sage", value: "#dce8d8" }, { name: "Sky", value: "#dcebf2" }, { name: "Lavender", value: "#e6def2" },
-  { name: "Forest", value: "#173d29" }, { name: "Olive", value: "#536b43" }, { name: "Berry", value: "#8d2449" }, { name: "Charcoal", value: "#252b28" },
+  { name: "Ivory", value: "#fffefb" }, { name: "Cream", value: "#f7f2e8" }, { name: "White", value: "#ffffff" },
+  { name: "Blush", value: "#f8e8e8" }, { name: "Rose", value: "#e9b9bd" }, { name: "Sand", value: "#e8dcc8" },
+  { name: "Sage", value: "#dce8d8" }, { name: "Sky", value: "#dcebf2" }, { name: "Lavender", value: "#e6def2" },
+  { name: "Forest", value: "#173d29" }, { name: "Dark Green", value: "#132f22" }, { name: "Olive", value: "#536b43" },
+  { name: "Berry", value: "#8d2449" }, { name: "Dark Red", value: "#bd194b" }, { name: "Gold", value: "#d4af37" },
+  { name: "Charcoal", value: "#252b28" }, { name: "Black", value: "#000000" },
 ];
 
 const HOMEPAGE_COLOR_SECTIONS = [
-  { key: "heroOverlay", label: "Hero overlay" }, { key: "products", label: "Top picks" }, { key: "categories", label: "Shop by category" },
-  { key: "story", label: "Our story" }, { key: "newsletter", label: "Newsletter" },
+  { key: "heroOverlay", label: "Hero Overlay" },
+  { key: "products", label: "Top Picks (New Arrivals)" },
+  { key: "categories", label: "Curated Collections (Shop by Category)" },
+  { key: "story", label: "Our Story" },
+  { key: "newsletter", label: "Newsletter" },
 ];
 
 function HelpHint({ text }) {
@@ -34,40 +40,121 @@ function clampPercent(value) {
 
 function VisualBars({ title, subtitle, items = [], format = (value) => value, compact = false }) {
   const max = Math.max(1, ...items.map((item) => Math.abs(Number(item.value || 0))));
-  return <section className={`adminVisualCard ${compact ? "compact" : ""}`}>
-    <div className="adminVisualHead"><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div></div>
-    <div className="visualBarList">
-      {items.map((item, index) => {
-        const width = clampPercent((Math.abs(Number(item.value || 0)) / max) * 100);
-        return <div className="visualBarRow" key={`${item.label}-${index}`}>
-          <div><span>{item.label}</span><b>{format(item.value)}</b></div>
-          <i style={{ "--bar-width": `${width}%`, "--bar-color": item.color || "#1d6840" }} />
-        </div>;
-      })}
-      {!items.length && <p className="visualEmpty">No data yet.</p>}
-    </div>
-  </section>;
+  const total = items.reduce((sum, item) => sum + Math.abs(Number(item.value || 0)), 0);
+
+  return (
+    <section className={`adminVisualCard ${compact ? "compact" : ""}`}>
+      <div className="adminVisualHead">
+        <div>
+          <h3>{title}</h3>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+      </div>
+      <div className="visualBarList">
+        {items.map((item, index) => {
+          const val = Math.abs(Number(item.value || 0));
+          const width = clampPercent((val / max) * 100);
+          const percent = total > 0 ? Math.round((val / total) * 100) : 0;
+          return (
+            <div className="visualBarRow" key={`${item.label}-${index}`}>
+              <div className="barInfo">
+                <span className="barLabel">{item.label}</span>
+                <div className="barValues">
+                  <span className="barPercent">{percent}%</span>
+                  <b className="barVal">{format(item.value)}</b>
+                </div>
+              </div>
+              <div className="barTrack">
+                <i style={{ "--bar-width": `${width}%`, "--bar-color": item.color || "#1d6840" }} />
+              </div>
+            </div>
+          );
+        })}
+        {!items.length && <p className="visualEmpty">No data yet.</p>}
+      </div>
+    </section>
+  );
 }
 
 function VisualDonut({ title, subtitle, items = [], centerLabel = "", centerValue = "" }) {
-  const total = items.reduce((sum, item) => sum + Math.max(0, Number(item.value || 0)), 0);
-  let cursor = 0;
-  const stops = items.length && total
-    ? items.map((item) => {
-        const start = cursor;
-        cursor += (Math.max(0, Number(item.value || 0)) / total) * 100;
-        return `${item.color || "#1d6840"} ${start}% ${cursor}%`;
-      }).join(", ")
-    : "#edf2ed 0 100%";
-  return <section className="adminVisualCard">
-    <div className="adminVisualHead"><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div></div>
-    <div className="visualDonutWrap">
-      <div className="visualDonut" style={{ "--donut": `conic-gradient(${stops})` }}><span>{centerValue}</span><small>{centerLabel}</small></div>
-      <div className="visualLegend">
-        {items.map((item) => <div key={item.label}><i style={{ background: item.color || "#1d6840" }} /><span>{item.label}</span><b>{item.value}</b></div>)}
+  const validItems = items.filter((item) => Number(item.value || 0) > 0);
+  const total = validItems.reduce((sum, item) => sum + Number(item.value || 0), 0);
+  
+  const size = 160;
+  const strokeWidth = 22;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  let accumulatedPercent = 0;
+
+  return (
+    <section className="adminVisualCard">
+      <div className="adminVisualHead">
+        <div>
+          <h3>{title}</h3>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
       </div>
-    </div>
-  </section>;
+      <div className="visualDonutWrap">
+        <div className="svgDonutContainer">
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="svgDonut">
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="#edf2ed"
+              strokeWidth={strokeWidth}
+            />
+            {total > 0 && validItems.map((item, index) => {
+              const val = Number(item.value || 0);
+              const percent = val / total;
+              const dashArray = `${percent * circumference} ${circumference}`;
+              const dashOffset = -accumulatedPercent * circumference;
+              accumulatedPercent += percent;
+              
+              return (
+                <circle
+                  key={index}
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={radius}
+                  fill="none"
+                  stroke={item.color || "#1d6840"}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={dashArray}
+                  strokeDashoffset={dashOffset}
+                  strokeLinecap="round"
+                  className="donutSegment"
+                />
+              );
+            })}
+          </svg>
+          <div className="donutCenterContent">
+            <span className="donutCenterValue">{centerValue}</span>
+            <small className="donutCenterLabel">{centerLabel}</small>
+          </div>
+        </div>
+        <div className="visualLegend">
+          {validItems.map((item, index) => {
+            const percent = total > 0 ? Math.round((Number(item.value || 0) / total) * 100) : 0;
+            return (
+              <div key={`${item.label}-${index}`} className="legendItem">
+                <div className="legendLabelGroup">
+                  <i style={{ background: item.color || "#1d6840" }} />
+                  <span>{item.label}</span>
+                </div>
+                <div className="legendValueGroup">
+                  <span className="legendPercent">{percent}%</span>
+                  <b>{item.value}</b>
+                </div>
+              </div>
+            );
+          })}
+          {!validItems.length && <p className="visualEmpty">No data yet.</p>}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function VisualProgress({ label, value, helper, color = "#1d6840" }) {
@@ -1421,24 +1508,6 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
       <article><Store /><span><b>{visibleCategories.length}</b>Visible on store</span></article>
       <article><X /><span><b>{archivedCategories.length}</b>Archived/removed</span></article>
       <article><Boxes /><span><b>{products.length}</b>Products mapped</span></article>
-    </div>
-    <div className="adminVisualGrid">
-      <VisualBars
-        title="Products by main category"
-        subtitle="Quickly see which storefront sections carry the catalogue."
-        items={mainCategories.map((category, index) => ({ label: category.name, value: productCount(category), color: ["#1d6840", "#4777a8", "#c78b2b", "#8d2449", "#6c7b43"][index % 5] }))}
-      />
-      <VisualDonut
-        title="Category structure"
-        subtitle="Main vs nested categories and removed records."
-        centerValue={visibleCategories.length}
-        centerLabel="visible"
-        items={[
-          { label: "Main", value: mainCategories.length, color: "#1d6840" },
-          { label: "Nested", value: visibleCategories.filter((category) => category.parentSlug).length, color: "#4777a8" },
-          { label: "Archived", value: archivedCategories.length, color: "#b73543" },
-        ]}
-      />
     </div>
 
     <section className="categoryManagerGrid">
@@ -4136,10 +4205,6 @@ function CustomersPanel({ orders, onOpen }) {
 
   return <><div className="adminTitle"><div><p>CUSTOMERS</p><h1>Customers</h1><span>Profiles, order history, total spent, segments, tags and notes.</span></div><button onClick={() => onOpen({ module: "Customers", feature: "Add customer", create: true })}><Plus /> Add customer</button></div>
     <div className="miniMetricGrid productMetrics"><article><Users /><span><b>{customers.length}</b>Customers</span></article><article><Tags /><span><b>{customers.filter((c) => c.tags.includes("VIP")).length}</b>VIP</span></article><article><ShoppingBag /><span><b>{customers.reduce((sum, customer) => sum + customer.orders.length, 0)}</b>Orders</span></article><article><CircleDollarSign /><span><b>Rs. {customers.reduce((sum, customer) => sum + Number(customer.totalSpent || 0), 0).toLocaleString()}</b>Total spent</span></article></div>
-    <div className="adminVisualGrid">
-      <VisualDonut title="Customer segments" subtitle="VIP, repeat, new and social customers at a glance." centerValue={customers.length} centerLabel="customers" items={segmentVisual} />
-      <VisualBars title="Top customer value" subtitle="Highest customer spend for quick retention follow-up." format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`} items={spendVisual} />
-    </div>
     <section className="adminCard managementCard">
       <div className="catalogToolbar">
         <div className="orderTabs">{segments.map((item) => <button key={item} className={segment === item ? "active" : ""} onClick={() => setSegment(item)}>{item}</button>)}</div>
@@ -4669,14 +4734,41 @@ function SettingsPanel({ onOpen, signedInUser }) {
             <label>Overlay Intensity — {Number(storeSettings.heroOverlayIntensity || 0)}%<input type="range" min="0" max="80" step="1" value={Number(storeSettings.heroOverlayIntensity || 0)} onChange={(event) => setStoreSettings((current) => ({ ...current, heroOverlayIntensity: Number(event.target.value) }))} /></label>
           </section>
           <section className="sectionColorEditor">
-            <div className="heroSettingsHeading"><div><p>HOMEPAGE DESIGN</p><h2>Section Colors</h2><span>Select a common color for each landing-page section.</span></div></div>
+            <div className="heroSettingsHeading"><div><p>HOMEPAGE DESIGN</p><h2>Section Background & Text Colors</h2><span>Select custom background and text colors for each landing-page section.</span></div></div>
             <div className="sectionColorGrid">
               {HOMEPAGE_COLOR_SECTIONS.map((section) => {
-                const selected = storeSettings.sectionColors?.[section.key] || DEFAULT_STORE_SETTINGS.sectionColors[section.key];
+                const selectedBg = storeSettings.sectionColors?.[section.key] || DEFAULT_STORE_SETTINGS.sectionColors[section.key];
+                const selectedText = storeSettings.sectionTextColors?.[section.key] || DEFAULT_STORE_SETTINGS.sectionTextColors?.[section.key] || "#173d29";
                 return <div className="sectionColorOption" key={section.key}>
-                  <div><b>{section.label}</b><span><i style={{ background: selected }} />{HOMEPAGE_COLOR_OPTIONS.find((color) => color.value === selected)?.name || selected}</span></div>
-                  <div className="sectionColorSwatches" role="group" aria-label={`${section.label} color`}>
-                    {HOMEPAGE_COLOR_OPTIONS.map((color) => <button type="button" key={color.value} title={color.name} aria-label={`${section.label}: ${color.name}`} className={selected === color.value ? "selected" : ""} style={{ background: color.value }} onClick={() => setStoreSettings((current) => ({ ...current, sectionColors: { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(current.sectionColors || {}), [section.key]: color.value } }))} />)}
+                  <div className="sectionColorHeader">
+                    <b>{section.label}</b>
+                    <span className="badgePreview" style={{ background: selectedBg, color: selectedText, border: "1px solid #d5ddd3" }}>Preview Text</span>
+                  </div>
+
+                  <div className="colorControlBlock">
+                    <div className="colorLabelRow">
+                      <label>Background Color</label>
+                      <div className="hexInputRow">
+                        <input type="color" value={selectedBg} onChange={(event) => setStoreSettings((current) => ({ ...current, sectionColors: { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(current.sectionColors || {}), [section.key]: event.target.value } }))} />
+                        <span>{selectedBg}</span>
+                      </div>
+                    </div>
+                    <div className="sectionColorSwatches" role="group" aria-label={`${section.label} background color`}>
+                      {HOMEPAGE_COLOR_OPTIONS.map((color) => <button type="button" key={color.value} title={color.name} aria-label={`${section.label} BG: ${color.name}`} className={selectedBg === color.value ? "selected" : ""} style={{ background: color.value }} onClick={() => setStoreSettings((current) => ({ ...current, sectionColors: { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(current.sectionColors || {}), [section.key]: color.value } }))} />)}
+                    </div>
+                  </div>
+
+                  <div className="colorControlBlock" style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px dashed #e0e6df" }}>
+                    <div className="colorLabelRow">
+                      <label>Text Color</label>
+                      <div className="hexInputRow">
+                        <input type="color" value={selectedText} onChange={(event) => setStoreSettings((current) => ({ ...current, sectionTextColors: { ...DEFAULT_STORE_SETTINGS.sectionTextColors, ...(current.sectionTextColors || {}), [section.key]: event.target.value } }))} />
+                        <span>{selectedText}</span>
+                      </div>
+                    </div>
+                    <div className="sectionColorSwatches" role="group" aria-label={`${section.label} text color`}>
+                      {HOMEPAGE_COLOR_OPTIONS.map((color) => <button type="button" key={color.value} title={color.name} aria-label={`${section.label} Text: ${color.name}`} className={selectedText === color.value ? "selected" : ""} style={{ background: color.value }} onClick={() => setStoreSettings((current) => ({ ...current, sectionTextColors: { ...DEFAULT_STORE_SETTINGS.sectionTextColors, ...(current.sectionTextColors || {}), [section.key]: color.value } }))} />)}
+                    </div>
                   </div>
                 </div>;
               })}
