@@ -58,7 +58,10 @@ function VisualBars({ title, subtitle, items = [], format = (value) => value, co
           return (
             <div className="visualBarRow" key={`${item.label}-${index}`}>
               <div className="barInfo">
-                <span className="barLabel">{item.label}</span>
+                <div className="barLabelGroup">
+                  <i className="barDot" style={{ background: item.color || "#1d6840" }} />
+                  <span className="barLabel">{item.label}</span>
+                </div>
                 <div className="barValues">
                   <span className="barPercent">{percent}%</span>
                   <b className="barVal">{format(item.value)}</b>
@@ -79,12 +82,16 @@ function VisualBars({ title, subtitle, items = [], format = (value) => value, co
 function VisualDonut({ title, subtitle, items = [], centerLabel = "", centerValue = "" }) {
   const validItems = items.filter((item) => Number(item.value || 0) > 0);
   const total = validItems.reduce((sum, item) => sum + Number(item.value || 0), 0);
-  
-  const size = 160;
-  const strokeWidth = 22;
+
+  const size = 180;
+  const strokeWidth = 20;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  let accumulatedPercent = 0;
+  const gapDeg = validItems.length > 1 ? 3 : 0;
+  const gapFraction = gapDeg / 360;
+  const totalGap = gapFraction * validItems.length;
+  const usable = Math.max(0, 1 - totalGap);
+  let cursor = 0;
 
   return (
     <section className="adminVisualCard">
@@ -96,34 +103,30 @@ function VisualDonut({ title, subtitle, items = [], centerLabel = "", centerValu
       </div>
       <div className="visualDonutWrap">
         <div className="svgDonutContainer">
+          <div className="donutGlow" />
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="svgDonut">
             <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              fill="none"
-              stroke="#edf2ed"
-              strokeWidth={strokeWidth}
+              cx={size / 2} cy={size / 2} r={radius}
+              fill="none" stroke="#edf2ed" strokeWidth={strokeWidth}
             />
             {total > 0 && validItems.map((item, index) => {
               const val = Number(item.value || 0);
-              const percent = val / total;
-              const dashArray = `${percent * circumference} ${circumference}`;
-              const dashOffset = -accumulatedPercent * circumference;
-              accumulatedPercent += percent;
-              
+              const fraction = (val / total) * usable;
+              const dashLen = fraction * circumference;
+              const gapLen = circumference - dashLen;
+              const offset = -(cursor * circumference) - (gapFraction * circumference * index);
+              cursor += fraction;
+
               return (
                 <circle
                   key={index}
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={radius}
+                  cx={size / 2} cy={size / 2} r={radius}
                   fill="none"
                   stroke={item.color || "#1d6840"}
                   strokeWidth={strokeWidth}
-                  strokeDasharray={dashArray}
-                  strokeDashoffset={dashOffset}
-                  strokeLinecap="round"
+                  strokeDasharray={`${dashLen} ${gapLen}`}
+                  strokeDashoffset={offset}
+                  strokeLinecap="butt"
                   className="donutSegment"
                 />
               );
@@ -136,7 +139,8 @@ function VisualDonut({ title, subtitle, items = [], centerLabel = "", centerValu
         </div>
         <div className="visualLegend">
           {validItems.map((item, index) => {
-            const percent = total > 0 ? Math.round((Number(item.value || 0) / total) * 100) : 0;
+            const val = Number(item.value || 0);
+            const percent = total > 0 ? Math.round((val / total) * 100) : 0;
             return (
               <div key={`${item.label}-${index}`} className="legendItem">
                 <div className="legendLabelGroup">
@@ -146,6 +150,9 @@ function VisualDonut({ title, subtitle, items = [], centerLabel = "", centerValu
                 <div className="legendValueGroup">
                   <span className="legendPercent">{percent}%</span>
                   <b>{item.value}</b>
+                </div>
+                <div className="legendMiniTrack">
+                  <div className="legendMiniFill" style={{ width: `${percent}%`, background: item.color || "#1d6840" }} />
                 </div>
               </div>
             );
@@ -163,6 +170,428 @@ function VisualProgress({ label, value, helper, color = "#1d6840" }) {
     <i><em style={{ width: `${clampPercent(value)}%`, background: color }} /></i>
     {helper && <small>{helper}</small>}
   </div>;
+}
+
+function EmptyState({ icon: Icon = Package, title = "No items found", description = "There are no records matching your current filter criteria.", actionText, onAction }) {
+  return (
+    <div className="unifiedEmptyState">
+      <div className="emptyStateIcon"><Icon /></div>
+      <h3>{title}</h3>
+      {description && <p>{description}</p>}
+      {actionText && onAction && (
+        <button type="button" className="emptyStateAction" onClick={onAction}>{actionText}</button>
+      )}
+    </div>
+  );
+}
+
+function TableDensityToggle({ density, onChange }) {
+  return (
+    <div className="tableDensityToggle" title="Table Row Density">
+      <button type="button" className={density === "comfortable" ? "active" : ""} onClick={() => onChange("comfortable")}>Comfortable</button>
+      <button type="button" className={density === "compact" ? "active" : ""} onClick={() => onChange("compact")}>Compact</button>
+    </div>
+  );
+}
+
+function ConfirmModal({ isOpen, title = "Confirm Action", message, confirmText = "Confirm", cancelText = "Cancel", isDanger = false, onConfirm, onClose }) {
+  if (!isOpen) return null;
+  return (
+    <div className="confirmModalOverlay" onClick={onClose}>
+      <div className="confirmModalCard" onClick={(e) => e.stopPropagation()}>
+        <div className="confirmModalHead">
+          <h3>{title}</h3>
+          <button type="button" onClick={onClose}><X /></button>
+        </div>
+        <p className="confirmModalMessage">{message}</p>
+        <div className="confirmModalActions">
+          <button type="button" className="confirmCancelBtn" onClick={onClose}>{cancelText}</button>
+          <button
+            type="button"
+            className={isDanger ? "confirmDangerBtn" : "confirmPrimaryBtn"}
+            onClick={() => {
+              if (onConfirm) onConfirm();
+              onClose();
+            }}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function parseCSVRows(text) {
+  const lines = text.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(",").map((h) => h.replace(/^"|"$/g, "").trim().toLowerCase());
+
+  return lines.slice(1).map((line) => {
+    const cells = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') inQuotes = !inQuotes;
+      else if (char === ',' && !inQuotes) {
+        cells.push(current.trim().replace(/^"|"$/g, ""));
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    cells.push(current.trim().replace(/^"|"$/g, ""));
+
+    const getVal = (possibleHeaders) => {
+      const index = headers.findIndex((h) => possibleHeaders.includes(h));
+      return index !== -1 ? cells[index] : "";
+    };
+
+    const name = getVal(["title", "name", "product name", "product"]);
+    const priceStr = getVal(["price", "retail price", "unit price"]);
+    const price = Math.max(0, Number(priceStr) || 0);
+    const stockStr = getVal(["stock", "inventory", "qty", "quantity"]);
+    const stock = Math.max(0, Number(stockStr) || 0);
+    const sku = getVal(["sku", "article number", "code"]);
+    const category = getVal(["category", "collection"]) || "Kurtis";
+
+    let isValid = true;
+    let error = "";
+
+    if (!name) {
+      isValid = false;
+      error = "Missing product title";
+    } else if (!priceStr || price <= 0) {
+      isValid = false;
+      error = "Invalid/Zero price";
+    } else if (Number(stockStr) < 0) {
+      isValid = false;
+      error = "Negative stock value";
+    }
+
+    return { name, price, stock, sku, category, isValid, error };
+  });
+}
+
+function CSVImportModal({ isOpen, file, rows = [], onConfirmImport, onClose }) {
+  if (!isOpen || !file) return null;
+
+  const validRows = rows.filter((r) => r.isValid);
+  const invalidRows = rows.filter((r) => !r.isValid);
+
+  return (
+    <div className="adminModalOverlay" onClick={onClose}>
+      <div className="csvModalCard" onClick={(e) => e.stopPropagation()}>
+        <div className="confirmModalHead">
+          <div>
+            <h3>CSV Batch Import Report</h3>
+            <small className="trackingNumber">{file.name} · {rows.length} rows parsed</small>
+          </div>
+          <button type="button" onClick={onClose}><X /></button>
+        </div>
+
+        <div className="csvSummaryStrip">
+          <div className="statusBadge active"><b>{validRows.length}</b> Ready to import</div>
+          {invalidRows.length > 0 && <div className="statusBadge cancelled"><b>{invalidRows.length}</b> Validation errors</div>}
+        </div>
+
+        <div className="adminTableWrap csvPreviewTable">
+          <table className="adminTable">
+            <thead>
+              <tr>
+                <th>Row</th>
+                <th>Product</th>
+                <th>SKU</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Validation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => (
+                <tr key={index} className={row.isValid ? "" : "invalidCsvRow"}>
+                  <td><b>#{index + 1}</b></td>
+                  <td><b>{row.name || "—"}</b></td>
+                  <td>{row.sku || "—"}</td>
+                  <td>{row.price ? `Rs. ${Number(row.price).toLocaleString()}` : <span className="expenseAmount">Invalid price</span>}</td>
+                  <td>{row.stock ?? 0} units</td>
+                  <td>
+                    {row.isValid ? (
+                      <span className="statusBadge active">Valid</span>
+                    ) : (
+                      <span className="statusBadge cancelled">{row.error}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="confirmModalActions">
+          <button type="button" className="confirmCancelBtn" onClick={onClose}>Cancel</button>
+          <button
+            type="button"
+            className="confirmPrimaryBtn"
+            disabled={validRows.length === 0}
+            onClick={() => onConfirmImport(validRows)}
+          >
+            Import {validRows.length} Valid Product{validRows.length === 1 ? "" : "s"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileBottomNav({ active, setActive }) {
+  const mobileNavItems = [
+    { name: "Dashboard", label: "Overview", icon: LayoutDashboard },
+    { name: "Orders", label: "Orders", icon: ShoppingBag },
+    { name: "Products", label: "Products", icon: Package },
+    { name: "Finances", label: "Finance", icon: Landmark },
+    { name: "Settings", label: "Settings", icon: Settings },
+  ];
+
+  return (
+    <nav className="mobileBottomNav" aria-label="Mobile Navigation">
+      {mobileNavItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = active === item.name;
+        return (
+          <button
+            type="button"
+            key={item.name}
+            className={`mobileNavItem ${isActive ? "active" : ""}`}
+            onClick={() => setActive(item.name)}
+            aria-pressed={isActive}
+          >
+            <Icon />
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function ExecutiveAnalyticsSuite({
+  salesByDay = [],
+  salesPeriodTotal = 0,
+  salesPeriodChange = null,
+  dashboardSales = 0,
+  dashboardCogs = 0,
+  dashboardCourierCost = 0,
+  dashboardTaxes = 0,
+  dashboardReturnPostexLoss = 0,
+  dashboardNetProfit = 0,
+  liveOrders = [],
+  products = [],
+}) {
+  const maxDailySales = Math.max(...salesByDay.map((day) => day.sales), 1);
+  const peakDay = salesByDay.reduce((best, current) => (current.sales > best.sales ? current : best), { label: "—", sales: 0 });
+
+  const deliveredOrders = liveOrders.filter(isDeliveredOrder);
+  const deliveredCount = deliveredOrders.length;
+  const aov = deliveredCount > 0 ? Math.round(dashboardSales / deliveredCount) : 0;
+
+  // Unit Economics Margins
+  const netMarginPercent = dashboardSales > 0 ? Math.max(0, Math.round((dashboardNetProfit / dashboardSales) * 100)) : 0;
+  const cogsPercent = dashboardSales > 0 ? Math.min(100, Math.round((dashboardCogs / dashboardSales) * 100)) : 0;
+  const logisticsPercent = dashboardSales > 0 ? Math.min(100, Math.round(((dashboardCourierCost + dashboardTaxes + dashboardReturnPostexLoss) / dashboardSales) * 100)) : 0;
+
+  // Top Products by Delivered Revenue
+  const productRevenueMap = new Map();
+  deliveredOrders.flatMap((order) => normalizeOrderItems(order.raw || order)).forEach((item) => {
+    const key = item.name || "Unknown item";
+    const current = productRevenueMap.get(key) || { name: key, qty: 0, revenue: 0 };
+    current.qty += Number(item.quantity || 1);
+    current.revenue += Number(item.quantity || 1) * Number(item.price || 0);
+    productRevenueMap.set(key, current);
+  });
+  const topProducts = Array.from(productRevenueMap.values())
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 4);
+  const maxProductRev = Math.max(1, ...topProducts.map((p) => p.revenue));
+
+  // Top Destination Cities
+  const cityMap = new Map();
+  liveOrders.forEach((order) => {
+    const city = (order.city || order.shippingAddress?.city || "Other").trim();
+    if (!city) return;
+    const current = cityMap.get(city) || { city, count: 0, total: 0 };
+    current.count += 1;
+    if (isDeliveredOrder(order)) current.total += Number(order.total || 0);
+    cityMap.set(city, current);
+  });
+  const topCities = Array.from(cityMap.values())
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 4);
+  const maxCityTotal = Math.max(1, ...topCities.map((c) => c.total));
+
+  return (
+    <section className="analyticsSection">
+      <div className="analyticsSectionHeader">
+        <div>
+          <h2>Executive Analytics &amp; Insights</h2>
+          <p>Real-time revenue performance, unit economics, top products and regional demand.</p>
+        </div>
+        <span className="analyticsMetricBadge">Live Analytics</span>
+      </div>
+
+      <div className="analyticsGrid2">
+        {/* Sales Trend & Velocity Card */}
+        <article className="analyticsCard">
+          <div className="analyticsCardHead">
+            <div>
+              <h3>Revenue &amp; Sales Trend</h3>
+              <p>Daily delivered revenue breakdown across current period.</p>
+            </div>
+            {salesPeriodChange !== null && (
+              <span className={`analyticsMetricBadge ${salesPeriodChange >= 0 ? "" : "alertMetric"}`}>
+                {salesPeriodChange >= 0 ? `+${salesPeriodChange}%` : `${salesPeriodChange}%`} vs prev period
+              </span>
+            )}
+          </div>
+
+          <div className="analyticsTrendHeader">
+            <div className="analyticsTrendStat">
+              <span>Period Sales</span>
+              <b>Rs. {salesPeriodTotal.toLocaleString()}</b>
+            </div>
+            <div className="analyticsTrendStat">
+              <span>Avg Order Value</span>
+              <b>Rs. {aov.toLocaleString()}</b>
+            </div>
+            <div className="analyticsTrendStat">
+              <span>Peak Day Sales</span>
+              <b>Rs. {peakDay.sales.toLocaleString()}</b>
+            </div>
+          </div>
+
+          <div className="analyticsBarChartContainer">
+            {salesByDay.map((day, idx) => {
+              const heightPct = Math.max(8, Math.round((day.sales / maxDailySales) * 100));
+              return (
+                <div className="analyticsBarColumn" key={idx}>
+                  <div className="analyticsBarTooltip">
+                    {day.label}: Rs. {day.sales.toLocaleString()}
+                  </div>
+                  <div className="analyticsBarFill" style={{ height: `${heightPct}%` }} />
+                  <span className="analyticsBarDate">{day.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+
+        {/* Unit Economics & Margins Card */}
+        <article className="analyticsCard">
+          <div className="analyticsCardHead">
+            <div>
+              <h3>Unit Economics &amp; Margin Breakdown</h3>
+              <p>Proportional split of revenue across profit, COGS and logistics.</p>
+            </div>
+            <span className="analyticsMetricBadge">P&amp;L Health</span>
+          </div>
+
+          <div className="visualBarList" style={{ marginTop: "10px" }}>
+            <VisualProgress
+              label="Net Profit Margin"
+              value={netMarginPercent}
+              helper={`Rs. ${Math.max(0, dashboardNetProfit).toLocaleString()} net profit retained`}
+              color="#245d9a"
+            />
+            <VisualProgress
+              label="COGS Ratio (Cost of Goods)"
+              value={cogsPercent}
+              helper={`Rs. ${dashboardCogs.toLocaleString()} product sourcing cost`}
+              color="#c78b2b"
+            />
+            <VisualProgress
+              label="Logistics, Tax &amp; Courier Loss Ratio"
+              value={logisticsPercent}
+              helper={`Rs. ${(dashboardCourierCost + dashboardTaxes + dashboardReturnPostexLoss).toLocaleString()} PostEx & tax fees`}
+              color="#b73543"
+            />
+          </div>
+        </article>
+      </div>
+
+      <div className="analyticsGrid2" style={{ marginTop: "18px" }}>
+        {/* Top Performing Products Card */}
+        <article className="analyticsCard">
+          <div className="analyticsCardHead">
+            <div>
+              <h3>Top Performing Products</h3>
+              <p>Highest delivered revenue generators in catalog.</p>
+            </div>
+            <span className="analyticsMetricBadge">Best Sellers</span>
+          </div>
+
+          <div className="analyticsRankedList">
+            {topProducts.map((prod, idx) => {
+              const pct = Math.round((prod.revenue / maxProductRev) * 100);
+              return (
+                <div className="analyticsRankedRow" key={idx}>
+                  <div className="analyticsRankedInfo">
+                    <div className="analyticsRankedLabel">
+                      <span className="analyticsRankIndex">{idx + 1}</span>
+                      <span>{prod.name}</span>
+                    </div>
+                    <div className="analyticsRankedValues">
+                      <small className="barPercent">{prod.qty} sold</small>
+                      <b>Rs. {prod.revenue.toLocaleString()}</b>
+                    </div>
+                  </div>
+                  <div className="analyticsRankedTrack">
+                    <div className="analyticsRankedFill" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+            {!topProducts.length && <p className="visualEmpty">No delivered sales data recorded yet.</p>}
+          </div>
+        </article>
+
+        {/* Regional Sales Heatmap Card */}
+        <article className="analyticsCard">
+          <div className="analyticsCardHead">
+            <div>
+              <h3>Regional Demand &amp; Destination Cities</h3>
+              <p>Top order fulfillment hubs by total sales value.</p>
+            </div>
+            <span className="analyticsMetricBadge">Geography</span>
+          </div>
+
+          <div className="analyticsRankedList">
+            {topCities.map((city, idx) => {
+              const pct = Math.round((city.total / maxCityTotal) * 100);
+              return (
+                <div className="analyticsRankedRow" key={idx}>
+                  <div className="analyticsRankedInfo">
+                    <div className="analyticsRankedLabel">
+                      <span className="analyticsRankIndex">{idx + 1}</span>
+                      <span>{city.city}</span>
+                    </div>
+                    <div className="analyticsRankedValues">
+                      <small className="barPercent">{city.count} orders</small>
+                      <b>Rs. {city.total.toLocaleString()}</b>
+                    </div>
+                  </div>
+                  <div className="analyticsRankedTrack">
+                    <div className="analyticsRankedFill" style={{ width: `${pct}%`, background: "linear-gradient(90deg, #4777a8, #2a5280)" }} />
+                  </div>
+                </div>
+              );
+            })}
+            {!topCities.length && <p className="visualEmpty">No city data available yet.</p>}
+          </div>
+        </article>
+      </div>
+    </section>
+  );
 }
 
 function AdminLoadingShell() {
@@ -290,7 +719,76 @@ export default function AdminDashboard() {
   const [costBreakdown, setCostBreakdown] = useState({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0 });
   const [productSaving, setProductSaving] = useState(false);
   const [workspace, setWorkspace] = useState(null);
-  const [activity, setActivity] = useState([]);
+  const [tableDensity, setTableDensity] = useState(() => (typeof window !== "undefined" && localStorage.getItem("bustaniya-admin-table-density")) || "comfortable");
+  const [confirmModalState, setConfirmModalState] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    confirmText: "Confirm",
+    isDanger: true,
+    onConfirm: null,
+  });
+
+  function requestConfirm({ title, message, confirmText = "Confirm", isDanger = true, onConfirm }) {
+    setConfirmModalState({ isOpen: true, title, message, confirmText, isDanger, onConfirm });
+  }
+
+  useEffect(() => {
+    function handleKeyDown(event) {
+      const isInput = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName);
+      if (event.key === "/" && !isInput) {
+        event.preventDefault();
+        const searchInput = document.querySelector(".inlineSearch input, .adminSearch input");
+        if (searchInput) searchInput.focus();
+      }
+      if (event.key === "Escape") {
+        if (confirmModalState.isOpen) {
+          setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [confirmModalState.isOpen]);
+
+  async function deleteProduct(product) {
+    const targetProduct = typeof product === "object" ? product : products.find((p) => String(p.id) === String(product));
+    const productName = targetProduct?.name || "this product";
+    const productId = targetProduct?.id || product;
+
+    requestConfirm({
+      title: "Remove Product",
+      message: `Are you sure you want to remove "${productName}"? If it has order history, it will be archived and hidden from the store.`,
+      confirmText: "Delete Product",
+      isDanger: true,
+      onConfirm: async () => {
+        setCatalogLoading(true);
+        setOrdersError("");
+        try {
+          const response = await fetch("/api/admin/catalog", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productId }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Unable to remove product.");
+          await refreshCatalog();
+        } catch (error) {
+          setOrdersError(error.message || "Product deletion failed.");
+        } finally {
+          setCatalogLoading(false);
+        }
+      },
+    });
+  }
+
+  function handleTableDensityChange(newDensity) {
+    setTableDensity(newDensity);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("bustaniya-admin-table-density", newDensity);
+    }
+  }
+
   const [products, setProducts] = useState(() => initialProducts.map((p, index) => ({
     ...p,
     stock: [12, 7, 3, 18, 5, 9, 4, 11, 2, 14, 8, 6][index] ?? 10,
@@ -969,9 +1467,9 @@ export default function AdminDashboard() {
           {ordersError && active !== "Orders" && <div className="adminErrorBanner">{ordersError}</div>}
           {!canAccessActive && <div className="adminErrorBanner">You do not have access to this admin area.</div>}
           {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} ordersError={ordersLoadError} currentAdminUser={currentAdminUser} onRefresh={() => loadOrders()} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} />}
-          {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} />}
+          {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
-          {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} />}
+          {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}
@@ -1316,24 +1814,37 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     </div></section>
     <div className="adminVisualGrid">
       <VisualDonut
-        title="Order status mix"
-        subtitle="Quick courier/fulfilment health by current order status."
+        title="Order pipeline"
+        subtitle="Live courier health — booked, in-transit, delivered and returned orders."
         centerValue={dashboardOrderCount}
-        centerLabel="orders"
+        centerLabel="total"
         items={Object.entries(statusBuckets).map(([label, value]) => ({ label, value, color: statusPalette[label] || "#8aa08f" })).filter((item) => item.value > 0)}
       />
       <VisualBars
-        title="Profit pressure"
-        subtitle="Clear view of where delivered sales are going."
+        title="Revenue waterfall"
+        subtitle="How delivered sales flow into costs, fees and final net profit."
         format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`}
         items={[
-          { label: "Sales", value: dashboardSales, color: "#1d6840" },
-          { label: "COGS", value: dashboardCogs, color: "#c78b2b" },
-          { label: "PostEx costs", value: dashboardCourierCost + dashboardTaxes + dashboardReturnPostexLoss, color: "#b73543" },
+          { label: "Gross sales", value: dashboardSales, color: "#1d6840" },
+          { label: "Product cost (COGS)", value: dashboardCogs, color: "#c78b2b" },
+          { label: "PostEx & logistics", value: dashboardCourierCost + dashboardTaxes + dashboardReturnPostexLoss, color: "#b73543" },
           { label: "Net profit", value: Math.max(0, dashboardNetProfit), color: "#245d9a" },
         ]}
       />
     </div>
+    <ExecutiveAnalyticsSuite
+      salesByDay={salesByDay}
+      salesPeriodTotal={salesPeriodTotal}
+      salesPeriodChange={salesPeriodChange}
+      dashboardSales={dashboardSales}
+      dashboardCogs={dashboardCogs}
+      dashboardCourierCost={dashboardCourierCost}
+      dashboardTaxes={dashboardTaxes}
+      dashboardReturnPostexLoss={dashboardReturnPostexLoss}
+      dashboardNetProfit={dashboardNetProfit}
+      liveOrders={liveOrders}
+      products={products}
+    />
     {isOwnerDashboard && financeSnapshotStatus === "ready" && <details className="adminCard dashboardCashBreakdown" open>
       <summary><div><p>CASH EXPLAINER</p><h2>How available cash is calculated</h2><span>Every addition and deduction behind the amount shown above.</span></div><b>Rs. {dashboardAvailableCash.toLocaleString()}</b></summary>
       <div className="cashBreakdownGrid">
@@ -1572,7 +2083,7 @@ function productVariants(product) {
   })));
 }
 
-function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, onDeliveryChange, loading, initialView }) {
+function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, onDeliveryChange, loading, initialView, tableDensity = "comfortable", setTableDensity }) {
   const [tab, setTab] = useState(initialView === "missing-cost" ? "Missing cost" : "All");
   const [variantProduct, setVariantProduct] = useState(null);
   const visibleProducts = products.filter((product) => {
@@ -1620,11 +2131,25 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
     URL.revokeObjectURL(link.href);
   }
 
-  function importProducts(event) {
+  const [csvImportState, setCsvImportState] = useState({ isOpen: false, file: null, rows: [] });
+
+  function handleImportFileSelect(event) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    window.alert(`${file.name} selected. CSV import mapping is ready in the admin UI; connect it to Supabase bulk upload when you want live imports.`);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result || "";
+      const parsedRows = parseCSVRows(text);
+      setCsvImportState({ isOpen: true, file, rows: parsedRows });
+    };
+    reader.readAsText(file);
+  }
+
+  function handleCommitCSVImport(validRows) {
+    window.alert(`Successfully validated ${validRows.length} product(s) from CSV! Connect to Supabase bulk endpoint for live persistence.`);
+    setCsvImportState({ isOpen: false, file: null, rows: [] });
   }
 
   return <><div className="adminTitle"><div><p>CATALOGUE</p><h1>Products</h1><span>Add/edit products, variants, collections, inventory and private-drop status.</span></div><button onClick={onAdd}><Plus /> Add product</button></div>
@@ -1635,28 +2160,51 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
       <article><Store /><span><b>{activeCount}</b>Active</span></article>
     </div>
     <div className="adminVisualGrid">
-      <VisualDonut title="Product readiness" subtitle="Active products, low stock risk and missing cost coverage." centerValue={products.length} centerLabel="products" items={productStatusVisual} />
-      <VisualBars title="Products by collection" subtitle="Top collections by catalogue count." items={collectionVisual} />
+      <VisualDonut title="Product readiness" subtitle="Active vs draft, low stock risk and missing cost items." centerValue={activeCount} centerLabel="active" items={productStatusVisual} />
+      <VisualBars title="Collection breakdown" subtitle="Product distribution across top collections." items={collectionVisual} />
     </div>
     <section className="adminCard managementCard">
       <div className="catalogToolbar">
         <div className="orderTabs">{["All","Active","Draft","Archived","Unlisted","Low stock","Missing cost"].map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item}</button>)}</div>
         <div className="catalogActions">
+          <TableDensityToggle density={tableDensity} onChange={setTableDensity} />
           <div className="inlineSearch"><Search /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." /></div>
+          <label className="editProductButton" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            Import CSV
+            <input type="file" accept=".csv" onChange={handleImportFileSelect} style={{ display: "none" }} />
+          </label>
           <button type="button" onClick={exportProducts}>Export CSV</button>
         </div>
       </div>
       <div className="collectionStrip">{collections.map((collection) => <span key={collection}>{collection}</span>)}</div>
-      <div className="adminTableWrap"><table className="adminTable productAdminTable"><thead><tr><th>Product</th><th>Collection</th><th>Price</th><th>Unit cost</th><th>Variants</th><th>Inventory</th><th>Delivery</th><th>Status</th><th /></tr></thead><tbody>
+      <div className={`adminTableWrap ${tableDensity === "compact" ? "compactTable" : ""}`}><table className="adminTable productAdminTable"><thead><tr><th>Product</th><th>Collection</th><th>Price</th><th>Unit cost</th><th>Variants</th><th>Inventory</th><th>Delivery</th><th>Status</th><th /></tr></thead><tbody>
         {visibleProducts.map((product) => {
           const variants = productVariants(product);
           const status = productStatus(product);
-          return <tr key={product.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${product.image})` }} /><div><b>{product.name}</b><small>{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4,"0")}`}</small></div></div></td><td>{productCollection(product)}</td><td><b>Rs. {Number(product.price || 0).toLocaleString()}</b>{(product.compareAtPrice || product.compare_at_price) && <small className="trackingNumber">Was Rs. {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</small>}</td><td><b>Rs. {Number(product.costTotalPkr || 0).toLocaleString()}</b>{product.costBreakdown?.costSource === "production_batch" && <small className="trackingNumber">Batch cost</small>}</td><td><button className="adjustStockButton" onClick={() => setVariantProduct(product)}>{variants.length} variants</button></td><td><span className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)} in stock</span><small className="trackingNumber">Alert at {Number(product.lowStockThreshold || 5)}</small></td><td><b>Rs. 200 / order</b></td><td><span className={`statusBadge ${status === "Active" ? "activeStatus" : status === "Out of stock" ? "cancelled" : "processing"}`}>{status}</span></td><td><div className="productRowActions"><button className="editProductButton" onClick={() => onEdit(product)} disabled={loading}>Edit</button><button className="removeProductButton" onClick={() => onDelete(product)} disabled={loading} aria-label={`Remove ${product.name}`}><X /><span>Remove</span></button></div></td></tr>;
+          return <tr key={product.id}>
+            <td><div className="tableProduct"><span style={{ backgroundImage: `url(${product.image})` }} /><div><b>{product.name}</b><small className="trackingNumber">{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4,"0")}`}</small></div></div></td>
+            <td>{productCollection(product)}</td>
+            <td><b>Rs. {Number(product.price || 0).toLocaleString()}</b></td>
+            <td>{Number(product.costTotalPkr || 0) ? `Rs. ${Number(product.costTotalPkr).toLocaleString()}` : <span className="expenseAmount">Missing cost</span>}</td>
+            <td><button type="button" className="editProductButton" onClick={() => setVariantProduct(product)}>{variants.length} variant{variants.length === 1 ? "" : "s"}</button></td>
+            <td><b className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)} units</b></td>
+            <td>Rs. {Number(product.deliveryCostPkr || 0).toLocaleString()}</td>
+            <td><span className={`statusBadge ${status.toLowerCase()}`}>{status}</span></td>
+            <td><div className="productRowActions"><button type="button" className="editProductButton" onClick={() => onEdit(product)}>Edit</button><button type="button" className="removeProductButton" onClick={() => onDelete(product.id)}><X /> Delete</button></div></td>
+          </tr>;
         })}
-        {!visibleProducts.length && <tr><td colSpan="9"><div className="inventoryEmpty">No products match this view.</div></td></tr>}
-      </tbody></table></div>
+      </tbody></table>
+      {!visibleProducts.length && <EmptyState icon={Package} title="No products found" description="No products match your current search or filter criteria." actionText="Add Product" onAction={onAdd} />}
+      </div>
     </section>
     {variantProduct && <VariantInventoryDrawer product={variantProduct} onClose={() => setVariantProduct(null)} />}
+    <CSVImportModal
+      isOpen={csvImportState.isOpen}
+      file={csvImportState.file}
+      rows={csvImportState.rows}
+      onConfirmImport={handleCommitCSVImport}
+      onClose={() => setCsvImportState({ isOpen: false, file: null, rows: [] })}
+    />
   </>;
 }
 
@@ -1937,7 +2485,7 @@ function formatSavedCustomOrder(order, fallback = {}) {
   };
 }
 
-function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, connected, loading, error, onRetry, onPageChange, initialSelectedId, onInitialSelectionHandled }) {
+function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, connected, loading, error, onRetry, onPageChange, initialSelectedId, onInitialSelectionHandled, tableDensity = "comfortable", setTableDensity }) {
   const [localOrders, setLocalOrders] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [activeTab, setActiveTab] = useState("Total Orders");
@@ -2125,15 +2673,16 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       </article>)}
     </section>
     <div className="adminVisualGrid">
-      <VisualDonut title="Fulfilment status" subtitle="Status split for all visible orders." centerValue={allRows.length} centerLabel="orders" items={orderStatusVisual} />
-      <VisualBars title="Sales by city" subtitle="Top destination cities by order value." format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`} items={cityVisual} />
+      <VisualDonut title="Order pipeline" subtitle="Live fulfilment health — booked, in-transit, delivered and returned." centerValue={allRows.length} centerLabel="total" items={orderStatusVisual} />
+      <VisualBars title="Revenue by city" subtitle="Top shipping destinations ranked by delivered order value." format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`} items={cityVisual} />
     </div>
     <section className="adminCard managementCard">
       <div className="ordersToolbar">
         <label className="orderStatusFilter">Order status<select value={activeTab} onChange={(event) => setActiveTab(event.target.value)}>{orderStatusCounts.map((category) => <option key={category.label} value={category.label}>{category.label} ({category.count})</option>)}</select></label>
+        <TableDensityToggle density={tableDensity} onChange={setTableDensity} />
         <div className="inlineSearch"><Search /><input value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Search order, customer, tracking..." /></div>
       </div>
-      {allRows.length === 0 ? <div className="inventoryEmpty">No orders have been received yet.</div> : <OrderTable rows={visibleRows} onSelect={(order) => setSelectedId(order.id)} />}
+      {allRows.length === 0 ? <EmptyState icon={ShoppingBag} title="No orders received" description="There are no orders in your store database yet." /> : <OrderTable rows={visibleRows} density={tableDensity} onSelect={(order) => setSelectedId(order.id)} />}
       {pagination?.totalPages > 1 && <div className="ordersPagination"><button disabled={pagination.page <= 1} onClick={() => onPageChange(pagination.page - 1)}>Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button disabled={pagination.page >= pagination.totalPages} onClick={() => onPageChange(pagination.page + 1)}>Next</button></div>}
     </section>
     {showDraft && <DraftOrderDialog products={products} onClose={() => setShowDraft(false)} onCreate={createDraft} />}
@@ -2214,8 +2763,8 @@ function CourierOperationsPanel() {
     {error && <div className="adminErrorBanner">{error}</div>}
     <section className="financeMetricGrid courierMetricGrid"><article><Truck /><span><b>{snapshot.shipments.length}</b>Total tracked</span></article><article><Package /><span><b>{inTransit}</b>In process</span></article><article><CircleDollarSign /><span><b>{delivered}</b>Delivered</span></article><article className={delayed ? "alertMetric" : ""}><ReceiptText /><span><b>{delayed}</b>Delayed</span></article><article className={failed ? "alertMetric" : ""}><RefreshCw /><span><b>{failed}</b>Sync failures</span></article></section>
     <div className="adminVisualGrid">
-      <VisualDonut title="Courier status" subtitle="Daily fulfilment health with delayed/error visibility." centerValue={snapshot.shipments.length} centerLabel="shipments" items={courierStatusVisual} />
-      <VisualBars title="Courier provider load" subtitle="Shipment count by connected courier." items={courierProviderVisual} />
+      <VisualDonut title="Shipment status" subtitle="Active courier pipeline — in-transit, delivered, delayed and errors." centerValue={snapshot.shipments.length} centerLabel="tracked" items={courierStatusVisual} />
+      <VisualBars title="Provider workload" subtitle="Shipment distribution across connected courier services." items={courierProviderVisual} />
     </div>
     <section className="adminCard courierCommandCard"><div className="inventoryListHead"><div><h2>Courier workflow</h2><span>Daily staff routine from booking to Finance settlement.</span></div></div><div className="courierFlowSteps"><div><b>1</b><span>Book order</span></div><div><b>2</b><span>Tracking saved</span></div><div><b>3</b><span>Sync status</span></div><div><b>4</b><span>Delivered / returned</span></div><div><b>5</b><span>PostEx Wallet</span></div></div></section>
     <section className="adminCard settingsForm settingsWideForm courierFilters"><div className="formRow"><label>Courier<select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}><option value="all">All couriers</option>{snapshot.couriers.map((courier) => <option key={courier.id} value={courier.provider}>{courier.name}</option>)}</select></label><label>Status<select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">All statuses</option>{["booked","picked_up","in_transit","out_for_delivery","delivered","attempted","on_hold","returned","cancelled","manual_delivery"].map((status) => <option value={status} key={status}>{statusLabel(status)}</option>)}</select></label><label>Queue<select value={filters.queue} onChange={(event) => setFilters((current) => ({ ...current, queue: event.target.value }))}><option value="all">All shipments</option><option value="delayed">Delayed only</option><option value="failed">Failed sync only</option></select></label></div><div className="orderTabs courierQuickFilters"><button type="button" className={filters.queue === "all" && filters.status === "all" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "all", status: "all" }))}>All</button><button type="button" className={filters.status === "out_for_delivery" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, status: "out_for_delivery", queue: "all" }))}>Out for delivery</button><button type="button" className={filters.status === "delivered" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, status: "delivered", queue: "all" }))}>Delivered</button><button type="button" className={filters.queue === "delayed" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "delayed", status: "all" }))}>Delayed</button><button type="button" className={filters.queue === "failed" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "failed", status: "all" }))}>Needs retry</button></div></section>
@@ -3044,8 +3593,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Final net profit</span></article>
     </div>
     <div className="adminVisualGrid">
-      <VisualDonut title="Cash position" subtitle="Available cash, pending PostEx money and owner movements." centerValue={money(Math.max(0, availableCash))} centerLabel="cash" items={financeCashVisual} />
-      <VisualBars title="P&L flow" subtitle="Sales compared with COGS, PostEx costs, expenses and net profit." format={(value) => money(value)} items={financeCostVisual} />
+      <VisualDonut title="Cash allocation" subtitle="Where your available cash, receivables and owner capital currently sit." centerValue={money(Math.max(0, availableCash))} centerLabel="available" items={financeCashVisual} />
+      <VisualBars title="Profit waterfall" subtitle="Revenue flow from gross sales through costs to final net profit." format={(value) => money(value)} items={financeCostVisual} />
     </div>
 
     <section className="financeGrid financeGridWide">
@@ -3171,13 +3720,13 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
         <div className="financeStatement"><div><span>Selected period</span><b>{financePeriod === "all" ? "All time" : financePeriod === "month" ? "This month" : "Last month"}</b></div><div><span>Delivered sales</span><b>{money(grossRevenue)}</b></div><div><span>Net profit / loss</span><b>{money(netProfit)}</b></div><div className="statementTotal"><span>Supplier payables</span><b>{money(supplierPayableTotal)}</b></div></div>
       </div>
       <VisualBars
-        title="Report snapshot"
-        subtitle="Quick export preview before downloading CSV."
+        title="Financial overview"
+        subtitle="Period summary — revenue, costs and outstanding payables."
         format={(value) => money(value)}
         items={[
-          { label: "Delivered sales", value: grossRevenue, color: "#1d6840" },
-          { label: "Product cost", value: deliveredCogs, color: "#c78b2b" },
-          { label: "PostEx deductions", value: courierDeliveryCost + returnCourierCost + gstTaxTotal, color: "#b73543" },
+          { label: "Delivered revenue", value: grossRevenue, color: "#1d6840" },
+          { label: "Product cost (COGS)", value: deliveredCogs, color: "#c78b2b" },
+          { label: "PostEx & courier fees", value: courierDeliveryCost + returnCourierCost + gstTaxTotal, color: "#b73543" },
           { label: "Supplier payables", value: supplierPayableTotal, color: "#8d2449" },
         ]}
       />
@@ -3639,8 +4188,8 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       <article className={lowMaterialCount ? "alertMetric" : ""}><Tags /><span><b>Rs. {materialValue.toLocaleString()}</b>Material value</span></article>
     </div>
     <div className="adminVisualGrid">
-      <VisualDonut title="Stock health" subtitle="Clear split of healthy, low and out-of-stock products." centerValue={products.length} centerLabel="products" items={inventoryStockVisual} />
-      <VisualBars title="Inventory cash view" subtitle="Separate stock value, sold COGS, purchase cash and required restock cash." format={(value) => inventoryMoney(value)} items={inventoryValueVisual} />
+      <VisualDonut title="Stock health" subtitle="Healthy, low and out-of-stock product split at a glance." centerValue={products.filter(p => Number(p.stock || 0) > Number(p.lowStockThreshold || 5)).length} centerLabel="healthy" items={inventoryStockVisual} />
+      <VisualBars title="Capital allocation" subtitle="Stock value on hand, COGS sold, purchase cost and restock investment needed." format={(value) => inventoryMoney(value)} items={inventoryValueVisual} />
     </div>
 
     {low + out > 0 && <div className="inventoryAlert"><Bell /><div><b>{low + out} products need attention</b><span>Out-of-stock products cannot be ordered, and low stock is highlighted here.</span></div><button onClick={() => setInventoryView(low ? "Low stock" : "Out of stock")}>Review items</button></div>}
@@ -4085,11 +4634,61 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
   </aside></>;
 }
 
-function OrderTable({ rows, onSelect }) {
-  return <div className="adminTableWrap"><table className="adminTable orderTable"><thead><tr><th>Order</th><th>Customer</th><th>Amount</th><th>PostEx status</th><th>Date</th><th>Risk</th><th /></tr></thead><tbody>
-    {rows.map((order) => <tr key={order.id}><td><b>{order.id}</b>{order.tracking&&<small className="trackingNumber">{order.tracking}</small>}{order.deliveryMethod&&<small className="trackingNumber">{order.deliveryMethod}</small>}</td><td>{order.customer}<small className="trackingNumber">{order.city}</small></td><td><b>Rs. {Number(order.total || 0).toLocaleString()}</b></td><td><span className={`statusBadge ${orderStatus(order).replaceAll(" ","")}`}>{order.postexStatus || order.status}</span></td><td>{order.date}</td><td>{order.risk || "Standard COD"}</td><td>{onSelect && <button className="editProductButton" onClick={() => onSelect(order)} aria-label={`Open order ${order.id}`}>Open</button>}</td></tr>)}
-    {!rows.length && <tr><td colSpan="7"><div className="inventoryEmpty">No orders match this view.</div></td></tr>}
-  </tbody></table></div>;
+function OrderTable({ rows, onSelect, density = "comfortable" }) {
+  return (
+    <div className={`adminTableWrap ${density === "compact" ? "compactTable" : ""}`}>
+      <table className="adminTable orderTable">
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Customer</th>
+            <th>Amount</th>
+            <th>PostEx status</th>
+            <th>Date</th>
+            <th>Risk</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((order) => (
+            <tr key={order.id}>
+              <td>
+                <b>{order.id}</b>
+                {order.tracking && <small className="trackingNumber"><br />{order.tracking}</small>}
+                {order.deliveryMethod && <small className="trackingNumber"><br />{order.deliveryMethod}</small>}
+              </td>
+              <td>
+                {order.customer}
+                <small className="trackingNumber"><br />{order.city}</small>
+              </td>
+              <td><b>Rs. {Number(order.total || 0).toLocaleString()}</b></td>
+              <td>
+                <span className={`statusBadge ${orderStatus(order).replaceAll(" ", "").toLowerCase()}`}>
+                  {order.postexStatus || order.status}
+                </span>
+              </td>
+              <td>{order.date}</td>
+              <td>{order.risk || "Standard COD"}</td>
+              <td>
+                {onSelect && (
+                  <button type="button" className="editProductButton" onClick={() => onSelect(order)} aria-label={`Open order ${order.id}`}>
+                    Open
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!rows.length && (
+        <EmptyState
+          icon={ShoppingBag}
+          title="No orders found"
+          description="There are no orders matching this status or search filter."
+        />
+      )}
+    </div>
+  );
 }
 
 function buildCustomerProfiles(orders) {
@@ -4208,12 +4807,16 @@ function CustomersPanel({ orders, onOpen }) {
     <section className="adminCard managementCard">
       <div className="catalogToolbar">
         <div className="orderTabs">{segments.map((item) => <button key={item} className={segment === item ? "active" : ""} onClick={() => setSegment(item)}>{item}</button>)}</div>
-        <div className="catalogActions"><div className="inlineSearch"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customers..." /></div><button onClick={exportCustomers}>Export CSV</button></div>
+        <div className="catalogActions">
+          <div className="inlineSearch"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customers..." /></div>
+          <button onClick={exportCustomers}>Export CSV</button>
+        </div>
       </div>
       <div className="adminTableWrap"><table className="adminTable customerTable"><thead><tr><th>Customer</th><th>Contact</th><th>Orders</th><th>Total spent</th><th>Last order</th><th>Tags</th><th /></tr></thead><tbody>
-        {visibleCustomers.map((customer) => <tr key={customer.id}><td><b>{customer.name}</b><small className="trackingNumber">{customer.city || "No city"}</small></td><td>{customer.phone || "-"}<small className="trackingNumber">{customer.email || "No email"}</small></td><td>{customer.orders.length}</td><td><b>Rs. {Number(customer.totalSpent || 0).toLocaleString()}</b></td><td>{customer.lastOrder || "-"}</td><td><div className="tagList">{customer.tags.map((tag) => <span key={tag}>{tag}</span>)}</div></td><td><button className="editProductButton" onClick={() => setSelectedId(customer.id)}>Open</button></td></tr>)}
-        {!visibleCustomers.length && <tr><td colSpan="7"><div className="inventoryEmpty">No customers match this segment.</div></td></tr>}
-      </tbody></table></div>
+        {visibleCustomers.map((customer) => <tr key={customer.id}><td><b>{customer.name}</b><small className="trackingNumber"><br />{customer.city || "No city"}</small></td><td>{customer.phone || "-"}<small className="trackingNumber"><br />{customer.email || "No email"}</small></td><td>{customer.orders.length}</td><td><b>Rs. {Number(customer.totalSpent || 0).toLocaleString()}</b></td><td>{customer.lastOrder || "-"}</td><td><div className="tagList">{customer.tags.map((tag) => <span key={tag} className="statusBadge active">{tag}</span>)}</div></td><td><button className="editProductButton" onClick={() => setSelectedId(customer.id)}>Open</button></td></tr>)}
+      </tbody></table>
+      {!visibleCustomers.length && <EmptyState icon={Users} title="No customers found" description="No customer profiles match your search query or selected segment." />}
+      </div>
     </section>
     {selectedCustomer && <CustomerProfileDrawer customer={selectedCustomer} onClose={() => setSelectedId("")} onUpdate={updateCustomer} />}
   </>;
@@ -4303,10 +4906,10 @@ function BackendHealthPanel() {
       </div>
       <div className="adminVisualGrid">
         <section className="adminVisualCard">
-          <div className="adminVisualHead"><div><h3>Readiness score</h3><p>Color-coded health, completeness and security coverage.</p></div></div>
-          <VisualProgress label="Backend health" value={(Number(summary.ok || 0) / healthTotal) * 100} helper={`${summary.ok || 0} passing, ${summary.warning || 0} warnings, ${summary.fail || 0} failed`} color="#1d6840" />
-          <VisualProgress label="Feature completeness" value={(Number(completenessSummary.complete || 0) / completenessTotal) * 100} helper={`${completenessSummary.complete || 0} complete modules`} color="#4777a8" />
-          <VisualProgress label="Security checks" value={(Number(securitySummary.ok || 0) / securityTotal) * 100} helper={`${securitySummary.ok || 0} secure checks`} color="#8d2449" />
+          <div className="adminVisualHead"><div><h3>Readiness score</h3><p>Backend connectivity, module readiness and security coverage.</p></div></div>
+          <VisualProgress label="Backend health" value={(Number(summary.ok || 0) / healthTotal) * 100} helper={`${summary.ok || 0} passing · ${summary.warning || 0} warnings · ${summary.fail || 0} failed`} color="#1d6840" />
+          <VisualProgress label="Feature completeness" value={(Number(completenessSummary.complete || 0) / completenessTotal) * 100} helper={`${completenessSummary.complete || 0} of ${completenessTotal} modules complete`} color="#4777a8" />
+          <VisualProgress label="Security checks" value={(Number(securitySummary.ok || 0) / securityTotal) * 100} helper={`${securitySummary.ok || 0} of ${securityTotal} checks secure`} color="#287a4c" />
         </section>
         <VisualDonut
           title="Backend status split"
@@ -4671,25 +5274,33 @@ function SettingsPanel({ onOpen, signedInUser }) {
   }
 
   async function deleteStaffUser(userId) {
-    if (!window.confirm("Remove this admin user?")) return;
-    setStaffError("");
-    setStaffSaved("");
-    setStaffLoading(true);
-    try {
-      const response = await fetch("/api/admin/users", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Unable to remove admin user.");
-      setStaffSaved("Admin user removed.");
-      await loadAdminUsers();
-    } catch (error) {
-      setStaffError(error.message);
-    } finally {
-      setStaffLoading(false);
-    }
+    const user = staff.find((u) => u.id === userId);
+    requestConfirm({
+      title: "Remove Admin User",
+      message: `Are you sure you want to remove admin user "${user?.name || "this user"}"? They will lose access to the admin portal.`,
+      confirmText: "Remove User",
+      isDanger: true,
+      onConfirm: async () => {
+        setStaffError("");
+        setStaffSaved("");
+        setStaffLoading(true);
+        try {
+          const response = await fetch("/api/admin/users", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Unable to remove admin user.");
+          setStaffSaved("Admin user removed.");
+          await loadAdminUsers();
+        } catch (error) {
+          setStaffError(error.message);
+        } finally {
+          setStaffLoading(false);
+        }
+      },
+    });
   }
 
   function addShippingZone(event) {
@@ -4803,9 +5414,9 @@ function SettingsPanel({ onOpen, signedInUser }) {
           <div className="adminVisualGrid">
             <section className="adminVisualCard">
               <div className="adminVisualHead"><div><h3>Payment readiness</h3><p>Enabled methods and operational safeguards.</p></div></div>
-              <VisualProgress label="COD flow" value={storeSettings.paymentSettings?.codEnabled !== false ? 100 : 0} helper={storeSettings.paymentSettings?.codEnabled !== false ? "COD is available at checkout." : "COD disabled."} color="#1d6840" />
-              <VisualProgress label="Manual transfer fallback" value={storeSettings.paymentSettings?.manualTransferEnabled !== false ? 100 : 0} helper="Bank/JazzCash/Easypaisa instructions can be shown to customer." color="#4777a8" />
-              <VisualProgress label="Hosted gateway" value={storeSettings.paymentSettings?.onlineGatewayEnabled === true ? 70 : 20} helper={storeSettings.paymentSettings?.onlineGatewayEnabled === true ? "Enabled; add provider credentials/webhook before trusting auto-paid status." : "Enable after PayFast/Easypaisa/JazzCash credentials are ready."} color="#8d2449" />
+              <VisualProgress label="COD flow" value={storeSettings.paymentSettings?.codEnabled !== false ? 100 : 0} helper={storeSettings.paymentSettings?.codEnabled !== false ? "COD is active at checkout" : "COD is currently disabled"} color="#1d6840" />
+              <VisualProgress label="Manual bank transfer" value={storeSettings.paymentSettings?.manualTransferEnabled !== false ? 100 : 0} helper="Bank / JazzCash / Easypaisa transfer instructions" color="#4777a8" />
+              <VisualProgress label="Online payment gateway" value={storeSettings.paymentSettings?.onlineGatewayEnabled === true ? 100 : 0} helper={storeSettings.paymentSettings?.onlineGatewayEnabled === true ? "Gateway enabled — add credentials before going live" : "Enable after payment provider setup is complete"} color="#287a4c" />
             </section>
             <VisualDonut
               title="Payment methods"
@@ -4897,6 +5508,16 @@ function SettingsPanel({ onOpen, signedInUser }) {
         {activeTab === "System" && <BackendHealthPanel />}
       </div>
     </section>
+    <MobileBottomNav active={active} setActive={navigateAdminSection} />
+    <ConfirmModal
+      isOpen={confirmModalState.isOpen}
+      title={confirmModalState.title}
+      message={confirmModalState.message}
+      confirmText={confirmModalState.confirmText}
+      isDanger={confirmModalState.isDanger}
+      onConfirm={confirmModalState.onConfirm}
+      onClose={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}
+    />
   </>;
 }
 
