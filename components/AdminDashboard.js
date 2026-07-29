@@ -961,6 +961,61 @@ export default function AdminDashboard() {
   );
 }
 
+function postexRawTracking(payment) {
+  return payment?.raw_response?.tracking?.dist || payment?.rawResponse?.tracking?.dist || {};
+}
+
+function postexRawPayment(payment) {
+  return payment?.raw_response?.payment?.dist || payment?.rawResponse?.payment?.dist || {};
+}
+
+function firstPostexValue(source, keys, fallback = "") {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+  return fallback;
+}
+
+function postexNumber(source, keys, fallback = 0) {
+  const value = Number(firstPostexValue(source, keys, fallback));
+  return Number.isFinite(value) ? value : Number(fallback || 0);
+}
+
+function postexSettlementAmounts(payment) {
+  const tracking = postexRawTracking(payment);
+  const invoice = Number(payment.invoice_payment_pkr || postexNumber(tracking, ["invoicePayment", "codAmount", "cod_amount", "amount"], 0));
+  const shipping = postexNumber(tracking, ["shippingCharges", "shipping_charges", "deliveryCharges", "transactionFee"], Number(payment.transaction_fee_pkr || 0));
+  const upfrontCharges = postexNumber(tracking, ["upfrontCharges", "upfront_charges", "upfrontCharge"], 0);
+  const gst = postexNumber(tracking, ["gst", "gstAmount", "transactionTax"], Number(payment.transaction_tax_pkr || 0));
+  const deduction4 = postexNumber(tracking, ["deduction", "deductionAmount", "deduction4", "transactionDeduction"], Math.round(invoice * 4) / 100);
+  const returnFee = Number(payment.reversal_fee_pkr || 0) + Number(payment.reversal_tax_pkr || 0);
+  const calculatedNet = Math.round((invoice - shipping - upfrontCharges - gst - deduction4 - returnFee) * 100) / 100;
+  const rawNet = firstPostexValue(tracking, ["netAmount", "net_amount", "payableAmount"], "");
+  const net = rawNet !== "" ? Number(rawNet) : calculatedNet;
+  return { invoice, shipping, upfrontCharges, gst, deduction4, returnFee, net: Number.isFinite(net) ? net : calculatedNet };
+}
+
+function postexAllocationMap(items = []) {
+  return items.reduce((map, item) => {
+    const key = String(item.order_payment_id);
+    map.set(key, Number(map.get(key) || 0) + Number(item.allocated_received_pkr || 0));
+    return map;
+  }, new Map());
+}
+
+function postexCalculatedSummary(snapshot = {}) {
+  const payments = Array.isArray(snapshot?.payments) ? snapshot.payments : [];
+  const allocations = postexAllocationMap(Array.isArray(snapshot?.items) ? snapshot.items : []);
+  const deliveredPayments = payments.filter((payment) => String(payment.courier_status || "").toLowerCase().includes("deliver"));
+  const totalExpectedNetPkr = Math.round(deliveredPayments.reduce((sum, payment) => sum + Number(postexSettlementAmounts(payment).net || 0), 0) * 100) / 100;
+  const outstandingPkr = Math.round(deliveredPayments.reduce((sum, payment) => {
+    const net = Number(postexSettlementAmounts(payment).net || 0);
+    return sum + Math.max(0, net - Number(allocations.get(String(payment.id)) || 0));
+  }, 0) * 100) / 100;
+  return { totalExpectedNetPkr, outstandingPkr, allocations };
+}
+
 function DashboardHome({ setActive, orders, products, metrics, connected, loading, ordersError, currentAdminUser, onRefresh, onAddProduct, onOpenOrder }) {
   // Dates are initialized only in the browser so the server and client render
   // the same initial markup regardless of their timezone.
@@ -1025,8 +1080,9 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const dashboardOwnerWithdrawals = financeSnapshot.transactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardManualPostexReceipts = financeSnapshot.transactions.filter((item) => item.type === "postex_bank_receipt").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardPostexBankReceived = Number(financeSnapshot.postex?.summary?.bankReceivedPkr || 0) + dashboardManualPostexReceipts;
-  const dashboardExpectedPostexNet = Number(financeSnapshot.postex?.summary?.totalExpectedNetPkr || dashboardSales);
-  const dashboardPostexReceivable = Math.max(0, Number(financeSnapshot.postex?.summary?.outstandingPkr || dashboardExpectedPostexNet || dashboardCod) - dashboardManualPostexReceipts);
+  const dashboardCalculatedPostex = postexCalculatedSummary(financeSnapshot.postex || {});
+  const dashboardExpectedPostexNet = Number(dashboardCalculatedPostex.totalExpectedNetPkr || financeSnapshot.postex?.summary?.totalExpectedNetPkr || dashboardSales);
+  const dashboardPostexReceivable = Math.max(0, Number(dashboardCalculatedPostex.outstandingPkr || financeSnapshot.postex?.summary?.outstandingPkr || dashboardExpectedPostexNet || dashboardCod) - dashboardManualPostexReceipts);
   const dashboardReceivedRatio = dashboardExpectedPostexNet > 0 ? Math.min(1, dashboardPostexBankReceived / dashboardExpectedPostexNet) : 0;
   const dashboardCashGstReserve = Math.round(dashboardGst * dashboardReceivedRatio);
   const dashboardCashTaxReserve = Math.round(dashboardTax * dashboardReceivedRatio);
@@ -2114,40 +2170,16 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const postexBatches = Array.isArray(postexSnapshot?.batches) ? postexSnapshot.batches : [];
   const manualPostexReceipts = cashbookTransactions.filter((item) => item.type === "postex_bank_receipt");
   const manualPostexBankReceived = manualPostexReceipts.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const postexAllocatedByPayment = (Array.isArray(postexSnapshot?.items) ? postexSnapshot.items : []).reduce((map, item) => {
-    const key = String(item.order_payment_id);
-    map.set(key, Number(map.get(key) || 0) + Number(item.allocated_received_pkr || 0));
-    return map;
-  }, new Map());
-  const rawPostexTracking = (payment) => payment?.raw_response?.tracking?.dist || payment?.rawResponse?.tracking?.dist || {};
-  const rawPostexPayment = (payment) => payment?.raw_response?.payment?.dist || payment?.rawResponse?.payment?.dist || {};
-  const firstPostexValue = (source, keys, fallback = "") => {
-    for (const key of keys) {
-      const value = source?.[key];
-      if (value !== undefined && value !== null && value !== "") return value;
-    }
-    return fallback;
-  };
-  const postexAmount = (source, keys, fallback = 0) => {
-    const value = Number(firstPostexValue(source, keys, fallback));
-    return Number.isFinite(value) ? value : Number(fallback || 0);
-  };
+  const calculatedPostex = postexCalculatedSummary(postexSnapshot || {});
+  const postexAllocatedByPayment = calculatedPostex.allocations;
   const postexDateValue = (source, keys, fallback = "") => {
     const value = firstPostexValue(source, keys, fallback);
     return value ? formatFinanceDate(value) : "—";
   };
   const postexSettlementDetail = (payment) => {
-    const tracking = rawPostexTracking(payment);
-    const paymentStatus = rawPostexPayment(payment);
-    const invoice = Number(payment.invoice_payment_pkr || postexAmount(tracking, ["invoicePayment", "codAmount", "cod_amount", "amount"], 0));
-    const shipping = postexAmount(tracking, ["shippingCharges", "shipping_charges", "deliveryCharges", "transactionFee"], Number(payment.transaction_fee_pkr || 0));
-    const upfrontCharges = postexAmount(tracking, ["upfrontCharges", "upfront_charges", "upfrontCharge"], 0);
-    const gst = postexAmount(tracking, ["gst", "gstAmount", "transactionTax"], Number(payment.transaction_tax_pkr || 0));
-    const deduction4 = postexAmount(tracking, ["deduction", "deductionAmount", "deduction4", "transactionDeduction"], Math.round(invoice * 4) / 100);
-    const returnFee = Number(payment.reversal_fee_pkr || 0) + Number(payment.reversal_tax_pkr || 0);
-    const calculatedNet = Math.round((invoice - shipping - upfrontCharges - gst - deduction4 - returnFee) * 100) / 100;
-    const rawNet = firstPostexValue(tracking, ["netAmount", "net_amount", "payableAmount"], "");
-    const net = rawNet !== "" ? Number(rawNet) : calculatedNet;
+    const tracking = postexRawTracking(payment);
+    const paymentStatus = postexRawPayment(payment);
+    const amounts = postexSettlementAmounts(payment);
     return {
       orderRef: firstPostexValue(tracking, ["orderRefNumber", "orderReference", "order_ref"], payment.order_number || "—"),
       trackingNumber: firstPostexValue(tracking, ["trackingNumber", "tracking_number"], payment.tracking_number || "—"),
@@ -2156,24 +2188,24 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       originCity: firstPostexValue(tracking, ["originCity", "pickupCity", "origin_city"], "—"),
       deliveryCity: firstPostexValue(tracking, ["deliveryCity", "destinationCity", "delivery_city"], "—"),
       status: firstPostexValue(tracking, ["transactionStatus", "status"], payment.courier_status || "—"),
-      cod: invoice,
-      upfrontAmount: postexAmount(paymentStatus, ["upfrontAmount", "upfront_amount"], 0),
-      reserveAmount: postexAmount(paymentStatus, ["reserveAmount", "reserve_amount"], invoice),
+      cod: amounts.invoice,
+      upfrontAmount: postexNumber(paymentStatus, ["upfrontAmount", "upfront_amount"], 0),
+      reserveAmount: postexNumber(paymentStatus, ["reserveAmount", "reserve_amount"], amounts.invoice),
       drDate: postexDateValue(paymentStatus, ["settlementDate", "upfrontPaymentDate", "reservePaymentDate"], payment.settlement_date),
-      shipping,
-      upfrontCharges,
-      gst,
-      deduction4,
-      net: Number.isFinite(net) ? net : calculatedNet,
+      shipping: amounts.shipping,
+      upfrontCharges: amounts.upfrontCharges,
+      gst: amounts.gst,
+      deduction4: amounts.deduction4,
+      net: amounts.net,
     };
   };
   const reconciledPostexBankReceived = Number(postexSummary.bankReceivedPkr || 0);
   const receivedCash = reconciledPostexBankReceived + manualPostexBankReceived;
   const expectedPostexReceivable = postexPayments.length
-    ? Number(postexSummary.totalExpectedNetPkr || 0)
+    ? Number(calculatedPostex.totalExpectedNetPkr || postexSummary.totalExpectedNetPkr || 0)
     : grossRevenue;
   const receivables = Math.max(0, (postexPayments.length
-    ? Number(postexSummary.outstandingPkr || 0)
+    ? Number(calculatedPostex.outstandingPkr || postexSummary.outstandingPkr || 0)
     : expectedPostexReceivable) - manualPostexBankReceived);
   const productCosts = new Map(safeProducts.map((product) => [String(product.id), Number(product.costTotalPkr || 0)]));
   const deliveredProductRevenue = deliveredItems
@@ -2204,7 +2236,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const gstProvision = Math.round(deliveredProductRevenue * 0.01);
   const taxProvision = Math.round(deliveredProductRevenue * 0.04);
   const gstTaxTotal = Math.round(deliveredProductRevenue * 0.05);
-  const postexExpectedNet = Number(postexSummary.totalExpectedNetPkr || expectedPostexReceivable || 0);
+  const postexExpectedNet = Number(calculatedPostex.totalExpectedNetPkr || postexSummary.totalExpectedNetPkr || expectedPostexReceivable || 0);
   const receivedSettlementRatio = postexExpectedNet > 0 ? Math.min(1, receivedCash / postexExpectedNet) : 0;
   const cashGstTaxReserve = Math.round(gstTaxTotal * receivedSettlementRatio);
   const deliveryCollected = grossRevenue - deliveredProductRevenue;
