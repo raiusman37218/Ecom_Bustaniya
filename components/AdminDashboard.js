@@ -3806,6 +3806,8 @@ function BackendHealthPanel() {
   const completeness = health?.completeness || [];
   const securitySummary = health?.securitySummary || { ok: 0, warning: 0, fail: 0 };
   const securityAudit = health?.securityAudit || [];
+  const deploymentSummary = health?.deploymentSummary || { ok: 0, warning: 0, fail: 0 };
+  const deploymentAudit = health?.deploymentAudit || [];
   const statusClass = (status) => status === "ok" ? "activeStatus" : status === "warning" ? "processing" : "cancelled";
   const completenessStatusClass = (status) => status === "complete" ? "activeStatus" : status === "partial" ? "processing" : "cancelled";
 
@@ -3840,6 +3842,35 @@ function BackendHealthPanel() {
         {!checks.length && <div className="inventoryEmpty">{loading ? "Running backend checks..." : "No health checks available."}</div>}
       </div>
       <p className="paymentSecurityNote">Note: secret values are never shown here. This panel only confirms whether backend configuration and critical tables are reachable.</p>
+    </section>
+    <section className="adminCard settingsForm settingsWideForm">
+      <div className="inventoryListHead">
+        <div>
+          <h2>Vercel deployment audit</h2>
+          <span>Production environment, domain, HTTPS, env readiness and serverless behaviour.</span>
+        </div>
+      </div>
+      <div className="dashboardMiniGrid">
+        <article className="miniMetricCard"><span>Ready</span><b>{deploymentSummary.ok || 0}</b><small>Passing checks</small></article>
+        <article className="miniMetricCard"><span>Review</span><b>{deploymentSummary.warning || 0}</b><small>Warnings</small></article>
+        <article className="miniMetricCard"><span>Broken</span><b>{deploymentSummary.fail || 0}</b><small>Must fix</small></article>
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead><tr><th>Area</th><th>Deployment check</th><th>Status</th><th>Detail</th><th>Action</th></tr></thead>
+          <tbody>
+            {deploymentAudit.map((item) => <tr key={`${item.area}-${item.check}`}>
+              <td>{item.area}</td>
+              <td><b>{item.check}</b></td>
+              <td><span className={`statusBadge ${statusClass(item.status)}`}>{item.status}</span></td>
+              <td>{item.detail}</td>
+              <td>{item.action || "No action needed."}</td>
+            </tr>)}
+          </tbody>
+        </table>
+        {!deploymentAudit.length && <div className="inventoryEmpty">{loading ? "Checking Vercel deployment..." : "No deployment audit data available."}</div>}
+      </div>
+      <p className="paymentSecurityNote">Vercel audit note: environment-variable values are never printed. For detailed build/runtime logs, use the Vercel dashboard.</p>
     </section>
     <section className="adminCard settingsForm settingsWideForm">
       <div className="inventoryListHead">

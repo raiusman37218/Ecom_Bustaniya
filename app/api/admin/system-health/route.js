@@ -374,6 +374,93 @@ async function buildSecurityAudit() {
   return audit;
 }
 
+function buildDeploymentAudit(request) {
+  const audit = [];
+  const push = (status, area, check, detail, action = "") => audit.push({ status, area, check, detail, action });
+  const vercelEnv = optionalEnv("VERCEL_ENV");
+  const nodeEnv = optionalEnv("NODE_ENV");
+  const vercelUrl = optionalEnv("VERCEL_URL");
+  const siteUrl = optionalEnv("NEXT_PUBLIC_SITE_URL") || optionalEnv("SITE_URL");
+  const forwardedHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
+  const forwardedProto = request.headers.get("x-forwarded-proto") || "";
+  const deploymentId = optionalEnv("VERCEL_GIT_COMMIT_SHA") || optionalEnv("NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA");
+
+  push(
+    optionalEnv("VERCEL") ? "ok" : "warning",
+    "Deployment",
+    "Vercel runtime",
+    optionalEnv("VERCEL") ? "Request is running on Vercel runtime." : "VERCEL env is not present; this may be local/dev runtime.",
+    optionalEnv("VERCEL") ? "" : "On production this should be present. If absent on live, verify deployment platform configuration."
+  );
+  push(
+    vercelEnv === "production" ? "ok" : vercelEnv ? "warning" : "warning",
+    "Deployment",
+    "Environment",
+    vercelEnv ? `Vercel environment is ${vercelEnv}.` : `Vercel environment is not exposed; NODE_ENV is ${nodeEnv || "unknown"}.`,
+    vercelEnv === "production" ? "" : "Confirm production deploy is using the Production environment, not Preview/Development."
+  );
+  push(
+    vercelUrl ? "ok" : "warning",
+    "Deployment",
+    "Deployment URL",
+    vercelUrl ? "Vercel deployment URL is configured." : "VERCEL_URL is not available.",
+    vercelUrl ? "" : "If this is production, check Vercel system env exposure."
+  );
+  push(
+    siteUrl ? "ok" : "warning",
+    "Domains",
+    "Canonical site URL",
+    siteUrl ? "Canonical site URL env is configured." : "No SITE_URL/NEXT_PUBLIC_SITE_URL env found.",
+    siteUrl ? "" : "Add canonical production URL env for SEO, emails, payment callbacks and absolute links."
+  );
+  push(
+    forwardedHost.includes("bustaniya.com") || (siteUrl && siteUrl.includes("bustaniya.com")) ? "ok" : "warning",
+    "Domains",
+    "Production domain",
+    forwardedHost ? `Current host observed as ${forwardedHost}.` : "No host header observed.",
+    forwardedHost.includes("bustaniya.com") || (siteUrl && siteUrl.includes("bustaniya.com")) ? "" : "Verify bustaniya.com is attached as the production domain in Vercel."
+  );
+  push(
+    forwardedProto.includes("https") || optionalEnv("VERCEL") ? "ok" : "warning",
+    "Security",
+    "HTTPS delivery",
+    forwardedProto ? `Forwarded protocol is ${forwardedProto}.` : "Forwarded protocol header is not available.",
+    forwardedProto.includes("https") || optionalEnv("VERCEL") ? "" : "Ensure production traffic is HTTPS-only."
+  );
+  push(
+    envPresent(["SUPABASE_URL"]) && envPresent(SERVICE_KEY_NAMES) && optionalEnv("ADMIN_SESSION_SECRET") ? "ok" : "fail",
+    "Environment variables",
+    "Required server env",
+    "Supabase URL, service key and admin session secret are checked without printing values.",
+    envPresent(["SUPABASE_URL"]) && envPresent(SERVICE_KEY_NAMES) && optionalEnv("ADMIN_SESSION_SECRET")
+      ? ""
+      : "Add missing production env vars in Vercel Project Settings → Environment Variables."
+  );
+  push(
+    deploymentId ? "ok" : "warning",
+    "Deployment consistency",
+    "Git commit metadata",
+    deploymentId ? "Git commit metadata is available for this deployment." : "Git commit metadata is not available in runtime env.",
+    deploymentId ? "" : "Enable Vercel system env vars to make deployed commit easier to verify."
+  );
+  push(
+    "ok",
+    "Serverless/API",
+    "Dynamic admin health route",
+    "This health endpoint is dynamic, authenticated and server-rendered on demand.",
+    ""
+  );
+  push(
+    "warning",
+    "Logs",
+    "Runtime logs",
+    "Runtime logs cannot be read safely from the app itself.",
+    "Use Vercel dashboard logs for production runtime errors after each deployment."
+  );
+
+  return audit;
+}
+
 export async function GET(request) {
   try {
     await authorizeAdminSession(request, "settings");
@@ -441,6 +528,7 @@ export async function GET(request) {
     }
 
     const securityAudit = await buildSecurityAudit();
+    const deploymentAudit = buildDeploymentAudit(request);
 
     const summary = checks.reduce(
       (total, check) => ({ ...total, [check.status]: (total[check.status] || 0) + 1 }),
@@ -458,6 +546,11 @@ export async function GET(request) {
       ),
       securityAudit,
       securitySummary: securityAudit.reduce(
+        (total, item) => ({ ...total, [item.status]: (total[item.status] || 0) + 1 }),
+        { ok: 0, warning: 0, fail: 0 }
+      ),
+      deploymentAudit,
+      deploymentSummary: deploymentAudit.reduce(
         (total, item) => ({ ...total, [item.status]: (total[item.status] || 0) + 1 }),
         { ok: 0, warning: 0, fail: 0 }
       ),
