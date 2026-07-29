@@ -52,13 +52,29 @@ create table if not exists public.postex_cpr_batches (
   bank_received_date date,
   carried_forward_pkr numeric(14,2) not null default 0 check (carried_forward_pkr >= 0),
   status text not null default 'open'
-    check (status in ('open','partial','reconciled','disputed')),
+    check (status in ('open','partial','reconciled','disputed','voided')),
+  voided_at timestamptz,
+  voided_by text,
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 alter table public.postex_cpr_batches add column if not exists courier_account_id uuid references public.courier_accounts(id) on delete set null, add column if not exists courier_provider text not null default 'postex';
+alter table public.postex_cpr_batches add column if not exists voided_at timestamptz, add column if not exists voided_by text;
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.postex_cpr_batches'::regclass
+      and conname = 'postex_cpr_batches_status_check'
+  ) then
+    alter table public.postex_cpr_batches drop constraint postex_cpr_batches_status_check;
+  end if;
+  alter table public.postex_cpr_batches
+    add constraint postex_cpr_batches_status_check
+    check (status in ('open','partial','reconciled','disputed','voided'));
+end $$;
 
 create table if not exists public.postex_cpr_items (
   id bigint generated always as identity primary key,

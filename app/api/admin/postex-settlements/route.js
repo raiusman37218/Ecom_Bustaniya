@@ -4,6 +4,7 @@ import {
   getPostexSettlementSnapshot,
   savePostexCprBatch,
   syncPostexPayments,
+  voidPostexCprBatch,
 } from "../../../../lib/postexSettlements";
 
 export const runtime = "nodejs";
@@ -24,7 +25,7 @@ function errorResponse(error, fallback) {
 
 export async function GET(request) {
   try {
-    await authorizeAdminSession(request, "finance");
+    const { user } = await authorizeAdminSession(request, "finance");
     return NextResponse.json(await getPostexSettlementSnapshot());
   } catch (error) {
     return errorResponse(error, "Unable to load PostEx settlements.");
@@ -42,6 +43,12 @@ export async function POST(request) {
       return NextResponse.json({
         success: true,
         snapshot: await savePostexCprBatch(body),
+      });
+    }
+    if (body.action === "void_batch") {
+      return NextResponse.json({
+        success: true,
+        snapshot: await voidPostexCprBatch(body, user),
       });
     }
     return NextResponse.json({ error: "Unsupported settlement action." }, { status: 400 });

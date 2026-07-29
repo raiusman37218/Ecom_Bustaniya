@@ -1004,6 +1004,10 @@ function postexAllocationMap(items = []) {
   }, new Map());
 }
 
+function isVoidedPostexBatch(batch = {}) {
+  return batch.status === "voided" || String(batch.notes || "").startsWith("[VOIDED]");
+}
+
 function postexCalculatedSummary(snapshot = {}) {
   const payments = Array.isArray(snapshot?.payments) ? snapshot.payments : [];
   const allocations = postexAllocationMap(Array.isArray(snapshot?.items) ? snapshot.items : []);
@@ -2122,6 +2126,9 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const [financePeriod, setFinancePeriod] = useState("all");
   const [postexSnapshot, setPostexSnapshot] = useState({ setupAvailable: false, payments: [], batches: [], items: [], summary: {} });
   const [postexSyncing, setPostexSyncing] = useState(false);
+  const [voidPostexBatch, setVoidPostexBatch] = useState(null);
+  const [voidPostexConfirmation, setVoidPostexConfirmation] = useState("");
+  const [voidingPostexBatchId, setVoidingPostexBatchId] = useState("");
   const [cprTrackingText, setCprTrackingText] = useState("");
   const [financeTab, setFinanceTab] = useState(["overview","settlements","pnl","cashbook","suppliers","marketing","reports"].includes(initialTab) ? initialTab : "overview");
 
@@ -2378,6 +2385,49 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     } catch (error) {
       setCashbookError(error.message);
     } finally {
+      setPostexSyncing(false);
+    }
+  }
+
+  function requestVoidPostexBatch(batch) {
+    if (!isOwnerFinance) {
+      setCashbookError("Only an Owner can void a PostEx wallet receipt.");
+      return;
+    }
+    setVoidPostexBatch(batch);
+    setVoidPostexConfirmation("");
+    setCashbookError("");
+  }
+
+  function closeVoidPostexBatch() {
+    if (voidingPostexBatchId) return;
+    setVoidPostexBatch(null);
+    setVoidPostexConfirmation("");
+  }
+
+  async function voidPostexWalletReceipt(event) {
+    event.preventDefault();
+    const batch = voidPostexBatch;
+    const confirmation = voidPostexConfirmation.trim();
+    if (!batch || confirmation !== `VOID ${batch.cpr_number}`) return;
+    setVoidingPostexBatchId(batch.id);
+    setPostexSyncing(true);
+    setCashbookError("");
+    try {
+      const response = await fetch("/api/admin/postex-settlements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "void_batch", batchId: batch.id, confirmation }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to void PostEx receipt.");
+      setPostexSnapshot(result.snapshot || postexSnapshot);
+      setVoidPostexBatch(null);
+      setVoidPostexConfirmation("");
+    } catch (error) {
+      setCashbookError(error.message);
+    } finally {
+      setVoidingPostexBatchId("");
       setPostexSyncing(false);
     }
   }
@@ -2728,12 +2778,31 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
 
       <div className="adminCard managementCard settlementHistory">
         <div className="inventoryListHead"><div><h2>CPR history</h2><span>Every weekly or biweekly receipt with its expected, received and carried-forward balance.</span></div><b>{postexBatches.length} batches</b></div>
-        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>CPR</th><th>Period</th><th>Orders</th><th>Expected bank</th><th>Received</th><th>Carry forward</th><th>Status</th></tr></thead><tbody>
-          {postexBatches.map((batch) => <tr key={batch.id}><td><b>{batch.cpr_number}</b><small className="trackingNumber">{batch.cpr_date || "No CPR date"}</small></td><td>{batch.period_start || "—"} to {batch.period_end || "—"}</td><td>{batch.items?.length || 0}</td><td>{money(batch.expected_bank_pkr)}</td><td className="incomeAmount">{money(batch.bank_received_pkr)}</td><td className={Number(batch.carried_forward_pkr || 0) ? "expenseAmount" : ""}>{money(batch.carried_forward_pkr)}</td><td><span className={`statusBadge ${batch.status}`}>{batch.status}</span></td></tr>)}
-          {!postexBatches.length && <tr><td colSpan="7" className="emptyFinanceCell">No CPR receipts have been recorded yet.</td></tr>}
+        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>CPR</th><th>Period</th><th>Orders</th><th>Expected bank</th><th>Received</th><th>Carry forward</th><th>Status</th><th>Action</th></tr></thead><tbody>
+          {postexBatches.map((batch) => {
+            const voided = isVoidedPostexBatch(batch);
+            return <tr key={batch.id}><td><b>{batch.cpr_number}</b><small className="trackingNumber">{batch.cpr_date || "No CPR date"}</small></td><td>{batch.period_start || "—"} to {batch.period_end || "—"}</td><td>{batch.items?.length || 0}</td><td>{money(batch.expected_bank_pkr)}</td><td className={voided ? "" : "incomeAmount"}>{money(batch.bank_received_pkr)}</td><td className={Number(batch.carried_forward_pkr || 0) ? "expenseAmount" : ""}>{money(batch.carried_forward_pkr)}</td><td><span className={`statusBadge ${voided ? "cancelled" : batch.status}`}>{voided ? "voided" : batch.status}</span>{voided && <small className="trackingNumber"><br />Reversed</small>}</td><td>{!voided && isOwnerFinance ? <button type="button" className="removeProductButton" disabled={voidingPostexBatchId === batch.id || postexSyncing} onClick={() => requestVoidPostexBatch(batch)}>{voidingPostexBatchId === batch.id ? "Voiding..." : "Void"}</button> : "—"}</td></tr>;
+          })}
+          {!postexBatches.length && <tr><td colSpan="8" className="emptyFinanceCell">No CPR receipts have been recorded yet.</td></tr>}
         </tbody></table></div>
       </div>
     </section>}
+
+    {voidPostexBatch && <>
+      <div className="adminOverlay" onClick={closeVoidPostexBatch} />
+      <form className="inventoryDialog" onSubmit={voidPostexWalletReceipt}>
+        <DialogHead title={`Void ${voidPostexBatch.cpr_number}`} onClose={closeVoidPostexBatch} />
+        <div className="inventoryAlert materialAlert">
+          <Landmark />
+          <div>
+            <b>This will reverse the PostEx bank receipt</b>
+            <span>Available cash will decrease by {money(voidPostexBatch.bank_received_pkr)} and the linked orders will become pending/remaining again. The CPR record stays visible as voided for audit.</span>
+          </div>
+        </div>
+        <label>Type <b>{`VOID ${voidPostexBatch.cpr_number}`}</b> exactly to confirm<input value={voidPostexConfirmation} onChange={(event) => setVoidPostexConfirmation(event.target.value)} autoComplete="off" autoFocus /></label>
+        <button className="removeProductButton" type="submit" disabled={voidingPostexBatchId === voidPostexBatch.id || voidPostexConfirmation.trim() !== `VOID ${voidPostexBatch.cpr_number}`}>{voidingPostexBatchId === voidPostexBatch.id ? "Voiding receipt..." : "Void / reverse receipt"}</button>
+      </form>
+    </>}
 
     {financeTab === "overview" && <>
     <div className="miniMetricGrid financeMetrics">
@@ -4566,4 +4635,3 @@ function WorkspaceDrawer({ workspace, onClose, onSave, activity }) {
     </aside>
   </>;
 }
-
