@@ -2119,6 +2119,53 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     map.set(key, Number(map.get(key) || 0) + Number(item.allocated_received_pkr || 0));
     return map;
   }, new Map());
+  const rawPostexTracking = (payment) => payment?.raw_response?.tracking?.dist || payment?.rawResponse?.tracking?.dist || {};
+  const rawPostexPayment = (payment) => payment?.raw_response?.payment?.dist || payment?.rawResponse?.payment?.dist || {};
+  const firstPostexValue = (source, keys, fallback = "") => {
+    for (const key of keys) {
+      const value = source?.[key];
+      if (value !== undefined && value !== null && value !== "") return value;
+    }
+    return fallback;
+  };
+  const postexAmount = (source, keys, fallback = 0) => {
+    const value = Number(firstPostexValue(source, keys, fallback));
+    return Number.isFinite(value) ? value : Number(fallback || 0);
+  };
+  const postexDateValue = (source, keys, fallback = "") => {
+    const value = firstPostexValue(source, keys, fallback);
+    return value ? formatFinanceDate(value) : "—";
+  };
+  const postexSettlementDetail = (payment) => {
+    const tracking = rawPostexTracking(payment);
+    const paymentStatus = rawPostexPayment(payment);
+    const invoice = Number(payment.invoice_payment_pkr || postexAmount(tracking, ["invoicePayment", "codAmount", "cod_amount", "amount"], 0));
+    const shipping = postexAmount(tracking, ["shippingCharges", "shipping_charges", "deliveryCharges", "transactionFee"], Number(payment.transaction_fee_pkr || 0));
+    const upfrontCharges = postexAmount(tracking, ["upfrontCharges", "upfront_charges", "upfrontCharge"], 0);
+    const gst = postexAmount(tracking, ["gst", "gstAmount", "transactionTax"], Number(payment.transaction_tax_pkr || 0));
+    const deduction4 = postexAmount(tracking, ["deduction", "deductionAmount", "deduction4", "transactionDeduction"], Math.round(invoice * 4) / 100);
+    const returnFee = Number(payment.reversal_fee_pkr || 0) + Number(payment.reversal_tax_pkr || 0);
+    const netFallback = Math.round((invoice - shipping - upfrontCharges - gst - deduction4 - returnFee) * 100) / 100;
+    const net = postexAmount(tracking, ["netAmount", "net_amount", "payableAmount", "reserveAmount"], Number(payment.expected_net_pkr || netFallback || 0));
+    return {
+      orderRef: firstPostexValue(tracking, ["orderRefNumber", "orderReference", "order_ref"], payment.order_number || "—"),
+      trackingNumber: firstPostexValue(tracking, ["trackingNumber", "tracking_number"], payment.tracking_number || "—"),
+      weight: firstPostexValue(tracking, ["weight", "orderWeight", "weightKg"], "—"),
+      pickupDate: postexDateValue(tracking, ["pickupDate", "pickUpDate", "pickup_date"], payment.created_at),
+      originCity: firstPostexValue(tracking, ["originCity", "pickupCity", "origin_city"], "—"),
+      deliveryCity: firstPostexValue(tracking, ["deliveryCity", "destinationCity", "delivery_city"], "—"),
+      status: firstPostexValue(tracking, ["transactionStatus", "status"], payment.courier_status || "—"),
+      cod: invoice,
+      upfrontAmount: postexAmount(paymentStatus, ["upfrontAmount", "upfront_amount"], 0),
+      reserveAmount: postexAmount(paymentStatus, ["reserveAmount", "reserve_amount"], invoice),
+      drDate: postexDateValue(paymentStatus, ["settlementDate", "upfrontPaymentDate", "reservePaymentDate"], payment.settlement_date),
+      shipping,
+      upfrontCharges,
+      gst,
+      deduction4,
+      net,
+    };
+  };
   const reconciledPostexBankReceived = Number(postexSummary.bankReceivedPkr || 0);
   const receivedCash = reconciledPostexBankReceived + manualPostexBankReceived;
   const expectedPostexReceivable = postexPayments.length
@@ -2575,19 +2622,31 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
 
       <div className="financeGrid financeGridWide settlementWorkspace">
         <div className="adminCard managementCard">
-          <div className="inventoryListHead"><div><h2>Order settlement status</h2><span>Live PostEx deductions, settlement status and bank allocation by tracking number.</span></div><b>{postexPayments.length} tracked</b></div>
+          <div className="inventoryListHead"><div><h2>Order settlement status</h2><span>Full CPR-style PostEx deductions, settlement status and bank allocation by tracking number.</span></div><b>{postexPayments.length} tracked</b></div>
           <div className="adminTableWrap"><table className="adminTable financeTable settlementTable">
-            <thead><tr><th>Order / tracking</th><th>PostEx status</th><th>Invoice</th><th>Deductions</th><th>Expected net</th><th>Bank allocated</th><th>Remaining</th></tr></thead>
+            <thead><tr><th>Sr.</th><th>Order ref.</th><th>Tracking</th><th>Weight</th><th>Pickup date</th><th>Origin city</th><th>Delivery city</th><th>Status</th><th>COD amount</th><th>Upfront amount</th><th>Reserve amount</th><th>D/R date</th><th>Shipping charges</th><th>Upfront charges</th><th>GST</th><th>Deduction (4%)</th><th>Net amount</th><th>Bank allocated</th><th>Remaining</th></tr></thead>
             <tbody>
-              {postexPayments.map((payment) => {
-                const deductions = Number(payment.transaction_tax_pkr || 0) + Number(payment.transaction_fee_pkr || 0) + Number(payment.reversal_tax_pkr || 0) + Number(payment.reversal_fee_pkr || 0);
-                const expected = Number(payment.expected_net_pkr || 0);
+              {postexPayments.map((payment, index) => {
+                const detail = postexSettlementDetail(payment);
+                const expected = Number(detail.net || payment.expected_net_pkr || 0);
                 const allocated = Number(postexAllocatedByPayment.get(String(payment.id)) || 0);
                 return <tr key={payment.id}>
-                  <td><b>{payment.order_number}</b><small className="trackingNumber">{payment.tracking_number}</small></td>
-                  <td><span className={`statusBadge ${payment.payment_status}`}>{payment.postex_settled ? "PostEx settled" : payment.payment_status === "awaiting" ? "Awaiting settlement" : payment.payment_status.replaceAll("_", " ")}</span>{payment.settlement_date && <small className="trackingNumber">{formatFinanceDate(payment.settlement_date)}</small>}</td>
-                  <td>{money(payment.invoice_payment_pkr)}</td>
-                  <td className={deductions ? "expenseAmount" : ""}>{deductions ? `- ${money(deductions)}` : money(0)}</td>
+                  <td>{index + 1}</td>
+                  <td><b>{detail.orderRef}</b><small className="trackingNumber">{payment.order_number || ""}</small></td>
+                  <td><a href={`https://merchant.postex.pk/main/order/${detail.trackingNumber}`} target="_blank">{detail.trackingNumber}</a></td>
+                  <td>{detail.weight}</td>
+                  <td>{detail.pickupDate}</td>
+                  <td>{detail.originCity}</td>
+                  <td>{detail.deliveryCity}</td>
+                  <td><span className={`statusBadge ${payment.payment_status}`}>{detail.status}</span>{payment.postex_settled && <small className="trackingNumber">PostEx settled</small>}</td>
+                  <td>{money(detail.cod)}</td>
+                  <td>{money(detail.upfrontAmount)}</td>
+                  <td>{money(detail.reserveAmount)}</td>
+                  <td>{detail.drDate}</td>
+                  <td className={detail.shipping ? "expenseAmount" : ""}>{money(detail.shipping)}</td>
+                  <td className={detail.upfrontCharges ? "expenseAmount" : ""}>{money(detail.upfrontCharges)}</td>
+                  <td className={detail.gst ? "expenseAmount" : ""}>{money(detail.gst)}</td>
+                  <td className={detail.deduction4 ? "expenseAmount" : ""}>{money(detail.deduction4)}</td>
                   <td><b>{money(expected)}</b></td>
                   <td className={allocated ? "incomeAmount" : ""}>{money(allocated)}</td>
                   <td className={expected > allocated ? "expenseAmount" : "incomeAmount"}>{money(Math.max(0, expected - allocated))}</td>
