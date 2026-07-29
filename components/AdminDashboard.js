@@ -3776,6 +3776,69 @@ function CustomerProfileDrawer({ customer, onClose, onUpdate }) {
   </aside></>;
 }
 
+function BackendHealthPanel() {
+  const [health, setHealth] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  async function loadHealth() {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/system-health", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to run backend health check.");
+      setHealth(result);
+    } catch (healthError) {
+      setError(healthError.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadHealth();
+  }, []);
+
+  const summary = health?.summary || { ok: 0, warning: 0, fail: 0 };
+  const checks = health?.checks || [];
+  const statusClass = (status) => status === "ok" ? "activeStatus" : status === "warning" ? "processing" : "cancelled";
+
+  return <div className="settingsStack">
+    <section className="adminCard settingsForm settingsWideForm">
+      <div className="inventoryListHead">
+        <div>
+          <h2>Supabase backend health</h2>
+          <span>Read-only audit for database tables, required env config and public-data safety.</span>
+        </div>
+        <button type="button" onClick={loadHealth} disabled={loading}><RefreshCw /> {loading ? "Checking..." : "Refresh"}</button>
+      </div>
+      {error && <div className="adminErrorBanner">{error}</div>}
+      <div className="dashboardMiniGrid">
+        <article className="miniMetricCard"><span>Healthy</span><b>{summary.ok || 0}</b><small>Passing checks</small></article>
+        <article className="miniMetricCard"><span>Needs review</span><b>{summary.warning || 0}</b><small>Warnings</small></article>
+        <article className="miniMetricCard"><span>Fix now</span><b>{summary.fail || 0}</b><small>Failed checks</small></article>
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead><tr><th>Area</th><th>Check</th><th>Status</th><th>Detail</th><th>Next action</th></tr></thead>
+          <tbody>
+            {checks.map((check) => <tr key={`${check.area}-${check.name}`}>
+              <td>{check.area}</td>
+              <td><b>{check.name}</b></td>
+              <td><span className={`statusBadge ${statusClass(check.status)}`}>{check.status}</span></td>
+              <td>{check.detail}</td>
+              <td>{check.action || "No action needed."}</td>
+            </tr>)}
+          </tbody>
+        </table>
+        {!checks.length && <div className="inventoryEmpty">{loading ? "Running backend checks..." : "No health checks available."}</div>}
+      </div>
+      <p className="paymentSecurityNote">Note: secret values are never shown here. This panel only confirms whether backend configuration and critical tables are reachable.</p>
+    </section>
+  </div>;
+}
+
 function SettingsPanel({ onOpen, signedInUser }) {
   const [activeTab, setActiveTab] = useState("Store");
   const [savedAt, setSavedAt] = useState("");
@@ -3795,7 +3858,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
     { zone: "Lahore same-day", cities: "Lahore", rate: "Rs. 250", freeAbove: "Rs. 8,000" },
   ]);
   const canManageUsers = canUseAdminArea(signedInUser, "users");
-  const tabs = ["Store","Payments","Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications","Domains","Checkout"];
+  const tabs = ["Store","Payments","Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications","Domains","Checkout","System"];
 
   useEffect(() => {
     if (["Store", "Payments"].includes(activeTab)) {
@@ -4167,6 +4230,8 @@ function SettingsPanel({ onOpen, signedInUser }) {
           <label>Checkout note<textarea rows="3" defaultValue="COD orders may receive a confirmation call before dispatch." /></label>
           <button>Save checkout preview</button>
         </form>}
+
+        {activeTab === "System" && <BackendHealthPanel />}
       </div>
     </section>
   </>;
@@ -4181,6 +4246,7 @@ function settingsTabHint(tab) {
     Notifications: "Email templates",
     Domains: "Store URL",
     Checkout: "Customer flow",
+    System: "Backend audit",
   }[tab];
 }
 
