@@ -2145,8 +2145,9 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     const gst = postexAmount(tracking, ["gst", "gstAmount", "transactionTax"], Number(payment.transaction_tax_pkr || 0));
     const deduction4 = postexAmount(tracking, ["deduction", "deductionAmount", "deduction4", "transactionDeduction"], Math.round(invoice * 4) / 100);
     const returnFee = Number(payment.reversal_fee_pkr || 0) + Number(payment.reversal_tax_pkr || 0);
-    const netFallback = Math.round((invoice - shipping - upfrontCharges - gst - deduction4 - returnFee) * 100) / 100;
-    const net = postexAmount(tracking, ["netAmount", "net_amount", "payableAmount", "reserveAmount"], Number(payment.expected_net_pkr || netFallback || 0));
+    const calculatedNet = Math.round((invoice - shipping - upfrontCharges - gst - deduction4 - returnFee) * 100) / 100;
+    const rawNet = firstPostexValue(tracking, ["netAmount", "net_amount", "payableAmount"], "");
+    const net = rawNet !== "" ? Number(rawNet) : calculatedNet;
     return {
       orderRef: firstPostexValue(tracking, ["orderRefNumber", "orderReference", "order_ref"], payment.order_number || "—"),
       trackingNumber: firstPostexValue(tracking, ["trackingNumber", "tracking_number"], payment.tracking_number || "—"),
@@ -2163,7 +2164,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       upfrontCharges,
       gst,
       deduction4,
-      net,
+      net: Number.isFinite(net) ? net : calculatedNet,
     };
   };
   const reconciledPostexBankReceived = Number(postexSummary.bankReceivedPkr || 0);
