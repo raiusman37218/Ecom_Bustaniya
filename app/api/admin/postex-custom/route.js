@@ -35,6 +35,14 @@ function normalizePhone(value = "") {
   return digits || String(value || "").trim();
 }
 
+function isValidPakistanMobile(value = "") {
+  return /^03\d{9}$/.test(normalizePhone(value));
+}
+
+function validationError(message) {
+  return Object.assign(new Error(message), { status: 400 });
+}
+
 function postexErrorMessage(result, status) {
   if (!result) return `PostEx HTTP ${status || "unavailable"}`;
   const parts = [
@@ -77,7 +85,7 @@ function makeCustomOrderNumber() {
 function normalizeMoney(value, fallback = 0) {
   const amount = Number(value ?? fallback);
   if (!Number.isFinite(amount) || amount < 0 || amount > 10000000) {
-    throw new Error("Order item price must be a valid amount.");
+    throw validationError("Order item price must be a valid amount.");
   }
   return amount;
 }
@@ -87,9 +95,14 @@ function limitText(value = "", max = 500) {
 }
 
 function normalizeCustomItems(items, products) {
+  if (!items.length) throw validationError("Add at least one order item.");
+  if (items.length > 25) throw validationError("A custom order can contain up to 25 line items.");
   return items.map((item, index) => {
     const product = resolveCatalogProduct(products, item);
-    const quantity = Math.min(Math.max(Number(item.quantity) || 1, 1), 20);
+    const quantity = Number(item.quantity || 1);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
+      throw validationError("Each order item quantity must be between 1 and 20.");
+    }
     const price = product ? Number(product.price || 0) : normalizeMoney(item.price, 0);
     const articleNumber =
       product?.articleNumber ||
@@ -185,6 +198,15 @@ export async function POST(request) {
     if (!customer.name?.trim() || !customer.phone?.trim() || !customer.address?.trim() || !customer.city?.trim() || !items.length) {
       return NextResponse.json({ error: "Please complete customer, address and item details before saving the order." }, { status: 400 });
     }
+    if (String(customer.name || "").trim().length > 120) {
+      throw validationError("Customer name is too long.");
+    }
+    if (String(customer.address || "").trim().length > 500) {
+      throw validationError("Delivery address is too long.");
+    }
+    if (String(customer.city || "").trim().length > 80) {
+      throw validationError("City name is too long.");
+    }
 
     const products = await getCatalogProducts();
     const customItems = normalizeCustomItems(items, products);
@@ -198,6 +220,9 @@ export async function POST(request) {
     const allItemsInCatalog = customItems.every((item) => !item.custom);
     let completedOrder;
     const courierPhone = normalizePhone(customer.phone);
+    if (!isValidPakistanMobile(courierPhone)) {
+      throw validationError("Please enter a valid Pakistani mobile number, for example 03XXXXXXXXX.");
+    }
 
     if (allItemsInCatalog) {
       const [firstName, ...lastNameParts] = customer.name.trim().split(/\s+/);
@@ -370,6 +395,10 @@ export async function POST(request) {
         p_checkout_token: reservedOrder.checkout_token,
         p_error: error.message,
       }).catch(() => {});
+    }
+
+    if (error?.status === 401 || error?.status === 403 || error?.status === 400 || error?.status === 422) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
 
     console.error("Custom admin order failed", {

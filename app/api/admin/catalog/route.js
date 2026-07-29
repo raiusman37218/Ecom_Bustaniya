@@ -106,19 +106,51 @@ function formatProduct(product) {
 
 function errorResponse(error) {
   const unauthorized = error.status === 401 || error.status === 403;
+  const validation = error.status === 400 || error.status === 422;
   return NextResponse.json(
-    { error: unauthorized ? error.message : error.message || "Unable to update catalogue." },
-    { status: unauthorized ? error.status : 500 }
+    { error: unauthorized || validation ? error.message : error.message || "Unable to update catalogue." },
+    { status: unauthorized || validation ? error.status : 500 }
   );
+}
+
+function validationError(message) {
+  return Object.assign(new Error(message), { status: 400 });
+}
+
+function normalizeNonNegativeNumber(value, label, max = 10000000) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number < 0 || number > max) {
+    throw validationError(`${label} must be a valid non-negative number.`);
+  }
+  return number;
+}
+
+function normalizeImageList(value) {
+  const images = Array.isArray(value) ? value : parseJsonArray(value);
+  const cleaned = images
+    .map((image) => String(image || "").trim())
+    .filter(Boolean)
+    .slice(0, 12);
+  for (const image of cleaned) {
+    const isAllowedPath = image.startsWith("/");
+    const isAllowedUrl = /^https:\/\/[^ "]+$/i.test(image);
+    if (!isAllowedPath && !isAllowedUrl) {
+      throw validationError("Product images must be HTTPS URLs or site image paths.");
+    }
+  }
+  return cleaned.length ? cleaned : ["/bustaniya-campaign-hero-v4.png"];
 }
 
 function normalizeProductPayload(product = {}) {
   const articleNumber = articleNumberForProduct(product);
+  const price = normalizeNonNegativeNumber(product.price, "Product price");
+  const costTotal = normalizeNonNegativeNumber(product.cost_total_pkr ?? product.costTotalPkr, "Product cost");
+  const deliveryFee = normalizeNonNegativeNumber(product.delivery_fee_pkr ?? product.deliveryFee, "Delivery fee", 1000000);
 
   return {
     name: String(product.name || "").trim(),
     description: product.description || "",
-    price: Number(product.price || 0),
+    price,
     category: formatCategorySelection({
       category: product.category,
       subcategory: product.subcategory,
@@ -126,7 +158,7 @@ function normalizeProductPayload(product = {}) {
     }),
     color: JSON.stringify(product.colors || product.color || []),
     size: JSON.stringify(product.sizes || product.size || []),
-    img: JSON.stringify(product.images || product.img || ["/bustaniya-campaign-hero-v4.png"]),
+    img: JSON.stringify(normalizeImageList(product.images || product.img || ["/bustaniya-campaign-hero-v4.png"])),
     instock: true,
     new: Boolean(product.is_new ?? product.new ?? product.isNew),
     bestsellere: Boolean(product.is_bestseller ?? product.bestsellere ?? product.isBestseller),
@@ -134,9 +166,9 @@ function normalizeProductPayload(product = {}) {
     delivery_fee_mode: product.delivery_fee_mode || product.deliveryFeeMode || "inherit",
     delivery_fee_pkr:
       (product.delivery_fee_mode || product.deliveryFeeMode) === "paid"
-        ? Number(product.delivery_fee_pkr ?? product.deliveryFee ?? 0)
+        ? deliveryFee
         : null,
-    cost_total_pkr: Number(product.cost_total_pkr ?? product.costTotalPkr ?? 0),
+    cost_total_pkr: costTotal,
     cost_breakdown: product.cost_breakdown ?? product.costBreakdown ?? {},
   };
 }
@@ -186,7 +218,7 @@ async function createProductDirect(body) {
   const product = created?.[0];
   if (!product?.id) throw new Error("Product was not created.");
 
-  await upsertInventoryStock(product.id, Number(body.stock || 0), productRecord.article_number);
+  await upsertInventoryStock(product.id, normalizeNonNegativeNumber(body.stock, "Stock quantity", 1000000), productRecord.article_number);
 
   return product.id;
 }
@@ -215,13 +247,13 @@ async function updateProductDirect(body) {
       collection: product.collection,
     });
   }
-  if (product.price !== undefined) updates.price = Number(product.price || 0);
-  if (product.images !== undefined) updates.img = JSON.stringify(product.images || []);
+  if (product.price !== undefined) updates.price = normalizeNonNegativeNumber(product.price, "Product price");
+  if (product.images !== undefined) updates.img = JSON.stringify(normalizeImageList(product.images || []));
   if (product.sizes !== undefined) updates.size = JSON.stringify(product.sizes || []);
   if (product.colors !== undefined) updates.color = JSON.stringify(product.colors || []);
   if (product.sku !== undefined) updates.article_number = String(product.sku || "").trim();
   if (product.cost_total_pkr !== undefined || product.costTotalPkr !== undefined) {
-    updates.cost_total_pkr = Number(product.cost_total_pkr ?? product.costTotalPkr ?? 0);
+    updates.cost_total_pkr = normalizeNonNegativeNumber(product.cost_total_pkr ?? product.costTotalPkr, "Product cost");
   }
   if (product.cost_breakdown !== undefined || product.costBreakdown !== undefined) {
     updates.cost_breakdown = product.cost_breakdown ?? product.costBreakdown ?? {};
@@ -248,7 +280,7 @@ async function updateProductDirect(body) {
   }
 
   if (body.stock !== undefined && body.stock !== null) {
-    await upsertInventoryStock(body.productId, Number(body.stock), updates.article_number);
+    await upsertInventoryStock(body.productId, normalizeNonNegativeNumber(body.stock, "Stock quantity", 1000000), updates.article_number);
   }
 }
 
@@ -260,13 +292,14 @@ async function getInventory(productId) {
 }
 
 async function upsertInventoryStock(productId, stock, sku = "") {
+  const normalizedStock = normalizeNonNegativeNumber(stock, "Stock quantity", 1000000);
   const existing = await getInventory(productId);
   if (existing) {
     await supabaseAdminRequest(`inventory?product_id=eq.${encodeURIComponent(productId)}`, {
       method: "PATCH",
       prefer: "return=minimal",
       body: {
-        stock_quantity: Math.max(0, Number(stock || 0)),
+        stock_quantity: normalizedStock,
         ...(sku ? { sku } : {}),
       },
     });
@@ -278,7 +311,7 @@ async function upsertInventoryStock(productId, stock, sku = "") {
     prefer: "return=minimal",
     body: {
       product_id: productId,
-      stock_quantity: Math.max(0, Number(stock || 0)),
+      stock_quantity: normalizedStock,
       low_stock_threshold: 5,
       sku,
     },
@@ -290,6 +323,7 @@ async function adjustInventoryDirect(body) {
   const change = Number(body.change || 0);
   if (!productId) throw new Error("Product is required for inventory adjustment.");
   if (!Number.isFinite(change)) throw new Error("Inventory adjustment must be a valid number.");
+  if (Math.abs(change) > 1000000) throw validationError("Inventory adjustment is too large.");
 
   const existing = await getInventory(productId);
   const before = Number(existing?.stock_quantity || 0);

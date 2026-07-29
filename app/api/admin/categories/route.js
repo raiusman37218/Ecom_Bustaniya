@@ -6,10 +6,15 @@ import { slugifyCategory } from "../../../../data/store";
 
 function errorResponse(error) {
   const unauthorized = error.status === 401 || error.status === 403;
+  const validation = error.status === 400 || error.status === 422;
   return NextResponse.json(
-    { error: unauthorized ? error.message : error.message || "Unable to update categories." },
-    { status: unauthorized ? error.status : 500 }
+    { error: unauthorized || validation ? error.message : error.message || "Unable to update categories." },
+    { status: unauthorized || validation ? error.status : 500 }
   );
+}
+
+function validationError(message) {
+  return Object.assign(new Error(message), { status: 400 });
 }
 
 function tableMissing(error) {
@@ -20,16 +25,22 @@ function tableMissing(error) {
 function payloadToRecord(category = {}) {
   const name = String(category.name || "").trim();
   const slug = String(category.slug || slugifyCategory(name)).trim();
-  if (!name) throw new Error("Category name is required.");
-  if (!slug) throw new Error("Category slug is required.");
+  const parentSlug = String(category.parentSlug || category.parent_slug || "").trim() || null;
+  const status = category.status || "Active";
+  if (!name) throw validationError("Category name is required.");
+  if (name.length > 80) throw validationError("Category name is too long.");
+  if (!slug) throw validationError("Category slug is required.");
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw validationError("Category slug can use lowercase letters, numbers and hyphens only.");
+  if (parentSlug && parentSlug === slug) throw validationError("A category cannot be its own parent.");
+  if (!["Active", "Draft", "Archived"].includes(status)) throw validationError("Category status is invalid.");
   return {
     name,
     slug,
     description: String(category.description || "").trim(),
     image: String(category.image || "").trim(),
-    parent_slug: String(category.parentSlug || category.parent_slug || "").trim() || null,
-    status: category.status || "Active",
-    sort_order: Number(category.sortOrder ?? category.sort_order ?? 100),
+    parent_slug: parentSlug,
+    status,
+    sort_order: Math.max(0, Math.min(9999, Number(category.sortOrder ?? category.sort_order ?? 100) || 100)),
     show_in_header: Boolean(category.showInHeader ?? category.show_in_header ?? true),
     show_on_homepage: Boolean(category.showOnHomepage ?? category.show_on_homepage ?? true),
     show_in_footer: Boolean(category.showInFooter ?? category.show_in_footer ?? false),
