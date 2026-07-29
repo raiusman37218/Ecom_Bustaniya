@@ -241,7 +241,7 @@ export default function AdminDashboard() {
     product.name.toLowerCase().includes(search.toLowerCase())
   ), [products, search]);
   const totalProductCost = PRODUCT_COST_KEYS.reduce((sum, key) => sum + Number(costBreakdown[key] || 0), 0);
-  const productGst = Math.round(Number(productPrice || 0) * 0.01);
+  const productGst = 0;
   const productTax = Math.round(Number(productPrice || 0) * 0.04);
   const productFinalProfit = Number(productPrice || 0) - totalProductCost - productGst - productTax;
 
@@ -882,7 +882,7 @@ export default function AdminDashboard() {
 
             <section className="productEditorCard">
               <h3>Cost, pricing & profit</h3>
-              <p>Every figure in this section is for one item / one suit. Profit is calculated for one item after the fixed 1% GST and 4% tax.</p>
+              <p>Every figure in this section is for one item / one suit. Product estimate uses saved unit cost and 4% PostEx deduction; actual GST is taken from synced PostEx CPR/order data after sale.</p>
               {costBreakdown.costSource === "production_batch" && <div className="inventoryAlert materialAlert"><Package /><div><b>Production batch cost is linked <HelpHint text="This per-item cost is calculated from the batch's direct costs plus its share of common costs, divided by finished quantity." /></b><span>Batch {costBreakdown.productionBatchId} produced {Number(costBreakdown.productionBatchQuantity || 0).toLocaleString()} items. Its total cost of Rs. {Number(costBreakdown.productionBatchTotalCost || 0).toLocaleString()} has been divided into the per-item costs below.</span></div></div>}
               <div className="formRow"><label>Selling price (PKR)<input name="price" required type="number" min="0" value={productPrice || ""} onChange={(e) => setProductPrice(e.target.value)} placeholder="4,990" /></label><label>Compare-at price<input name="comparePrice" type="number" min="0" defaultValue={editingProduct?.compareAtPrice || editingProduct?.compare_at_price || ""} placeholder="5,990" /></label></div>
               <p className="fieldTitle">Per-item cost breakdown (PKR)</p>
@@ -891,8 +891,8 @@ export default function AdminDashboard() {
               <div className="formRow"><label>Travel / transport cost<input type="number" min="0" value={costBreakdown.delivery || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, delivery: e.target.value }))} /></label><label>Other cost<input type="number" min="0" value={costBreakdown.other || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, other: e.target.value }))} /></label></div>
               <div className="financeStatement">
                 <div><span>Cost per item</span><b>{`Rs. ${totalProductCost.toLocaleString()}`}</b></div>
-                <div><span>GST per item (1%)</span><b>- {`Rs. ${productGst.toLocaleString()}`}</b></div>
-                <div><span>Tax per item (4%)</span><b>- {`Rs. ${productTax.toLocaleString()}`}</b></div>
+                <div><span>PostEx GST per item</span><b>Actual after sync</b></div>
+                <div><span>PostEx deduction estimate (4%)</span><b>- {`Rs. ${productTax.toLocaleString()}`}</b></div>
                 <div className="statementTotal"><span>Final profit per item</span><b>{`Rs. ${productFinalProfit.toLocaleString()}`}</b></div>
               </div>
             </section>
@@ -1008,12 +1008,31 @@ function postexCalculatedSummary(snapshot = {}) {
   const payments = Array.isArray(snapshot?.payments) ? snapshot.payments : [];
   const allocations = postexAllocationMap(Array.isArray(snapshot?.items) ? snapshot.items : []);
   const deliveredPayments = payments.filter((payment) => String(payment.courier_status || "").toLowerCase().includes("deliver"));
-  const totalExpectedNetPkr = Math.round(deliveredPayments.reduce((sum, payment) => sum + Number(postexSettlementAmounts(payment).net || 0), 0) * 100) / 100;
+  const returnedPayments = payments.filter((payment) => String(payment.courier_status || "").toLowerCase().includes("return"));
+  const deliveredAmounts = deliveredPayments.map(postexSettlementAmounts);
+  const returnedAmounts = returnedPayments.map(postexSettlementAmounts);
+  const sumAmounts = (items, key) => Math.round(items.reduce((sum, item) => sum + Number(item[key] || 0), 0) * 100) / 100;
+  const deliveredPostexDeductionsPkr = Math.round(deliveredAmounts.reduce((sum, item) =>
+    sum + Number(item.shipping || 0) + Number(item.upfrontCharges || 0) + Number(item.gst || 0) + Number(item.deduction4 || 0) + Number(item.returnFee || 0), 0) * 100) / 100;
+  const returnedPostexLossPkr = Math.round(returnedAmounts.reduce((sum, item) =>
+    sum + Number(item.shipping || 0) + Number(item.upfrontCharges || 0) + Number(item.gst || 0) + Number(item.deduction4 || 0) + Number(item.returnFee || 0) + Math.max(0, -Number(item.net || 0)), 0) * 100) / 100;
+  const totalExpectedNetPkr = Math.round(deliveredAmounts.reduce((sum, item) => sum + Number(item.net || 0), 0) * 100) / 100;
   const outstandingPkr = Math.round(deliveredPayments.reduce((sum, payment) => {
     const net = Number(postexSettlementAmounts(payment).net || 0);
     return sum + Math.max(0, net - Number(allocations.get(String(payment.id)) || 0));
   }, 0) * 100) / 100;
-  return { totalExpectedNetPkr, outstandingPkr, allocations };
+  return {
+    totalExpectedNetPkr,
+    outstandingPkr,
+    allocations,
+    deliveredPostexDeductionsPkr,
+    returnedPostexLossPkr,
+    postexShippingPkr: sumAmounts(deliveredAmounts, "shipping") + sumAmounts(returnedAmounts, "shipping"),
+    postexGstPkr: sumAmounts(deliveredAmounts, "gst") + sumAmounts(returnedAmounts, "gst"),
+    postexDeduction4Pkr: sumAmounts(deliveredAmounts, "deduction4") + sumAmounts(returnedAmounts, "deduction4"),
+    deliveredPostexGstPkr: sumAmounts(deliveredAmounts, "gst"),
+    deliveredPostexDeduction4Pkr: sumAmounts(deliveredAmounts, "deduction4"),
+  };
 }
 
 function DashboardHome({ setActive, orders, products, metrics, connected, loading, ordersError, currentAdminUser, onRefresh, onAddProduct, onOpenOrder }) {
@@ -1069,9 +1088,13 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const dashboardCod = liveOrders.filter(isPendingCodOrder).reduce((sum, order) => sum + Number(order.total || 0), 0);
   const dashboardProductRevenue = deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0);
   const dashboardDeliveryCollected = Math.max(0, dashboardSales - dashboardProductRevenue);
-  const dashboardGst = Math.round(dashboardProductRevenue * .01);
-  const dashboardTax = Math.round(dashboardProductRevenue * .04);
+  const dashboardCalculatedPostex = postexCalculatedSummary(financeSnapshot.postex || {});
+  const dashboardGst = Math.round(Number(dashboardCalculatedPostex.deliveredPostexGstPkr || 0));
+  const dashboardTax = Math.round(Number(dashboardCalculatedPostex.deliveredPostexDeduction4Pkr || 0));
+  const dashboardActualPostexDeductions = Math.round(Number(dashboardCalculatedPostex.deliveredPostexDeductionsPkr || 0));
+  const dashboardReturnPostexLoss = Math.round(Number(dashboardCalculatedPostex.returnedPostexLossPkr || 0));
   const dashboardTaxes = dashboardGst + dashboardTax;
+  const dashboardCourierCost = Math.max(0, dashboardActualPostexDeductions - dashboardTaxes);
   const dashboardManualExpenses = financeSnapshot.expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0) + Number(financeSnapshot.packagingExpense || 0) + Number(financeSnapshot.deliveryExpense || 0);
   const dashboardCashbookExpenses = financeSnapshot.transactions.filter((item) => item.type === "business_expense" && !item.productionBatchId && item.category !== "Inventory production" && !String(item.title || "").startsWith("Production batch ")).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardProductionCashOutflow = financeSnapshot.transactions.filter((item) => item.type === "business_expense" && (item.productionBatchId || item.category === "Inventory production" || String(item.title || "").startsWith("Production batch "))).reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -1080,15 +1103,13 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const dashboardOwnerWithdrawals = financeSnapshot.transactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardManualPostexReceipts = financeSnapshot.transactions.filter((item) => item.type === "postex_bank_receipt").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardPostexBankReceived = Number(financeSnapshot.postex?.summary?.bankReceivedPkr || 0) + dashboardManualPostexReceipts;
-  const dashboardCalculatedPostex = postexCalculatedSummary(financeSnapshot.postex || {});
   const dashboardExpectedPostexNet = Number(dashboardCalculatedPostex.totalExpectedNetPkr || financeSnapshot.postex?.summary?.totalExpectedNetPkr || dashboardSales);
   const dashboardPostexReceivable = Math.max(0, Number(dashboardCalculatedPostex.outstandingPkr || financeSnapshot.postex?.summary?.outstandingPkr || dashboardExpectedPostexNet || dashboardCod) - dashboardManualPostexReceipts);
   const dashboardReceivedRatio = dashboardExpectedPostexNet > 0 ? Math.min(1, dashboardPostexBankReceived / dashboardExpectedPostexNet) : 0;
-  const dashboardCashGstReserve = Math.round(dashboardGst * dashboardReceivedRatio);
-  const dashboardCashTaxReserve = Math.round(dashboardTax * dashboardReceivedRatio);
-  const dashboardCourierCost = (liveOrders.filter(isDeliveredOrder).length * 200) + (dashboardReturns * 200);
-  const dashboardNetProfit = dashboardSales - dashboardCogs - dashboardCourierCost - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses;
-  const dashboardAvailableCash = dashboardPostexBankReceived + dashboardOwnerInvestments - dashboardCashGstReserve - dashboardCashTaxReserve - dashboardManualExpenses - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments - dashboardOwnerWithdrawals;
+  const dashboardCashGstReserve = 0;
+  const dashboardCashTaxReserve = 0;
+  const dashboardNetProfit = dashboardSales - dashboardCogs - dashboardCourierCost - dashboardReturnPostexLoss - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses;
+  const dashboardAvailableCash = dashboardPostexBankReceived + dashboardOwnerInvestments - dashboardManualExpenses - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments - dashboardOwnerWithdrawals;
   const zeroCostActive = (products || []).filter((product) => productStatus(product) === "Active" && !Number(product.costTotalPkr || 0));
   const lowStockProducts = (products || []).filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5));
   const chartRange = Number(dashboardPeriod);
@@ -1161,9 +1182,10 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
             <div><span>Products sold (without delivery)</span><b>Rs. {dashboardProductRevenue.toLocaleString()}</b></div>
             <div><span>Delivery collected from customers</span><b className="cashPlus">+ Rs. {dashboardDeliveryCollected.toLocaleString()}</b></div>
             <div><span>Product cost of sold items (COGS)</span><b className="cashMinus">- Rs. {dashboardCogs.toLocaleString()}</b></div>
-            <div><span>GST on product selling price (1%)</span><b className="cashMinus">- Rs. {dashboardGst.toLocaleString()}</b></div>
-            <div><span>Tax on product selling price (4%)</span><b className="cashMinus">- Rs. {dashboardTax.toLocaleString()}</b></div>
-            <div><span>Courier cost ({liveOrders.filter(isDeliveredOrder).length} delivered + {dashboardReturns} returned)</span><b className="cashMinus">- Rs. {dashboardCourierCost.toLocaleString()}</b></div>
+            <div><span>Actual PostEx GST from synced CPR data</span><b className="cashMinus">- Rs. {dashboardGst.toLocaleString()}</b></div>
+            <div><span>Actual PostEx 4% deduction from synced CPR data</span><b className="cashMinus">- Rs. {dashboardTax.toLocaleString()}</b></div>
+            <div><span>Actual PostEx shipping/service charges</span><b className="cashMinus">- Rs. {dashboardCourierCost.toLocaleString()}</b></div>
+            <div><span>Returned parcel PostEx loss</span><b className="cashMinus">- Rs. {dashboardReturnPostexLoss.toLocaleString()}</b></div>
             <div><span>Other operating expenses</span><b className="cashMinus">- Rs. {(dashboardManualExpenses + dashboardCashbookExpenses).toLocaleString()}</b></div>
             <div className="statementTotal"><span>Final net profit</span><b>Rs. {dashboardNetProfit.toLocaleString()}</b></div>
           </div>
@@ -1174,8 +1196,8 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
             <div><span>Verified PostEx bank receipts</span><b className="cashPlus">+ Rs. {dashboardPostexBankReceived.toLocaleString()}</b></div>
             <div><span>PostEx receivable (not available cash)</span><b>Rs. {dashboardPostexReceivable.toLocaleString()}</b></div>
             <div><span>Owner funds added</span><b className="cashPlus">+ Rs. {dashboardOwnerInvestments.toLocaleString()}</b></div>
-            <div><span>GST reserve on received settlements (1%)</span><b className="cashMinus">- Rs. {dashboardCashGstReserve.toLocaleString()}</b></div>
-            <div><span>Tax reserve on received settlements (4%)</span><b className="cashMinus">- Rs. {dashboardCashTaxReserve.toLocaleString()}</b></div>
+            <div><span>PostEx GST already deducted before bank receipt</span><b>Rs. {dashboardGst.toLocaleString()}</b></div>
+            <div><span>PostEx 4% deduction already deducted before bank receipt</span><b>Rs. {dashboardTax.toLocaleString()}</b></div>
             <div><span>Operating expenses paid</span><b className="cashMinus">- Rs. {(dashboardManualExpenses + dashboardCashbookExpenses).toLocaleString()}</b></div>
             <div><span>Production / stock purchase cash paid</span><b className="cashMinus">- Rs. {dashboardProductionCashOutflow.toLocaleString()}</b></div>
             <div><span>Supplier payments</span><b className="cashMinus">- Rs. {dashboardSupplierPayments.toLocaleString()}</b></div>
@@ -2231,21 +2253,21 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   // Keeping it out of this P&L total prevents subtracting the same cost twice.
   const profitExpenseTotal = manualExpenseTotal + cashbookOperatingExpenses + packagingTotal + deliveryTotal;
   const cashOutflowTotal = profitExpenseTotal + productionCashOutflow + supplierPaymentTotal;
-  const courierDeliveryCost = deliveredOrderCount * 200;
-  const returnCourierCost = returnedOrderCount * 200;
-  const gstProvision = Math.round(deliveredProductRevenue * 0.01);
-  const taxProvision = Math.round(deliveredProductRevenue * 0.04);
-  const gstTaxTotal = Math.round(deliveredProductRevenue * 0.05);
+  const gstProvision = Math.round(Number(calculatedPostex.deliveredPostexGstPkr || 0));
+  const taxProvision = Math.round(Number(calculatedPostex.deliveredPostexDeduction4Pkr || 0));
+  const gstTaxTotal = gstProvision + taxProvision;
+  const courierDeliveryCost = Math.max(0, Math.round(Number(calculatedPostex.deliveredPostexDeductionsPkr || 0)) - gstTaxTotal);
+  const returnCourierCost = Math.round(Number(calculatedPostex.returnedPostexLossPkr || 0));
   const postexExpectedNet = Number(calculatedPostex.totalExpectedNetPkr || postexSummary.totalExpectedNetPkr || expectedPostexReceivable || 0);
   const receivedSettlementRatio = postexExpectedNet > 0 ? Math.min(1, receivedCash / postexExpectedNet) : 0;
-  const cashGstTaxReserve = Math.round(gstTaxTotal * receivedSettlementRatio);
+  const cashGstTaxReserve = 0;
   const deliveryCollected = grossRevenue - deliveredProductRevenue;
   const profitAfterProductCost = grossRevenue - deliveredCogs;
   const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - profitExpenseTotal - gstTaxTotal;
   // PostEx bank receipts are already net of courier deductions. Delivered
   // revenue remains in P&L, but it becomes spendable cash only after a CPR
   // receipt is verified.
-  const availableCash = receivedCash - cashGstTaxReserve - cashOutflowTotal + ownerInvestments - ownerWithdrawals;
+  const availableCash = receivedCash - cashOutflowTotal + ownerInvestments - ownerWithdrawals;
   const allocatableProfit = Math.max(0, netProfit);
   const marketingAllocation = Math.round(allocatableProfit * Number(profitAllocation.marketingPercent || 0) / 100);
   const ownerAllocation = Math.round(allocatableProfit * Number(profitAllocation.ownerPercent || 0) / 100);
@@ -2575,11 +2597,11 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       ["Packaging expense", packagingTotal],
       ["Extra delivery expense", deliveryTotal],
       ["Returned orders", returnedOrderCount],
-      ["Returned order courier cost (Rs. 200 each)", returnCourierCost],
-      ["Courier delivery cost (Rs. 200 × delivered orders)", courierDeliveryCost],
-      ["GST provision (1%)", gstProvision],
-      ["Tax provision (4%)", taxProvision],
-      ["GST + Tax total (5%)", gstTaxTotal],
+      ["Actual returned-order PostEx loss", returnCourierCost],
+      ["Actual delivered-order PostEx shipping/service cost", courierDeliveryCost],
+      ["Actual PostEx GST from synced CPR data", gstProvision],
+      ["Actual PostEx 4% deduction", taxProvision],
+      ["Actual PostEx GST + 4% deduction", gstTaxTotal],
       ["Net profit", netProfit],
       ["Inventory retail value", inventoryRetailValue],
       ["Inventory cost value", inventoryCostValue],
@@ -2776,15 +2798,15 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
           <div><span>Sales revenue</span><b>+ {money(grossRevenue)}</b></div>
           <div><span>Less: cost of goods sold</span><b>- {money(deliveredCogs)}</b></div>
           <div><span>Gross profit</span><b>{money(grossRevenue - deliveredCogs)}</b></div>
-          <div><span>Less: GST and tax</span><b>- {money(gstTaxTotal)}</b></div>
-          <div><span>Less: delivered-order courier cost</span><b>- {money(courierDeliveryCost)}</b></div>
-          <div><span>Less: returned-order courier loss</span><b>- {money(returnCourierCost)}</b></div>
+          <div><span>Less: actual PostEx GST + 4% deduction</span><b>- {money(gstTaxTotal)}</b></div>
+          <div><span>Less: actual delivered-order PostEx shipping</span><b>- {money(courierDeliveryCost)}</b></div>
+          <div><span>Less: actual returned-order PostEx loss</span><b>- {money(returnCourierCost)}</b></div>
           <div><span>Less: operating expenses</span><b>- {money(profitExpenseTotal)}</b></div>
           <div className="statementTotal"><span>Net profit / loss</span><b>{money(netProfit)}</b></div>
         </div>
       </div>
       <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Returns-loss report</h2><p>Returned orders do not create sales revenue. Courier loss is charged at Rs. 200 per returned order.</p></div></div>
+        <div className="cardHeading"><div><h2>Returns-loss report</h2><p>Returned orders do not create sales revenue. Courier loss uses actual PostEx synced return/shipping deductions.</p></div></div>
         <div className="financeStatement">
           <div><span>Returned orders</span><b>{returnedOrderCount}</b></div>
           <div><span>Return rate</span><b>{deliveredOrderCount + returnedOrderCount ? Math.round((returnedOrderCount / (deliveredOrderCount + returnedOrderCount)) * 100) : 0}%</b></div>
@@ -2804,16 +2826,16 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
           <div><span>3. Total sale received</span><b>{money(grossRevenue)}</b></div>
           <div><span>4. Less: saved product cost</span><b>- {money(deliveredCogs)}</b></div>
           <div><span>5. Profit after product cost</span><b>{money(profitAfterProductCost)}</b></div>
-          <div><span>6. Less: GST + Tax (5% of product sales)</span><b>- {money(gstTaxTotal)}</b></div>
-          <div><span>7. Less: courier delivery (Rs. 200 × {deliveredOrderCount} orders)</span><b>- {money(courierDeliveryCost)}</b></div>
-          <div><span>8. Less: returned-order courier loss (Rs. 200 × {returnedOrderCount} orders)</span><b>- {money(returnCourierCost)}</b></div>
+          <div><span>6. Less: actual PostEx GST + 4% deduction</span><b>- {money(gstTaxTotal)}</b></div>
+          <div><span>7. Less: actual delivered-order PostEx shipping</span><b>- {money(courierDeliveryCost)}</b></div>
+          <div><span>8. Less: actual returned-order PostEx loss</span><b>- {money(returnCourierCost)}</b></div>
           <div><span>9. Less: operating expenses</span><b>- {money(profitExpenseTotal)}</b></div>
           {productionCashOutflow > 0 && <div><span>Stock purchases tracked in Cashbook</span><b>{money(productionCashOutflow)} (deducted when units sell)</b></div>}
           <div className="statementTotal"><span>10. Final net profit</span><b>{money(netProfit)}</b></div>
         </div>
         <div className="financeControls">
-          <label>GST<input readOnly value="1% per product" /></label>
-          <label>Tax<input readOnly value="4% per product" /></label>
+          <label>GST<input readOnly value="Actual from PostEx" /></label>
+          <label>Tax<input readOnly value="4% deduction / PostEx data" /></label>
           <label>Packaging expense<input type="number" min="0" value={packagingExpense} onChange={(event) => setPackagingExpense(event.target.value)} onBlur={() => saveManualFinance({ packagingExpense })} /></label>
           <label>Extra delivery expense<input type="number" min="0" value={deliveryExpense} onChange={(event) => setDeliveryExpense(event.target.value)} onBlur={() => saveManualFinance({ deliveryExpense })} /></label>
         </div>
@@ -2884,6 +2906,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
   const [profitProjectionView, setProfitProjectionView] = useState("product");
   const [expectedItemsPerOrder, setExpectedItemsPerOrder] = useState("");
   const [projectionTransactions, setProjectionTransactions] = useState([]);
+  const [projectionPostex, setProjectionPostex] = useState({ setupAvailable: false, payments: [], batches: [], items: [], summary: {} });
   const [projectionFinanceLoaded, setProjectionFinanceLoaded] = useState(false);
   const [projectionFinanceAvailable, setProjectionFinanceAvailable] = useState(false);
   const [inventorySources, setInventorySources] = useState([
@@ -2985,6 +3008,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
         if (!ok) throw new Error(result.error || "Unable to load finance assumptions.");
         if (active) {
           setProjectionTransactions(result.transactions || []);
+          setProjectionPostex(result.postex || { setupAvailable: false, payments: [], batches: [], items: [], summary: {} });
           setProjectionFinanceAvailable(true);
         }
       })
@@ -3096,7 +3120,12 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
   const projectedOrderCount = total ? Math.ceil(total / projectionItemsPerOrder) : 0;
   const historicalFulfilledOrderCount = deliveredHistoricalOrders.length + returnedHistoricalOrders.length;
   const returnRate = historicalFulfilledOrderCount ? returnedHistoricalOrders.length / historicalFulfilledOrderCount : 0;
-  const projectedReturnCourierLoss = Math.round(projectedOrderCount * returnRate * 200);
+  const projectionPostexSummary = postexCalculatedSummary(projectionPostex || {});
+  const historicalReturnCourierLoss = Math.round(Number(projectionPostexSummary.returnedPostexLossPkr || 0));
+  const estimatedReturnLossPerReturn = returnedHistoricalOrders.length && historicalReturnCourierLoss
+    ? Math.round(historicalReturnCourierLoss / returnedHistoricalOrders.length)
+    : 200;
+  const projectedReturnCourierLoss = Math.round(projectedOrderCount * returnRate * estimatedReturnLossPerReturn);
   const marketingSpend = projectionTransactions
     .filter((entry) => entry.type === "business_expense" && String(entry.category || "").toLowerCase() === "marketing")
     .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
@@ -3294,17 +3323,17 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     </div>
 
     {low + out > 0 && <div className="inventoryAlert"><Bell /><div><b>{low + out} products need attention</b><span>Out-of-stock products cannot be ordered, and low stock is highlighted here.</span></div><button onClick={() => setInventoryView(low ? "Low stock" : "Out of stock")}>Review items</button></div>}
-    {returnedHistoricalOrders.length > 0 && <section id="returned-order-inspection" className="adminCard managementCard inventoryLedger"><div className="inventoryListHead"><div><h2>Returned-order inspection queue</h2><span>Inspect every returned parcel before marking return received.</span></div><b>{returnedHistoricalOrders.length} pending</b></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Finance impact</th><th>Required action</th></tr></thead><tbody>{returnedHistoricalOrders.slice(0, 10).map((order) => <tr key={order.id}><td><b>{order.id}</b></td><td>{order.customer || "—"}</td><td>{normalizeOrderItems(order.raw || order).map((item) => `${item.name} × ${item.quantity}`).join(", ")}</td><td className="expenseAmount">- Rs. 200 courier loss</td><td><b>Inspect → mark Return received to restore stock</b></td></tr>)}</tbody></table></div><p className="trackingNumber">Finance automatically deducts Rs. 200 once per returned order. Stock is restored one time only after staff marks the return as received, so damaged/missing parcels are not added back accidentally.</p></section>}
+    {returnedHistoricalOrders.length > 0 && <section id="returned-order-inspection" className="adminCard managementCard inventoryLedger"><div className="inventoryListHead"><div><h2>Returned-order inspection queue</h2><span>Inspect every returned parcel before marking return received.</span></div><b>{returnedHistoricalOrders.length} pending</b></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Finance impact</th><th>Required action</th></tr></thead><tbody>{returnedHistoricalOrders.slice(0, 10).map((order) => <tr key={order.id}><td><b>{order.id}</b></td><td>{order.customer || "—"}</td><td>{normalizeOrderItems(order.raw || order).map((item) => `${item.name} × ${item.quantity}`).join(", ")}</td><td className="expenseAmount">Actual PostEx loss</td><td><b>Inspect → mark Return received to restore stock</b></td></tr>)}</tbody></table></div><p className="trackingNumber">Finance deducts the actual PostEx return/shipping loss from synced CPR/payment data. Stock is restored one time only after staff marks the return as received, so damaged/missing parcels are not added back accidentally.</p></section>}
     {lowMaterialCount > 0 && <div className="inventoryAlert materialAlert"><Bell /><div><b>{lowMaterialCount} material items need reorder review</b><span>Buttons, laces, trims and other raw materials are tracked separately from finished product stock.</span></div><button onClick={() => setTab("Sources")}>Review materials</button></div>}
 
     <section className="adminCard managementCard inventoryLedger">
       <div className="inventoryListHead"><div><h2>Inventory profit projection</h2><span>Estimate only — actual profit remains in Finance after orders are delivered.</span></div></div>
       <div className="inventoryViewBar"><button type="button" className={profitProjectionView === "product" ? "active" : ""} onClick={() => setProfitProjectionView("product")}>Product-only</button><button type="button" className={profitProjectionView === "all" ? "active" : ""} onClick={() => setProfitProjectionView("all")}>All costs included</button><HelpHint text="Estimated stock profit after expected return-courier loss and saved marketing spend. Actual profit remains in Finance." /></div>
-      {profitProjectionView === "product" ? <div className="inventoryAlert materialAlert"><CircleDollarSign /><div><b>Product-only stock profit: Rs. {potentialStockProfit.toLocaleString()}</b><span>Potential sales minus saved per-item product cost and 5% GST/tax. This is the clean product margin before delivery, returns and marketing.</span></div></div> : <><div className="financeControls"><label>Expected items per order<input type="number" min="1" step="0.1" value={expectedItemsPerOrder || historicalItemsPerOrder.toFixed(1)} onChange={(event) => setExpectedItemsPerOrder(event.target.value)} /></label><label>Projected orders<input readOnly value={projectedOrderCount} /></label><label>Historical return rate<input readOnly value={`${Math.round(returnRate * 100)}%`} /></label></div><div className="financeStatement"><div><span>Product-only stock profit</span><b>{inventoryMoney(potentialStockProfit)}</b></div><div><span>Delivery collected less courier (Rs. 200 per order)</span><b>Rs. 0</b></div><div><span>Expected returned-order courier loss</span><b>- {inventoryMoney(projectedReturnCourierLoss)}</b></div><div><span>Actual marketing spend allocated per sold item</span><b>- {inventoryMoney(projectedMarketingCost)}</b></div><div className="statementTotal"><span>All-cost projected inventory profit</span><b>{inventoryMoney(allCostsProjectedProfit)}</b></div></div><p className="trackingNumber">{!projectionFinanceLoaded ? "Loading Finance-linked assumptions..." : projectionFinanceAvailable ? "Marketing uses saved Cashbook entries in the Marketing category. Return loss uses your historic returned-order rate; change expected items per order if needed." : "Finance marketing data is unavailable for this account, so marketing is shown as Rs. 0. Product-only calculation remains accurate."}</p></>}
+      {profitProjectionView === "product" ? <div className="inventoryAlert materialAlert"><CircleDollarSign /><div><b>Product-only stock profit: Rs. {potentialStockProfit.toLocaleString()}</b><span>Potential sales minus saved per-item product cost and synced PostEx GST/4% deduction estimate where available. Delivery, returns and marketing stay in the all-cost estimate.</span></div></div> : <><div className="financeControls"><label>Expected items per order<input type="number" min="1" step="0.1" value={expectedItemsPerOrder || historicalItemsPerOrder.toFixed(1)} onChange={(event) => setExpectedItemsPerOrder(event.target.value)} /></label><label>Projected orders<input readOnly value={projectedOrderCount} /></label><label>Historical return rate<input readOnly value={`${Math.round(returnRate * 100)}%`} /></label></div><div className="financeStatement"><div><span>Product-only stock profit</span><b>{inventoryMoney(potentialStockProfit)}</b></div><div><span>Customer delivery fee collected</span><b>Rs. 200 / order</b></div><div><span>Expected returned-order PostEx loss</span><b>- {inventoryMoney(projectedReturnCourierLoss)}</b></div><div><span>Actual marketing spend allocated per sold item</span><b>- {inventoryMoney(projectedMarketingCost)}</b></div><div className="statementTotal"><span>All-cost projected inventory profit</span><b>{inventoryMoney(allCostsProjectedProfit)}</b></div></div><p className="trackingNumber">{!projectionFinanceLoaded ? "Loading Finance-linked assumptions..." : projectionFinanceAvailable ? "Marketing uses saved Cashbook entries in the Marketing category. Return loss uses actual synced PostEx history when available; change expected items per order if needed." : "Finance marketing data is unavailable for this account, so marketing is shown as Rs. 0. Product-only calculation remains accurate."}</p></>}
     </section>
 
     <section className="financeGrid financeGridWide">
-      <div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>SKU profitability</h2><span>Delivered sales less saved unit cost and 5% GST/tax.</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Product / SKU</th><th>Units sold</th><th>Sales</th><th>COGS</th><th>Net margin</th></tr></thead><tbody>{skuProfitRows.slice(0, 12).map((row) => <tr key={row.product.id}><td><b>{row.product.name}</b><br /><small>{row.product.sku || row.product.articleNumber || "—"}</small></td><td>{row.unitsSold}</td><td>Rs. {row.sales.toLocaleString()}</td><td>Rs. {row.cost.toLocaleString()}</td><td className={row.margin < 15 ? "expenseAmount" : "incomeAmount"}>{row.margin}%</td></tr>)}{!skuProfitRows.length && <tr><td colSpan="5" className="emptyFinanceCell">No delivered SKU sales yet.</td></tr>}</tbody></table></div></div>
+      <div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>SKU profitability</h2><span>Delivered sales less saved unit cost and synced PostEx GST/4% deduction estimate. Finance remains the final source of truth.</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Product / SKU</th><th>Units sold</th><th>Sales</th><th>COGS</th><th>Net margin</th></tr></thead><tbody>{skuProfitRows.slice(0, 12).map((row) => <tr key={row.product.id}><td><b>{row.product.name}</b><br /><small>{row.product.sku || row.product.articleNumber || "—"}</small></td><td>{row.unitsSold}</td><td>Rs. {row.sales.toLocaleString()}</td><td>Rs. {row.cost.toLocaleString()}</td><td className={row.margin < 15 ? "expenseAmount" : "incomeAmount"}>{row.margin}%</td></tr>)}{!skuProfitRows.length && <tr><td colSpan="5" className="emptyFinanceCell">No delivered SKU sales yet.</td></tr>}</tbody></table></div></div>
       <div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Stock ageing</h2><p>Based on the oldest dated positive inventory receipt. Legacy stock without receipt date is kept separate.</p></div></div><div className="financeStatement"><div><span>Fresh stock (0–30 days)</span><b>{stockAgeCounts.fresh}</b></div><div><span>Normal stock (31–60 days)</span><b>{stockAgeCounts.normal}</b></div><div><span>Slow-moving (61–90 days)</span><b>{stockAgeCounts.slow}</b></div><div><span>Legacy stock — no dated receipt</span><b>{stockAgeCounts.legacy}</b></div><div className="statementTotal"><span>Dead-stock risk (90+ days)</span><b>{stockAgeCounts.dead}</b></div></div></div>
     </section>
 
