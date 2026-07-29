@@ -3184,7 +3184,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     </div>
 
     {low + out > 0 && <div className="inventoryAlert"><Bell /><div><b>{low + out} products need attention</b><span>Out-of-stock products cannot be ordered, and low stock is highlighted here.</span></div><button onClick={() => setInventoryView(low ? "Low stock" : "Out of stock")}>Review items</button></div>}
-    {returnedHistoricalOrders.length > 0 && <section id="returned-order-inspection" className="adminCard managementCard inventoryLedger"><div className="inventoryListHead"><div><h2>Returned-order inspection queue</h2><span>Inspect every returned parcel before adding any unit back to available stock.</span></div><b>{returnedHistoricalOrders.length} pending</b></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Finance impact</th><th>Required action</th></tr></thead><tbody>{returnedHistoricalOrders.slice(0, 10).map((order) => <tr key={order.id}><td><b>{order.id}</b></td><td>{order.customer || "—"}</td><td>{normalizeOrderItems(order.raw || order).map((item) => `${item.name} × ${item.quantity}`).join(", ")}</td><td className="expenseAmount">- Rs. 200 courier loss</td><td><b>Inspect → restock or mark damaged</b></td></tr>)}</tbody></table></div><p className="trackingNumber">Finance automatically deducts Rs. 200 once per returned order. Inventory is not restored automatically, so damaged or missing parcels cannot inflate stock.</p></section>}
+    {returnedHistoricalOrders.length > 0 && <section id="returned-order-inspection" className="adminCard managementCard inventoryLedger"><div className="inventoryListHead"><div><h2>Returned-order inspection queue</h2><span>Inspect every returned parcel before marking return received.</span></div><b>{returnedHistoricalOrders.length} pending</b></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Finance impact</th><th>Required action</th></tr></thead><tbody>{returnedHistoricalOrders.slice(0, 10).map((order) => <tr key={order.id}><td><b>{order.id}</b></td><td>{order.customer || "—"}</td><td>{normalizeOrderItems(order.raw || order).map((item) => `${item.name} × ${item.quantity}`).join(", ")}</td><td className="expenseAmount">- Rs. 200 courier loss</td><td><b>Inspect → mark Return received to restore stock</b></td></tr>)}</tbody></table></div><p className="trackingNumber">Finance automatically deducts Rs. 200 once per returned order. Stock is restored one time only after staff marks the return as received, so damaged/missing parcels are not added back accidentally.</p></section>}
     {lowMaterialCount > 0 && <div className="inventoryAlert materialAlert"><Bell /><div><b>{lowMaterialCount} material items need reorder review</b><span>Buttons, laces, trims and other raw materials are tracked separately from finished product stock.</span></div><button onClick={() => setTab("Sources")}>Review materials</button></div>}
 
     <section className="adminCard managementCard inventoryLedger">
@@ -3456,7 +3456,9 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
     setSaveMessage("");
     try {
       const saved = await onUpdate(order, changes(overrides));
-      if (saved.operationPersistence === "unavailable" || saved.operationPersistence === "failed") {
+      if (saved.inventoryRestore?.restored) {
+        setSaveMessage(`Order changes saved. ${saved.inventoryRestore.restoredItems} item(s) restored to inventory.`);
+      } else if (saved.operationPersistence === "unavailable" || saved.operationPersistence === "failed") {
         setSaveMessage(saved.operationError || "Core order details saved, but return/refund workflow data was not saved.");
       } else {
         setSaveMessage("Order changes saved.");
@@ -4234,3 +4236,4 @@ function WorkspaceDrawer({ workspace, onClose, onSave, activity }) {
     </aside>
   </>;
 }
+
