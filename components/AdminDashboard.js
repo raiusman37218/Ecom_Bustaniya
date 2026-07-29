@@ -3802,7 +3802,10 @@ function BackendHealthPanel() {
 
   const summary = health?.summary || { ok: 0, warning: 0, fail: 0 };
   const checks = health?.checks || [];
+  const completenessSummary = health?.completenessSummary || { complete: 0, partial: 0, missing: 0 };
+  const completeness = health?.completeness || [];
   const statusClass = (status) => status === "ok" ? "activeStatus" : status === "warning" ? "processing" : "cancelled";
+  const completenessStatusClass = (status) => status === "complete" ? "activeStatus" : status === "partial" ? "processing" : "cancelled";
 
   return <div className="settingsStack">
     <section className="adminCard settingsForm settingsWideForm">
@@ -3835,6 +3838,35 @@ function BackendHealthPanel() {
         {!checks.length && <div className="inventoryEmpty">{loading ? "Running backend checks..." : "No health checks available."}</div>}
       </div>
       <p className="paymentSecurityNote">Note: secret values are never shown here. This panel only confirms whether backend configuration and critical tables are reachable.</p>
+    </section>
+    <section className="adminCard settingsForm settingsWideForm">
+      <div className="inventoryListHead">
+        <div>
+          <h2>Database completeness</h2>
+          <span>Feature-by-feature backend support matrix for the ecommerce system.</span>
+        </div>
+      </div>
+      <div className="dashboardMiniGrid">
+        <article className="miniMetricCard"><span>Complete</span><b>{completenessSummary.complete || 0}</b><small>Ready feature areas</small></article>
+        <article className="miniMetricCard"><span>Partial</span><b>{completenessSummary.partial || 0}</b><small>Needs DB polish</small></article>
+        <article className="miniMetricCard"><span>Missing</span><b>{completenessSummary.missing || 0}</b><small>Needs setup</small></article>
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead><tr><th>Feature</th><th>Status</th><th>Required tables</th><th>Purpose</th><th>Gap / action</th></tr></thead>
+          <tbody>
+            {completeness.map((item) => <tr key={item.feature}>
+              <td><b>{item.feature}</b>{item.note && <small className="trackingNumber">{item.note}</small>}</td>
+              <td><span className={`statusBadge ${completenessStatusClass(item.status)}`}>{item.status}</span></td>
+              <td><div className="tagList">{(item.requiredTables || []).map((table) => <span key={table}>{table}</span>)}</div></td>
+              <td>{item.purpose}</td>
+              <td>{item.gaps?.length ? <ul className="compactIssueList">{item.gaps.map((gap) => <li key={gap}>{gap}</li>)}</ul> : item.action}</td>
+            </tr>)}
+          </tbody>
+        </table>
+        {!completeness.length && <div className="inventoryEmpty">{loading ? "Checking database completeness..." : "No completeness data available."}</div>}
+      </div>
+      <p className="paymentSecurityNote">This matrix avoids unnecessary tables: for example, customer profiles and discounts can stay lightweight until real business rules require dedicated tables.</p>
     </section>
   </div>;
 }

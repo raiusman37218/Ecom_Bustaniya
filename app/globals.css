@@ -4775,6 +4775,15 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   border-color:#f0cad5;
   color:#a11c44;
 }
+.compactIssueList {
+  margin:0;
+  padding-left:16px;
+  display:grid;
+  gap:4px;
+  color:#6b3b4b;
+  font-size:12px;
+  line-height:1.45;
+}
 .orderDetailDrawer:has(.customerProfileGrid)>header {
   min-height:116px;
   background:
