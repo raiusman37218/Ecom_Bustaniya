@@ -3804,6 +3804,8 @@ function BackendHealthPanel() {
   const checks = health?.checks || [];
   const completenessSummary = health?.completenessSummary || { complete: 0, partial: 0, missing: 0 };
   const completeness = health?.completeness || [];
+  const securitySummary = health?.securitySummary || { ok: 0, warning: 0, fail: 0 };
+  const securityAudit = health?.securityAudit || [];
   const statusClass = (status) => status === "ok" ? "activeStatus" : status === "warning" ? "processing" : "cancelled";
   const completenessStatusClass = (status) => status === "complete" ? "activeStatus" : status === "partial" ? "processing" : "cancelled";
 
@@ -3838,6 +3840,35 @@ function BackendHealthPanel() {
         {!checks.length && <div className="inventoryEmpty">{loading ? "Running backend checks..." : "No health checks available."}</div>}
       </div>
       <p className="paymentSecurityNote">Note: secret values are never shown here. This panel only confirms whether backend configuration and critical tables are reachable.</p>
+    </section>
+    <section className="adminCard settingsForm settingsWideForm">
+      <div className="inventoryListHead">
+        <div>
+          <h2>Authentication & admin security</h2>
+          <span>Login, logout, sessions, roles, secrets and server-side authorization checks.</span>
+        </div>
+      </div>
+      <div className="dashboardMiniGrid">
+        <article className="miniMetricCard"><span>Secure</span><b>{securitySummary.ok || 0}</b><small>Passing checks</small></article>
+        <article className="miniMetricCard"><span>Review</span><b>{securitySummary.warning || 0}</b><small>Warnings</small></article>
+        <article className="miniMetricCard"><span>Risk</span><b>{securitySummary.fail || 0}</b><small>Must fix</small></article>
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead><tr><th>Area</th><th>Security check</th><th>Status</th><th>Detail</th><th>Action</th></tr></thead>
+          <tbody>
+            {securityAudit.map((item) => <tr key={`${item.area}-${item.check}`}>
+              <td>{item.area}</td>
+              <td><b>{item.check}</b></td>
+              <td><span className={`statusBadge ${statusClass(item.status)}`}>{item.status}</span></td>
+              <td>{item.detail}</td>
+              <td>{item.action || "No action needed."}</td>
+            </tr>)}
+          </tbody>
+        </table>
+        {!securityAudit.length && <div className="inventoryEmpty">{loading ? "Checking admin security..." : "No security audit data available."}</div>}
+      </div>
+      <p className="paymentSecurityNote">Security note: this audit never prints passwords, tokens or secret values. It only reports whether risky configuration is present.</p>
     </section>
     <section className="adminCard settingsForm settingsWideForm">
       <div className="inventoryListHead">

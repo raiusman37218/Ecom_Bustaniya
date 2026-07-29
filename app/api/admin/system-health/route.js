@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { adminAuthErrorResponse, authorizeAdminSession } from "../../../../lib/adminAuth";
+import {
+  ADMIN_SESSION_MAX_AGE_SECONDS,
+  adminAuthErrorResponse,
+  authorizeAdminSession,
+} from "../../../../lib/adminAuth";
+import { ADMIN_PERMISSIONS, listAdminUsers } from "../../../../lib/adminUsers";
 import { optionalEnv } from "../../../../lib/env";
 import { supabaseAdminRequest, supabaseRequest } from "../../../../lib/supabaseRest";
 
@@ -246,6 +251,129 @@ async function checkFeatureSupport(definition) {
   };
 }
 
+async function buildSecurityAudit() {
+  const audit = [];
+  const push = (status, area, check, detail, action = "") => audit.push({ status, area, check, detail, action });
+  const password = optionalEnv("ADMIN_PASSWORD");
+  const publicServiceKeys = [
+    "NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY",
+    "NEXT_PUBLIC_SUPABASE_SERVICE_KEY",
+    "NEXT_PUBLIC_SUPABASE_SECRET_KEY",
+    "NEXT_PUBLIC_ADMIN_PASSWORD",
+    "NEXT_PUBLIC_ADMIN_SESSION_SECRET",
+  ].filter((name) => Boolean(optionalEnv(name)));
+
+  push(
+    optionalEnv("ADMIN_SESSION_SECRET") ? "ok" : "fail",
+    "Sessions",
+    "Signed admin sessions",
+    optionalEnv("ADMIN_SESSION_SECRET") ? "Admin session signing secret is configured." : "ADMIN_SESSION_SECRET is missing.",
+    optionalEnv("ADMIN_SESSION_SECRET") ? "" : "Add a long random ADMIN_SESSION_SECRET in Vercel/local server env."
+  );
+  push(
+    ADMIN_SESSION_MAX_AGE_SECONDS <= 60 * 60 * 12 ? "ok" : "warning",
+    "Sessions",
+    "Session expiry",
+    `Admin sessions expire after ${Math.round(ADMIN_SESSION_MAX_AGE_SECONDS / 3600)} hour(s).`,
+    ADMIN_SESSION_MAX_AGE_SECONDS <= 60 * 60 * 12 ? "" : "Keep admin sessions at 12 hours or less for safer shared-device use."
+  );
+  push(
+    password && password !== "Bustaniya@1122" && password.length >= 14 ? "ok" : password && password !== "Bustaniya@1122" ? "warning" : "fail",
+    "Password",
+    "Owner password strength",
+    !password ? "ADMIN_PASSWORD is missing." : password === "Bustaniya@1122" ? "Default admin password is still configured." : `Custom admin password is configured with ${password.length} characters.`,
+    password && password !== "Bustaniya@1122" && password.length >= 14 ? "" : "Use a unique owner password of at least 14 characters and remove the previous/default password."
+  );
+  push(
+    publicServiceKeys.length ? "fail" : "ok",
+    "Secrets",
+    "No public secret env vars",
+    publicServiceKeys.length ? `Dangerous public env names detected: ${publicServiceKeys.join(", ")}` : "No known secret/service env vars are exposed with NEXT_PUBLIC_ names.",
+    publicServiceKeys.length ? "Remove these from public env immediately and rotate any exposed secrets." : ""
+  );
+  push(
+    "ok",
+    "Login",
+    "Login brute-force guard",
+    "Admin login route rate-limits repeated failed attempts per client.",
+    ""
+  );
+  push(
+    "ok",
+    "Logout",
+    "Logout clears session",
+    "Admin logout route expires the signed session cookie server-side.",
+    ""
+  );
+  push(
+    "ok",
+    "Cookies",
+    "HttpOnly session cookie",
+    "Admin auth uses an HttpOnly SameSite cookie; frontend/local state alone cannot create admin access.",
+    ""
+  );
+  push(
+    "ok",
+    "Authorization",
+    "Server-side permission checks",
+    "Admin APIs use signed session verification and permission checks server-side.",
+    ""
+  );
+  push(
+    "ok",
+    "Protected routes",
+    "No frontend-only authorization",
+    "Admin data routes require the signed cookie and do not trust localStorage/frontend state for privileges.",
+    ""
+  );
+  push(
+    "ok",
+    "Supabase Auth",
+    "Admin auth model",
+    "This project uses custom signed admin sessions plus Supabase service-role access on the server, not public Supabase Auth sessions for admin access.",
+    "If customer accounts are added later, keep customer Supabase Auth separate from owner/staff admin sessions."
+  );
+
+  try {
+    const users = await listAdminUsers();
+    const activeOwners = users.filter((user) => user.role === "Owner" && user.status === "Active");
+    const invalidPermissionUsers = users.filter((user) =>
+      (user.permissions || []).some((permission) => !ADMIN_PERMISSIONS.includes(permission))
+    );
+    push(
+      activeOwners.length ? "ok" : "fail",
+      "Roles",
+      "Active owner account",
+      activeOwners.length ? `${activeOwners.length} active owner account(s) found.` : "No active owner account found.",
+      activeOwners.length ? "" : "Create or enable one owner account before relying on staff roles."
+    );
+    push(
+      invalidPermissionUsers.length ? "warning" : "ok",
+      "Roles",
+      "Permission integrity",
+      invalidPermissionUsers.length ? `${invalidPermissionUsers.length} admin user(s) have unknown permissions.` : "All admin permissions match the supported permission list.",
+      invalidPermissionUsers.length ? "Review admin user permissions and remove unsupported values." : ""
+    );
+    push(
+      users.length ? "ok" : "warning",
+      "Users",
+      "Admin user store",
+      users.length ? `${users.length} admin user record(s) loaded successfully.` : "No admin users loaded; env owner fallback may be the only login path.",
+      users.length ? "" : "Run admin_users SQL setup and keep owner/staff users in Supabase for production."
+    );
+  } catch (error) {
+    push(
+      "fail",
+      "Users",
+      "Admin user store",
+      error?.message || "Unable to load admin users.",
+      "Check admin_users table setup and server write permissions."
+    );
+  }
+
+  return audit;
+}
+
 export async function GET(request) {
   try {
     await authorizeAdminSession(request, "settings");
@@ -312,6 +440,8 @@ export async function GET(request) {
       checks.push(await checkPublicCostExposure());
     }
 
+    const securityAudit = await buildSecurityAudit();
+
     const summary = checks.reduce(
       (total, check) => ({ ...total, [check.status]: (total[check.status] || 0) + 1 }),
       { ok: 0, warning: 0, fail: 0 }
@@ -325,6 +455,11 @@ export async function GET(request) {
       completenessSummary: completeness.reduce(
         (total, item) => ({ ...total, [item.status]: (total[item.status] || 0) + 1 }),
         { complete: 0, partial: 0, missing: 0 }
+      ),
+      securityAudit,
+      securitySummary: securityAudit.reduce(
+        (total, item) => ({ ...total, [item.status]: (total[item.status] || 0) + 1 }),
+        { ok: 0, warning: 0, fail: 0 }
       ),
     });
   } catch (error) {
