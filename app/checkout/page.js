@@ -108,10 +108,15 @@ export default function CheckoutPage() {
 
   async function placeOrder(event) {
     event.preventDefault();
+    if (submitting || !cart.length) return;
     setSubmitting(true);
     setError("");
     const completeAddress = buildShippingAddress(form);
     const customer = { ...form, address: completeAddress };
+    const checkoutAttemptId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
     try {
       const response = await fetch("/api/postex/order", {
@@ -120,6 +125,7 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           customer,
           paymentMethod,
+          checkoutAttemptId,
           items: cart.map(({ id, articleNumber, article_number, sku, name, quantity, size, color }) => ({
             id,
             articleNumber,
@@ -273,6 +279,18 @@ function OrderConfirmation({ order, items, subtotal, delivery }) {
             <div><Truck /><span><b>Your order is confirmed</b>We&apos;ve accepted your order, and we&apos;re getting it ready.</span></div>
             <small>Tracking ID: <b>{order.trackingNumber}</b></small>
           </div>
+          {!order.courierBooked && (
+            <div className="confirmationCard deliveryCard manualCourierNotice">
+              <div>
+                <Truck />
+                <span>
+                  <b>Courier booking needs staff review</b>
+                  Your order is saved safely. Our team will book PostEx manually if automatic booking is temporarily unavailable.
+                </span>
+              </div>
+              {order.courierMessage && <small>{order.courierMessage}</small>}
+            </div>
+          )}
 
           <div className="confirmationGrid">
             <div className="confirmationCard">

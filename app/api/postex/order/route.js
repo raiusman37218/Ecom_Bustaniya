@@ -10,6 +10,36 @@ import { getStoreSettings } from "../../../../lib/storeSettings";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const CHECKOUT_WINDOW_MS = 10 * 60 * 1000;
+const CHECKOUT_MAX_ATTEMPTS = 8;
+const DUPLICATE_ORDER_WINDOW_MS = 2 * 60 * 1000;
+const checkoutAttempts = new Map();
+const activeCheckoutFingerprints = new Map();
+
+function cleanupExpiringMap(map, now = Date.now()) {
+  for (const [key, value] of map.entries()) {
+    if (Number(value.expiresAt || 0) <= now) map.delete(key);
+  }
+}
+
+function checkoutClientKey(request) {
+  const forwardedFor = request.headers.get("x-forwarded-for") || "";
+  return forwardedFor.split(",")[0].trim() || request.headers.get("x-real-ip") || "unknown";
+}
+
+function isCheckoutRateLimited(key) {
+  const now = Date.now();
+  cleanupExpiringMap(checkoutAttempts, now);
+  const current = checkoutAttempts.get(key);
+  if (!current || current.expiresAt <= now) {
+    checkoutAttempts.set(key, { count: 1, expiresAt: now + CHECKOUT_WINDOW_MS });
+    return false;
+  }
+  current.count += 1;
+  checkoutAttempts.set(key, current);
+  return current.count > CHECKOUT_MAX_ATTEMPTS;
+}
+
 async function ensureOrderItems(orderId, items) {
   if (!orderId || !items.length) return;
   const existing = await supabaseAdminRequest(
@@ -39,8 +69,22 @@ function normalizePhone(value = "") {
   return digits || String(value).trim();
 }
 
+function isValidPakistanMobile(value = "") {
+  return /^03\d{9}$/.test(normalizePhone(value));
+}
+
 function normalizeText(value = "") {
   return String(value).trim().toLowerCase();
+}
+
+function cleanText(value = "", maxLength = 160) {
+  return String(value || "").trim().replace(/\s+/g, " ").slice(0, maxLength);
+}
+
+function isValidEmail(value = "") {
+  const email = cleanText(value, 180);
+  if (!email) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 function legacyArticleNumber(id) {
@@ -96,10 +140,33 @@ async function completeManualCourierOrder(reservedOrder, reason) {
   };
 }
 
+function checkoutFingerprint({ phone, city, paymentMethod, items }) {
+  const itemKey = items
+    .map((item) => [
+      item.articleNumber || item.sku || item.id,
+      item.quantity,
+      item.size || "",
+      item.color || "",
+    ].join(":"))
+    .sort()
+    .join("|");
+  return `${normalizePhone(phone)}|${normalizeText(city)}|${paymentMethod}|${itemKey}`;
+}
+
 export async function POST(request) {
   let reservedOrder = null;
+  let duplicateKey = "";
+  let keepDuplicateGuard = false;
 
   try {
+    const clientKey = checkoutClientKey(request);
+    if (isCheckoutRateLimited(clientKey)) {
+      return NextResponse.json(
+        { error: "Too many checkout attempts. Please wait a few minutes and try again." },
+        { status: 429 }
+      );
+    }
+
     let body;
     try {
       body = await request.json();
@@ -120,9 +187,9 @@ export async function POST(request) {
     if (paymentMethod === "bank_deposit" && paymentSettings.manualTransferEnabled === false) {
       return NextResponse.json({ error: "Manual transfer is not available right now." }, { status: 400 });
     }
-    const phone = String(customer.phone || "").trim();
+    const phone = cleanText(customer.phone, 40);
     const courierPhone = normalizePhone(phone);
-    const fullName = String(customer.fullName || `${customer.firstName || ""} ${customer.lastName || ""}`).trim();
+    const fullName = cleanText(customer.fullName || `${customer.firstName || ""} ${customer.lastName || ""}`, 120);
     const [firstName, ...lastNameParts] = fullName.split(/\s+/);
     const lastName = lastNameParts.join(" ") || "-";
     const deliveryAddress = buildShippingAddress(customer);
@@ -137,6 +204,10 @@ export async function POST(request) {
       firstName,
       lastName,
       phone,
+      email: cleanText(customer.email, 180),
+      city: cleanText(customer.city, 80),
+      postalCode: cleanText(customer.postalCode, 30),
+      checkoutAttemptId: cleanText(body?.checkoutAttemptId || body?.clientRequestId, 80),
       paymentMethod,
     };
 
@@ -150,6 +221,18 @@ export async function POST(request) {
     ) {
       return NextResponse.json(
         { error: "Please provide valid delivery details and cart items." },
+        { status: 400 }
+      );
+    }
+    if (!isValidPakistanMobile(courierPhone)) {
+      return NextResponse.json(
+        { error: "Please enter a valid Pakistani mobile number, for example 03XXXXXXXXX." },
+        { status: 400 }
+      );
+    }
+    if (!isValidEmail(normalizedCustomer.email)) {
+      return NextResponse.json(
+        { error: "Please enter a valid email address or leave it blank." },
         { status: 400 }
       );
     }
@@ -186,6 +269,24 @@ export async function POST(request) {
         return NextResponse.json({ error: `COD is available up to Rs. ${maxOrder.toLocaleString()}. Please select advance payment.` }, { status: 400 });
       }
     }
+
+    cleanupExpiringMap(activeCheckoutFingerprints);
+    duplicateKey = checkoutFingerprint({
+      phone: courierPhone,
+      city: normalizedCustomer.city,
+      paymentMethod,
+      items: verifiedItems,
+    });
+    const duplicate = activeCheckoutFingerprints.get(duplicateKey);
+    if (duplicate) {
+      return NextResponse.json(
+        duplicate.order
+          ? { ...duplicate.order, duplicate: true }
+          : { error: "This order is already being placed. Please wait a moment." },
+        { status: duplicate.order ? 200 : 409 }
+      );
+    }
+    activeCheckoutFingerprints.set(duplicateKey, { expiresAt: Date.now() + DUPLICATE_ORDER_WINDOW_MS });
 
     reservedOrder = await supabaseAdminRpc("create_checkout_order", {
       p_customer: normalizedCustomer,
@@ -285,7 +386,7 @@ export async function POST(request) {
       return false;
     });
 
-    return NextResponse.json({
+    const responseBody = {
       success: true,
       orderRef: completedOrder.order_number,
       trackingNumber: completedOrder.tracking_number,
@@ -295,7 +396,14 @@ export async function POST(request) {
       courierBooked,
       courierMessage,
       emailSent,
+    };
+    activeCheckoutFingerprints.set(duplicateKey, {
+      expiresAt: Date.now() + DUPLICATE_ORDER_WINDOW_MS,
+      order: responseBody,
     });
+    keepDuplicateGuard = true;
+
+    return NextResponse.json(responseBody);
   } catch (error) {
     if (reservedOrder) {
       await supabaseAdminRpc("release_checkout_order", {
@@ -323,5 +431,9 @@ export async function POST(request) {
       details: error?.details,
     });
     return NextResponse.json({ error: publicError(error) }, { status: 500 });
+  } finally {
+    if (duplicateKey && !keepDuplicateGuard) {
+      activeCheckoutFingerprints.delete(duplicateKey);
+    }
   }
 }

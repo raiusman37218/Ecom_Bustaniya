@@ -5,9 +5,9 @@ import { NextResponse } from "next/server";
 export async function POST(request) {
   try {
     const { items = [] } = await request.json();
-    const hasItems = Array.isArray(items) && items.length > 0;
+    const hasItems = Array.isArray(items) && items.some((item) => Number(item?.quantity || 0) > 0);
     return NextResponse.json({ delivery: hasItems ? 200 : 0 });
   } catch {
-    return NextResponse.json({ delivery: 200 });
+    return NextResponse.json({ delivery: 0 });
   }
 }
