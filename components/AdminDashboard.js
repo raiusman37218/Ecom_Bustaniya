@@ -380,13 +380,14 @@ export default function AdminDashboard() {
     setCatalogLoading(true);
     try {
       const mediaImages = await uploadProductMedia();
-      const seoTitle = String(productForm.querySelector('input[maxlength="70"]')?.value || "").trim();
+      const seoTitle = String(form.get("seoTitle") || "").trim();
       const productPayload = {
         name: form.get("name"),
         description: form.get("description") || "",
         category: form.get("category"),
         subcategory: form.get("subcategory") || "",
         collection: form.get("collection") || "",
+        productType: form.get("productType") || "",
         price: Number(form.get("price")),
         compare_at_price: Number(form.get("comparePrice") || 0) || null,
         sku: form.get("sku"),
@@ -400,6 +401,7 @@ export default function AdminDashboard() {
         }))),
         tags: String(form.get("tags") || "").split(",").map((tag) => tag.trim()).filter(Boolean),
         status: form.get("status") || "Active",
+        publishDate: form.get("publishDate") || "",
         images: mediaImages.length
           ? mediaImages
           : ["/bustaniya-campaign-hero-v4.png"],
@@ -420,6 +422,11 @@ export default function AdminDashboard() {
             seoTitle,
             seoDescription: String(form.get("seoDescription") || "").trim(),
             urlHandle: String(form.get("urlHandle") || "").trim(),
+            compareAtPrice: Number(form.get("comparePrice") || 0) || null,
+            status: form.get("status") || "Active",
+            productType: form.get("productType") || "",
+            tags: String(form.get("tags") || "").split(",").map((tag) => tag.trim()).filter(Boolean),
+            publishDate: form.get("publishDate") || "",
           },
         },
       };
@@ -867,18 +874,18 @@ export default function AdminDashboard() {
               <h3>Product organization</h3>
               <div className="formRow">
                 <label>Category<select name="category" value={productCategory} onChange={(event) => setProductCategory(event.target.value)}>{mainCategoryOptions.map((category) => <option value={category.name} key={category.slug}>{category.name}</option>)}</select></label>
-                <label>Product type<select name="productType"><option>Women&apos;s clothing</option><option>Kurti</option><option>Trouser</option><option>Co-ord</option></select></label>
+                <label>Product type<select name="productType" defaultValue={editingProduct?.productType || "Women's clothing"}><option>Women&apos;s clothing</option><option>Kurti</option><option>Trouser</option><option>Co-ord</option></select></label>
               </div>
               {!!productSubcategoryOptions.length && <label>Subcategory<select name="subcategory" defaultValue={editingProduct?.subcategory || productSubcategoryOptions[0]?.slug}>{productSubcategoryOptions.map((category) => <option value={category.slug} key={category.slug}>{category.name}</option>)}</select></label>}
               <div className="formRow"><label>Vendor<input name="vendor" defaultValue={editingProduct?.vendor || "Bustaniya"} /></label><label>Collection<input name="collection" defaultValue={editingProduct?.collection || ""} placeholder="Summer Collection, New Arrivals..." /></label></div>
-              <label>Tags<input name="tags" placeholder="summer, printed, cotton, new-arrival" /></label>
+              <label>Tags<input name="tags" defaultValue={Array.isArray(editingProduct?.tags) ? editingProduct.tags.join(", ") : ""} placeholder="summer, printed, cotton, new-arrival" /></label>
             </section>
 
             <section className="productEditorCard">
               <h3>Cost, pricing & profit</h3>
               <p>Every figure in this section is for one item / one suit. Profit is calculated for one item after the fixed 1% GST and 4% tax.</p>
               {costBreakdown.costSource === "production_batch" && <div className="inventoryAlert materialAlert"><Package /><div><b>Production batch cost is linked <HelpHint text="This per-item cost is calculated from the batch's direct costs plus its share of common costs, divided by finished quantity." /></b><span>Batch {costBreakdown.productionBatchId} produced {Number(costBreakdown.productionBatchQuantity || 0).toLocaleString()} items. Its total cost of Rs. {Number(costBreakdown.productionBatchTotalCost || 0).toLocaleString()} has been divided into the per-item costs below.</span></div></div>}
-              <div className="formRow"><label>Selling price (PKR)<input name="price" required type="number" min="0" value={productPrice || ""} onChange={(e) => setProductPrice(e.target.value)} placeholder="4,990" /></label><label>Compare-at price<input name="comparePrice" type="number" placeholder="5,990" /></label></div>
+              <div className="formRow"><label>Selling price (PKR)<input name="price" required type="number" min="0" value={productPrice || ""} onChange={(e) => setProductPrice(e.target.value)} placeholder="4,990" /></label><label>Compare-at price<input name="comparePrice" type="number" min="0" defaultValue={editingProduct?.compareAtPrice || editingProduct?.compare_at_price || ""} placeholder="5,990" /></label></div>
               <p className="fieldTitle">Per-item cost breakdown (PKR)</p>
               <div className="formRow"><label>Fabric<input type="number" min="0" value={costBreakdown.fabric || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, fabric: e.target.value }))} /></label><label>Stitching<input type="number" min="0" value={costBreakdown.stitching || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, stitching: e.target.value }))} /></label></div>
               <div className="formRow"><label>Embellishment<input type="number" min="0" value={costBreakdown.embellishment || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, embellishment: e.target.value }))} /></label><label>Packaging<input type="number" min="0" value={costBreakdown.packaging || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, packaging: e.target.value }))} /></label></div>
@@ -927,14 +934,14 @@ export default function AdminDashboard() {
             <section className="productEditorCard">
               <h3>Search engine listing</h3>
               <div className="seoPreview"><b>Bustaniya · Product title</b><span>https://bustaniya.pk/products/product-title</span><p>Your product description will appear here in search results.</p></div>
-              <label>Page title<input maxLength="70" placeholder="Product title — Bustaniya" /></label>
+              <label>Page title<input name="seoTitle" maxLength="70" defaultValue={editingProduct?.seoTitle || ""} placeholder="Product title — Bustaniya" /></label>
               <label>Meta description<textarea name="seoDescription" rows="3" maxLength="160" defaultValue={editingProduct?.seoDescription || ""} placeholder="Describe this product for Google search..." /></label>
               <label>URL handle<input name="urlHandle" defaultValue={editingProduct?.urlHandle || ""} placeholder="gulnaar-corset-kurti" /></label>
             </section>
 
             <section className="productEditorCard">
               <h3>Publishing</h3>
-              <div className="formRow"><label>Status<select name="status"><option>Active</option><option>Draft</option><option>Archived</option></select></label><label>Publishing date<input type="date" /></label></div>
+              <div className="formRow"><label>Status<select name="status" defaultValue={editingProduct?.status || "Active"}><option>Active</option><option>Draft</option><option>Archived</option></select></label><label>Publishing date<input name="publishDate" type="date" defaultValue={editingProduct?.publishDate || ""} /></label></div>
               <p className="fieldTitle">Sales channels</p>
               <label className="checkLabel"><input type="checkbox" defaultChecked /> Online Store</label>
               <label className="checkLabel"><input type="checkbox" /> Instagram / Facebook</label>

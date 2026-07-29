@@ -68,6 +68,7 @@ function formatProduct(product) {
   const categorySelection = parseCategorySelection(product.category);
   const costBreakdown = parseJsonObject(product.cost_breakdown);
   const productMetadata = parseJsonObject(costBreakdown.metadata);
+  const status = String(productMetadata.status || (product.instock ? "Active" : "Archived"));
   return {
     id: product.id,
     name: product.name,
@@ -84,8 +85,12 @@ function formatProduct(product) {
     colors: parseJsonArray(product.color),
     images,
     image: images[0] || "/bustaniya-campaign-hero-v4.png",
-    status: product.instock ? "Active" : "Out of stock",
+    status,
     badge: product.new ? "New" : product.bestsellere ? "Bestseller" : "",
+    compareAtPrice: Number(product.compare_at_price ?? productMetadata.compareAtPrice ?? productMetadata.compare_at_price ?? 0) || null,
+    tags: Array.isArray(productMetadata.tags) ? productMetadata.tags : [],
+    productType: String(productMetadata.productType || ""),
+    publishDate: String(productMetadata.publishDate || ""),
     isNew: Boolean(product.new),
     isBestseller: Boolean(product.bestsellere),
     deliveryFeeMode: product.delivery_fee_mode || "inherit",
@@ -144,8 +149,12 @@ function normalizeImageList(value) {
 function normalizeProductPayload(product = {}) {
   const articleNumber = articleNumberForProduct(product);
   const price = normalizeNonNegativeNumber(product.price, "Product price");
+  const compareAtPrice = normalizeNonNegativeNumber(product.compare_at_price ?? product.compareAtPrice, "Compare-at price");
   const costTotal = normalizeNonNegativeNumber(product.cost_total_pkr ?? product.costTotalPkr, "Product cost");
   const deliveryFee = normalizeNonNegativeNumber(product.delivery_fee_pkr ?? product.deliveryFee, "Delivery fee", 1000000);
+  const status = ["Active", "Draft", "Archived"].includes(product.status) ? product.status : "Active";
+  const costBreakdown = parseJsonObject(product.cost_breakdown ?? product.costBreakdown ?? {});
+  const metadata = parseJsonObject(costBreakdown.metadata);
 
   return {
     name: String(product.name || "").trim(),
@@ -159,7 +168,7 @@ function normalizeProductPayload(product = {}) {
     color: JSON.stringify(product.colors || product.color || []),
     size: JSON.stringify(product.sizes || product.size || []),
     img: JSON.stringify(normalizeImageList(product.images || product.img || ["/bustaniya-campaign-hero-v4.png"])),
-    instock: true,
+    instock: status === "Active",
     new: Boolean(product.is_new ?? product.new ?? product.isNew),
     bestsellere: Boolean(product.is_bestseller ?? product.bestsellere ?? product.isBestseller),
     article_number: articleNumber,
@@ -169,7 +178,17 @@ function normalizeProductPayload(product = {}) {
         ? deliveryFee
         : null,
     cost_total_pkr: costTotal,
-    cost_breakdown: product.cost_breakdown ?? product.costBreakdown ?? {},
+    cost_breakdown: {
+      ...costBreakdown,
+      metadata: {
+        ...metadata,
+        compareAtPrice,
+        status,
+        productType: String(product.productType || product.product_type || metadata.productType || "").trim(),
+        tags: Array.isArray(product.tags) ? product.tags : metadata.tags || [],
+        publishDate: String(product.publishDate || product.publish_date || metadata.publishDate || "").trim(),
+      },
+    },
   };
 }
 
@@ -248,6 +267,10 @@ async function updateProductDirect(body) {
     });
   }
   if (product.price !== undefined) updates.price = normalizeNonNegativeNumber(product.price, "Product price");
+  if (product.status !== undefined) {
+    if (!["Active", "Draft", "Archived"].includes(product.status)) throw validationError("Product status is invalid.");
+    updates.instock = product.status === "Active";
+  }
   if (product.images !== undefined) updates.img = JSON.stringify(normalizeImageList(product.images || []));
   if (product.sizes !== undefined) updates.size = JSON.stringify(product.sizes || []);
   if (product.colors !== undefined) updates.color = JSON.stringify(product.colors || []);
@@ -256,7 +279,25 @@ async function updateProductDirect(body) {
     updates.cost_total_pkr = normalizeNonNegativeNumber(product.cost_total_pkr ?? product.costTotalPkr, "Product cost");
   }
   if (product.cost_breakdown !== undefined || product.costBreakdown !== undefined) {
-    updates.cost_breakdown = product.cost_breakdown ?? product.costBreakdown ?? {};
+    const incomingBreakdown = parseJsonObject(product.cost_breakdown ?? product.costBreakdown ?? {});
+    const incomingMetadata = parseJsonObject(incomingBreakdown.metadata);
+    updates.cost_breakdown = {
+      ...incomingBreakdown,
+      metadata: {
+        ...incomingMetadata,
+        ...(product.compare_at_price !== undefined || product.compareAtPrice !== undefined
+          ? { compareAtPrice: normalizeNonNegativeNumber(product.compare_at_price ?? product.compareAtPrice, "Compare-at price") }
+          : {}),
+        ...(product.status !== undefined ? { status: product.status } : {}),
+        ...(product.productType !== undefined || product.product_type !== undefined
+          ? { productType: String(product.productType || product.product_type || "").trim() }
+          : {}),
+        ...(product.tags !== undefined ? { tags: Array.isArray(product.tags) ? product.tags : [] } : {}),
+        ...(product.publishDate !== undefined || product.publish_date !== undefined
+          ? { publishDate: String(product.publishDate || product.publish_date || "").trim() }
+          : {}),
+      },
+    };
   }
 
   if (Object.keys(updates).length) {
@@ -375,7 +416,7 @@ export async function POST(request) {
   try {
     await authorizeAdminRequest(request, "products");
     const products = await supabaseAdminRequest(
-      "products?select=*,inventory(stock_quantity,low_stock_threshold,sku)&instock=eq.true&order=created_at.desc"
+      "products?select=*,inventory(stock_quantity,low_stock_threshold,sku)&order=created_at.desc"
     );
     const movements = await supabaseAdminRequest(
       "inventory_movements?select=id,product_id,quantity_change,reason,stock_before,stock_after,created_at&order=created_at.desc&limit=100"
@@ -413,7 +454,12 @@ export async function PUT(request) {
     }
     // Older catalogue RPCs intentionally ignore unknown JSON keys. Persist cost
     // details separately so the finance screen always receives the true cost.
-    if (body.product?.cost_total_pkr !== undefined || body.product?.cost_breakdown !== undefined) {
+    if (
+      body.product?.cost_total_pkr !== undefined ||
+      body.product?.cost_breakdown !== undefined ||
+      body.product?.status !== undefined ||
+      body.product?.compare_at_price !== undefined
+    ) {
       const rows = await supabaseAdminRequest(
         `products?select=id&article_number=eq.${encodeURIComponent(body.product.article_number)}&limit=1`
       );
@@ -424,6 +470,7 @@ export async function PUT(request) {
           body: {
             cost_total_pkr: Number(body.product.cost_total_pkr || 0),
             cost_breakdown: body.product.cost_breakdown || {},
+            ...(body.product.status !== undefined ? { instock: body.product.status === "Active" } : {}),
           },
         });
       }
@@ -480,13 +527,19 @@ export async function PATCH(request) {
       if (!isRpcUnavailableError(error)) throw error;
       result = await updateProductDirect(body);
     }
-    if (body.product?.cost_total_pkr !== undefined || body.product?.cost_breakdown !== undefined) {
+    if (
+      body.product?.cost_total_pkr !== undefined ||
+      body.product?.cost_breakdown !== undefined ||
+      body.product?.status !== undefined ||
+      body.product?.compare_at_price !== undefined
+    ) {
       await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(body.productId)}`, {
         method: "PATCH",
         prefer: "return=minimal",
         body: {
           cost_total_pkr: Number(body.product.cost_total_pkr || 0),
           cost_breakdown: body.product.cost_breakdown || {},
+          ...(body.product.status !== undefined ? { instock: body.product.status === "Active" } : {}),
         },
       });
     }
