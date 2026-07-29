@@ -2187,7 +2187,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const marketingSalesTotal = marketingCampaigns.reduce((sum, item) => sum + Number(item.sales || 0), 0);
   const marketingCustomersTotal = marketingCampaigns.reduce((sum, item) => sum + Number(item.customers || 0), 0);
 
-  async function addMarketingCampaign(event) { event.preventDefault(); const data = new FormData(event.currentTarget); const next = [{ id: `campaign-${Date.now()}`, name: String(data.get("name") || "").trim(), platform: data.get("platform") || "Other", spend: Number(data.get("spend") || 0), sales: Number(data.get("sales") || 0), customers: Number(data.get("customers") || 0), date: data.get("date") || today }, ...marketingCampaigns]; if (!next[0].name) return; setCashbookLoading(true); try { const response = await fetch("/api/admin/finance-transactions", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ transactions:cashbookTransactions, allocation:profitAllocation, supplierBills, fixedCosts:Number(fixedCosts||0), marketingCampaigns:next }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to save campaign."); setMarketingCampaigns(result.marketingCampaigns || next); event.currentTarget.reset(); } catch (error) { setCashbookError(error.message); } finally { setCashbookLoading(false); } }
+  async function addMarketingCampaign(event) { event.preventDefault(); const formElement = event.currentTarget; const data = new FormData(formElement); const next = [{ id: `campaign-${Date.now()}`, name: String(data.get("name") || "").trim(), platform: data.get("platform") || "Other", spend: Number(data.get("spend") || 0), sales: Number(data.get("sales") || 0), customers: Number(data.get("customers") || 0), date: data.get("date") || today }, ...marketingCampaigns]; if (!next[0].name) return; setCashbookLoading(true); try { const response = await fetch("/api/admin/finance-transactions", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ transactions:cashbookTransactions, allocation:profitAllocation, supplierBills, fixedCosts:Number(fixedCosts||0), marketingCampaigns:next }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to save campaign."); setMarketingCampaigns(result.marketingCampaigns || next); formElement?.reset(); } catch (error) { setCashbookError(error.message); } finally { setCashbookLoading(false); } }
 
   async function saveFixedCosts(event) {
     event.preventDefault(); setCashbookLoading(true); setCashbookError("");
@@ -2196,7 +2196,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
 
   async function addSupplierBill(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const data = new FormData(formElement);
     const total = Number(data.get("total") || 0);
     const paid = Math.min(total, Math.max(0, Number(data.get("paid") || 0)));
     if (!total) return;
@@ -2207,7 +2208,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       const response = await fetch("/api/admin/finance-transactions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactions: cashbookTransactions, allocation: profitAllocation, supplierBills: nextBills }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to save supplier bill.");
-      setSupplierBills(result.supplierBills || nextBills); event.currentTarget.reset();
+      setSupplierBills(result.supplierBills || nextBills); formElement?.reset();
     } catch (error) { setCashbookError(error.message); } finally { setCashbookLoading(false); }
   }
 
@@ -2245,7 +2246,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
 
   async function saveCprBatch(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const data = new FormData(formElement);
     setPostexSyncing(true);
     setCashbookError("");
     try {
@@ -2270,7 +2272,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       if (!response.ok) throw new Error(result.error || "Unable to save CPR reconciliation.");
       setPostexSnapshot(result.snapshot || postexSnapshot);
       setCprTrackingText("");
-      event.currentTarget.reset();
+      formElement?.reset();
     } catch (error) {
       setCashbookError(error.message);
     } finally {
@@ -2280,7 +2282,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
 
   async function addPostexWalletReceipt(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const data = new FormData(formElement);
     const amount = Number(data.get("amount") || 0);
     if (!amount || amount < 0) return;
     const reference = String(data.get("reference") || "").trim();
@@ -2305,7 +2308,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to save PostEx wallet receipt.");
       setCashbookTransactions(result.transactions || nextTransactions);
-      event.currentTarget.reset();
+      formElement?.reset();
     } catch (error) {
       setCashbookError(error.message);
     } finally {
@@ -2408,7 +2411,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
 
   async function addExpense(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const data = new FormData(formElement);
     const nextExpenses = [{
       id: Date.now(),
       title: data.get("title"),
@@ -2417,12 +2421,13 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       date: data.get("date") || new Date().toISOString().slice(0, 10),
     }, ...expenses];
     await saveManualFinance({ manualExpenses: nextExpenses });
-    event.currentTarget.reset();
+    formElement?.reset();
   }
 
   async function addCashbookTransaction(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const data = new FormData(formElement);
     const nextTransactions = [{
       id: `cash-${Date.now()}`,
       type: data.get("type"),
@@ -2440,7 +2445,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to save cashbook entry.");
       setCashbookTransactions(result.transactions || nextTransactions);
-      event.currentTarget.reset();
+      formElement?.reset();
     } catch (error) {
       setCashbookError(error.message);
     } finally {
