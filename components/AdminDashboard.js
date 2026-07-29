@@ -739,7 +739,6 @@ export default function AdminDashboard() {
   }
 
   async function archiveCategory(category) {
-    if (!window.confirm(`Archive ${category.name}? Products will stay in the catalogue, but this category can be hidden from storefront navigation.`)) return;
     setCategorySaving(true);
     setOrdersError("");
     try {
@@ -1185,13 +1184,24 @@ function productStatus(product) {
 
 function CategoriesPanel({ categories, products, onSave, onArchive, saving, needsSetup }) {
   const [editing, setEditing] = useState(null);
-  const mainCategories = categories.filter((category) => !category.parentSlug);
+  const visibleCategories = categories.filter((category) => category.status !== "Archived");
+  const archivedCategories = categories.filter((category) => category.status === "Archived");
+  const mainCategories = visibleCategories.filter((category) => !category.parentSlug);
   const [selectedSlug, setSelectedSlug] = useState(mainCategories[0]?.slug || "");
-  const activeCategories = categories.filter((category) => category.status !== "Archived");
   const selectedCategory = mainCategories.find((category) => category.slug === selectedSlug) || mainCategories[0];
   const childCategories = selectedCategory
-    ? categories.filter((category) => category.parentSlug === selectedCategory.slug)
+    ? visibleCategories.filter((category) => category.parentSlug === selectedCategory.slug)
     : [];
+
+  useEffect(() => {
+    if (!mainCategories.length) {
+      setSelectedSlug("");
+      return;
+    }
+    if (!mainCategories.some((category) => category.slug === selectedSlug)) {
+      setSelectedSlug(mainCategories[0].slug);
+    }
+  }, [mainCategories, selectedSlug]);
 
   function productCount(category) {
     if (category.parentSlug) {
@@ -1210,7 +1220,7 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
   }
 
   function moveCategory(category, direction) {
-    const siblings = categories.filter((item) => item.parentSlug === category.parentSlug).sort((a, b) => a.sortOrder - b.sortOrder);
+    const siblings = visibleCategories.filter((item) => item.parentSlug === category.parentSlug).sort((a, b) => a.sortOrder - b.sortOrder);
     const index = siblings.findIndex((item) => item.id === category.id);
     const target = siblings[index + direction];
     if (!target) return;
@@ -1220,7 +1230,9 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
 
   function confirmArchive(category) {
     const count = productCount(category);
-    if (window.confirm(`${category.name} ko archive karna hai?${count ? ` ${count} product${count === 1 ? "" : "s"} is category mein hain.` : ""} Products delete nahi honge, lekin category storefront se hide ho jayegi.`)) onArchive(category);
+    const label = category.parentSlug ? "subcategory" : "main category";
+    const childCount = category.parentSlug ? 0 : visibleCategories.filter((item) => item.parentSlug === category.slug).length;
+    if (window.confirm(`${category.name} ${label} remove/archive karni hai?${count ? ` ${count} product${count === 1 ? "" : "s"} is category mein mapped hain.` : ""}${childCount ? ` ${childCount} nested subcategories bhi hide ho sakti hain.` : ""} Products delete nahi honge, category storefront aur active list se hide ho jayegi.`)) onArchive(category);
   }
 
   function saveCategory(event) {
@@ -1252,8 +1264,9 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
     {needsSetup && <div className="adminErrorBanner">Supabase category table setup is pending. Run <b>scripts/supabase-catalog-categories.sql</b>, then reconnect admin data.</div>}
     <div className="miniMetricGrid productMetrics">
       <article><Tags /><span><b>{mainCategories.length}</b>Main categories</span></article>
-      <article><Package /><span><b>{categories.length - mainCategories.length}</b>Subcategories</span></article>
-      <article><Store /><span><b>{activeCategories.length}</b>Visible on store</span></article>
+      <article><Package /><span><b>{visibleCategories.filter((category) => category.parentSlug).length}</b>Subcategories</span></article>
+      <article><Store /><span><b>{visibleCategories.length}</b>Visible on store</span></article>
+      <article><X /><span><b>{archivedCategories.length}</b>Archived/removed</span></article>
       <article><Boxes /><span><b>{products.length}</b>Products mapped</span></article>
     </div>
 
@@ -1262,7 +1275,7 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
         <div className="inventoryListHead"><div><h2>Main categories</h2><span>{mainCategories.length} storefront sections</span></div><button onClick={openNewMainCategory} disabled={saving}><Plus /> New main</button></div>
         <div className="categoryTreeList">
           {mainCategories.map((category) => {
-            const children = categories.filter((item) => item.parentSlug === category.slug);
+            const children = visibleCategories.filter((item) => item.parentSlug === category.slug);
             return <button type="button" className={selectedCategory?.slug === category.slug ? "active" : ""} key={category.id} onClick={() => setSelectedSlug(category.slug)}>
               <span style={{ backgroundImage: `url(${category.image || "/bustaniya-campaign-hero-v4.png"})` }} />
               <b>{category.name}</b>
@@ -1281,7 +1294,7 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
         </div>}
         <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Subcategory</th><th>URL</th><th>Products</th><th>Status</th><th /></tr></thead><tbody>
           {childCategories.map((category) => (
-            <tr key={category.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${category.image || "/bustaniya-campaign-hero-v4.png"})` }} /><div><b>{category.name}</b><small>{category.description || "No description"}</small></div></div></td><td><a href={`/category/${category.parentSlug}/${category.slug}`} target="_blank">/category/{category.parentSlug}/{category.slug}</a></td><td>{productCount(category)}</td><td><span className={`statusBadge ${category.status === "Active" ? "activeStatus" : "processing"}`}>{category.status}</span></td><td><div className="productRowActions"><button className="editProductButton" onClick={() => setEditing(category)} disabled={saving}>Edit</button><button className="removeProductButton" onClick={() => onArchive(category)} disabled={saving}><X /><span>Archive</span></button></div></td></tr>
+            <tr key={category.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${category.image || "/bustaniya-campaign-hero-v4.png"})` }} /><div><b>{category.name}</b><small>{category.description || "No description"}</small></div></div></td><td><a href={`/category/${category.parentSlug}/${category.slug}`} target="_blank">/category/{category.parentSlug}/{category.slug}</a></td><td>{productCount(category)}</td><td><span className={`statusBadge ${category.status === "Active" ? "activeStatus" : "processing"}`}>{category.status}</span></td><td><div className="productRowActions"><button className="editProductButton" onClick={() => setEditing(category)} disabled={saving}>Edit</button><button className="removeProductButton" onClick={() => confirmArchive(category)} disabled={saving}><X /><span>Remove</span></button></div></td></tr>
           ))}
           {!childCategories.length && <tr><td colSpan="5"><div className="inventoryEmpty">No subcategories inside {selectedCategory?.name || "this category"} yet.</div></td></tr>}
         </tbody></table></div>
