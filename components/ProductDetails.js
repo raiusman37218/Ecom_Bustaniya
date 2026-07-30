@@ -75,7 +75,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             <ArrowLeft size={16} /> Back to collection
           </a>
 
-          <div className="galleryWorkspace">
+          <div className={`galleryWorkspace ${productImages.length > 1 ? "hasThumbnails" : "singleImage"}`}>
             {/* Thumbnails Sidebar Column */}
             {productImages.length > 1 && (
               <div className="galleryThumbnails">

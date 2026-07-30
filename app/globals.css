@@ -2673,6 +2673,9 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   gap:14px;
   align-items:start;
 }
+.galleryWorkspace.singleImage {
+  grid-template-columns:minmax(0,1fr);
+}
 .galleryThumbnails {
   display:flex;
   flex-direction:column;
