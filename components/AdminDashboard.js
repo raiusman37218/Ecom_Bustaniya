@@ -2686,7 +2686,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
   const orderStatusVisual = orderStatusCounts.filter((item) => item.label !== "Total Orders" && item.count > 0).map((item) => ({
     label: item.label,
     value: item.count,
-    color: item.label === "Delivered" ? "#1d6840" : item.label === "Returned" ? "#b73543" : item.label === "Attempted" ? "#d08a18" : item.label === "Cancelled" ? "#8c3b4a" : "#4777a8",
+    color: item.label === "Delivered" ? "#10b981" : item.label === "Booked" ? "#2563eb" : item.label === "Unbooked" ? "#f59e0b" : item.label === "Attempted" ? "#8b5cf6" : item.label === "Returned" ? "#ef4444" : item.label === "Cancelled" ? "#6b7280" : "#3b82f6",
   }));
   const cityVisual = Object.entries(allRows.reduce((map, order) => {
     const city = order.city || "Unknown";
