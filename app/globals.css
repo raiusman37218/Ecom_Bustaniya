@@ -1723,29 +1723,38 @@ footer {
   background:#f4faf5;
 }
 .sizeChartTableWrap {
+  width:100%;
+  max-width:100%;
   overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
   margin-bottom:16px;
   border:1px solid #dce7dd;
   border-radius:12px;
+  background:#fffefb;
+  box-shadow:inset 0 1px rgba(255,255,255,.9);
 }
 .sizeChartTable {
   width:100%;
+  min-width:540px;
   border-collapse:collapse;
-  font-size:13px;
+  table-layout:auto;
+  font-size:12px;
   text-align:center;
 }
 .sizeChartTable th {
-  padding:12px 14px;
+  padding:11px 10px;
   background:#f4faf5;
   color:#132f22;
   font-weight:700;
   border-bottom:1px solid #dce7dd;
-  white-space:nowrap;
+  white-space:normal;
+  line-height:1.25;
 }
 .sizeChartTable td {
-  padding:11px 14px;
+  padding:10px;
   border-bottom:1px solid #edf4ee;
   color:#3a5f4a;
+  white-space:nowrap;
 }
 .sizeChartTable tr:last-child td {
   border-bottom:none;
@@ -2850,7 +2859,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .productPromises svg { width:20px; }
 .productPromises span { display:flex; flex-direction:column; font-size:10px; color:#748077; }
 .productPromises b { color:var(--forest); font-size:11px; }
-.productPurchase details { border-bottom:1px solid var(--line); padding:17px 0; font-size:12px; }
+.productPurchase details { max-width:100%; min-width:0; overflow:hidden; border-bottom:1px solid var(--line); padding:17px 0; font-size:12px; }
 .productPurchase summary { cursor:pointer; text-transform:uppercase; letter-spacing:.07em; font-size:10px; }
 .productPurchase details p { color:#667168; line-height:1.7; }
 .relatedProducts { padding:90px 4vw 110px; background:var(--sage); text-align:center; }
