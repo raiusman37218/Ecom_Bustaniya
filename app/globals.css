@@ -4717,6 +4717,170 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   gap:8px;
 }
 
+/* Section Manager — Shopify-style page builder */
+.sectionManagerList {
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin:8px 0 20px;
+}
+.sectionManagerItem {
+  padding:16px 18px;
+  border:1px solid #dce7dd;
+  border-radius:14px;
+  background:linear-gradient(135deg,#fff,#f8fbf6);
+  transition:border-color .2s ease,box-shadow .2s ease,opacity .2s ease;
+}
+.sectionManagerItem:hover {
+  border-color:#c7d8cb;
+  box-shadow:0 8px 20px rgba(23,61,41,.07);
+}
+.sectionManagerItem.sectionDisabled {
+  opacity:.55;
+  border-style:dashed;
+}
+.sectionManagerHead {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.sectionManagerMeta {
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.sectionManagerMeta > div > b {
+  display:block;
+  font-size:14px;
+  font-weight:700;
+  color:#0d2f21;
+  letter-spacing:-.02em;
+}
+.sectionManagerMeta > div > small {
+  font-size:11px;
+  color:#63776b;
+  text-transform:capitalize;
+}
+.sectionMoveButtons {
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.sectionMoveButtons button {
+  width:28px;
+  height:22px;
+  padding:0;
+  border:1px solid #dce7dd;
+  border-radius:6px;
+  background:#f5faf6;
+  color:#3a5f4a;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:background .15s ease,border-color .15s ease;
+}
+.sectionMoveButtons button:hover:not(:disabled) {
+  background:#e5f0e8;
+  border-color:#a8c4ad;
+}
+.sectionMoveButtons button:disabled {
+  opacity:.3;
+  cursor:default;
+}
+.sectionManagerActions {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-shrink:0;
+}
+.sectionRemoveBtn {
+  width:28px;
+  height:28px;
+  padding:0;
+  border:1px solid #e8d0d0;
+  border-radius:8px;
+  background:#fef5f5;
+  color:#9c2531;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:background .15s ease;
+}
+.sectionRemoveBtn:hover {
+  background:#fce8e8;
+}
+.sectionManagerFields {
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px dashed #e0e6df;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.sectionManagerFields label {
+  font-size:12px;
+  font-weight:600;
+  color:#3a5f4a;
+}
+.sectionManagerFields input,
+.sectionManagerFields textarea {
+  margin-top:4px;
+  width:100%;
+  padding:8px 12px;
+  border:1px solid #dce7dd;
+  border-radius:10px;
+  font-size:13px;
+  background:#fff;
+  color:#132f22;
+}
+.sectionManagerFields textarea {
+  resize:vertical;
+  min-height:44px;
+}
+.sectionManagerHint {
+  margin:10px 0 0;
+  padding:8px 12px;
+  border-radius:8px;
+  background:#f0f7f3;
+  color:#3a5f4a;
+  font-size:12px;
+  font-style:italic;
+}
+.sectionAddBar {
+  display:flex;
+  gap:10px;
+  margin-bottom:18px;
+}
+.sectionAddBar select {
+  flex:1;
+  padding:9px 14px;
+  border:1px solid #dce7dd;
+  border-radius:10px;
+  font-size:13px;
+  color:#3a5f4a;
+  background:#fff;
+}
+.sectionAddBar button {
+  padding:9px 18px;
+  border:none;
+  border-radius:10px;
+  background:linear-gradient(135deg,#173d29,#245d3f);
+  color:#fff;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:opacity .15s ease;
+}
+.sectionAddBar button:hover {
+  opacity:.88;
+}
+
 /* Inventory batch / stock polish: clearer operational surfaces, stronger batch
    dialog hierarchy and stock controls that feel safer for daily warehouse use. */
 .inventorySystem {

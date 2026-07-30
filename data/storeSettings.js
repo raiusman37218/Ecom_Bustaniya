@@ -29,6 +29,54 @@ export const DEFAULT_ANNOUNCEMENTS = [
   },
 ];
 
+export const DEFAULT_HOMEPAGE_SECTIONS = [
+  {
+    id: "hero",
+    type: "hero",
+    enabled: true,
+    label: "Hero Banner",
+    heading: "",
+    eyebrow: "",
+    subtitle: "",
+  },
+  {
+    id: "new-arrivals",
+    type: "new_arrivals",
+    enabled: true,
+    label: "New Arrivals",
+    heading: "Top Picks for You",
+    eyebrow: "NEW ARRIVALS",
+    subtitle: "Fresh styles selected for everyday elegance.",
+  },
+  {
+    id: "shop-by-category",
+    type: "shop_by_category",
+    enabled: true,
+    label: "Shop by Category",
+    heading: "Choose your mood",
+    eyebrow: "CURATED COLLECTIONS",
+    subtitle: "Fresh silhouettes, easy everyday fits and statement pieces grouped so customers can find the right style faster.",
+  },
+  {
+    id: "our-story",
+    type: "our_story",
+    enabled: true,
+    label: "Our Story",
+    heading: "Tradition, with a modern soul.",
+    eyebrow: "THE BUSTANIYA STORY",
+    subtitle: "Bustaniya celebrates eastern wear through graceful silhouettes, expressive colour and comfort that belongs in everyday life.",
+  },
+  {
+    id: "newsletter",
+    type: "newsletter",
+    enabled: true,
+    label: "Newsletter",
+    heading: "A little beauty, delivered.",
+    eyebrow: "STAY IN THE LOOP",
+    subtitle: "New collections, styling inspiration and 10% off your first order.",
+  },
+];
+
 export const DEFAULT_STORE_SETTINGS = {
   sectionColors: {
     heroOverlay: "#fcf8ef",
@@ -80,4 +128,5 @@ export const DEFAULT_STORE_SETTINGS = {
     easypaisaNumber: "",
     instructions: "Use the exact order reference with your transfer. Admin will verify before dispatch.",
   },
+  homepageSections: DEFAULT_HOMEPAGE_SECTIONS,
 };

@@ -4,7 +4,7 @@ import Image, { getImageProps } from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, ChevronDown, Menu, Minus, Plus, Search, ShoppingBag, UserRound, X } from "lucide-react";
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
-import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
+import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import AnnouncementBar from "./AnnouncementBar";
 
 const fallbackCategoryRecords = categories
@@ -167,97 +167,115 @@ export default function Home({
       </header>
 
       <main>
-        {storeSettings.heroEnabled && <section
-          className={`campaignHero campaignHero--position-${storeSettings.heroTextPosition} campaignHero--align-${storeSettings.heroTextAlignment}`}
-          id="new"
-          style={{ "--campaign-overlay": Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0))) / 100, "--campaign-overlay-color": sectionColors.heroOverlay, "--campaign-text-color": sectionTextColors.heroOverlay }}
-        >
-          <div className="campaignHeroMedia">
-            <CampaignHeroImage
-              key={heroSlide}
-              desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
-              mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
-              alt="Bustaniya eastern wear campaign"
-            />
-          </div>
-          <div className="campaignHeroOverlay" />
-          <div className="campaignHeroInner">
-            <div className="campaignHeroCopy">
-              {storeSettings.heroEyebrow && <p>{storeSettings.heroEyebrow}</p>}
-              <h1>{storeSettings.heroHeading || DEFAULT_STORE_SETTINGS.heroHeading}</h1>
-              {storeSettings.heroSupportingText && <span>{storeSettings.heroSupportingText}</span>}
-              <div className="campaignHeroActions">
-                {storeSettings.heroPrimaryButtonText && <a className="campaignHeroPrimary" href={storeSettings.heroPrimaryButtonLink || "#products"}>{storeSettings.heroPrimaryButtonText}<ArrowRight size={17} /></a>}
-                {storeSettings.heroSecondaryButtonText && <a className="campaignHeroSecondary" href={storeSettings.heroSecondaryButtonLink || "#products"}>{storeSettings.heroSecondaryButtonText}</a>}
-              </div>
-            </div>
-          </div>
-        </section>}
+        {(storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).filter((s) => s.enabled).map((section) => {
+          const defaults = DEFAULT_HOMEPAGE_SECTIONS.find((d) => d.type === section.type) || {};
 
-        <section className="shopSection khaadiTopPicks scrollReveal" data-scroll-reveal id="products" style={{ "--section-bg": sectionColors.products, "--section-text": sectionTextColors.products }}>
-          <div className="sectionHeading">
-            <div><p className="eyebrow">NEW ARRIVALS</p><h2>Top Picks for You</h2><span>Fresh styles selected for everyday elegance.</span></div>
-          </div>
-          <div className="categoryTabs">
-            {categoryNames.map((category) => <button key={category} className={category === activeCategory ? "active" : ""} onClick={() => setActiveCategory(category)}>{category}</button>)}
-          </div>
-          <div className="productGrid">
-            {visibleProducts.map((product) => <article className="productCard" key={product.id}>
-              <div className="productImage">
-                <Image
-                  src={product.image}
-                  alt={`${product.name} - ${product.category} by Bustaniya`}
-                  fill
-                  sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
+          if (section.type === "hero") {
+            if (storeSettings.heroEnabled === false) return null;
+            return <section
+              key={section.id}
+              className={`campaignHero campaignHero--position-${storeSettings.heroTextPosition} campaignHero--align-${storeSettings.heroTextAlignment}`}
+              id="new"
+              style={{ "--campaign-overlay": Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0))) / 100, "--campaign-overlay-color": sectionColors.heroOverlay, "--campaign-text-color": sectionTextColors.heroOverlay }}
+            >
+              <div className="campaignHeroMedia">
+                <CampaignHeroImage
+                  key={heroSlide}
+                  desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
+                  mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
+                  alt="Bustaniya eastern wear campaign"
                 />
-                <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
-                {product.badge && <span className="badge">{product.badge}</span>}
-                {salePercent(product) > 0 && <span className="saleBadge">-{salePercent(product)}%</span>}
-                <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
               </div>
-              <div className="productInfo">
-                <div><p>{product.category}</p><h3><a href={`/product/${product.id}`}>{product.name}</a></h3>{Array.isArray(product.colors) && product.colors.length > 0 && <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>{product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}{product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}</div>}</div>
-                <div className="productPrice"><span>PKR {product.price.toLocaleString()}</span>{salePercent(product) > 0 && <del>PKR {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</del>}</div>
+              <div className="campaignHeroOverlay" />
+              <div className="campaignHeroInner">
+                <div className="campaignHeroCopy">
+                  {storeSettings.heroEyebrow && <p>{storeSettings.heroEyebrow}</p>}
+                  <h1>{storeSettings.heroHeading || DEFAULT_STORE_SETTINGS.heroHeading}</h1>
+                  {storeSettings.heroSupportingText && <span>{storeSettings.heroSupportingText}</span>}
+                  <div className="campaignHeroActions">
+                    {storeSettings.heroPrimaryButtonText && <a className="campaignHeroPrimary" href={storeSettings.heroPrimaryButtonLink || "#products"}>{storeSettings.heroPrimaryButtonText}<ArrowRight size={17} /></a>}
+                    {storeSettings.heroSecondaryButtonText && <a className="campaignHeroSecondary" href={storeSettings.heroSecondaryButtonLink || "#products"}>{storeSettings.heroSecondaryButtonText}</a>}
+                  </div>
+                </div>
               </div>
-            </article>)}
-          </div>
-          {!visibleProducts.length && <p className="empty">No products found.</p>}
-        </section>
+            </section>;
+          }
 
-        <section className="categoryShowcase categoryShowcaseEditorial scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories, "--section-text": sectionTextColors.categories }}>
-          <div className="categoryShowcaseIntro">
-            <p className="eyebrow">CURATED COLLECTIONS</p>
-            <h2>Choose your mood</h2>
-            <span>Fresh silhouettes, easy everyday fits and statement pieces grouped so customers can find the right style faster.</span>
-          </div>
-          <div className="categoryCards">
-            {categoryCards.map((category, index) => (
-              <a className={`categoryCard card${index + 1}`} href={`/category/${category.slug}`} key={category.slug} style={category.image ? { backgroundImage: `url(${category.image})` } : undefined}>
-                <small>{String(index + 1).padStart(2, "0")}</small>
-                <span>{category.name}</span>
-                <b>Explore</b>
-              </a>
-            ))}
-          </div>
-        </section>
+          if (section.type === "new_arrivals") {
+            return <section key={section.id} className="shopSection khaadiTopPicks scrollReveal" data-scroll-reveal id="products" style={{ "--section-bg": sectionColors.products, "--section-text": sectionTextColors.products }}>
+              <div className="sectionHeading">
+                <div><p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p><h2>{section.heading || defaults.heading}</h2><span>{section.subtitle || defaults.subtitle}</span></div>
+              </div>
+              <div className="categoryTabs">
+                {categoryNames.map((category) => <button key={category} className={category === activeCategory ? "active" : ""} onClick={() => setActiveCategory(category)}>{category}</button>)}
+              </div>
+              <div className="productGrid">
+                {visibleProducts.map((product) => <article className="productCard" key={product.id}>
+                  <div className="productImage">
+                    <Image
+                      src={product.image}
+                      alt={`${product.name} - ${product.category} by Bustaniya`}
+                      fill
+                      sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
+                    />
+                    <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
+                    {product.badge && <span className="badge">{product.badge}</span>}
+                    {salePercent(product) > 0 && <span className="saleBadge">-{salePercent(product)}%</span>}
+                    <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
+                  </div>
+                  <div className="productInfo">
+                    <div><p>{product.category}</p><h3><a href={`/product/${product.id}`}>{product.name}</a></h3>{Array.isArray(product.colors) && product.colors.length > 0 && <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>{product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}{product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}</div>}</div>
+                    <div className="productPrice"><span>PKR {product.price.toLocaleString()}</span>{salePercent(product) > 0 && <del>PKR {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</del>}</div>
+                  </div>
+                </article>)}
+              </div>
+              {!visibleProducts.length && <p className="empty">No products found.</p>}
+            </section>;
+          }
 
-        <section className="story scrollReveal" data-scroll-reveal id="story" style={{ "--section-bg": sectionColors.story, "--section-text": sectionTextColors.story }}>
-          <div className="storyImage" />
-          <div className="storyContent">
-            <p className="eyebrow">THE BUSTANIYA STORY</p>
-            <h2>Tradition, with<br />a modern soul.</h2>
-            <p>Bustaniya celebrates eastern wear through graceful silhouettes, expressive colour and comfort that belongs in everyday life.</p>
-            <a href="/about">Discover our story <ArrowRight size={17} /></a>
-            <div className="storyStats"><div><b>PKR</b><span>prices shown clearly</span></div><div><b>COD</b><span>available at checkout</span></div></div>
-          </div>
-        </section>
+          if (section.type === "shop_by_category") {
+            return <section key={section.id} className="categoryShowcase categoryShowcaseEditorial scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories, "--section-text": sectionTextColors.categories }}>
+              <div className="categoryShowcaseIntro">
+                <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
+                <h2>{section.heading || defaults.heading}</h2>
+                <span>{section.subtitle || defaults.subtitle}</span>
+              </div>
+              <div className="categoryCards">
+                {categoryCards.map((category, index) => (
+                  <a className={`categoryCard card${index + 1}`} href={`/category/${category.slug}`} key={category.slug} style={category.image ? { backgroundImage: `url(${category.image})` } : undefined}>
+                    <small>{String(index + 1).padStart(2, "0")}</small>
+                    <span>{category.name}</span>
+                    <b>Explore</b>
+                  </a>
+                ))}
+              </div>
+            </section>;
+          }
 
-        <section className="newsletter scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.newsletter, "--section-text": sectionTextColors.newsletter }}>
-          <p className="eyebrow">STAY IN THE LOOP</p>
-          <h2>A little beauty, delivered.</h2>
-          <p>New collections, styling inspiration and 10% off your first order.</p>
-          <form onSubmit={(e) => e.preventDefault()}><input type="email" placeholder="Your email address" /><button aria-label="Subscribe"><ArrowRight /></button></form>
-        </section>
+          if (section.type === "our_story") {
+            return <section key={section.id} className="story scrollReveal" data-scroll-reveal id="story" style={{ "--section-bg": sectionColors.story, "--section-text": sectionTextColors.story }}>
+              <div className="storyImage" />
+              <div className="storyContent">
+                <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
+                <h2>{(section.heading || defaults.heading).split(",").map((part, i) => i > 0 ? <span key={i}>,<br />{part}</span> : part)}</h2>
+                <p>{section.subtitle || defaults.subtitle}</p>
+                <a href="/about">Discover our story <ArrowRight size={17} /></a>
+                <div className="storyStats"><div><b>PKR</b><span>prices shown clearly</span></div><div><b>COD</b><span>available at checkout</span></div></div>
+              </div>
+            </section>;
+          }
+
+          if (section.type === "newsletter") {
+            return <section key={section.id} className="newsletter scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.newsletter, "--section-text": sectionTextColors.newsletter }}>
+              <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
+              <h2>{section.heading || defaults.heading}</h2>
+              <p>{section.subtitle || defaults.subtitle}</p>
+              <form onSubmit={(e) => e.preventDefault()}><input type="email" placeholder="Your email address" /><button aria-label="Subscribe"><ArrowRight /></button></form>
+            </section>;
+          }
+
+          return null;
+        })}
       </main>
 
       <footer id="footer">

@@ -8,7 +8,7 @@ import {
   WalletCards, X
 } from "lucide-react";
 import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, products as initialProducts, slugifyCategory } from "../data/store";
-import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
+import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import { apparelSizes, fashionColors } from "../data/variantOptions";
 import AdminLogin from "./AdminLogin";
 
@@ -5226,7 +5226,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
     { zone: "Lahore same-day", cities: "Lahore", rate: "Rs. 250", freeAbove: "Rs. 8,000" },
   ]);
   const canManageUsers = canUseAdminArea(signedInUser, "users");
-  const tabs = ["Store","Payments","Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications","Domains","Checkout","System"];
+  const tabs = ["Store","Sections","Payments","Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications","Domains","Checkout","System"];
 
   useEffect(() => {
     if (["Store", "Payments"].includes(activeTab)) {
@@ -5549,6 +5549,97 @@ function SettingsPanel({ onOpen, signedInUser }) {
           <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save store settings"}</button>
         </form>}
 
+        {activeTab === "Sections" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
+          <div className="heroSettingsHeading"><div><p>HOMEPAGE BUILDER</p><h2>Page Sections</h2><span>Add, remove, reorder and configure homepage sections. Changes go live after saving.</span></div></div>
+          {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
+          <div className="sectionManagerList">
+            {(storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((section, index, arr) => {
+              const isHero = section.type === "hero";
+              return (
+                <article className={`sectionManagerItem ${section.enabled ? "" : "sectionDisabled"}`} key={section.id}>
+                  <div className="sectionManagerHead">
+                    <div className="sectionManagerMeta">
+                      <div className="sectionMoveButtons">
+                        <button type="button" disabled={index === 0} aria-label="Move up" onClick={() => setStoreSettings((current) => {
+                          const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                          [sections[index - 1], sections[index]] = [sections[index], sections[index - 1]];
+                          return { ...current, homepageSections: sections };
+                        })}>↑</button>
+                        <button type="button" disabled={index === arr.length - 1} aria-label="Move down" onClick={() => setStoreSettings((current) => {
+                          const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                          [sections[index], sections[index + 1]] = [sections[index + 1], sections[index]];
+                          return { ...current, homepageSections: sections };
+                        })}>↓</button>
+                      </div>
+                      <div>
+                        <b>{section.label}</b>
+                        <small>{section.type.replace(/_/g, " ")}</small>
+                      </div>
+                    </div>
+                    <div className="sectionManagerActions">
+                      <label className="switchLabel"><input type="checkbox" checked={section.enabled !== false} onChange={(event) => setStoreSettings((current) => {
+                        const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                        sections[index] = { ...sections[index], enabled: event.target.checked };
+                        return { ...current, homepageSections: sections };
+                      })} /> Visible</label>
+                      {!isHero && <button type="button" className="sectionRemoveBtn" onClick={() => setStoreSettings((current) => ({
+                        ...current,
+                        homepageSections: (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).filter((_, i) => i !== index),
+                      }))} aria-label={`Remove ${section.label}`}><X size={14} /></button>}
+                    </div>
+                  </div>
+                  {!isHero && (
+                    <div className="sectionManagerFields">
+                      <label>Eyebrow<input value={section.eyebrow || ""} placeholder="e.g. NEW ARRIVALS" onChange={(event) => setStoreSettings((current) => {
+                        const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                        sections[index] = { ...sections[index], eyebrow: event.target.value };
+                        return { ...current, homepageSections: sections };
+                      })} /></label>
+                      <label>Heading<input value={section.heading || ""} placeholder="Section heading" onChange={(event) => setStoreSettings((current) => {
+                        const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                        sections[index] = { ...sections[index], heading: event.target.value };
+                        return { ...current, homepageSections: sections };
+                      })} /></label>
+                      <label>Subtitle<textarea rows="2" value={section.subtitle || ""} placeholder="Short description..." onChange={(event) => setStoreSettings((current) => {
+                        const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                        sections[index] = { ...sections[index], subtitle: event.target.value };
+                        return { ...current, homepageSections: sections };
+                      })} /></label>
+                    </div>
+                  )}
+                  {isHero && <p className="sectionManagerHint">Hero banner settings are managed in the Store tab above.</p>}
+                </article>
+              );
+            })}
+          </div>
+          {(() => {
+            const currentTypes = (storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((s) => s.type);
+            const available = DEFAULT_HOMEPAGE_SECTIONS.filter((s) => !currentTypes.includes(s.type) && s.type !== "hero");
+            if (!available.length) return null;
+            return (
+              <div className="sectionAddBar">
+                <select id="sectionAddSelect" defaultValue="">
+                  <option value="" disabled>Choose a section to add...</option>
+                  {available.map((s) => <option key={s.type} value={s.type}>{s.label}</option>)}
+                </select>
+                <button type="button" onClick={() => {
+                  const select = document.getElementById("sectionAddSelect");
+                  const type = select?.value;
+                  if (!type) return;
+                  const template = DEFAULT_HOMEPAGE_SECTIONS.find((s) => s.type === type);
+                  if (!template) return;
+                  setStoreSettings((current) => ({
+                    ...current,
+                    homepageSections: [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS), { ...template, id: `${template.id}-${Date.now()}` }],
+                  }));
+                  select.value = "";
+                }}>+ Add section</button>
+              </div>
+            );
+          })()}
+          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save sections"}</button>
+        </form>}
+
         {activeTab === "Payments" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
           <h2>Payment methods</h2>
           {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
@@ -5656,6 +5747,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
 function settingsTabHint(tab) {
   return {
     Store: "Details",
+    Sections: "Page builder",
     Payments: "COD, bank",
     Shipping: "Zones, rates",
     Users: "Staff access",
