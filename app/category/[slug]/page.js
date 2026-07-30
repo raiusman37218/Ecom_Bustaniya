@@ -38,7 +38,7 @@ export default async function CategoryPage({ params }) {
   const categoryCoverImage = categoryProducts[0]?.image || category.image;
 
   return (
-    <main className="categoryPage">
+    <main className={`categoryPage storefrontTheme storefrontTheme--${storeSettings.activeTheme || "editorial"}`}>
       <JsonLd
         data={collectionSchema({
           name: `${category.name} Collection`,

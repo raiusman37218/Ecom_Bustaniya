@@ -61,7 +61,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
   return (
     <>
-    <main className="productPage">
+    <main className={`productPage storefrontTheme storefrontTheme--${storeSettings.activeTheme || "editorial"}`}>
       <AnnouncementBar storeSettings={storeSettings} />
       <header className="categoryHeader productHeader">
         <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>

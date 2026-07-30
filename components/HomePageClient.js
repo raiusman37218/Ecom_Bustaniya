@@ -144,6 +144,7 @@ export default function Home({
 
   return (
     <>
+      <div className={`storefrontTheme storefrontTheme--${storeSettings.activeTheme || "editorial"}`}>
       <AnnouncementBar storeSettings={storeSettings} />
 
       <header className="header">
@@ -374,6 +375,7 @@ export default function Home({
         </div>}
       </aside>
       <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} />
+      </div>
     </>
   );
 }

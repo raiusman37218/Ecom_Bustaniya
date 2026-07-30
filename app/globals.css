@@ -79,6 +79,39 @@ a { text-decoration:none; }
   .hero::after { display:none; }
 }
 
+/* Theme engine: all public pages receive a named storefront theme.  Editorial is
+   the first complete theme and preserves Bustaniya's current luxury identity. */
+.storefrontTheme--editorial {
+  --ink:#183d29;
+  --cream:#fcfaf5;
+  --sage:#edf3e7;
+  --berry:#bd194b;
+  --forest:#16452c;
+  --forest-dark:#0e2f1d;
+  --muted:#6f7d73;
+  --font-display:"Cormorant Garamond",Georgia,serif;
+  --font-sans:"Manrope",Arial,sans-serif;
+}
+.themeStudioHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:22px; }
+.themeStudioHeading p { margin:0 0 6px; color:#bd194b; font-size:10px; font-weight:800; letter-spacing:.14em; }
+.themeStudioHeading h2 { margin:0; color:#132f22; }
+.themeStudioHeading span { display:block; max-width:610px; margin-top:6px; color:#617068; font-size:12px; line-height:1.55; }
+.themeStudioHeading .themeStatusPill { width:max-content; margin:0; padding:8px 11px; border:1px solid #cfe1d1; border-radius:999px; background:#eff8ef; color:#17623a; font-size:10px; font-weight:800; white-space:nowrap; }
+.themeGallery { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+.themeOption { position:relative; display:block; min-width:0; padding:10px; border:1px solid #dde3dd; border-radius:13px; background:#fff; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .2s; }
+.themeOption input { position:absolute; opacity:0; pointer-events:none; }
+.themeOption.selected { border-color:#1c603b; box-shadow:0 12px 26px #173d2914; transform:translateY(-2px); }
+.themeOption.selected::after { content:"Active"; position:absolute; top:18px; right:18px; padding:5px 8px; border-radius:999px; background:#16452c; color:#fff; font-size:8px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.themePreview { height:132px; display:grid; grid-template-columns:1.15fr repeat(3,.65fr); gap:4px; align-items:end; padding:12px; overflow:hidden; border-radius:8px; }
+.themePreview span { align-self:start; color:#fff; font-family:var(--font-display); font-size:22px; font-weight:600; }
+.themePreview i { height:76%; background:#ffffffd9; }
+.themePreviewEditorial { background:linear-gradient(135deg,#173d29 0%,#567b5a 53%,#e6edcf 100%); }
+.themePreviewEditorial i:nth-of-type(1) { background:#e7b5b7; }.themePreviewEditorial i:nth-of-type(2) { background:#dce9be; }.themePreviewEditorial i:nth-of-type(3) { background:#f1e5d5; }
+.themePreviewModern { background:#e7eaed; }.themePreviewModern span,.themePreviewPremium span { color:#384047; }.themePreviewModern i { background:#fff; }.themePreviewPremium { background:#252525; }.themePreviewPremium i { background:#d7d3cd; }
+.themeOptionCopy { display:flex; flex-direction:column; gap:5px; padding:12px 3px 3px; }.themeOptionCopy b { color:#183d29; font-size:13px; }.themeOptionCopy span { color:#637068; font-size:10px; line-height:1.5; }.themeOptionCopy small { color:#a15e74; font-size:9px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.themeOptionLocked { cursor:not-allowed; opacity:.68; background:#fafbf9; }.themeReadiness { display:flex; flex-direction:column; gap:5px; margin-top:16px; padding:13px 14px; border:1px solid #dbe8dc; border-radius:10px; background:#f4faf3; }.themeReadiness b { color:#194d30; font-size:11px; }.themeReadiness span { color:#596b5f; font-size:10px; line-height:1.55; }
+@media (max-width:900px) { .themeGallery { grid-template-columns:1fr; }.themePreview { height:150px; } }
+
 @media (min-width:601px) {
   .heroContent { justify-content:center; }
 }

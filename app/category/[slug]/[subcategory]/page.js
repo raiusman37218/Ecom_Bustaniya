@@ -36,7 +36,7 @@ export default async function SubcategoryPage({ params }) {
   const siblingCategories = subcategoryOptions(categories, slug);
 
   return (
-    <main className="categoryPage">
+    <main className={`categoryPage storefrontTheme storefrontTheme--${storeSettings.activeTheme || "editorial"}`}>
       <JsonLd
         data={collectionSchema({
           name: `${details.name} ${parent.name}`,

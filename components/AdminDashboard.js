@@ -5345,10 +5345,10 @@ function SettingsPanel({ onOpen, signedInUser }) {
     { zone: "Lahore same-day", cities: "Lahore", rate: "Rs. 250", freeAbove: "Rs. 8,000" },
   ]);
   const canManageUsers = canUseAdminArea(signedInUser, "users");
-  const tabs = ["Store","Sections","Payments","Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications","Domains","Checkout","System"];
+  const tabs = ["Store","Theme","Sections","Payments","Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications","Domains","Checkout","System"];
 
   useEffect(() => {
-    if (["Store", "Payments"].includes(activeTab)) {
+    if (["Store", "Theme", "Payments"].includes(activeTab)) {
       loadStoreSettings();
     }
     if (activeTab === "Users") loadAdminUsers();
@@ -5667,6 +5667,22 @@ function SettingsPanel({ onOpen, signedInUser }) {
           <label>Business address<textarea rows="3" placeholder="Warehouse / office address" /></label>
           <div className="formRow"><label>Currency<select defaultValue="PKR"><option>PKR</option></select></label><label>Timezone<select defaultValue="Asia/Karachi"><option>Asia/Karachi</option></select></label></div>
           <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save store settings"}</button>
+        </form>}
+
+        {activeTab === "Theme" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
+          <div className="themeStudioHeading"><div><p>STOREFRONT SYSTEM</p><h2>Theme Studio</h2><span>A theme changes the public storefront presentation while products, checkout, orders and finance remain the same.</span></div><span className="themeStatusPill">1 live theme</span></div>
+          {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
+          <div className="themeGallery">
+            <label className={`themeOption ${storeSettings.activeTheme === "editorial" || !storeSettings.activeTheme ? "selected" : ""}`}>
+              <input type="radio" name="storefront-theme" value="editorial" checked={storeSettings.activeTheme === "editorial" || !storeSettings.activeTheme} onChange={() => setStoreSettings((current) => ({ ...current, activeTheme: "editorial" }))} />
+              <div className="themePreview themePreviewEditorial"><span>Bs</span><i /><i /><i /></div>
+              <div className="themeOptionCopy"><b>Editorial / Bustaniya</b><span>Luxury editorial layout, campaign hero, connected collection cards and Bustaniya&apos;s green-and-berry palette.</span><small>Active foundation</small></div>
+            </label>
+            <article className="themeOption themeOptionLocked"><div className="themePreview themePreviewModern"><span>+</span><i /><i /><i /></div><div className="themeOptionCopy"><b>Modern Commerce</b><span>Reserved for the next reusable theme. It will use the same store data and admin controls.</span><small>Coming next</small></div></article>
+            <article className="themeOption themeOptionLocked"><div className="themePreview themePreviewPremium"><span>+</span><i /><i /><i /></div><div className="themeOptionCopy"><b>Premium Minimal</b><span>Reserved for a neutral, image-led luxury storefront variant.</span><small>Coming next</small></div></article>
+          </div>
+          <section className="themeReadiness"><b>What stays safe when you change themes</b><span>Products, categories, prices, inventory, cart, checkout, orders, customer data and finance do not change. Only the customer-facing visual layer changes.</span></section>
+          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Publishing..." : "Publish Editorial theme"}</button>
         </form>}
 
         {activeTab === "Sections" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
