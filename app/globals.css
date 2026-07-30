@@ -2657,7 +2657,11 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .confirmedSummary h2 { margin-bottom:25px; }
 .productPage { min-height:100vh; background:var(--cream); }
 .productHeader .headerBag { display:flex; align-items:center; gap:7px; border:0; background:transparent; color:inherit; font:inherit; cursor:pointer; font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
-.productDetailLayout { display:grid; grid-template-columns:1.15fr .85fr; align-items:start; }
+.productDetailLayout {
+  display:grid;
+  grid-template-columns:minmax(0,1.3fr) minmax(420px,.7fr);
+  align-items:start;
+}
 .productGallery { padding:28px 2vw 90px 4vw; display:grid; grid-template-columns:1fr 1fr; gap:10px; position:relative; }
 
 /* Maria.B Style Product Gallery Layout */
