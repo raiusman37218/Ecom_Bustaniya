@@ -793,6 +793,65 @@ footer {
   .orderSummary {
     border-radius:22px;
   }
+
+  /* Keep the product gallery full-width on phones. The desktop thumbnail
+     rail must not reserve 84px when there are no thumbnails. */
+  .mariabGallery {
+    padding:16px 14px 34px;
+    gap:12px;
+    width:100%;
+    min-width:0;
+  }
+  .productDetailLayout { grid-template-columns:minmax(0,1fr); min-width:0; }
+  .productGallery { width:100%; min-width:0; }
+  .productBack { max-width:100%; }
+  .galleryWorkspace {
+    grid-template-columns:minmax(0,1fr);
+    width:100%;
+    min-width:0;
+    gap:10px;
+  }
+  .galleryThumbnails {
+    flex-direction:row;
+    max-height:none;
+    max-width:100%;
+    overflow-x:auto;
+    overflow-y:hidden;
+    padding:0 0 3px;
+  }
+  .thumbBtn {
+    width:58px;
+    height:74px;
+    border-radius:8px;
+  }
+  .galleryMainView {
+    width:100%;
+    min-height:clamp(390px,118vw,620px);
+    aspect-ratio:4 / 5;
+  }
+  .mariabPhotoGrid {
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .gridPhotoCard {
+    min-height:clamp(210px,58vw,360px);
+  }
+  .sizeChartModal {
+    width:calc(100% - 24px);
+    max-height:calc(100dvh - 24px);
+    padding:18px 14px;
+    border-radius:16px;
+  }
+  .sizeChartHeader {
+    gap:10px;
+    padding-bottom:12px;
+    margin-bottom:12px;
+  }
+  .sizeChartTitleGroup h3 { font-size:16px; }
+  .sizeChartTitleGroup p { font-size:11px; }
+  .sizeChartTable { min-width:510px; font-size:11px; }
+  .sizeChartTable th,
+  .sizeChartTable td { padding:9px 8px; }
 }
 
 @media (max-width:390px) {
