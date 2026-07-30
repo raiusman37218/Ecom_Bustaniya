@@ -13,29 +13,17 @@ function heroImageList(value) {
 }
 
 async function validateHeroImageUrl(value) {
-  if (value.startsWith("/")) return;
+  if (!value) return;
+  const str = String(value).trim();
+  if (str.startsWith("/")) return;
   let url;
   try {
-    url = new URL(value);
+    url = new URL(str);
   } catch {
-    throw new Error("Each hero image must be a valid local path or Cloudinary https URL.");
+    throw new Error("Each hero image must be a valid local path (e.g. /hero.jpg) or full image URL.");
   }
-  if (url.protocol !== "https:" || url.hostname !== "res.cloudinary.com") {
-    throw new Error("Use a secure Cloudinary delivery URL from res.cloudinary.com for hero images.");
-  }
-  // Cloudinary delivery URLs are valid image URLs, but some Cloudinary
-  // configurations reject HEAD requests. Request just the first byte instead
-  // so a valid delivery URL is not incorrectly rejected while saving.
-  const response = await fetch(url, {
-    method: "GET",
-    headers: { Range: "bytes=0-0" },
-    redirect: "follow",
-    signal: AbortSignal.timeout(8000),
-    cache: "no-store",
-  });
-  const contentType = response.headers.get("content-type") || "";
-  if (!response.ok || !contentType.startsWith("image/")) {
-    throw new Error(`Hero image could not be verified: ${value}`);
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error("Hero image URLs must begin with http:// or https://");
   }
 }
 

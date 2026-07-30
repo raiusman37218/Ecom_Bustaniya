@@ -1479,6 +1479,17 @@ export default function AdminDashboard() {
         </div>
       </section>
 
+      <MobileBottomNav active={active} setActive={navigateAdminSection} />
+      <ConfirmModal
+        isOpen={confirmModalState.isOpen}
+        title={confirmModalState.title}
+        message={confirmModalState.message}
+        confirmText={confirmModalState.confirmText}
+        isDanger={confirmModalState.isDanger}
+        onConfirm={confirmModalState.onConfirm}
+        onClose={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}
+      />
+
       {showProductForm && <>
         <div className="adminOverlay" onClick={closeProductForm} />
         <aside className="productFormDrawer">
@@ -5226,17 +5237,11 @@ function SettingsPanel({ onOpen, signedInUser }) {
 
   async function addHeroImageUrl(field) {
     const url = String(heroUrlInputs[field] || "").trim();
-    if (!/^https:\/\//i.test(url)) {
-      setStoreSettingsError("Paste a secure https:// image URL from Cloudinary.");
+    if (!url) return;
+    if (!url.startsWith("/") && !/^https?:\/\//i.test(url)) {
+      setStoreSettingsError("Paste a valid image URL (https://...) or local image path (e.g. /hero-image.jpg).");
       return;
     }
-    if (!/^https:\/\/res\.cloudinary\.com\//i.test(url)) {
-      setStoreSettingsError("Paste a Cloudinary delivery URL beginning with https://res.cloudinary.com/.");
-      return;
-    }
-    // Do not preload here. Browser-side preloading can fail because of a
-    // Cloudinary delivery policy even though the image URL itself is valid.
-    // The server verifies the URL when the settings are saved.
     setStoreSettingsError("");
     setStoreSettings((current) => ({ ...current, [field]: [...(current[field] || []), url] }));
     setHeroUrlInputs((current) => ({ ...current, [field]: "" }));
@@ -5645,16 +5650,6 @@ function SettingsPanel({ onOpen, signedInUser }) {
         {activeTab === "System" && <BackendHealthPanel />}
       </div>
     </section>
-    <MobileBottomNav active={active} setActive={navigateAdminSection} />
-    <ConfirmModal
-      isOpen={confirmModalState.isOpen}
-      title={confirmModalState.title}
-      message={confirmModalState.message}
-      confirmText={confirmModalState.confirmText}
-      isDanger={confirmModalState.isDanger}
-      onConfirm={confirmModalState.onConfirm}
-      onClose={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}
-    />
   </>;
 }
 
