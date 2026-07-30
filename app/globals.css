@@ -1672,6 +1672,14 @@ footer {
 .productCard--connected:hover { transform:none; box-shadow:none; }
 .productCard--connected:hover .productImage img { transform:scale(1.025); }
 .productCard--connected .quickAdd { border-radius:0; }
+.productGrid:has(.productCard--connected) { gap:0; }
+.productGrid:has(.productCard--connected) .productCard--connected {
+  border-top:1px solid #ebe8e1;
+  border-bottom:1px solid #ebe8e1;
+}
+.productGrid:has(.productCard--connected) .productCard--connected + .productCard--connected {
+  border-left:0;
+}
 .productCardStyleSetting { margin:0 0 22px; }
 .productCardStyleSetting select { min-width:250px; }
 .heart { display:none; position:absolute; z-index:3; right:12px; top:12px; border:1px solid #ffffff80; background:#fffdf2d9; border-radius:50%; width:37px; height:37px; place-items:center; transition:color .2s,transform .2s; }
