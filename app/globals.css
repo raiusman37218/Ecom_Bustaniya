@@ -2870,8 +2870,33 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .dashboardCol8 {
   grid-column:span 8;
 }
+.dashboardCol6 {
+  grid-column:span 6;
+}
 .dashboardCol4 {
   grid-column:span 4;
+}
+.dashboardEqualGrid {
+  align-items:stretch;
+}
+.dashboardEqualGrid > .dashboardCol6 {
+  display:flex;
+  flex-direction:column;
+}
+.dashboardEqualGrid > .dashboardCol6 > .adminVisualCard {
+  flex:1;
+  display:flex;
+  flex-direction:column;
+}
+.dashboardEqualGrid > .dashboardCol6 > .adminVisualCard > .visualDonutWrap {
+  flex:1;
+  align-items:center;
+}
+.dashboardEqualGrid > .dashboardCol6 > .adminVisualCard > .visualBarList {
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
 }
 
 /* Status Tracks */

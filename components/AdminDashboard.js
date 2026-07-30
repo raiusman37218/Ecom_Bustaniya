@@ -1803,7 +1803,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     else if (status === "Total Orders") statusBuckets.Unbooked += 1;
     else statusBuckets.Booked += 1;
   });
-  const statusPalette = { Booked: "#1f6940", Unbooked: "#8bb39a", Attempted: "#d08a18", Delivered: "#2f8052", Returned: "#c5164d", Cancelled: "#dedfdc" };
+  const statusPalette = { Booked: "#2563eb", Unbooked: "#f59e0b", Attempted: "#8b5cf6", Delivered: "#10b981", Returned: "#ef4444", Cancelled: "#6b7280" };
   const statusEntries = Object.entries(statusBuckets).filter(([, count]) => count > 0);
   let completedPercent = 0;
   const donutStops = statusEntries.map(([label, count]) => {
@@ -1946,7 +1946,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     </div>
 
     {/* Visual Overview Grid (50/50 Side by Side) */}
-    <div className="dashboardLayoutGrid">
+    <div className="dashboardLayoutGrid dashboardEqualGrid">
       {/* Sleek Order Pipeline Pie/Donut Chart */}
       <div className="dashboardCol6">
         <VisualDonut
@@ -1965,10 +1965,10 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
           subtitle="How delivered sales flow into product costs, courier deductions and net profit."
           format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`}
           items={[
-            { label: "Gross sales", value: dashboardSales, color: "#1d6840" },
-            { label: "Product cost (COGS)", value: dashboardCogs, color: "#c78b2b" },
-            { label: "PostEx & logistics", value: dashboardCourierCost + dashboardTaxes + dashboardReturnPostexLoss, color: "#b73543" },
-            { label: "Net profit", value: Math.max(0, dashboardNetProfit), color: "#235d9a" },
+            { label: "Gross sales", value: dashboardSales, color: "#10b981" },
+            { label: "Product cost (COGS)", value: dashboardCogs, color: "#f59e0b" },
+            { label: "PostEx & logistics", value: dashboardCourierCost + dashboardTaxes + dashboardReturnPostexLoss, color: "#ef4444" },
+            { label: "Net profit", value: Math.max(0, dashboardNetProfit), color: "#3b82f6" },
           ]}
         />
       </div>
