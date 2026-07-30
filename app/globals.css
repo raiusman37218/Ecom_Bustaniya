@@ -107,6 +107,156 @@ a { text-decoration:none; }
   .hero .primaryButton { width:max-content; max-width:100%; min-height:2.9rem; margin-top:1.25rem; padding:.8rem 1rem; box-shadow:0 12px 25px #173d2922; }
 }
 
+/* Connected editorial product cards — inspired by the retail rhythm of Sapphire's
+   collection grid, but built in Bustaniya's own visual language.  These rules sit
+   at the end deliberately so the selected storefront layout wins over section CSS. */
+.productGrid:has(.productCard--connected) {
+  gap:0 !important;
+  border:1px solid #ddd9d1;
+  background:#fff;
+}
+.productGrid:has(.productCard--connected) .productCard--connected,
+.khaadiTopPicks .productGrid:has(.productCard--connected) .productCard--connected,
+.categoryPage .productGrid:has(.productCard--connected) .productCard--connected,
+.relatedProducts .productGrid:has(.productCard--connected) .productCard--connected {
+  min-width:0;
+  border:0 !important;
+  border-right:1px solid #ddd9d1 !important;
+  border-bottom:1px solid #ddd9d1 !important;
+  border-radius:0 !important;
+  overflow:hidden !important;
+  background:#fff !important;
+  box-shadow:none !important;
+  transform:none !important;
+}
+.productGrid:has(.productCard--connected) .productCard--connected:nth-child(4n) { border-right:0 !important; }
+.productGrid:has(.productCard--connected) .productCard--connected:hover { border-color:#ddd9d1 !important; box-shadow:none !important; }
+.productCard--connected .productImage,
+.khaadiTopPicks .productCard--connected .productImage,
+.categoryPage .productCard--connected .productImage,
+.relatedProducts .productCard--connected .productImage {
+  aspect-ratio:.745 !important;
+  border-radius:0 !important;
+  background:#f3f0eb !important;
+  overflow:hidden;
+}
+.productCard--connected .productImage::after { content:none !important; }
+.productCard--connected .productImage img {
+  object-fit:cover !important;
+  object-position:center top;
+  padding:0 !important;
+  transition:transform .45s cubic-bezier(.2,.65,.2,1);
+}
+.productCard--connected:hover .productImage img { transform:scale(1.035) !important; }
+.productCard--connected .badge,
+.productCard--connected .saleBadge {
+  top:0;
+  left:0;
+  right:auto;
+  border:0;
+  border-radius:0 !important;
+  padding:8px 10px;
+  background:#fff !important;
+  color:#173d29 !important;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.12em;
+  line-height:1;
+}
+.productCard--connected .saleBadge { background:#173d29 !important; color:#fff !important; }
+.productCard--connected .badge + .saleBadge { left:auto; right:0; }
+.productCard--connected .quickViewButton,
+.productCard--connected .quickAdd { display:none !important; }
+.productCard--connected .connectedCardAction {
+  position:absolute;
+  z-index:4;
+  right:0;
+  bottom:0;
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  background:#fff;
+  border:1px solid #ddd9d1;
+  border-right:0;
+  border-bottom:0;
+  color:#173d29;
+  font-family:Arial,sans-serif;
+  font-size:25px;
+  font-weight:300;
+  line-height:1;
+  pointer-events:none;
+}
+.productCard--connected .productInfo,
+.khaadiTopPicks .productCard--connected .productInfo,
+.categoryPage .productCard--connected .productInfo,
+.relatedProducts .productCard--connected .productInfo {
+  min-height:122px;
+  padding:14px 15px 16px !important;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  gap:12px;
+  border:0 !important;
+  background:#fff !important;
+  text-align:left;
+}
+.productCard--connected .productInfo p,
+.khaadiTopPicks .productCard--connected .productInfo p,
+.categoryPage .productCard--connected .productInfo p,
+.relatedProducts .productCard--connected .productInfo p {
+  margin:0 0 6px;
+  color:#72716c !important;
+  font-size:9px !important;
+  font-weight:700;
+  letter-spacing:.075em;
+  line-height:1.2;
+  text-transform:uppercase;
+}
+.productCard--connected .productInfo h3,
+.khaadiTopPicks .productCard--connected .productInfo h3,
+.categoryPage .productCard--connected .productInfo h3,
+.relatedProducts .productCard--connected .productInfo h3 {
+  margin:0;
+  color:#1b2920 !important;
+  font-family:var(--font-sans) !important;
+  font-size:13px !important;
+  font-weight:600 !important;
+  letter-spacing:0 !important;
+  line-height:1.35;
+}
+.productCard--connected .productInfo h3 a:hover { color:var(--berry) !important; }
+.productCard--connected .colorSwatches { display:none; }
+.productCard--connected .productPrice {
+  margin-top:0;
+  display:flex;
+  flex-direction:row;
+  align-items:baseline;
+  flex-wrap:wrap;
+  gap:5px 8px;
+  color:#173d29;
+}
+.productCard--connected .productPrice span { color:#173d29; font-size:13px; font-weight:800; }
+.productCard--connected .productPrice small { display:none; }
+.productCard--connected .productPrice del { color:#8b8983; font-size:11px; font-weight:500; }
+
+@media (max-width:1100px) {
+  .productGrid:has(.productCard--connected) .productCard--connected:nth-child(4n) { border-right:1px solid #ddd9d1 !important; }
+  .productGrid:has(.productCard--connected) .productCard--connected:nth-child(3n) { border-right:0 !important; }
+}
+@media (max-width:600px) {
+  .productGrid:has(.productCard--connected) .productCard--connected:nth-child(3n) { border-right:1px solid #ddd9d1 !important; }
+  .productGrid:has(.productCard--connected) .productCard--connected:nth-child(2n) { border-right:0 !important; }
+  .productCard--connected .productInfo,
+  .khaadiTopPicks .productCard--connected .productInfo,
+  .categoryPage .productCard--connected .productInfo,
+  .relatedProducts .productCard--connected .productInfo { min-height:108px; padding:11px 10px 13px !important; gap:9px; }
+  .productCard--connected .productInfo p { font-size:8px !important; }
+  .productCard--connected .productInfo h3 { font-size:12px !important; }
+  .productCard--connected .productPrice span { font-size:12px; }
+  .productCard--connected .connectedCardAction { width:34px; height:34px; font-size:21px; }
+}
+
 /* Final collection/card polish pass: keeps category pages refined after legacy responsive overrides. */
 .categoryPage .subCollectionGrid {
   align-items:stretch;

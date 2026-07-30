@@ -246,6 +246,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                 sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
               />
               {item.badge && <span className="badge">{item.badge}</span>}
+              <span className="connectedCardAction" aria-hidden="true">+</span>
               <span className="quickAdd">Choose options</span>
             </a>
             <div className="productInfo"><div><p>{item.category}</p><h3><a href={`/product/${item.id}`}>{item.name}</a></h3></div><div className="productPrice"><span>Rs. {item.price.toLocaleString()}</span><small>Regular price Rs. {item.price.toLocaleString()}</small></div></div>
