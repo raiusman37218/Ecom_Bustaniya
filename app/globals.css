@@ -242,6 +242,19 @@ a { text-decoration:none; }
 }
 
 @media (max-width:900px) {
+  /* Mobile product pages must never inherit the gallery rail's desktop
+     min-content width. */
+  .productDetailLayout,
+  .productDetailLayout > .productGallery,
+  .productDetailLayout > .productPurchase,
+  .mariabGallery,
+  .galleryWorkspace {
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+  }
+  .productDetailLayout { grid-template-columns:minmax(0,1fr) !important; }
+  .galleryWorkspace { grid-template-columns:minmax(0,1fr) !important; }
   .categoryPage .subCollectionGrid {
     grid-template-columns:repeat(2,minmax(0,1fr));
     gap:16px;
