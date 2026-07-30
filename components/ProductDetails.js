@@ -2,16 +2,18 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Heart, Minus, Plus, ShieldCheck, ShoppingBag, Truck, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Heart, Maximize2, Minus, Plus, Ruler, ShieldCheck, ShoppingBag, Truck, X } from "lucide-react";
 import { productDescription } from "../lib/seo";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import AnnouncementBar from "./AnnouncementBar";
+import SizeChartModal, { SizeTable } from "./SizeChartModal";
 
 export default function ProductDetails({ product, related, storeSettings = DEFAULT_STORE_SETTINGS }) {
   const [size, setSize] = useState("S");
   const [quantity, setQuantity] = useState(1);
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [sizeChartOpen, setSizeChartOpen] = useState(false);
   const [cartReady, setCartReady] = useState(false);
   const [added, setAdded] = useState(false);
 
@@ -51,6 +53,12 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
       .filter((item) => item.quantity > 0));
   }
 
+  const productImages = Array.isArray(product.images) && product.images.length
+    ? product.images.filter(Boolean)
+    : [product.image || "/bustaniya-campaign-hero-v4.png"];
+  const [activeImgIndex, setActiveImgIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
   return (
     <>
     <main className="productPage">
@@ -62,27 +70,113 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
       </header>
 
       <div className="productDetailLayout">
-        <section className="productGallery">
+        <section className="productGallery mariabGallery">
           <a className="productBack" href={product.category === "Kurtis" ? "/category/kurtis" : product.category === "Bottoms" ? "/category/bottoms" : "/category/coord-sets"}>
             <ArrowLeft size={16} /> Back to collection
           </a>
-          <div className="mainProductPhoto">
-            <Image
-              src={product.image}
-              alt={`${product.name} by Bustaniya`}
-              fill
-              priority
-              sizes="(max-width: 1100px) 100vw, 54vw"
-            />
+
+          <div className="galleryWorkspace">
+            {/* Thumbnails Sidebar Column */}
+            {productImages.length > 1 && (
+              <div className="galleryThumbnails">
+                {productImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={`thumbBtn ${activeImgIndex === idx ? "active" : ""}`}
+                    onClick={() => setActiveImgIndex(idx)}
+                    aria-label={`View photo ${idx + 1}`}
+                  >
+                    <img src={img} alt={`${product.name} thumbnail ${idx + 1}`} />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Main Featured Display Photo */}
+            <div className="galleryMainView" onClick={() => setLightboxOpen(true)}>
+              <Image
+                src={productImages[activeImgIndex] || productImages[0]}
+                alt={`${product.name} - View ${activeImgIndex + 1} by Bustaniya`}
+                fill
+                priority
+                sizes="(max-width: 1100px) 100vw, 54vw"
+              />
+              <div className="galleryZoomHint">
+                <Maximize2 size={15} /> <span>Click to zoom</span>
+              </div>
+              {productImages.length > 1 && (
+                <div className="galleryNavControls" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveImgIndex((prev) => (prev > 0 ? prev - 1 : productImages.length - 1))}
+                    aria-label="Previous photo"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <span>{activeImgIndex + 1} / {productImages.length}</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveImgIndex((prev) => (prev < productImages.length - 1 ? prev + 1 : 0))}
+                    aria-label="Next photo"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="secondaryProductPhoto">
-            <Image
-              src={product.image}
-              alt={`${product.name} product detail`}
-              fill
-              sizes="(max-width: 1100px) 100vw, 54vw"
-            />
-          </div>
+
+          {/* Maria.B Style Multi-Photo Grid View for additional photos */}
+          {productImages.length > 1 && (
+            <div className="mariabPhotoGrid">
+              {productImages.map((img, idx) => (
+                <div className="gridPhotoCard" key={idx} onClick={() => { setActiveImgIndex(idx); setLightboxOpen(true); }}>
+                  <Image src={img} alt={`${product.name} detail photo ${idx + 1}`} fill sizes="(max-width: 1100px) 50vw, 25vw" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Fullscreen Lightbox Zoom Modal */}
+          {lightboxOpen && (
+            <div className="galleryLightbox" role="dialog" aria-modal="true">
+              <div className="lightboxOverlay" onClick={() => setLightboxOpen(false)} />
+              <div className="lightboxContent">
+                <button type="button" className="lightboxCloseBtn" onClick={() => setLightboxOpen(false)} aria-label="Close zoom">
+                  <X size={20} />
+                </button>
+
+                {productImages.length > 1 && (
+                  <button
+                    type="button"
+                    className="lightboxNavBtn left"
+                    onClick={() => setActiveImgIndex((prev) => (prev > 0 ? prev - 1 : productImages.length - 1))}
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
+                )}
+
+                <div className="lightboxImgWrap">
+                  <img src={productImages[activeImgIndex] || productImages[0]} alt={`${product.name} high res zoom`} />
+                </div>
+
+                {productImages.length > 1 && (
+                  <button
+                    type="button"
+                    className="lightboxNavBtn right"
+                    onClick={() => setActiveImgIndex((prev) => (prev < productImages.length - 1 ? prev + 1 : 0))}
+                  >
+                    <ChevronRight size={24} />
+                  </button>
+                )}
+
+                <div className="lightboxCounter">
+                  {activeImgIndex + 1} of {productImages.length} — {product.name}
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="productPurchase">
@@ -92,7 +186,12 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           <p className="taxNote">Tax included. Delivery calculated at checkout.</p>
           <p className="productDescription">{detailDescription}</p>
 
-          <div className="selectorHeading"><b>Select size</b><a href="#size-guide">Size guide</a></div>
+          <div className="selectorHeading">
+            <b>Select size</b>
+            <button type="button" className="sizeGuidePillBtn" onClick={() => setSizeChartOpen(true)}>
+              <Ruler size={14} /> View Size Chart
+            </button>
+          </div>
           <div className="sizeOptions">
             {sizes.map((item) => <button key={item} className={size === item ? "selected" : ""} onClick={() => setSize(item)}>{item}</button>)}
           </div>
@@ -112,11 +211,26 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
           <div className="productPromises">
             <div><Truck /><span><b>Delivery</b>Calculated at checkout</span></div>
-            <div><ShieldCheck /><span><b>Exchange support</b>See policy details</span></div>
+            <div><ShieldCheck /><span><b>Exchange support</b>7-day easy exchange</span></div>
           </div>
-          <details open><summary>Product details</summary><p>{detailDescription} Colours may vary slightly due to screen settings.</p></details>
-          <details id="size-guide"><summary>Size guide</summary><p>Confirm exact measurements with Bustaniya before ordering if you are between sizes.</p></details>
-          <details><summary>Care instructions</summary><p>Care details will be updated when confirmed for this product.</p></details>
+          <details open>
+            <summary>Product &amp; Fabric details</summary>
+            <p style={{ whiteSpace: "pre-line" }}>
+              {product.fabricDetails ? <><b style={{ color: "#132f22" }}>Fabric &amp; Stitching:</b> {product.fabricDetails}<br /><br /></> : null}
+              {detailDescription}
+              <br /><br />
+              <small style={{ color: "#6b7d71" }}>Colours may vary slightly due to camera lighting and screen settings.</small>
+            </p>
+          </details>
+          <details id="size-guide" open>
+            <summary>Size guide &amp; measurements</summary>
+            <p style={{ marginBottom: "10px" }}>Standard ready-to-wear stitched garment measurements in inches:</p>
+            <SizeTable />
+          </details>
+          <details open>
+            <summary>Care instructions</summary>
+            <p>{product.careInstructions || "Dry clean recommended or gentle hand wash in cold water. Wash dark colors separately. Do not bleach or tumble dry."}</p>
+          </details>
         </section>
       </div>
       {!!related.length && <section className="relatedProducts">
@@ -168,6 +282,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         <button className="shopMoreButton" onClick={() => setCartOpen(false)}>Shop more</button>
       </div>}
     </aside>
+    <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} />
     </>
   );
 }

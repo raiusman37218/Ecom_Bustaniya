@@ -1049,6 +1049,8 @@ export default function AdminDashboard() {
         cost_breakdown: {
           ...costBreakdown,
           metadata: {
+            fabricDetails: String(form.get("fabricDetails") || "").trim(),
+            careInstructions: String(form.get("careInstructions") || "").trim(),
             vendor: String(form.get("vendor") || "").trim(),
             barcode: String(form.get("barcode") || "").trim(),
             weight: String(form.get("weight") || "").trim(),
@@ -1498,7 +1500,9 @@ export default function AdminDashboard() {
             <section className="productEditorCard">
               <h3>Basic information</h3>
               <label>Product title<input name="name" required defaultValue={editingProduct?.name || ""} placeholder="e.g. Gulnaar Corset Kurti" /></label>
-              <label>Description<textarea name="description" rows="6" defaultValue={editingProduct?.description || ""} placeholder="Describe fabric, fit, embroidery and styling details..." /></label>
+              <label>Description<textarea name="description" rows="4" defaultValue={editingProduct?.description || ""} placeholder="Describe fit, embroidery and styling details..." /></label>
+              <label>Fabric &amp; Material Details<textarea name="fabricDetails" rows="3" defaultValue={editingProduct?.fabricDetails || editingProduct?.cost_breakdown?.metadata?.fabricDetails || ""} placeholder="e.g. 100% Pure Lawn Stitched Kurti with Embroidered Neckline & organza trim" /></label>
+              <label>Care Instructions<textarea name="careInstructions" rows="2" defaultValue={editingProduct?.careInstructions || editingProduct?.cost_breakdown?.metadata?.careInstructions || ""} placeholder="e.g. Dry clean recommended. Wash dark colors separately in cold water." /></label>
             </section>
 
             <section className="productEditorCard">
