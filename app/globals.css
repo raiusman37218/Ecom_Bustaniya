@@ -1348,7 +1348,7 @@ footer {
 .adminContent .dashboardCashBreakdown summary p { margin:0 0 5px; color:var(--berry); font-size:8px; font-weight:800; letter-spacing:.14em; }
 .adminContent .dashboardCashBreakdown summary h2 { margin:0; color:var(--admin-ink); font-size:18px; letter-spacing:-.02em; }
 .adminContent .dashboardCashBreakdown summary span { display:block; margin-top:5px; color:var(--admin-muted); font-size:10px; }
-.adminContent .dashboardCashBreakdown summary>b { flex-shrink:0; color:var(--forest); font-size:22px; font-variant-numeric:tabular-nums; }
+.adminContent .dashboardCashBreakdown summary>b { flex-shrink:0; color:#fff; font-size:22px; font-variant-numeric:tabular-nums; }
 .adminContent .cashBreakdownGrid { padding:0 22px 22px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; border-top:1px solid var(--admin-line); }
 .adminContent .cashBreakdownGrid>section { min-width:0; padding:18px; border:1px solid var(--admin-line); border-radius:11px; background:#fff; }
 .adminContent .cashBreakdownHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
