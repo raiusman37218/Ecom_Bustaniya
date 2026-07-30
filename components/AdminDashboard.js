@@ -1801,37 +1801,169 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     return `${statusPalette[label]} ${start}% ${completedPercent}%`;
   });
   const donutStyle = { background: donutStops.length ? `conic-gradient(${donutStops.join(",")})` : "#dedfdc" };
+  // Calculate top selling products matching scoped period
+  const items = liveOrders
+    .filter((order) => {
+      const orderDate = toOrderDate(order);
+      if (!orderDate) return false;
+      const daysAgo = (new Date() - orderDate) / (1000 * 60 * 60 * 24);
+      return daysAgo <= chartRange;
+    })
+    .filter(isDeliveredOrder)
+    .flatMap((order) => normalizeOrderItems(order.raw || order));
+
+  const productsById = new Map((products || []).map((product) => [String(product.id), product]));
+  const productsBySku = new Map((products || []).map((product) => [String(product.sku || product.articleNumber || "").trim().toLowerCase(), product]).filter(([key]) => key));
+  const productsByName = new Map((products || []).map((product) => [String(product.name || "").trim().toLowerCase(), product]));
+
+  const productSales = items.reduce((map, item) => {
+    const product = productsById.get(String(item.productId)) || productsBySku.get(String(item.sku || "").trim().toLowerCase()) || productsByName.get(String(item.name || "").trim().toLowerCase());
+    const key = product ? `id:${product.id}` : `item:${String(item.sku || item.name || "unknown").trim().toLowerCase()}`;
+    const current = map.get(key) || { key, product, name: product?.name || item.name || "Unknown product", sku: product?.sku || product?.articleNumber || item.sku || "—", quantity: 0, image: product?.image };
+    current.quantity += Number(item.quantity || 0);
+    map.set(key, current);
+    return map;
+  }, new Map());
+  const topProducts = [...productSales.values()].sort((a, b) => b.quantity - a.quantity).slice(0, 4);
+
+  const deliveredScoped = liveOrders
+    .filter((order) => {
+      const orderDate = toOrderDate(order);
+      if (!orderDate) return false;
+      const daysAgo = (new Date() - orderDate) / (1000 * 60 * 60 * 24);
+      return daysAgo <= chartRange;
+    })
+    .filter(isDeliveredOrder);
+  const deliveredCount = deliveredScoped.length;
+  const averageOrderValue = deliveredCount ? Math.round(salesPeriodTotal / deliveredCount) : 0;
+  
+  const customerKeys = deliveredScoped.map(orderCustomerIdentity).filter(Boolean);
+  const customerOrderCounts = customerKeys.reduce((map, key) => map.set(key, (map.get(key) || 0) + 1), new Map());
+  const repeatCustomers = [...customerOrderCounts.values()].filter((count) => count > 1).length;
+  const repeatCustomerRate = customerOrderCounts.size ? Math.round((repeatCustomers / customerOrderCounts.size) * 100) : 0;
+
   if (loading || (isOwnerDashboard && financeSnapshotStatus === "loading")) return <DashboardLoadingState />;
   if (ordersError) return <section className="adminCard ordersConnect"><div><b>Dashboard order data could not be loaded.</b><span>{ordersError}</span></div><button onClick={onRefresh}>Retry</button></section>;
+
   return <>
-    <div className="adminTitle dashboardTitle"><div><p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" }) : "Loading date…"}</p><h1>{dashboardNow && dashboardNow.getHours() < 12 ? "Good morning" : dashboardNow && dashboardNow.getHours() < 17 ? "Good afternoon" : "Good evening"}, Bustaniya</h1><span>{connected ? `Live store data${dashboardUpdatedAt ? ` · Updated ${dashboardUpdatedAt.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}` : ""}` : "Connect Supabase orders to load live store data."}</span></div><div className="dashboardTitleActions"><button className="dashboardRefresh" onClick={refreshDashboard} disabled={dashboardRefreshing}><RefreshCw className={dashboardRefreshing ? "spinIcon" : ""} /> {dashboardRefreshing ? "Refreshing" : "Refresh"}</button><button className="dashboardPrimaryAction" onClick={onAddProduct}><Plus /> Add product</button></div></div>
-    {isOwnerDashboard && financeSnapshotStatus === "error" && <div className="adminErrorBanner">Finance data could not be loaded. Sales and COD remain live, but cash, profit and Finance alerts are hidden until Refresh succeeds.</div>}
-    <section className="dashboardSection dashboardPrimarySection"><div className="dashboardSectionHeading"><div><p>STORE PULSE</p><h2>Today at a glance</h2><span>Live sales, cash and profitability from your connected store.</span></div></div><div className="metricGrid dashboardPrimaryMetrics">
-      <Metric icon={CircleDollarSign} label="Delivered sales" value={`Rs. ${dashboardSales.toLocaleString()}`} change="All time" note="delivered orders only" />
-      {isOwnerDashboard && <Metric icon={WalletCards} label="Available cash" value={financeSnapshotStatus === "ready" ? `Rs. ${dashboardAvailableCash.toLocaleString()}` : "Unavailable"} change="All time" note="after recorded cash costs" />}
-      <Metric icon={Landmark} label="PostEx receivable" value={`Rs. ${dashboardPostexReceivable.toLocaleString()}`} change="Current" note="settled or carried forward" />
-      {isOwnerDashboard && <Metric icon={TrendingUp} label="Final net profit" value={financeSnapshotStatus === "ready" ? `Rs. ${dashboardNetProfit.toLocaleString()}` : "Unavailable"} change="Finance" note="actual P&amp;L · all time" />}
-    </div></section>
-    <div className="adminVisualGrid">
-      <VisualDonut
-        title="Order pipeline"
-        subtitle="Live courier health — booked, in-transit, delivered and returned orders."
-        centerValue={dashboardOrderCount}
-        centerLabel="total"
-        items={Object.entries(statusBuckets).map(([label, value]) => ({ label, value, color: statusPalette[label] || "#8aa08f" })).filter((item) => item.value > 0)}
-      />
-      <VisualBars
-        title="Revenue waterfall"
-        subtitle="How delivered sales flow into costs, fees and final net profit."
-        format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`}
-        items={[
-          { label: "Gross sales", value: dashboardSales, color: "#1d6840" },
-          { label: "Product cost (COGS)", value: dashboardCogs, color: "#c78b2b" },
-          { label: "PostEx & logistics", value: dashboardCourierCost + dashboardTaxes + dashboardReturnPostexLoss, color: "#b73543" },
-          { label: "Net profit", value: Math.max(0, dashboardNetProfit), color: "#245d9a" },
-        ]}
-      />
+    <div className="adminTitle dashboardTitle">
+      <div>
+        <p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" }) : "Loading date…"}</p>
+        <h1>{dashboardNow && dashboardNow.getHours() < 12 ? "Good morning" : dashboardNow && dashboardNow.getHours() < 17 ? "Good afternoon" : "Good evening"}, Bustaniya</h1>
+        <span>{connected ? ("Live store insights" + (dashboardUpdatedAt ? ` · Updated ${dashboardUpdatedAt.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}` : "")) : "Connect Supabase orders to load live store data."}</span>
+      </div>
+      <div className="dashboardTitleActions">
+        <div className="orderTabs" style={{ marginRight: '8px' }}>
+          {[["7", "7 Days"], ["30", "30 Days"], ["90", "90 Days"]].map(([val, label]) => (
+            <button key={val} className={dashboardPeriod === val ? "active" : ""} onClick={() => setDashboardPeriod(val)}>{label}</button>
+          ))}
+        </div>
+        <button className="dashboardRefresh" onClick={refreshDashboard} disabled={dashboardRefreshing}>
+          <RefreshCw className={dashboardRefreshing ? "spinIcon" : ""} /> {dashboardRefreshing ? "Refreshing" : "Refresh"}
+        </button>
+        <button className="dashboardPrimaryAction" onClick={onAddProduct}><Plus /> Add product</button>
+      </div>
     </div>
+
+    {isOwnerDashboard && financeSnapshotStatus === "error" && <div className="adminErrorBanner">Finance data could not be loaded. Sales and COD remain live, but cash, profit and Finance alerts are hidden until Refresh succeeds.</div>}
+
+    {/* Premium KPIs Grid */}
+    <div className="premiumMetricGrid">
+      <div className="premiumMetricCard salesCard">
+        <div className="premiumMetricHeader">
+          <span>Delivered Sales</span>
+          <CircleDollarSign />
+        </div>
+        <div className="premiumMetricValue">Rs. {salesPeriodTotal.toLocaleString()}</div>
+        <div className="premiumMetricNote">
+          <span className={salesPeriodChange !== null && salesPeriodChange < 0 ? "metricTrendDown" : "metricTrendUp"}>
+            {salesPeriodChange === null ? "Delivered sales this period" : `${salesPeriodChange >= 0 ? "+" : ""}${salesPeriodChange}% vs prior period`}
+          </span>
+        </div>
+      </div>
+
+      {isOwnerDashboard && (
+        <div className="premiumMetricCard cashCard">
+          <div className="premiumMetricHeader">
+            <span>Available Cash</span>
+            <WalletCards />
+          </div>
+          <div className="premiumMetricValue">
+            {financeSnapshotStatus === "ready" ? `Rs. ${dashboardAvailableCash.toLocaleString()}` : "Unavailable"}
+          </div>
+          <div className="premiumMetricNote">After recorded cash costs</div>
+        </div>
+      )}
+
+      <div className="premiumMetricCard receivableCard">
+        <div className="premiumMetricHeader">
+          <span>PostEx Receivable</span>
+          <Landmark />
+        </div>
+        <div className="premiumMetricValue">Rs. {dashboardPostexReceivable.toLocaleString()}</div>
+        <div className="premiumMetricNote">Outstanding or in transit</div>
+      </div>
+
+      {isOwnerDashboard && (
+        <div className="premiumMetricCard profitCard">
+          <div className="premiumMetricHeader">
+            <span>Final Net Profit</span>
+            <TrendingUp />
+          </div>
+          <div className="premiumMetricValue">
+            {financeSnapshotStatus === "ready" ? `Rs. ${dashboardNetProfit.toLocaleString()}` : "Unavailable"}
+          </div>
+          <div className="premiumMetricNote">Actual P&L after deductions</div>
+        </div>
+      )}
+    </div>
+
+    {/* Secondary KPI Badges Row */}
+    <div className="premiumMetricGrid" style={{ marginTop: '-8px', marginBottom: '24px', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+      <div className="statusBadge confirmed" style={{ padding: '10px 16px', justifyContent: 'center', background: '#f0f7f3', color: '#1a5f38', borderColor: '#d3ebd9', borderRadius: '12px', fontSize: '12px' }}>
+        Average Order Value: <b style={{ marginLeft: '4px' }}>Rs. {averageOrderValue.toLocaleString()}</b>
+      </div>
+      <div className="statusBadge activeStatus" style={{ padding: '10px 16px', justifyContent: 'center', background: '#f0f4f8', color: '#1b4d7c', borderColor: '#d2e3f0', borderRadius: '12px', fontSize: '12px' }}>
+        Repeat Customer Rate: <b style={{ marginLeft: '4px' }}>{repeatCustomerRate}%</b>
+      </div>
+      <div className="statusBadge processing" style={{ padding: '10px 16px', justifyContent: 'center', background: '#fdf7ee', color: '#88580b', borderColor: '#f7e3c9', borderRadius: '12px', fontSize: '12px' }}>
+        Items Delivered: <b style={{ marginLeft: '4px' }}>{items.reduce((sum, i) => sum + Number(i.quantity || 0), 0)} pcs</b>
+      </div>
+      <div className="statusBadge unbooked" style={{ padding: '10px 16px', justifyContent: 'center', background: '#fbfbfb', color: '#555', borderColor: '#eaeaea', borderRadius: '12px', fontSize: '12px' }}>
+        Fulfilled Orders: <b style={{ marginLeft: '4px' }}>{deliveredCount} orders</b>
+      </div>
+    </div>
+
+    {/* Visual Overview Grid (50/50 Side by Side) */}
+    <div className="dashboardLayoutGrid">
+      {/* Sleek Order Pipeline Pie/Donut Chart */}
+      <div className="dashboardCol6">
+        <VisualDonut
+          title="Order pipeline"
+          subtitle="Live courier health fulfilment status."
+          centerValue={dashboardOrderCount}
+          centerLabel="total"
+          items={Object.entries(statusBuckets).map(([label, value]) => ({ label, value, color: statusPalette[label] || "#8aa08f" })).filter((item) => item.value > 0)}
+        />
+      </div>
+
+      {/* Revenue Waterfall */}
+      <div className="dashboardCol6">
+        <VisualBars
+          title="Revenue waterfall"
+          subtitle="How delivered sales flow into product costs, courier deductions and net profit."
+          format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`}
+          items={[
+            { label: "Gross sales", value: dashboardSales, color: "#1d6840" },
+            { label: "Product cost (COGS)", value: dashboardCogs, color: "#c78b2b" },
+            { label: "PostEx & logistics", value: dashboardCourierCost + dashboardTaxes + dashboardReturnPostexLoss, color: "#b73543" },
+            { label: "Net profit", value: Math.max(0, dashboardNetProfit), color: "#235d9a" },
+          ]}
+        />
+      </div>
+    </div>
+
+    {/* Executive Analytics & Performance Insights Suite */}
     <ExecutiveAnalyticsSuite
       salesByDay={salesByDay}
       salesPeriodTotal={salesPeriodTotal}
@@ -1845,64 +1977,69 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
       liveOrders={liveOrders}
       products={products}
     />
-    {isOwnerDashboard && financeSnapshotStatus === "ready" && <details className="adminCard dashboardCashBreakdown" open>
-      <summary><div><p>CASH EXPLAINER</p><h2>How available cash is calculated</h2><span>Every addition and deduction behind the amount shown above.</span></div><b>Rs. {dashboardAvailableCash.toLocaleString()}</b></summary>
-      <div className="cashBreakdownGrid">
-        <section>
-          <div className="cashBreakdownHeading"><div><h3>Sale and profit breakdown</h3><span>Shows what the delivered sales earned.</span></div><span className="cashBreakdownTag">P&amp;L</span></div>
-          <div className="financeStatement">
-            <div><span>Total delivered order value</span><b>Rs. {dashboardSales.toLocaleString()}</b></div>
-            <div><span>Products sold (without delivery)</span><b>Rs. {dashboardProductRevenue.toLocaleString()}</b></div>
-            <div><span>Delivery collected from customers</span><b className="cashPlus">+ Rs. {dashboardDeliveryCollected.toLocaleString()}</b></div>
-            <div><span>Product cost of sold items (COGS)</span><b className="cashMinus">- Rs. {dashboardCogs.toLocaleString()}</b></div>
-            <div><span>Actual PostEx GST from synced CPR data</span><b className="cashMinus">- Rs. {dashboardGst.toLocaleString()}</b></div>
-            <div><span>Actual PostEx 4% deduction from synced CPR data</span><b className="cashMinus">- Rs. {dashboardTax.toLocaleString()}</b></div>
-            <div><span>Actual PostEx shipping/service charges</span><b className="cashMinus">- Rs. {dashboardCourierCost.toLocaleString()}</b></div>
-            <div><span>Returned parcel PostEx loss</span><b className="cashMinus">- Rs. {dashboardReturnPostexLoss.toLocaleString()}</b></div>
-            <div><span>Other operating expenses</span><b className="cashMinus">- Rs. {(dashboardManualExpenses + dashboardCashbookExpenses).toLocaleString()}</b></div>
-            <div className="statementTotal"><span>Final net profit</span><b>Rs. {dashboardNetProfit.toLocaleString()}</b></div>
+
+    {/* Collapsible Cash explainer (Closed by default) */}
+    {isOwnerDashboard && financeSnapshotStatus === "ready" && (
+      <details className="adminCard dashboardCashBreakdown" style={{ marginBottom: '24px' }}>
+        <summary style={{ cursor: 'pointer' }}>
+          <div>
+            <p>CASH EXPLAINER</p>
+            <h2>How available cash is calculated</h2>
+            <span>Click to expand full cash flow ledger calculations.</span>
           </div>
-        </section>
-        <section>
-          <div className="cashBreakdownHeading"><div><h3>Cash movement breakdown</h3><span>Shows the money currently available to use.</span></div><span className="cashBreakdownTag">CASH</span></div>
-          <div className="financeStatement">
-            <div><span>Verified PostEx bank receipts</span><b className="cashPlus">+ Rs. {dashboardPostexBankReceived.toLocaleString()}</b></div>
-            <div><span>PostEx receivable (not available cash)</span><b>Rs. {dashboardPostexReceivable.toLocaleString()}</b></div>
-            <div><span>Owner funds added</span><b className="cashPlus">+ Rs. {dashboardOwnerInvestments.toLocaleString()}</b></div>
-            <div><span>PostEx GST already deducted before bank receipt</span><b>Rs. {dashboardGst.toLocaleString()}</b></div>
-            <div><span>PostEx 4% deduction already deducted before bank receipt</span><b>Rs. {dashboardTax.toLocaleString()}</b></div>
-            <div><span>Operating expenses paid</span><b className="cashMinus">- Rs. {(dashboardManualExpenses + dashboardCashbookExpenses).toLocaleString()}</b></div>
-            <div><span>Production / stock purchase cash paid</span><b className="cashMinus">- Rs. {dashboardProductionCashOutflow.toLocaleString()}</b></div>
-            <div><span>Supplier payments</span><b className="cashMinus">- Rs. {dashboardSupplierPayments.toLocaleString()}</b></div>
-            <div><span>Owner withdrawals</span><b className="cashMinus">- Rs. {dashboardOwnerWithdrawals.toLocaleString()}</b></div>
-            <div className="statementTotal"><span>Available business cash</span><b>Rs. {dashboardAvailableCash.toLocaleString()}</b></div>
-          </div>
-        </section>
-      </div>
-      <p className="cashBreakdownNote"><b>How PostEx cash works:</b> delivered sales increase revenue and profit, but they do not become available cash until a CPR/bank receipt is reconciled. PostEx bank receipts are already net of PostEx deductions, so courier is shown in P&amp;L but is not subtracted from the same bank receipt again. Product purchases reduce cash when their payment is recorded.</p>
-    </details>}
-    <section className="dashboardSection dashboardHealthSection"><div className="dashboardSectionHeading"><div><p>OPERATIONS</p><h2>Store health</h2><span>Orders, customers, stock and returns that need daily attention.</span></div></div><div className="miniMetricGrid dashboardSecondaryMetrics">
-      <article><ShoppingBag /><span><b>{dashboardOrderCount}</b>All orders</span></article>
-      <article><Users /><span><b>{dashboardCustomerCount}</b>Unique customers</span></article>
-      <article className={lowStockProducts.length ? "alertMetric" : ""}><Package /><span><b>{lowStockProducts.length}</b>Low-stock products</span></article>
-      <article className={dashboardReturns ? "alertMetric" : ""}><ReceiptText /><span><b>{dashboardReturns}</b>Returns to inspect</span></article>
-    </div></section>
-    {((isOwnerDashboard && ((financeSnapshotStatus === "ready" && (dashboardNetProfit < 0 || overduePayables)) || zeroCostActive.length)) || lowStockProducts.length || dashboardReturns) && <section className="adminCard managementCard dashboardAlerts"><div className="inventoryListHead"><div><h2>Action alerts</h2><span>Items needing attention, ordered by urgency.</span></div></div><div className="financeStatement">{isOwnerDashboard && financeSnapshotStatus === "ready" && dashboardNetProfit < 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> Negative final net profit</span><button onClick={() => setActive("Finances", { focus: "pnl" })}>Review P&amp;L</button></div>}{isOwnerDashboard && zeroCostActive.length > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {zeroCostActive.length} active product{zeroCostActive.length === 1 ? "" : "s"} with zero cost</span><button onClick={() => setActive("Products", { focus: "missing-cost" })}>Add cost</button></div>}{isOwnerDashboard && financeSnapshotStatus === "ready" && overduePayables > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {overduePayables} overdue supplier payable{overduePayables === 1 ? "" : "s"}</span><button onClick={() => setActive("Finances", { focus: "suppliers" })}>Review payables</button></div>}{lowStockProducts.length > 0 && <div><span><b className="alertSeverity warning">Stock</b> {lowStockProducts.length} low-stock / out-of-stock products</span><button onClick={() => setActive("Inventory", { focus: "low-stock" })}>Review stock</button></div>}{dashboardReturns > 0 && <div><span><b className="alertSeverity warning">Returns</b> {dashboardReturns} returned order{dashboardReturns === 1 ? "" : "s"} pending inspection</span><button onClick={() => setActive("Inventory", { focus: "returns-inspection" })}>Inspect returns</button></div>}</div></section>}
-    <DashboardAnalytics orders={orders} products={products} connected={connected} period={dashboardPeriod} setPeriod={setDashboardPeriod} />
-    <div className="dashboardGrid">
-      <section className="salesChart adminCard">
-        <div className="cardHeading"><div><h2>Sales overview</h2><p>Delivered revenue for the last {chartRange} days</p></div><span className="chartDataLabel">Delivered only</span></div>
-        <div className="chartTotal"><b>Rs. {salesPeriodTotal.toLocaleString()}</b><span className={salesPeriodChange !== null && salesPeriodChange < 0 ? "metricTrendDown" : "metricTrendUp"}>{salesPeriodChange === null ? "No previous-period baseline" : `${salesPeriodChange >= 0 ? "+" : ""}${salesPeriodChange}% vs previous ${chartRange} days`}</span></div>
-        <div className={`fakeChart ${chartRange > 7 ? "longRange" : ""}`} role="img" aria-label={`Delivered sales chart for the last ${chartRange} days`}>
-          {salesByDay.map((day, index) => <div key={`${day.label}-${index}`}><span title={`${day.label}: Rs. ${day.sales.toLocaleString()}`} style={{ height: `${day.sales ? Math.max(4, (day.sales / maxDailySales) * 100) : 0}%` }} />{(chartRange <= 7 || index % Math.ceil(chartRange / 6) === 0 || index === chartRange - 1) && <small>{day.label}</small>}</div>)}
+          <b>Rs. {dashboardAvailableCash.toLocaleString()}</b>
+        </summary>
+        <div className="cashBreakdownGrid" style={{ marginTop: '16px' }}>
+          <section>
+            <div className="cashBreakdownHeading"><div><h3>Sale and profit breakdown</h3><span>Shows what the delivered sales earned.</span></div><span className="cashBreakdownTag">P&amp;L</span></div>
+            <div className="financeStatement">
+              <div><span>Total delivered order value</span><b>Rs. {dashboardSales.toLocaleString()}</b></div>
+              <div><span>Products sold (without delivery)</span><b>Rs. {dashboardProductRevenue.toLocaleString()}</b></div>
+              <div><span>Delivery collected from customers</span><b className="cashPlus">+ Rs. {dashboardDeliveryCollected.toLocaleString()}</b></div>
+              <div><span>Product cost of sold items (COGS)</span><b className="cashMinus">- Rs. {dashboardCogs.toLocaleString()}</b></div>
+              <div><span>Actual PostEx GST from synced CPR data</span><b className="cashMinus">- Rs. {dashboardGst.toLocaleString()}</b></div>
+              <div><span>Actual PostEx 4% deduction from synced CPR data</span><b className="cashMinus">- Rs. {dashboardTax.toLocaleString()}</b></div>
+              <div><span>Actual PostEx shipping/service charges</span><b className="cashMinus">- Rs. {dashboardCourierCost.toLocaleString()}</b></div>
+              <div><span>Returned parcel PostEx loss</span><b className="cashMinus">- Rs. {dashboardReturnPostexLoss.toLocaleString()}</b></div>
+              <div><span>Other operating expenses</span><b className="cashMinus">- Rs. {(dashboardManualExpenses + dashboardCashbookExpenses).toLocaleString()}</b></div>
+              <div className="statementTotal"><span>Final net profit</span><b>Rs. {dashboardNetProfit.toLocaleString()}</b></div>
+            </div>
+          </section>
+          <section>
+            <div className="cashBreakdownHeading"><div><h3>Cash movement breakdown</h3><span>Shows the money currently available to use.</span></div><span className="cashBreakdownTag">CASH</span></div>
+            <div className="financeStatement">
+              <div><span>Verified PostEx bank receipts</span><b className="cashPlus">+ Rs. {dashboardPostexBankReceived.toLocaleString()}</b></div>
+              <div><span>PostEx receivable (not available cash)</span><b>Rs. {dashboardPostexReceivable.toLocaleString()}</b></div>
+              <div><span>Owner funds added</span><b className="cashPlus">+ Rs. {dashboardOwnerInvestments.toLocaleString()}</b></div>
+              <div><span>PostEx GST already deducted before bank receipt</span><b>Rs. {dashboardGst.toLocaleString()}</b></div>
+              <div><span>PostEx 4% deduction already deducted before bank receipt</span><b>Rs. {dashboardTax.toLocaleString()}</b></div>
+              <div><span>Operating expenses paid</span><b className="cashMinus">- Rs. {(dashboardManualExpenses + dashboardCashbookExpenses).toLocaleString()}</b></div>
+              <div><span>Production / stock purchase cash paid</span><b className="cashMinus">- Rs. {dashboardProductionCashOutflow.toLocaleString()}</b></div>
+              <div><span>Supplier payments</span><b className="cashMinus">- Rs. {dashboardSupplierPayments.toLocaleString()}</b></div>
+              <div><span>Owner withdrawals</span><b className="cashMinus">- Rs. {dashboardOwnerWithdrawals.toLocaleString()}</b></div>
+              <div className="statementTotal"><span>Available business cash</span><b>Rs. {dashboardAvailableCash.toLocaleString()}</b></div>
+            </div>
+          </section>
+        </div>
+        <p className="cashBreakdownNote"><b>How PostEx cash works:</b> delivered sales increase revenue and profit, but they do not become available cash until a CPR/bank receipt is reconciled. PostEx bank receipts are already net of PostEx deductions, so courier is shown in P&amp;L but is not subtracted from the same bank receipt again. Product purchases reduce cash when their payment is recorded.</p>
+      </details>
+    )}
+
+    {/* Store Alerts */}
+    {((isOwnerDashboard && ((financeSnapshotStatus === "ready" && (dashboardNetProfit < 0 || overduePayables)) || zeroCostActive.length)) || lowStockProducts.length || dashboardReturns) && (
+      <section className="adminCard managementCard dashboardAlerts" style={{ marginBottom: '24px' }}>
+        <div className="inventoryListHead"><div><h2>Action alerts</h2><span>Items needing attention, ordered by urgency.</span></div></div>
+        <div className="financeStatement">
+          {isOwnerDashboard && financeSnapshotStatus === "ready" && dashboardNetProfit < 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> Negative final net profit</span><button onClick={() => setActive("Finances", { focus: "pnl" })}>Review P&amp;L</button></div>}
+          {isOwnerDashboard && zeroCostActive.length > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {zeroCostActive.length} active product{zeroCostActive.length === 1 ? "" : "s"} with zero cost</span><button onClick={() => setActive("Products", { focus: "missing-cost" })}>Add cost</button></div>}
+          {isOwnerDashboard && financeSnapshotStatus === "ready" && overduePayables > 0 && <div className="expenseAmount"><span><b className="alertSeverity critical">Critical</b> {overduePayables} overdue supplier payable{overduePayables === 1 ? "" : "s"}</span><button onClick={() => setActive("Finances", { focus: "suppliers" })}>Review payables</button></div>}
+          {lowStockProducts.length > 0 && <div><span><b className="alertSeverity warning">Stock</b> {lowStockProducts.length} low-stock / out-of-stock products</span><button onClick={() => setActive("Inventory", { focus: "low-stock" })}>Review stock</button></div>}
+          {dashboardReturns > 0 && <div><span><b className="alertSeverity warning">Returns</b> {dashboardReturns} returned order{dashboardReturns === 1 ? "" : "s"} pending inspection</span><button onClick={() => setActive("Inventory", { focus: "returns-inspection" })}>Inspect returns</button></div>}
         </div>
       </section>
-      <section className="adminCard orderStatus">
-        <div className="cardHeading"><div><h2>Order status</h2><p>Current fulfilment</p></div></div>
-        <div className="donut" style={donutStyle}><div><b>{dashboardOrderCount}</b><span>Orders</span></div></div>
-        <ul>{Object.entries(statusBuckets).map(([label, count]) => <li key={label}><i style={{ background: statusPalette[label] }} />{label} <b>{count}</b></li>)}</ul>
-      </section>
-    </div>
+    )}
+
+    {/* Recent Orders */}
     <section className="adminCard recentOrders">
       <div className="cardHeading"><div><h2>Recent orders</h2><p>Latest customer purchases</p></div><button onClick={() => setActive("Orders")}>View all orders</button></div>
       <OrderTable rows={orders.slice(0, 4)} onSelect={onOpenOrder} />
