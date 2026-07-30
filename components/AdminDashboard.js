@@ -3883,6 +3883,121 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   </div>;
 }
 
+function ProductionBatchModal({ isOpen, onClose, onSubmit, products, saving }) {
+  const [productId, setProductId] = useState("");
+  const [quantity, setQuantity] = useState(25);
+  const [fabric, setFabric] = useState(0);
+  const [stitching, setStitching] = useState(0);
+  const [stitchingMaterial, setStitchingMaterial] = useState(0);
+  const [packaging, setPackaging] = useState(0);
+  const [travel, setTravel] = useState(0);
+  const [other, setOther] = useState(0);
+
+  if (!isOpen) return null;
+
+  const totalCost = Number(fabric || 0) + Number(stitching || 0) + Number(stitchingMaterial || 0) + Number(packaging || 0) + Number(travel || 0) + Number(other || 0);
+  const qtyNum = Math.max(1, Number(quantity || 1));
+  const unitCost = Math.round(totalCost / qtyNum);
+
+  return (
+    <>
+      <div className="adminOverlay" onClick={onClose} />
+      <form className="inventoryDialog" onSubmit={onSubmit}>
+        <DialogHead title="Create production batch" onClose={onClose} />
+        <p className="trackingNumber">Add one design at a time. Stock, per-suit cost and Finance expense will update together.</p>
+
+        <label>Design / product
+          <select name="productId" required value={productId} onChange={(e) => setProductId(e.target.value)}>
+            <option value="">Select product</option>
+            <option value="__new__">+ Create new product/design</option>
+            {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+          </select>
+        </label>
+
+        {productId === "__new__" && (
+          <section className="adminCard" style={{ padding: "14px", marginBottom: "12px", background: "#f9fcfa", border: "1px solid #dce7dd" }}>
+            <p className="fieldTitle" style={{ fontWeight: "700", color: "#132f22" }}>New product / design details</p>
+            <div className="formRow">
+              <label>Design Code / SKU (e.g. BST-301)
+                <input name="newProductArticleNumber" placeholder="e.g. BST-301" />
+                <small style={{ color: "#546e5f", fontSize: "11px", display: "block", marginTop: "2px" }}>Same code dubara use karne par stock &amp; cost update hogi (no duplicates).</small>
+              </label>
+              <label>Product / design name
+                <input name="newProductName" placeholder="e.g. Blue Arora – Design 4" />
+              </label>
+            </div>
+            <div className="formRow">
+              <label>Selling price (PKR)
+                <input name="newProductPrice" type="number" min="0" placeholder="0" />
+              </label>
+              <label>Category
+                <input name="newProductCategory" placeholder="e.g. Kurtis" defaultValue="Kurtis" />
+              </label>
+            </div>
+            <label>Image URL (optional)
+              <input name="newProductImage" placeholder="https://... or uploaded image URL" />
+            </label>
+          </section>
+        )}
+
+        <div className="formRow">
+          <label>Finished suits (Quantity)
+            <input name="quantity" type="number" min="1" required value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="25" />
+          </label>
+          <label>Date
+            <input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+          </label>
+        </div>
+
+        <p className="fieldTitle" style={{ fontWeight: "700", color: "#132f22", marginTop: "12px" }}>Costs for this design batch (PKR)</p>
+        <div className="formRow">
+          <label>Fabric cost
+            <input name="fabric" type="number" min="0" value={fabric} onChange={(e) => setFabric(e.target.value)} />
+          </label>
+          <label>Stitching cost
+            <input name="stitching" type="number" min="0" value={stitching} onChange={(e) => setStitching(e.target.value)} />
+          </label>
+        </div>
+        <div className="formRow">
+          <label>Stitching material (Laces/Buttons)
+            <input name="stitchingMaterial" type="number" min="0" value={stitchingMaterial} onChange={(e) => setStitchingMaterial(e.target.value)} />
+          </label>
+          <label>Packaging
+            <input name="packaging" type="number" min="0" value={packaging} onChange={(e) => setPackaging(e.target.value)} />
+          </label>
+        </div>
+        <div className="formRow">
+          <label>Travel / Transport
+            <input name="travel" type="number" min="0" value={travel} onChange={(e) => setTravel(e.target.value)} />
+          </label>
+          <label>Other expenses
+            <input name="other" type="number" min="0" value={other} onChange={(e) => setOther(e.target.value)} />
+          </label>
+        </div>
+
+        <div className="adminCard" style={{ padding: "12px 16px", margin: "14px 0", background: "linear-gradient(135deg, #173d29, #245d3f)", color: "#fff", borderRadius: "12px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+            <span style={{ fontSize: "12px", opacity: 0.9 }}>Total Batch Cost:</span>
+            <b style={{ fontSize: "15px" }}>Rs. {totalCost.toLocaleString()}</b>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.2)", paddingTop: "6px" }}>
+            <span style={{ fontSize: "13px", fontWeight: "700" }}>Unit Cost per Suit:</span>
+            <b style={{ fontSize: "18px", color: "#aef3c7" }}>Rs. {unitCost.toLocaleString()} / suit</b>
+          </div>
+        </div>
+
+        <label>Note
+          <textarea name="note" rows="2" placeholder="Supplier, stitching unit or batch reference" />
+        </label>
+
+        <button className="dialogSave" disabled={saving}>
+          {saving ? "Saving batch..." : "Save batch, add stock & record cost"}
+        </button>
+      </form>
+    </>
+  );
+}
+
 function InventoryPanel({ products, movements, orders, connected, currentAdminUser, onAdjust, onCreateCustomInventory, onCreateProductionBatch, initialView }) {
   const emptyProductionCosts = () => ({ fabric: 0, stitching: 0, stitchingMaterial: 0, packaging: 0, travel: 0, other: 0 });
   const inventoryMoney = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
@@ -4401,7 +4516,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       <label>Type <b>{`VOID ${voidBatch.id}`}</b> exactly to confirm<input value={voidConfirmation} onChange={(event) => setVoidConfirmation(event.target.value)} autoComplete="off" autoFocus /></label>
       <button className="removeProductButton" type="submit" disabled={voidingBatchId === voidBatch.id || voidConfirmation.trim() !== `VOID ${voidBatch.id}`}>{voidingBatchId === voidBatch.id ? "Voiding batch..." : "Void batch permanently"}</button>
     </form></>}
-    {productionOpen && <><div className="adminOverlay" onClick={() => setProductionOpen(false)} /><form className="inventoryDialog" onSubmit={saveProductionBatch}><DialogHead title="Create production batch" onClose={() => setProductionOpen(false)} /><p className="trackingNumber">Add one design at a time. Stock, per-suit cost and Finance expense will update together.</p><label>Design / product<select name="productId" required value={productionProductId} onChange={(event) => setProductionProductId(event.target.value)}><option value="">Select product</option><option value="__new__">+ Create new product/design</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>{productionProductId === "__new__" && <section className="adminCard" style={{ padding: "14px", marginBottom: "12px" }}><p className="fieldTitle">New product details</p><label>Product / design name<input name="newProductName" required placeholder="e.g. Blue Arora – Design 4" /></label><div className="formRow"><label>Selling price<input name="newProductPrice" type="number" min="0" required placeholder="0" /></label><label>Category<input name="newProductCategory" placeholder="e.g. Kurtis" defaultValue="Kurtis" /></label></div><label>Image URL (optional)<input name="newProductImage" placeholder="https://... or uploaded image URL" /></label></section>}<div className="formRow"><label>Finished suits<input name="quantity" type="number" min="1" required placeholder="25" /></label><label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label></div><p className="fieldTitle">Costs for this design batch (PKR)</p><div className="formRow"><label>Fabric<input name="fabric" type="number" min="0" defaultValue="0" /></label><label>Stitching<input name="stitching" type="number" min="0" defaultValue="0" /></label></div><div className="formRow"><label>Stitching material<input name="stitchingMaterial" type="number" min="0" defaultValue="0" /></label><label>Packaging<input name="packaging" type="number" min="0" defaultValue="0" /></label></div><div className="formRow"><label>Travel / transport<input name="travel" type="number" min="0" defaultValue="0" /></label><label>Other<input name="other" type="number" min="0" defaultValue="0" /></label></div><label>Note<textarea name="note" rows="2" placeholder="Supplier, stitching unit or batch reference" /></label><button className="dialogSave" disabled={productionSaving}>{productionSaving ? "Saving batch..." : "Save batch, add stock & record cost"}</button></form></>}
+    <ProductionBatchModal isOpen={productionOpen} onClose={() => setProductionOpen(false)} onSubmit={saveProductionBatch} products={products} saving={productionSaving} />
   </div>;
 }
 

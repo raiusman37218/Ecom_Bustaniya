@@ -38,10 +38,18 @@ function productCostBreakdown(directCosts, sharedCosts, quantity, totalQuantity)
 async function resolveBatchProduct(item) {
   if (item.productId === "__new__") {
     const name = String(item.newProductName || "").trim();
-    if (!name) throw new Error("Enter a name for every new product/design.");
+    const articleNumber = String(item.newProductArticleNumber || "").trim();
+    if (!name && !articleNumber) throw new Error("Enter a name or Design Code (SKU) for every new product/design.");
+    if (articleNumber) {
+      const existing = await supabaseAdminRequest(`products?select=id,name,cost_breakdown,article_number&article_number=eq.${encodeURIComponent(articleNumber)}&limit=1`).catch(() => []);
+      if (existing?.[0]) {
+        return existing[0];
+      }
+    }
+    const finalName = name || `Design ${articleNumber}`;
     const created = await supabaseAdminRequest("products?select=id,name,cost_breakdown", {
       method: "POST", prefer: "return=representation", body: {
-        name, description: "Created from production batch", price: Math.max(0, Number(item.newProductPrice || 0)), category: String(item.newProductCategory || "Uncategorized"), color: "[]", size: "[]", img: JSON.stringify([String(item.newProductImage || "/bustaniya-campaign-hero-v4.png")]), instock: true, new: false, bestsellere: false, article_number: `PB-${Date.now().toString().slice(-8)}`,
+        name: finalName, description: "Created from production batch", price: Math.max(0, Number(item.newProductPrice || 0)), category: String(item.newProductCategory || "Uncategorized"), color: "[]", size: "[]", img: JSON.stringify([String(item.newProductImage || "/bustaniya-campaign-hero-v4.png")]), instock: true, new: false, bestsellere: false, article_number: articleNumber || `PB-${Date.now().toString().slice(-8)}`,
       },
     });
     return created?.[0];
@@ -101,7 +109,7 @@ export async function POST(request) {
       const saved = await updateStoreSettings({ ...settings, productionBatches: batches, financeTransactions: transactions });
       return NextResponse.json({ success: true, batches: saved.productionBatches || [] });
     }
-    const rawItems = Array.isArray(body.items) && body.items.length ? body.items : [{ productId: body.productId, newProductName: body.newProductName, newProductPrice: body.newProductPrice, newProductCategory: body.newProductCategory, newProductImage: body.newProductImage, quantity: body.quantity, directCostBreakdown: body.costBreakdown }];
+    const rawItems = Array.isArray(body.items) && body.items.length ? body.items : [{ productId: body.productId, newProductName: body.newProductName, newProductArticleNumber: body.newProductArticleNumber, newProductPrice: body.newProductPrice, newProductCategory: body.newProductCategory, newProductImage: body.newProductImage, quantity: body.quantity, directCostBreakdown: body.costBreakdown }];
     if (!rawItems.length) return NextResponse.json({ error: "Add at least one product/design to this production batch." }, { status: 400 });
     const sharedCostBreakdown = normalizedCosts(body.sharedCostBreakdown || {});
     const items = rawItems.map((item) => ({ ...item, quantity: Math.max(1, Number(item.quantity || 0)), directCostBreakdown: normalizedCosts(item.directCostBreakdown || {}) }));
