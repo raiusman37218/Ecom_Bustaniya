@@ -105,7 +105,7 @@ export const DEFAULT_STORE_SETTINGS = {
   heroTextAlignment: "left",
   heroTextPosition: "left",
   heroOverlayIntensity: 34,
-  productCardStyle: "classic",
+  productCardStyle: "connected",
   announcementEnabled: true,
   announcementText: "Rs. 300 advance payment required for order confirmation",
   announcementLinkLabel: "Shop now",
