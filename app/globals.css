@@ -1656,6 +1656,24 @@ footer {
 .saleBadge { position:absolute; z-index:3; right:9px; top:9px; padding:6px 8px; background:var(--berry); color:#fff; font-size:9px; font-weight:800; letter-spacing:.06em; }
 .quickViewButton { position:absolute; z-index:4; left:10px; right:10px; bottom:10px; min-height:38px; border:0; background:#fffefbf2; color:var(--forest); font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; opacity:0; transform:translateY(8px); transition:.2s; }
 .productCard:hover .quickViewButton,.quickViewButton:focus-visible { opacity:1; transform:translateY(0); }
+.productCard--connected {
+  border:0;
+  border-radius:0;
+  background:#fff;
+  box-shadow:none;
+}
+.productCard--connected + .productCard--connected { border-left:1px solid #ebe8e1; }
+.productCard--connected .productImage { border-radius:0; }
+.productCard--connected .productInfo {
+  padding:14px 12px 18px;
+  background:#fff;
+  border-top:1px solid #ebe8e1;
+}
+.productCard--connected:hover { transform:none; box-shadow:none; }
+.productCard--connected:hover .productImage img { transform:scale(1.025); }
+.productCard--connected .quickAdd { border-radius:0; }
+.productCardStyleSetting { margin:0 0 22px; }
+.productCardStyleSetting select { min-width:250px; }
 .heart { display:none; position:absolute; z-index:3; right:12px; top:12px; border:1px solid #ffffff80; background:#fffdf2d9; border-radius:50%; width:37px; height:37px; place-items:center; transition:color .2s,transform .2s; }
 .heart:hover { color:var(--berry); transform:scale(1.06); }
 .heart svg { width:17px; }

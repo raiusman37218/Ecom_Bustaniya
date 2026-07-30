@@ -214,7 +214,7 @@ export default function Home({
                 {categoryNames.map((category) => <button key={category} className={category === activeCategory ? "active" : ""} onClick={() => setActiveCategory(category)}>{category}</button>)}
               </div>
               <div className="productGrid">
-                {visibleProducts.map((product) => <article className="productCard" key={product.id}>
+                {visibleProducts.map((product) => <article className={`productCard productCard--${storeSettings.productCardStyle || "classic"}`} key={product.id}>
                   <div className="productImage">
                     <Image
                       src={product.image}

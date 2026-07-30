@@ -237,7 +237,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         <p className="eyebrow">YOU MAY ALSO LIKE</p>
         <h2>Complete the look</h2>
         <div className="productGrid">
-          {related.map((item) => <article className="productCard" key={item.id}>
+          {related.map((item) => <article className={`productCard productCard--${storeSettings.productCardStyle || "classic"}`} key={item.id}>
             <a className="productImage" href={`/product/${item.id}`}>
               <Image
                 src={item.image}

@@ -78,7 +78,7 @@ export default async function SubcategoryPage({ params }) {
         </div>
         <div className="productGrid">
           {items.map((product) => (
-            <article className="productCard" key={product.id}>
+            <article className={`productCard productCard--${storeSettings.productCardStyle || "classic"}`} key={product.id}>
               <a href={`/product/${product.id}`} className="productImage">
                 <Image
                   src={product.image}
