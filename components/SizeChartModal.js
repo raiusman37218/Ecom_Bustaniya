@@ -66,12 +66,12 @@ export default function SizeChartModal({ isOpen, onClose }) {
   return (
     <>
       <div className="sizeChartOverlay" onClick={onClose} />
-      <div className="sizeChartModal" role="dialog" aria-modal="true" aria-label="Lisette Size Guide">
+      <div className="sizeChartModal" role="dialog" aria-modal="true" aria-label="Bustaniya Size Guide">
         <div className="sizeChartHeader">
           <div className="sizeChartTitleGroup">
             <Ruler className="sizeChartIcon" size={20} />
             <div>
-              <h3>Lisette Size Guide</h3>
+              <h3>Bustaniya Size Guide</h3>
               <p>Standard Ready-to-Wear Measurements (Inches)</p>
             </div>
           </div>

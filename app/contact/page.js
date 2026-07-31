@@ -1,9 +1,9 @@
 import { buildMetadata, siteConfig } from "../../lib/seo";
 
 export const metadata = buildMetadata({
-  title: "Contact Lisette",
+  title: "Contact Bustaniya",
   description:
-    "Contact Lisette for order help, fit guidance, product details and delivery support.",
+    "Contact Bustaniya for order help, delivery questions, product details and Pakistani women's clothing support.",
   path: "/contact",
 });
 
@@ -38,7 +38,7 @@ export default function ContactPage() {
 function InfoNav() {
   return (
     <header className="categoryHeader infoHeader">
-      <a className="brand lisetteBrand" href="/" aria-label="Lisette home">LISETTE<small>LINGERIE</small></a>
+      <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
       <nav><a href="/about">About</a><a href="/shipping-policy">Shipping</a><a href="/exchange-return-policy">Returns</a></nav>
     </header>
   );

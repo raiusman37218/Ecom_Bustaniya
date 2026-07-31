@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Checkout - Lisette",
+  title: "Checkout - Bustaniya",
   robots: {
     index: false,
     follow: false,

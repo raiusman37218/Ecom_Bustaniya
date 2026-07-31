@@ -17,7 +17,7 @@ export async function generateMetadata({ params }) {
   if (!category) return {};
   return buildMetadata({
     title: `${category.name} Collection`,
-    description: `${category.description} Shop ${category.name.toLowerCase()} online from Lisette with delivery across Pakistan.`,
+    description: `${category.description} Shop ${category.name.toLowerCase()} online from Bustaniya with delivery across Pakistan.`,
     path: `/category/${slug}`,
     image: category.image,
   });
@@ -53,7 +53,7 @@ export default async function CategoryPage({ params }) {
       ])} />
       <AnnouncementBar storeSettings={storeSettings} className="categoryAnnouncement" />
       <header className="categoryHeader">
-        <a className="brand lisetteBrand" href="/" aria-label="Lisette home">LISETTE<small>LINGERIE</small></a>
+        <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
         <nav>
           {mainCategories.map((item) => <a href={`/category/${item.slug}`} key={item.slug}>{item.name}</a>)}
         </nav>
@@ -70,7 +70,7 @@ export default async function CategoryPage({ params }) {
       >
         <a href="/"><ArrowLeft size={16} /> Back to home</a>
         <div>
-          <p className="eyebrow">LISETTE COLLECTIONS</p>
+          <p className="eyebrow">BUSTANIYA COLLECTIONS</p>
           <h1>{category.name}</h1>
           <p>{category.description}</p>
         </div>
@@ -106,7 +106,7 @@ export default async function CategoryPage({ params }) {
               <a href={`/product/${product.id}`} className="productImage">
                 <Image
                   src={product.image}
-                  alt={`${product.name} - ${product.category} by Lisette`}
+                  alt={`${product.name} - ${product.category} by Bustaniya`}
                   fill
                   sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                 />

@@ -596,7 +596,7 @@ function ExecutiveAnalyticsSuite({
 
 function AdminLoadingShell() {
   return (
-    <main className="adminShell adminLoadingShell" aria-busy="true" aria-label="Loading Lisette admin">
+    <main className="adminShell adminLoadingShell" aria-busy="true" aria-label="Loading Bustaniya admin">
       <aside className="adminSidebar adminLoadingSidebar" aria-hidden="true">
         <div className="adminLoadingBrand">
           <span className="adminSkeleton adminLoadingMark" />
@@ -644,7 +644,7 @@ const fallbackCategoryRecords = fallbackCategoryNames
       name,
       slug,
       description: categoryDetails[slug]?.description || "",
-      image: categoryDetails[slug]?.image || "/lisette-hero.png",
+      image: categoryDetails[slug]?.image || "/bustaniya-campaign-hero-v4.png",
       parentSlug: "",
       status: "Active",
       sortOrder: (index + 1) * 10,
@@ -719,7 +719,7 @@ export default function AdminDashboard() {
   const [costBreakdown, setCostBreakdown] = useState({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0 });
   const [productSaving, setProductSaving] = useState(false);
   const [workspace, setWorkspace] = useState(null);
-  const [tableDensity, setTableDensity] = useState(() => (typeof window !== "undefined" && localStorage.getItem("lisette-admin-table-density")) || "comfortable");
+  const [tableDensity, setTableDensity] = useState(() => (typeof window !== "undefined" && localStorage.getItem("bustaniya-admin-table-density")) || "comfortable");
   const [confirmModalState, setConfirmModalState] = useState({
     isOpen: false,
     title: "",
@@ -785,7 +785,7 @@ export default function AdminDashboard() {
   function handleTableDensityChange(newDensity) {
     setTableDensity(newDensity);
     if (typeof window !== "undefined") {
-      localStorage.setItem("lisette-admin-table-density", newDensity);
+      localStorage.setItem("bustaniya-admin-table-density", newDensity);
     }
   }
 
@@ -820,14 +820,14 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const requestedSection = getSectionFromLocation();
-    const savedActiveSection = localStorage.getItem("lisette-admin-active-section");
+    const savedActiveSection = localStorage.getItem("bustaniya-admin-active-section");
     if (requestedSection) {
       setActive(requestedSection);
     } else if (navItems.some((item) => item.name === savedActiveSection)) {
       setActive(savedActiveSection);
     }
     setActiveSectionReady(true);
-    const saved = localStorage.getItem("lisette-admin-products");
+    const saved = localStorage.getItem("bustaniya-admin-products");
     if (saved) {
       try { setProducts(JSON.parse(saved)); } catch {}
     }
@@ -844,11 +844,11 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (adminReady) localStorage.setItem("lisette-admin-products", JSON.stringify(products));
+    if (adminReady) localStorage.setItem("bustaniya-admin-products", JSON.stringify(products));
   }, [products, adminReady]);
 
   useEffect(() => {
-    if (activeSectionReady) localStorage.setItem("lisette-admin-active-section", active);
+    if (activeSectionReady) localStorage.setItem("bustaniya-admin-active-section", active);
   }, [active, activeSectionReady]);
 
   useEffect(() => {
@@ -868,7 +868,7 @@ export default function AdminDashboard() {
     setRequestedAdminFocus(options.focus ? { section, focus: options.focus } : null);
     setActive(section);
     setSidebarOpen(false);
-    localStorage.setItem("lisette-admin-active-section", section);
+    localStorage.setItem("bustaniya-admin-active-section", section);
     const url = `/admin?section=${encodeURIComponent(section)}`;
     window.history[options.replace ? "replaceState" : "pushState"]({}, "", url);
   }
@@ -1040,7 +1040,7 @@ export default function AdminDashboard() {
         publishDate: form.get("publishDate") || "",
         images: mediaImages.length
           ? mediaImages
-          : ["/lisette-hero.png"],
+          : ["/bustaniya-campaign-hero-v4.png"],
         delivery_fee_mode: form.get("deliveryFeeMode") || "inherit",
         delivery_fee_pkr: form.get("deliveryFeeMode") === "paid"
           ? Number(form.get("deliveryFee") || 200)
@@ -1311,7 +1311,7 @@ export default function AdminDashboard() {
             sku: item.sku,
             sizes: [],
             colors: [],
-            images: ["/lisette-hero.png"],
+            images: ["/bustaniya-campaign-hero-v4.png"],
             is_new: false,
             is_bestseller: false,
             delivery_fee_mode: "inherit",
@@ -1424,7 +1424,7 @@ export default function AdminDashboard() {
   return (
     <main className="adminShell">
       <aside className={sidebarOpen ? "adminSidebar sidebarVisible" : "adminSidebar"}>
-        <div className="adminLogo lisetteBrand">LISETTE<small>ADMIN</small></div>
+        <div className="adminLogo"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /><span>ADMIN</span></div>
         <button className="closeSidebar" onClick={() => setSidebarOpen(false)} aria-label="Close admin navigation"><X /></button>
         <nav>
           {visibleNavItems.map(({ name, icon: Icon, count, section }, index) => (
@@ -1437,7 +1437,7 @@ export default function AdminDashboard() {
           ))}
         </nav>
         <div className="adminStoreCard">
-          <div>L</div><span><b>Lisette</b><small>Online store</small></span><ChevronDown />
+          <div>B</div><span><b>Bustaniya</b><small>Online store</small></span><ChevronDown />
         </div>
         <button className="adminSidebarLogout" onClick={handleLogout} disabled={loggingOut}>
           <LogOut />
@@ -1448,7 +1448,7 @@ export default function AdminDashboard() {
       <section className="adminMain">
         <header className="adminTopbar">
           <button className="adminMenu" onClick={() => setSidebarOpen(true)} aria-label="Open admin navigation"><Menu /></button>
-          {active === "Products" ? <div className="adminSearch"><Search /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." aria-label="Search products" /></div> : <div className="adminTopbarContext"><b>{active}</b><span>Lisette admin</span></div>}
+          {active === "Products" ? <div className="adminSearch"><Search /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." aria-label="Search products" /></div> : <div className="adminTopbarContext"><b>{active}</b><span>Bustaniya admin</span></div>}
           <div className="adminTopActions">
             <a href="/" target="_blank">View store</a>
             <div className="adminAvatar">{(currentAdminUser?.name || "BA").slice(0, 2).toUpperCase()}</div>
@@ -1527,7 +1527,7 @@ export default function AdminDashboard() {
                 <label>Product type<select name="productType" defaultValue={editingProduct?.productType || "Women's clothing"}><option>Women&apos;s clothing</option><option>Kurti</option><option>Trouser</option><option>Co-ord</option></select></label>
               </div>
               {!!productSubcategoryOptions.length && <label>Subcategory<select name="subcategory" defaultValue={editingProduct?.subcategory || productSubcategoryOptions[0]?.slug}>{productSubcategoryOptions.map((category) => <option value={category.slug} key={category.slug}>{category.name}</option>)}</select></label>}
-              <div className="formRow"><label>Vendor<input name="vendor" defaultValue={editingProduct?.vendor || "Lisette"} /></label><label>Collection<input name="collection" defaultValue={editingProduct?.collection || ""} placeholder="Everyday Essentials, New Arrivals..." /></label></div>
+              <div className="formRow"><label>Vendor<input name="vendor" defaultValue={editingProduct?.vendor || "Bustaniya"} /></label><label>Collection<input name="collection" defaultValue={editingProduct?.collection || ""} placeholder="Summer Collection, New Arrivals..." /></label></div>
               <label>Tags<input name="tags" defaultValue={Array.isArray(editingProduct?.tags) ? editingProduct.tags.join(", ") : ""} placeholder="summer, printed, cotton, new-arrival" /></label>
             </section>
 
@@ -1552,7 +1552,7 @@ export default function AdminDashboard() {
               <h3>Inventory</h3>
               <div className="formRow"><label>SKU<input name="sku" defaultValue={editingProduct?.sku || editingProduct?.articleNumber || ""} placeholder="BST-KRT-001" /></label><label>Barcode<input name="barcode" defaultValue={editingProduct?.barcode || ""} placeholder="ISBN, UPC or GTIN" /></label></div>
               <label className="checkLabel"><input type="checkbox" defaultChecked /> Track quantity</label>
-              <div className="stockLocation"><div><Store /><span><b>Lisette warehouse</b><small>Pakistan</small></span></div><label>Available<input name="stock" required type="number" defaultValue={editingProduct?.stock ?? 10} /></label></div>
+              <div className="stockLocation"><div><Store /><span><b>Bustaniya warehouse</b><small>Pakistan</small></span></div><label>Available<input name="stock" required type="number" defaultValue={editingProduct?.stock ?? 10} /></label></div>
               <label className="checkLabel"><input type="checkbox" /> Continue selling when out of stock</label>
             </section>
 
@@ -1583,8 +1583,8 @@ export default function AdminDashboard() {
 
             <section className="productEditorCard">
               <h3>Search engine listing</h3>
-              <div className="seoPreview"><b>Lisette · Product title</b><span>https://lisette.pk/products/product-title</span><p>Your product description will appear here in search results.</p></div>
-              <label>Page title<input name="seoTitle" maxLength="70" defaultValue={editingProduct?.seoTitle || ""} placeholder="Product title — Lisette" /></label>
+              <div className="seoPreview"><b>Bustaniya · Product title</b><span>https://bustaniya.pk/products/product-title</span><p>Your product description will appear here in search results.</p></div>
+              <label>Page title<input name="seoTitle" maxLength="70" defaultValue={editingProduct?.seoTitle || ""} placeholder="Product title — Bustaniya" /></label>
               <label>Meta description<textarea name="seoDescription" rows="3" maxLength="160" defaultValue={editingProduct?.seoDescription || ""} placeholder="Describe this product for Google search..." /></label>
               <label>URL handle<input name="urlHandle" defaultValue={editingProduct?.urlHandle || ""} placeholder="gulnaar-corset-kurti" /></label>
             </section>
@@ -1864,7 +1864,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     <div className="adminTitle dashboardTitle">
       <div>
         <p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" }) : "Loading date…"}</p>
-        <h1>{dashboardNow && dashboardNow.getHours() < 12 ? "Good morning" : dashboardNow && dashboardNow.getHours() < 17 ? "Good afternoon" : "Good evening"}, Lisette</h1>
+        <h1>{dashboardNow && dashboardNow.getHours() < 12 ? "Good morning" : dashboardNow && dashboardNow.getHours() < 17 ? "Good afternoon" : "Good evening"}, Bustaniya</h1>
         <span>{connected ? ("Live store insights" + (dashboardUpdatedAt ? ` · Updated ${dashboardUpdatedAt.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}` : "")) : "Connect Supabase orders to load live store data."}</span>
       </div>
       <div className="dashboardTitleActions">
@@ -2180,7 +2180,7 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
           {mainCategories.map((category) => {
             const children = visibleCategories.filter((item) => item.parentSlug === category.slug);
             return <button type="button" className={selectedCategory?.slug === category.slug ? "active" : ""} key={category.id} onClick={() => setSelectedSlug(category.slug)}>
-              <span style={{ backgroundImage: `url(${category.image || "/lisette-hero.png"})` }} />
+              <span style={{ backgroundImage: `url(${category.image || "/bustaniya-campaign-hero-v4.png"})` }} />
               <b>{category.name}</b>
               <small>{children.length} subcategories · {productCount(category)} products</small>
             </button>;
@@ -2192,12 +2192,12 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
       <div className="adminCard managementCard">
         <div className="inventoryListHead"><div><h2>{selectedCategory?.name || "Select category"}</h2><span>{childCategories.length} subcategories inside</span></div>{selectedCategory && <button onClick={() => openNewSubcategory(selectedCategory)} disabled={saving}><Plus /> Add inside</button>}</div>
         {selectedCategory && <div className="categoryParentSummary">
-          <div className="tableProduct"><span style={{ backgroundImage: `url(${selectedCategory.image || "/lisette-hero.png"})` }} /><div><b>{selectedCategory.name}</b><small><a href={`/category/${selectedCategory.slug}`} target="_blank">/category/{selectedCategory.slug}</a></small></div></div>
+          <div className="tableProduct"><span style={{ backgroundImage: `url(${selectedCategory.image || "/bustaniya-campaign-hero-v4.png"})` }} /><div><b>{selectedCategory.name}</b><small><a href={`/category/${selectedCategory.slug}`} target="_blank">/category/{selectedCategory.slug}</a></small></div></div>
           <div className="productRowActions"><button className="editProductButton" onClick={() => moveCategory(selectedCategory, -1)} disabled={saving}>↑</button><button className="editProductButton" onClick={() => moveCategory(selectedCategory, 1)} disabled={saving}>↓</button><button className="editProductButton" onClick={() => setEditing(selectedCategory)} disabled={saving}>Edit main</button><button className="removeProductButton" onClick={() => confirmArchive(selectedCategory)} disabled={saving}><X /><span>Archive</span></button></div>
         </div>}
         <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Subcategory</th><th>URL</th><th>Products</th><th>Status</th><th /></tr></thead><tbody>
           {childCategories.map((category) => (
-            <tr key={category.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${category.image || "/lisette-hero.png"})` }} /><div><b>{category.name}</b><small>{category.description || "No description"}</small></div></div></td><td><a href={`/category/${category.parentSlug}/${category.slug}`} target="_blank">/category/{category.parentSlug}/{category.slug}</a></td><td>{productCount(category)}</td><td><span className={`statusBadge ${category.status === "Active" ? "activeStatus" : "processing"}`}>{category.status}</span></td><td><div className="productRowActions"><button className="editProductButton" onClick={() => setEditing(category)} disabled={saving}>Edit</button><button className="removeProductButton" onClick={() => confirmArchive(category)} disabled={saving}><X /><span>Remove</span></button></div></td></tr>
+            <tr key={category.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${category.image || "/bustaniya-campaign-hero-v4.png"})` }} /><div><b>{category.name}</b><small>{category.description || "No description"}</small></div></div></td><td><a href={`/category/${category.parentSlug}/${category.slug}`} target="_blank">/category/{category.parentSlug}/{category.slug}</a></td><td>{productCount(category)}</td><td><span className={`statusBadge ${category.status === "Active" ? "activeStatus" : "processing"}`}>{category.status}</span></td><td><div className="productRowActions"><button className="editProductButton" onClick={() => setEditing(category)} disabled={saving}>Edit</button><button className="removeProductButton" onClick={() => confirmArchive(category)} disabled={saving}><X /><span>Remove</span></button></div></td></tr>
           ))}
           {!childCategories.length && <tr><td colSpan="5"><div className="inventoryEmpty">No subcategories inside {selectedCategory?.name || "this category"} yet.</div></td></tr>}
         </tbody></table></div>
@@ -2210,7 +2210,7 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
       <div className="formRow"><label>Slug<input name="slug" defaultValue={editing.slug || ""} placeholder="summer-collection" /></label><label>Sort order<input name="sortOrder" type="number" defaultValue={editing.sortOrder || 100} /></label></div>
       <label>Parent<select name="parentSlug" defaultValue={editing.parentSlug || ""}><option value="">Main category</option>{mainCategories.filter((category) => category.id !== editing.id).map((category) => <option value={category.slug} key={category.slug}>{category.name}</option>)}</select></label>
       <label>Description<textarea name="description" rows="3" defaultValue={editing.description || ""} placeholder="Short SEO-friendly category description" /></label>
-      <label>Cover image URL<input name="image" defaultValue={editing.image || ""} placeholder="https://... or /lisette-hero.png" /></label>
+      <label>Cover image URL<input name="image" defaultValue={editing.image || ""} placeholder="https://... or /bustaniya-campaign-hero-v4.png" /></label>
       <label>Cover image alt text<input name="imageAlt" defaultValue={editing.imageAlt || editing.name || ""} placeholder="Describe this category image" /></label>
       <div className="categoryVisibility"><b>Storefront visibility</b><label><input type="checkbox" name="showInHeader" defaultChecked={editing.showInHeader ?? true} /> Header menu</label><label><input type="checkbox" name="showOnHomepage" defaultChecked={editing.showOnHomepage ?? true} /> Homepage</label><label><input type="checkbox" name="showInFooter" defaultChecked={editing.showInFooter ?? false} /> Footer</label><label><input type="checkbox" name="showInSearch" defaultChecked={editing.showInSearch ?? true} /> Search & filters</label></div>
       <details className="categorySeo"><summary>SEO settings</summary><label>SEO title<input name="seoTitle" maxLength="60" defaultValue={editing.seoTitle || ""} placeholder="Category title for Google" /></label><label>Meta description<textarea name="seoDescription" rows="3" maxLength="160" defaultValue={editing.seoDescription || ""} placeholder="Short search-result description" /></label></details>
@@ -2278,7 +2278,7 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
     ].map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"','""')}"`).join(",")).join("\n");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    link.download = `lisette-products-${new Date().toISOString().slice(0,10)}.csv`;
+    link.download = `bustaniya-products-${new Date().toISOString().slice(0,10)}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   }
@@ -2656,7 +2656,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
   const periodSummary = buildOrderPeriodSummary(allRows);
 
   useEffect(() => {
-    localStorage.removeItem("lisette-custom-orders");
+    localStorage.removeItem("bustaniya-custom-orders");
     if (connected) setLocalOrders([]);
   }, [connected, rows]);
 
@@ -2800,7 +2800,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       const csv = await response.blob();
       const link = document.createElement("a");
       link.href = URL.createObjectURL(csv);
-    link.download = `lisette-orders-${new Date().toISOString().slice(0,10)}.csv`;
+      link.download = `bustaniya-orders-${new Date().toISOString().slice(0,10)}.csv`;
       link.click();
       URL.revokeObjectURL(link.href);
     } catch (exportError) {
@@ -3052,7 +3052,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       .then(({ ok, result }) => {
         if (!ok) throw new Error(result.error || "Unable to load cashbook.");
         if (!active) return;
-        const legacy = (() => { try { return JSON.parse(localStorage.getItem("lisette-admin-finance") || "{}"); } catch { return {}; } })();
+        const legacy = (() => { try { return JSON.parse(localStorage.getItem("bustaniya-admin-finance") || "{}"); } catch { return {}; } })();
         const serverHasManualData = Number(result.packagingExpense || 0) > 0 || Number(result.deliveryExpense || 0) > 0 || (result.manualExpenses || []).length > 0;
         const legacyHasManualData = Number(legacy.packagingExpense || 0) > 0 || Number(legacy.deliveryExpense || 0) > 0 || (legacy.expenses || []).length > 0;
         const manual = !serverHasManualData && legacyHasManualData ? { packagingExpense: Number(legacy.packagingExpense || 0), deliveryExpense: Number(legacy.deliveryExpense || 0), manualExpenses: Array.isArray(legacy.expenses) ? legacy.expenses : [] } : { packagingExpense: Number(result.packagingExpense || 0), deliveryExpense: Number(result.deliveryExpense || 0), manualExpenses: result.manualExpenses || [] };
@@ -3066,7 +3066,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
         setDeliveryExpense(manual.deliveryExpense);
         setExpenses(manual.manualExpenses);
         if (!serverHasManualData && legacyHasManualData) {
-          fetch("/api/admin/finance-transactions", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(manual) }).then((migrationResponse) => { if (migrationResponse.ok) localStorage.removeItem("lisette-admin-finance"); }).catch(() => {});
+          fetch("/api/admin/finance-transactions", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(manual) }).then((migrationResponse) => { if (migrationResponse.ok) localStorage.removeItem("bustaniya-admin-finance"); }).catch(() => {});
         }
       })
       .catch((error) => { if (active) setCashbookError(error.message); })
@@ -3580,7 +3580,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     ].map((row) => row.map((cell) => `"${String(cell).replaceAll('"','""')}"`).join(",")).join("\n");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([csv], { type:"text/csv" }));
-    link.download = `lisette-finance-${new Date().toISOString().slice(0,10)}.csv`;
+    link.download = `bustaniya-finance-${new Date().toISOString().slice(0,10)}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   }
@@ -4148,7 +4148,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       if (!response.ok) throw new Error(result.error || "Unable to save sources and materials.");
       setInventorySources(result.sources || nextSources);
       setMaterials(result.materials || nextMaterials);
-      localStorage.removeItem("lisette-inventory-sources");
+      localStorage.removeItem("bustaniya-inventory-sources");
     } catch (error) {
       window.alert(error.message || "Unable to save sources and materials.");
     } finally { setResourcesSaving(false); }
@@ -4156,7 +4156,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
 
   useEffect(() => {
     let active = true;
-    const localFallback = (() => { try { return JSON.parse(localStorage.getItem("lisette-inventory-sources") || "{}"); } catch { return {}; } })();
+    const localFallback = (() => { try { return JSON.parse(localStorage.getItem("bustaniya-inventory-sources") || "{}"); } catch { return {}; } })();
     fetch("/api/admin/inventory-resources", { cache: "no-store" })
       .then((response) => response.json().then((result) => ({ ok: response.ok, result })))
       .then(({ ok, result }) => {
@@ -4169,7 +4169,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
         if (remoteSources.length || remoteMaterials.length) {
           setInventorySources(remoteSources);
           setMaterials(remoteMaterials);
-          localStorage.removeItem("lisette-inventory-sources");
+          localStorage.removeItem("bustaniya-inventory-sources");
         } else {
           // One-time migration for records created before Supabase persistence.
           saveInventoryResources(
@@ -4824,7 +4824,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
       .total b{font-size:18px}
       @media print{button{display:none} main{padding:20px}}
     </style></head><body><main>
-      <header><div><h1>Lisette</h1><p>${escapePrintText(subtitle)}</p></div><div><p><b>Order</b> ${escapePrintText(order.id)}</p><p><b>Date</b> ${escapePrintText(order.date || "")}</p><p><b>Status</b> ${escapePrintText(orderStage)}</p></div></header>
+      <header><div><h1>Bustaniya</h1><p>${escapePrintText(subtitle)}</p></div><div><p><b>Order</b> ${escapePrintText(order.id)}</p><p><b>Date</b> ${escapePrintText(order.date || "")}</p><p><b>Status</b> ${escapePrintText(orderStage)}</p></div></header>
       <section class="grid">
         <div class="box"><b>Customer</b><p>${escapePrintText(order.customer)}</p><p>${escapePrintText(order.phone || "No phone saved")}</p></div>
         <div class="box"><b>Delivery</b><p>${escapePrintText(order.address || order.city || "No address saved")}</p><p>${escapePrintText(deliveryMethod)}${tracking ? ` — ${escapePrintText(tracking)}` : ""}</p></div>
@@ -5064,7 +5064,7 @@ function CustomersPanel({ orders, onOpen }) {
     ].map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"','""')}"`).join(",")).join("\n");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    link.download = `lisette-customers-${new Date().toISOString().slice(0,10)}.csv`;
+    link.download = `bustaniya-customers-${new Date().toISOString().slice(0,10)}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   }
@@ -5662,8 +5662,8 @@ function SettingsPanel({ onOpen, signedInUser }) {
               </article>
             ))}
           </section>
-          <div className="formRow"><label>Store name<input defaultValue="Lisette" /></label><label>Legal business name<input defaultValue="Lisette" /></label></div>
-          <div className="formRow"><label>Support email<input defaultValue="hello@lisette.pk" /></label><label>Customer phone<input placeholder="+92 3xx xxxxxxx" /></label></div>
+          <div className="formRow"><label>Store name<input defaultValue="Bustaniya" /></label><label>Legal business name<input defaultValue="Bustaniya" /></label></div>
+          <div className="formRow"><label>Support email<input defaultValue="hello@bustaniya.pk" /></label><label>Customer phone<input placeholder="+92 3xx xxxxxxx" /></label></div>
           <label>Business address<textarea rows="3" placeholder="Warehouse / office address" /></label>
           <div className="formRow"><label>Currency<select defaultValue="PKR"><option>PKR</option></select></label><label>Timezone<select defaultValue="Asia/Karachi"><option>Asia/Karachi</option></select></label></div>
           <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save store settings"}</button>
@@ -5676,7 +5676,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
             <label className={`themeOption ${storeSettings.activeTheme === "editorial" || !storeSettings.activeTheme ? "selected" : ""}`}>
               <input type="radio" name="storefront-theme" value="editorial" checked={storeSettings.activeTheme === "editorial" || !storeSettings.activeTheme} onChange={() => setStoreSettings((current) => ({ ...current, activeTheme: "editorial" }))} />
               <div className="themePreview themePreviewEditorial"><span>Bs</span><i /><i /><i /></div>
-              <div className="themeOptionCopy"><b>Lisette</b><span>Warm editorial layout, campaign hero, connected collection cards and Lisette&apos;s rose-and-berry palette.</span><small>Active foundation</small></div>
+              <div className="themeOptionCopy"><b>Editorial / Bustaniya</b><span>Luxury editorial layout, campaign hero, connected collection cards and Bustaniya&apos;s green-and-berry palette.</span><small>Active foundation</small></div>
             </label>
             <article className="themeOption themeOptionLocked"><div className="themePreview themePreviewModern"><span>+</span><i /><i /><i /></div><div className="themeOptionCopy"><b>Modern Commerce</b><span>Reserved for the next reusable theme. It will use the same store data and admin controls.</span><small>Coming next</small></div></article>
             <article className="themeOption themeOptionLocked"><div className="themePreview themePreviewPremium"><span>+</span><i /><i /><i /></div><div className="themeOptionCopy"><b>Premium Minimal</b><span>Reserved for a neutral, image-led luxury storefront variant.</span><small>Coming next</small></div></article>
@@ -5838,7 +5838,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
           </section>
           <form className="adminCard settingsForm settingsWideForm" onSubmit={addStaff}>
             <h2>Add admin user</h2>
-            <div className="formRow"><label>Name<input name="name" required placeholder="Team member" /></label><label>Email<input name="email" type="email" required placeholder="team@lisette.pk" /></label></div>
+            <div className="formRow"><label>Name<input name="name" required placeholder="Team member" /></label><label>Email<input name="email" type="email" required placeholder="team@bustaniya.pk" /></label></div>
             <div className="formRow"><label>Password<input name="password" type="password" minLength="10" required placeholder="Minimum 10 characters" /></label><label>Role<select name="role" defaultValue="Staff"><option>Staff</option><option>Owner</option></select></label></div>
             <div className="settingsPermissionGrid">
               {availablePermissions.map((permission) => <label className="switchLabel" key={permission}><input name={`permission-${permission}`} type="checkbox" defaultChecked={["dashboard", "orders"].includes(permission)} /> {permission}</label>)}
@@ -5850,8 +5850,8 @@ function SettingsPanel({ onOpen, signedInUser }) {
         {activeTab === "Notifications" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
           <h2>Notification templates</h2>
           <div className="settingsOption"><div><b>Order confirmation</b><span>Sent after checkout or manual DM order confirmation.</span></div><label className="switchLabel"><input type="checkbox" defaultChecked /> Enabled</label></div>
-          <label>Order confirmation subject<input defaultValue="Your Lisette order is confirmed" /></label>
-          <label>Email template<textarea rows="6" defaultValue={"Hi {{customer_name}},\n\nYour order {{order_number}} has been confirmed. Tracking: {{tracking_number}}.\n\nThank you,\nLisette"} /></label>
+          <label>Order confirmation subject<input defaultValue="Your Bustaniya order is confirmed" /></label>
+          <label>Email template<textarea rows="6" defaultValue={"Hi {{customer_name}},\n\nYour order {{order_number}} has been confirmed. Tracking: {{tracking_number}}.\n\nThank you,\nBustaniya"} /></label>
           <div className="settingsOption"><div><b>Fulfillment update</b><span>Sent when tracking number or PostEx status changes.</span></div><label className="switchLabel"><input type="checkbox" defaultChecked /> Enabled</label></div>
           <div className="settingsOption"><div><b>COD phone verification reminder</b><span>Internal reminder for risky COD orders.</span></div><label className="switchLabel"><input type="checkbox" defaultChecked /> Enabled</label></div>
           <button>Save template preview</button>
@@ -5859,9 +5859,9 @@ function SettingsPanel({ onOpen, signedInUser }) {
 
         {activeTab === "Domains" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
           <h2>Domains</h2>
-          <label>Primary domain<input defaultValue="lisette.pk" /></label>
-          <div className="settingsOption"><div><b>www redirect</b><span>Redirect www.lisette.pk to primary domain.</span></div><label className="switchLabel"><input type="checkbox" defaultChecked /> Enabled</label></div>
-          <div className="formRow"><label>SEO title<input defaultValue="Lisette - Lingerie & Everyday Essentials" /></label><label>Meta pixel / analytics<input placeholder="Measurement ID" /></label></div>
+          <label>Primary domain<input defaultValue="bustaniya.pk" /></label>
+          <div className="settingsOption"><div><b>www redirect</b><span>Redirect www.bustaniya.pk to primary domain.</span></div><label className="switchLabel"><input type="checkbox" defaultChecked /> Enabled</label></div>
+          <div className="formRow"><label>SEO title<input defaultValue="Bustaniya - Pakistani fashion store" /></label><label>Meta pixel / analytics<input placeholder="Measurement ID" /></label></div>
           <button>Save domain preview</button>
         </form>}
 
@@ -5927,7 +5927,7 @@ function WorkspaceDrawer({ workspace, onClose, onSave, activity }) {
           {(workspace.module === "Discounts" || workspace.module === "Gift cards" || workspace.module === "Finances") &&
             <div className="formRow"><label>Amount / value<input name="value" type="number" placeholder="0" /></label><label>Value type<select><option>PKR</option><option>Percentage</option></select></label></div>}
           {workspace.module === "Marketing" && <div className="formRow"><label>Channel<select><option>Email</option><option>Instagram</option><option>Facebook</option><option>SMS</option></select></label><label>Audience<select><option>All customers</option><option>Subscribers</option><option>Returning customers</option></select></label></div>}
-          {workspace.module === "Inventory" && <div className="formRow"><label>Origin<input placeholder="Supplier or location" /></label><label>Destination<input defaultValue="Lisette warehouse" /></label></div>}
+          {workspace.module === "Inventory" && <div className="formRow"><label>Origin<input placeholder="Supplier or location" /></label><label>Destination<input defaultValue="Bustaniya warehouse" /></label></div>}
           {workspace.module === "Orders" && <div className="formRow"><label>Customer<input placeholder="Customer name" /></label><label>Order value<input name="value" type="number" placeholder="0" /></label></div>}
           {workspace.module === "Markets" && <div className="formRow"><label>Country / region<input placeholder="Pakistan" /></label><label>Currency<select><option>PKR</option><option>USD</option><option>GBP</option><option>AED</option></select></label></div>}
           <div className="formRow"><label>Status<select name="status"><option>Active</option><option>Draft</option><option>Scheduled</option><option>Paused</option></select></label><label>Date<input type="date" /></label></div>

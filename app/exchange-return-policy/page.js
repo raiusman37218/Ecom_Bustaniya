@@ -3,7 +3,7 @@ import { buildMetadata } from "../../lib/seo";
 export const metadata = buildMetadata({
   title: "Exchange and Return Policy",
   description:
-    "Read Lisette's exchange and return policy for lingerie and essentials orders.",
+    "Read Bustaniya's exchange and return policy for online Pakistani women's clothing orders.",
   path: "/exchange-return-policy",
 });
 
@@ -20,7 +20,7 @@ export default function ExchangeReturnPolicyPage() {
         <h2>Current policy status</h2>
         <p>
           Final exchange, return, refund, defect reporting and size issue rules need to be confirmed
-          by Lisette before stronger promises are published.
+          by Bustaniya before stronger promises are published.
         </p>
         <h2>What customers should keep</h2>
         <p>
@@ -40,7 +40,7 @@ export default function ExchangeReturnPolicyPage() {
 function InfoNav() {
   return (
     <header className="categoryHeader infoHeader">
-      <a className="brand lisetteBrand" href="/" aria-label="Lisette home">LISETTE<small>LINGERIE</small></a>
+      <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
       <nav><a href="/shipping-policy">Shipping</a><a href="/contact">Contact</a><a href="/privacy-policy">Privacy</a></nav>
     </header>
   );

@@ -16,17 +16,6 @@ export async function POST(request) {
       const auth = adminAuthErrorResponse(error);
       return NextResponse.json({ success: false, error: { code: auth.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN", message: auth.error } }, { status: auth.status });
     }
-    // A local dev sandbox can block outbound Supabase traffic. Treat that as an
-    // empty, temporarily unavailable feed instead of showing a false order error.
-    // Normal Supabase responses (including actual database errors) still surface.
-    if (!error?.status && /fetch failed|network|eacces/i.test(String(error?.message || ""))) {
-      return NextResponse.json({
-        success: true,
-        data: [],
-        pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
-        sourceUnavailable: true,
-      });
-    }
     console.error("Admin orders fetch failed", { message: error?.message, status: error?.status, details: error?.details });
     return NextResponse.json({ success: false, error: { code: "ORDERS_FETCH_FAILED", message: "Orders could not be loaded." } }, { status: 500 });
   }

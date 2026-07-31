@@ -48,7 +48,7 @@ export default function AdminLogin() {
   return (
     <main className="adminLoginShell">
       <form className="adminLoginCard" onSubmit={handleSubmit}>
-        <div className="lisetteBrand">LISETTE<small>ADMIN</small></div>
+        <img src="/bustaniya-logo-v2.png" alt="Bustaniya" />
         <p>ADMIN ACCESS</p>
         <h1>Sign in</h1>
         <label>
@@ -58,7 +58,7 @@ export default function AdminLogin() {
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="owner@lisette.local"
+            placeholder="owner@bustaniya.local"
           />
         </label>
         <label>
@@ -67,7 +67,7 @@ export default function AdminLogin() {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Lisette2026"
+            placeholder="Bustaniya2026"
             required
           />
         </label>

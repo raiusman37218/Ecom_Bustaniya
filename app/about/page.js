@@ -1,9 +1,9 @@
 import { buildMetadata } from "../../lib/seo";
 
 export const metadata = buildMetadata({
-  title: "About Lisette",
+  title: "About Bustaniya",
   description:
-    "Lisette is a Pakistani lingerie and essentials store made for comfort, support and confidence.",
+    "Bustaniya is a Pakistani women's clothing store for eastern wear, kurtis, co-ord sets, bottoms and thoughtful everyday style.",
   path: "/about",
 });
 
@@ -12,17 +12,17 @@ export default function AboutPage() {
     <main className="infoPage">
       <InfoNav />
       <section className="infoHero">
-        <p className="eyebrow">ABOUT LISETTE</p>
-        <h1>Comfort that starts with you</h1>
+        <p className="eyebrow">ABOUT BUSTANIYA</p>
+        <h1>Pakistani women's clothing with everyday grace</h1>
         <p>
-          Lisette creates lingerie and everyday essentials for women in Pakistan, with a focus on
-          pieces that feel soft, supportive and easy to live in.
+          Bustaniya curates eastern wear for girls and women in Pakistan, with a focus on pieces
+          that feel graceful, wearable and easy to style.
         </p>
       </section>
       <section className="infoContent">
         <h2>What we sell</h2>
         <p>
-          Our current catalog includes bras, panties, coordinated sets and sleepwear. Product pages
+          Our current catalog includes kurtis, co-ord sets, bottoms and 3 piece suits. Product pages
           should always be checked for the latest price, availability and size options.
         </p>
         <h2>Our shopping promise</h2>
@@ -41,8 +41,8 @@ export default function AboutPage() {
 function InfoNav() {
   return (
     <header className="categoryHeader infoHeader">
-      <a className="brand lisetteBrand" href="/" aria-label="Lisette home">LISETTE<small>LINGERIE</small></a>
-      <nav><a href="/category/bras">Bras</a><a href="/contact">Contact</a><a href="/shipping-policy">Shipping</a></nav>
+      <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
+      <nav><a href="/category/kurtis">Kurtis</a><a href="/contact">Contact</a><a href="/shipping-policy">Shipping</a></nav>
     </header>
   );
 }

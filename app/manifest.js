@@ -2,14 +2,14 @@ import { absoluteUrl, siteConfig } from "../lib/seo";
 
 export default function manifest() {
   return {
-    name: "Lisette",
-    short_name: "Lisette",
+    name: "Bustaniya",
+    short_name: "Bustaniya",
     description: siteConfig.description,
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#fffaf8",
-    theme_color: "#4d2637",
+    background_color: "#fcfaf5",
+    theme_color: "#16452c",
     icons: [
       {
         src: absoluteUrl("/icon-192.png"),

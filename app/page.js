@@ -7,11 +7,11 @@ import { getStoreSettings } from "../lib/storeSettings";
 export const dynamic = "force-dynamic";
 
 export const metadata = buildMetadata({
-  title: "Lingerie, Bras, Panties & Everyday Essentials",
+  title: "Pakistani Women's Wear, Kurtis, Co-ord Sets & 3 Piece Suits",
   description:
-    "Shop Lisette for beautifully made bras, panties, sleepwear and everyday lingerie essentials with nationwide delivery.",
+    "Shop Bustaniya for Pakistani women's wear, everyday kurtis, elegant co-ord sets, bottoms and festive 3 piece suits with nationwide delivery.",
   path: "/",
-  image: "/lisette-hero.png",
+  image: "/bustaniya-campaign-hero-v5.png",
 });
 
 export default async function HomePage() {
@@ -32,7 +32,7 @@ export default async function HomePage() {
           "@type": "Store",
           name: siteConfig.name,
           url: siteConfig.url,
-          image: `${siteConfig.url}/lisette-hero.png`,
+          image: `${siteConfig.url}/bustaniya-campaign-hero-v5.png`,
           priceRange: "PKR",
           currenciesAccepted: "PKR",
           paymentAccepted: "Cash on Delivery, Bank Deposit",

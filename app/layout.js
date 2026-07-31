@@ -11,12 +11,13 @@ export const metadata = {
   },
   applicationName: siteConfig.name,
   keywords: [
-    "lingerie Pakistan",
-    "bras",
-    "panties",
-    "sleepwear",
-    "women's essentials",
-    "Lisette",
+    "Pakistani women's wear",
+    "Pakistani clothing",
+    "kurtis",
+    "co-ord sets",
+    "3 piece suits",
+    "women clothing Pakistan",
+    "Bustaniya",
   ],
   authors: [{ name: siteConfig.name }],
   creator: siteConfig.name,
@@ -45,7 +46,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#4d2637",
+  themeColor: "#16452c",
 };
 
 export default function RootLayout({ children }) {

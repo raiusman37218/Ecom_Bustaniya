@@ -49,7 +49,7 @@ async function resolveBatchProduct(item) {
     const finalName = name || `Design ${articleNumber}`;
     const created = await supabaseAdminRequest("products?select=id,name,cost_breakdown", {
       method: "POST", prefer: "return=representation", body: {
-        name: finalName, description: "Created from production batch", price: Math.max(0, Number(item.newProductPrice || 0)), category: String(item.newProductCategory || "Uncategorized"), color: "[]", size: "[]", img: JSON.stringify([String(item.newProductImage || "/lisette-hero.png")]), instock: true, new: false, bestsellere: false, article_number: articleNumber || `PB-${Date.now().toString().slice(-8)}`,
+        name: finalName, description: "Created from production batch", price: Math.max(0, Number(item.newProductPrice || 0)), category: String(item.newProductCategory || "Uncategorized"), color: "[]", size: "[]", img: JSON.stringify([String(item.newProductImage || "/bustaniya-campaign-hero-v4.png")]), instock: true, new: false, bestsellere: false, article_number: articleNumber || `PB-${Date.now().toString().slice(-8)}`,
       },
     });
     return created?.[0];

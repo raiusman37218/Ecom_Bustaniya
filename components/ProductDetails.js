@@ -18,12 +18,12 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const [added, setAdded] = useState(false);
 
   useEffect(() => {
-    try { setCart(JSON.parse(localStorage.getItem("lisette-cart")) || []); } catch {}
+    try { setCart(JSON.parse(localStorage.getItem("bustaniya-cart")) || []); } catch {}
     setCartReady(true);
   }, []);
 
   useEffect(() => {
-    if (cartReady) localStorage.setItem("lisette-cart", JSON.stringify(cart));
+    if (cartReady) localStorage.setItem("bustaniya-cart", JSON.stringify(cart));
   }, [cart, cartReady]);
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
@@ -55,7 +55,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
   const productImages = Array.isArray(product.images) && product.images.length
     ? product.images.filter(Boolean)
-    : [product.image || "/lisette-hero.png"];
+    : [product.image || "/bustaniya-campaign-hero-v4.png"];
   const [activeImgIndex, setActiveImgIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
@@ -64,14 +64,14 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     <main className={`productPage storefrontTheme storefrontTheme--${storeSettings.activeTheme || "editorial"}`}>
       <AnnouncementBar storeSettings={storeSettings} />
       <header className="categoryHeader productHeader">
-        <a className="brand lisetteBrand" href="/">LISETTE<small>LINGERIE</small></a>
-        <nav><a href="/category/bras">Bras</a><a href="/category/panties">Panties</a><a href="/category/lingerie-sets">Sets</a></nav>
+        <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
+        <nav><a href="/category/kurtis">Kurtis</a><a href="/category/bottoms">Bottoms</a><a href="/category/coord-sets">Co-ord Sets</a></nav>
         <button className="headerBag" onClick={() => setCartOpen(true)}><ShoppingBag /><span>Bag {cartCount ? `(${cartCount})` : ""}</span></button>
       </header>
 
       <div className="productDetailLayout">
         <section className="productGallery mariabGallery">
-          <a className="productBack" href={`/category/${product.category.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}>
+          <a className="productBack" href={product.category === "Kurtis" ? "/category/kurtis" : product.category === "Bottoms" ? "/category/bottoms" : "/category/coord-sets"}>
             <ArrowLeft size={16} /> Back to collection
           </a>
 
@@ -97,7 +97,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             <div className="galleryMainView" onClick={() => setLightboxOpen(true)}>
               <Image
                 src={productImages[activeImgIndex] || productImages[0]}
-                alt={`${product.name} - View ${activeImgIndex + 1} by Lisette`}
+                alt={`${product.name} - View ${activeImgIndex + 1} by Bustaniya`}
                 fill
                 priority
                 sizes="(max-width: 1100px) 100vw, 54vw"
@@ -241,7 +241,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             <a className="productImage" href={`/product/${item.id}`}>
               <Image
                 src={item.image}
-                alt={`${item.name} - ${item.category} by Lisette`}
+                alt={`${item.name} - ${item.category} by Bustaniya`}
                 fill
                 sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
               />

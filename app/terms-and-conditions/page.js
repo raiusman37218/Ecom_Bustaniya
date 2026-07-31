@@ -3,7 +3,7 @@ import { buildMetadata } from "../../lib/seo";
 export const metadata = buildMetadata({
   title: "Terms and Conditions",
   description:
-    "Read Lisette's online shopping terms for product details, prices, checkout, payments and order processing.",
+    "Read Bustaniya's online shopping terms for product details, prices, checkout, payments and order processing.",
   path: "/terms-and-conditions",
 });
 
@@ -13,7 +13,7 @@ export default function TermsAndConditionsPage() {
       <InfoNav />
       <section className="infoHero">
         <p className="eyebrow">TERMS AND CONDITIONS</p>
-        <h1>Shopping terms for Lisette customers</h1>
+        <h1>Shopping terms for Bustaniya customers</h1>
         <p>These terms help customers understand product information, checkout and order processing.</p>
       </section>
       <section className="infoContent">
@@ -40,7 +40,7 @@ export default function TermsAndConditionsPage() {
 function InfoNav() {
   return (
     <header className="categoryHeader infoHeader">
-      <a className="brand lisetteBrand" href="/" aria-label="Lisette home">LISETTE<small>LINGERIE</small></a>
+      <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
       <nav><a href="/shipping-policy">Shipping</a><a href="/exchange-return-policy">Returns</a><a href="/privacy-policy">Privacy</a></nav>
     </header>
   );

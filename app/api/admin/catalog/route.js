@@ -84,7 +84,7 @@ function formatProduct(product) {
     sizes: parseJsonArray(product.size),
     colors: parseJsonArray(product.color),
     images,
-    image: images[0] || "/lisette-hero.png",
+    image: images[0] || "/bustaniya-campaign-hero-v4.png",
     status,
     badge: product.new ? "New" : product.bestsellere ? "Bestseller" : "",
     compareAtPrice: Number(product.compare_at_price ?? productMetadata.compareAtPrice ?? productMetadata.compare_at_price ?? 0) || null,
@@ -97,7 +97,7 @@ function formatProduct(product) {
     deliveryFee: Number(product.delivery_fee_pkr || 0),
     costTotalPkr: Number(product.cost_total_pkr || 0),
     costBreakdown,
-    vendor: String(productMetadata.vendor || "Lisette"),
+    vendor: String(productMetadata.vendor || "Bustaniya"),
     barcode: String(productMetadata.barcode || ""),
     weight: String(productMetadata.weight || ""),
     weightUnit: productMetadata.weightUnit === "g" ? "g" : "kg",
@@ -143,7 +143,7 @@ function normalizeImageList(value) {
       throw validationError("Product images must be HTTPS URLs or site image paths.");
     }
   }
-  return cleaned.length ? cleaned : ["/lisette-hero.png"];
+  return cleaned.length ? cleaned : ["/bustaniya-campaign-hero-v4.png"];
 }
 
 function normalizeProductPayload(product = {}) {
@@ -167,7 +167,7 @@ function normalizeProductPayload(product = {}) {
     }),
     color: JSON.stringify(product.colors || product.color || []),
     size: JSON.stringify(product.sizes || product.size || []),
-    img: JSON.stringify(normalizeImageList(product.images || product.img || ["/lisette-hero.png"])),
+    img: JSON.stringify(normalizeImageList(product.images || product.img || ["/bustaniya-campaign-hero-v4.png"])),
     instock: status === "Active",
     new: Boolean(product.is_new ?? product.new ?? product.isNew),
     bestsellere: Boolean(product.is_bestseller ?? product.bestsellere ?? product.isBestseller),

@@ -3,7 +3,7 @@ import { buildMetadata, siteConfig } from "../../lib/seo";
 export const metadata = buildMetadata({
   title: "Privacy Policy",
   description:
-    "Read Lisette's privacy policy for order, delivery, support and website information handling.",
+    "Read Bustaniya's privacy policy for order, delivery, support and website information handling.",
   path: "/privacy-policy",
 });
 
@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
         <h2>How it is used</h2>
         <p>
           Information is used for order confirmation, courier booking, customer support, fraud prevention
-          and store communication related to Lisette.
+          and store communication related to Bustaniya.
         </p>
         <h2>Contact</h2>
         <p>{siteConfig.email || "Add NEXT_PUBLIC_CONTACT_EMAIL for privacy requests."}</p>
@@ -34,7 +34,7 @@ export default function PrivacyPolicyPage() {
 function InfoNav() {
   return (
     <header className="categoryHeader infoHeader">
-      <a className="brand lisetteBrand" href="/" aria-label="Lisette home">LISETTE<small>LINGERIE</small></a>
+      <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
       <nav><a href="/terms-and-conditions">Terms</a><a href="/contact">Contact</a><a href="/shipping-policy">Shipping</a></nav>
     </header>
   );

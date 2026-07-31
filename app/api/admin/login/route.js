@@ -54,7 +54,7 @@ function envOwnerUser(email = "") {
   return {
     id: "owner",
     name: process.env.ADMIN_NAME || "Owner",
-    email: email || process.env.ADMIN_EMAIL || "owner@lisette.local",
+    email: email || process.env.ADMIN_EMAIL || "owner@bustaniya.local",
     role: "Owner",
     permissions: OWNER_PERMISSIONS,
     status: "Active",

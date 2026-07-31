@@ -17,7 +17,7 @@ const fallbackCategoryRecords = categories
       name,
       slug,
       description: categoryDetails[slug]?.description || "",
-      image: categoryDetails[slug]?.image || "/lisette-hero.png",
+      image: categoryDetails[slug]?.image || "/bustaniya-campaign-hero-v4.png",
       parentSlug: "",
       sortOrder: (index + 1) * 10,
     };
@@ -69,7 +69,7 @@ export default function Home({
   const heroSlideCount = Math.max(heroDesktopImages.length, heroMobileImages.length);
 
   useEffect(() => {
-    const savedCart = localStorage.getItem("lisette-cart");
+    const savedCart = localStorage.getItem("bustaniya-cart");
     if (savedCart) {
       try { setCart(JSON.parse(savedCart)); } catch {}
     }
@@ -77,7 +77,7 @@ export default function Home({
   }, []);
 
   useEffect(() => {
-    if (cartReady) localStorage.setItem("lisette-cart", JSON.stringify(cart));
+    if (cartReady) localStorage.setItem("bustaniya-cart", JSON.stringify(cart));
   }, [cart, cartReady]);
 
   useEffect(() => {
@@ -144,11 +144,11 @@ export default function Home({
 
   return (
     <>
-      <div className="storefrontTheme storefrontTheme--lisette">
+      <div className={`storefrontTheme storefrontTheme--${storeSettings.activeTheme || "editorial"}`}>
       <AnnouncementBar storeSettings={storeSettings} />
 
       <header className="header">
-        <a className="brand lisetteBrand" href="/" aria-label="Lisette home">LISETTE<small>LINGERIE</small></a>
+        <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
         <nav className={mobileOpen ? "nav navOpen" : "nav"} id="site-menu" aria-hidden={!mobileOpen}>
           <button className="mobileClose" type="button" aria-label="Close menu" onClick={() => setMobileOpen(false)}><X /></button>
           <a className="navActive" href="/" onClick={() => setMobileOpen(false)}>Home</a>
@@ -166,24 +166,20 @@ export default function Home({
         </div>
         {searchOpen && <div className="searchBar">
           <Search size={20} />
-          <input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search bras, sets and essentials..." />
+          <input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search dresses and collections..." />
           <button onClick={() => { setSearch(""); setSearchOpen(false); }}><X /></button>
         </div>}
       </header>
 
-      <main className="lisetteLanding">
-        <section className="lisettePromiseBar" aria-label="Lisette shopping benefits">
-          <span><Check size={15} /> Soft, everyday comfort</span>
-          <span><Check size={15} /> Find your fit with confidence</span>
-          <span><ShieldCheck size={15} /> Discreet, secure checkout</span>
-          <span><Truck size={15} /> Delivery across Pakistan</span>
-        </section>
+      <main>
         {(storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).filter((s) => s.enabled).map((section) => {
+          const defaults = DEFAULT_HOMEPAGE_SECTIONS.find((d) => d.type === section.type) || {};
+
           if (section.type === "hero") {
             if (storeSettings.heroEnabled === false) return null;
             return <section
               key={section.id}
-              className="campaignHero lisetteLandingHero campaignHero--position-left campaignHero--align-left"
+              className={`campaignHero campaignHero--position-${storeSettings.heroTextPosition} campaignHero--align-${storeSettings.heroTextAlignment}`}
               id="new"
               style={{ "--campaign-overlay": Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0))) / 100, "--campaign-overlay-color": sectionColors.heroOverlay, "--campaign-text-color": sectionTextColors.heroOverlay }}
             >
@@ -192,18 +188,18 @@ export default function Home({
                   key={heroSlide}
                   desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
                   mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
-                  alt="Lisette everyday essentials campaign"
+                  alt="Bustaniya eastern wear campaign"
                 />
               </div>
               <div className="campaignHeroOverlay" />
               <div className="campaignHeroInner">
                 <div className="campaignHeroCopy">
-                  <p>The everyday comfort edit</p>
-                  <h1>Feel good in your own skin.</h1>
-                  <span>Beautifully soft lingerie and sleepwear, thoughtfully made for the way you move, rest and live.</span>
+                  {storeSettings.heroEyebrow && <p>{storeSettings.heroEyebrow}</p>}
+                  <h1>{storeSettings.heroHeading || DEFAULT_STORE_SETTINGS.heroHeading}</h1>
+                  {storeSettings.heroSupportingText && <span>{storeSettings.heroSupportingText}</span>}
                   <div className="campaignHeroActions">
-                    <a className="campaignHeroPrimary" href="#products">Shop bestsellers<ArrowRight size={17} /></a>
-                    <a className="campaignHeroSecondary" href="#fit-guide">Find your fit</a>
+                    {storeSettings.heroPrimaryButtonText && <a className="campaignHeroPrimary" href={storeSettings.heroPrimaryButtonLink || "#products"}>{storeSettings.heroPrimaryButtonText}<ArrowRight size={17} /></a>}
+                    {storeSettings.heroSecondaryButtonText && <a className="campaignHeroSecondary" href={storeSettings.heroSecondaryButtonLink || "#products"}>{storeSettings.heroSecondaryButtonText}</a>}
                   </div>
                 </div>
               </div>
@@ -211,10 +207,9 @@ export default function Home({
           }
 
           if (section.type === "new_arrivals") {
-            return <section key={section.id} className="shopSection lisetteEssentials scrollReveal" data-scroll-reveal id="products" style={{ "--section-bg": sectionColors.products, "--section-text": sectionTextColors.products }}>
+            return <section key={section.id} className="shopSection khaadiTopPicks scrollReveal" data-scroll-reveal id="products" style={{ "--section-bg": sectionColors.products, "--section-text": sectionTextColors.products }}>
               <div className="sectionHeading">
-                <div><p className="eyebrow">NEW ARRIVALS</p><h2>New arrivals.</h2><span>Fresh comfort-first pieces that feel as beautiful as they look.</span></div>
-                <a className="lisetteTextLink" href="#fit-guide">Need help choosing? <ArrowRight size={16} /></a>
+                <div><p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p><h2>{section.heading || defaults.heading}</h2><span>{section.subtitle || defaults.subtitle}</span></div>
               </div>
               <div className="categoryTabs">
                 {categoryNames.map((category) => <button key={category} className={category === activeCategory ? "active" : ""} onClick={() => setActiveCategory(category)}>{category}</button>)}
@@ -224,7 +219,7 @@ export default function Home({
                   <div className="productImage">
                     <Image
                       src={product.image}
-                      alt={`${product.name} - ${product.category} by Lisette`}
+                      alt={`${product.name} - ${product.category} by Bustaniya`}
                       fill
                       sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                     />
@@ -245,11 +240,11 @@ export default function Home({
           }
 
           if (section.type === "shop_by_category") {
-            return <section key={section.id} className="categoryShowcase lisetteCollections scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories, "--section-text": sectionTextColors.categories }}>
+            return <section key={section.id} className="categoryShowcase categoryShowcaseEditorial scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories, "--section-text": sectionTextColors.categories }}>
               <div className="categoryShowcaseIntro">
-                <p className="eyebrow">SHOP BY MOOD</p>
-                <h2>Your drawer, your ritual.</h2>
-                <span>From invisible-under-everything essentials to slow-morning softness.</span>
+                <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
+                <h2>{section.heading || defaults.heading}</h2>
+                <span>{section.subtitle || defaults.subtitle}</span>
               </div>
               <div className="categoryCards">
                 {categoryCards.map((category, index) => (
@@ -264,23 +259,23 @@ export default function Home({
           }
 
           if (section.type === "our_story") {
-            return <section key={section.id} className="story lisetteFitGuide scrollReveal" data-scroll-reveal id="fit-guide" style={{ "--section-bg": sectionColors.story, "--section-text": sectionTextColors.story }}>
+            return <section key={section.id} className="story scrollReveal" data-scroll-reveal id="story" style={{ "--section-bg": sectionColors.story, "--section-text": sectionTextColors.story }}>
               <div className="storyImage" />
               <div className="storyContent">
-                <p className="eyebrow">A BETTER FIT STARTS HERE</p>
-                <h2>Your most comfortable <span>layer, every day.</span></h2>
-                <p>A good fit should never feel complicated. Begin with the pieces that give you ease, gentle support and confidence from the first wear.</p>
-                <a href="/about">Discover Lisette <ArrowRight size={17} /></a>
-                <div className="storyStats"><div><b>SOFT</b><span>fabrics you want to live in</span></div><div><b>EASY</b><span>fits made for real life</span></div></div>
+                <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
+                <h2>{(section.heading || defaults.heading).split(",").map((part, i) => i > 0 ? <span key={i}>,<br />{part}</span> : part)}</h2>
+                <p>{section.subtitle || defaults.subtitle}</p>
+                <a href="/about">Discover our story <ArrowRight size={17} /></a>
+                <div className="storyStats"><div><b>PKR</b><span>prices shown clearly</span></div><div><b>COD</b><span>available at checkout</span></div></div>
               </div>
             </section>;
           }
 
           if (section.type === "newsletter") {
             return <section key={section.id} className="newsletter scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.newsletter, "--section-text": sectionTextColors.newsletter }}>
-              <p className="eyebrow">THE LISETTE LETTER</p>
-              <h2>A little softness, sent your way.</h2>
-              <p>New arrivals, fit notes and private offers—only the lovely things.</p>
+              <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
+              <h2>{section.heading || defaults.heading}</h2>
+              <p>{section.subtitle || defaults.subtitle}</p>
               <form onSubmit={(e) => e.preventDefault()}><input type="email" placeholder="Your email address" /><button aria-label="Subscribe"><ArrowRight /></button></form>
             </section>;
           }
@@ -291,15 +286,15 @@ export default function Home({
 
       <footer id="footer">
         <div className="footerBrand">
-          <a className="brand lisetteBrand" href="/" aria-label="Lisette home">LISETTE<small>LINGERIE</small></a>
-          <p>Comfort, held close.</p>
-          <span>Thoughtfully made essentials for soft support, confidence and every kind of day.</span>
+          <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
+          <p>Pakistani clothing, rooted in grace.</p>
+          <span>Thoughtfully designed silhouettes for everyday elegance and memorable occasions.</span>
         </div>
         <div><b>Shop</b>{categoryRecords.map((category) => <a href={`/category/${category.slug}`} key={category.slug}>{category.name}</a>)}</div>
         <div><b>Help</b><a href="/shipping-policy">Delivery</a><a href="/exchange-return-policy">Exchange</a><a href="/contact">Contact Us</a></div>
-        <div><b>Follow</b><a href="https://www.instagram.com/" target="_blank" rel="noreferrer">Instagram</a></div>
+        <div><b>Follow</b><a href="https://www.instagram.com/bustaniya_/" target="_blank" rel="noreferrer">Instagram</a></div>
         <div className="copyright">
-          <p>Copyright 2026 Lisette. Made with care in Pakistan.</p>
+          <p>Copyright 2026 Bustaniya. Made with care in Pakistan.</p>
           <div><a href="/privacy-policy">Privacy</a><a href="/terms-and-conditions">Terms</a><a href="/shipping-policy">Shipping</a></div>
         </div>
       </footer>
@@ -321,7 +316,7 @@ export default function Home({
                 {salePercent(quickViewProduct) > 0 && <del>PKR {Number(quickViewProduct.compareAtPrice || quickViewProduct.compare_at_price).toLocaleString()}</del>}
               </div>
 
-              <span className="productDescription">{quickViewProduct.description || "A thoughtfully designed Lisette essential, made for everyday comfort and confidence."}</span>
+              <span className="productDescription">{quickViewProduct.description || "A thoughtfully designed Bustaniya piece, stitched to perfection with premium Pakistani fabrics."}</span>
 
               {/* Size Selector + Size Guide Trigger */}
               <div className="selectorHeading" style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
