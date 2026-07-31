@@ -239,18 +239,26 @@ export default function Home({
           }
 
           if (section.type === "shop_by_category") {
-            return <section key={section.id} className="categoryShowcase categoryShowcaseEditorial scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories, "--section-text": sectionTextColors.categories }}>
-              <div className="categoryShowcaseIntro">
-                <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
-                <h2>{section.heading || defaults.heading}</h2>
-                <span>{section.subtitle || defaults.subtitle}</span>
-              </div>
-              <div className="categoryCards">
+            return <section key={section.id} className="categoryShowcase categoryShowcase--atelier scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories, "--section-text": sectionTextColors.categories }}>
+              <header className="categoryShowcaseIntro">
+                <div>
+                  <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
+                  <h2>{section.heading || defaults.heading}</h2>
+                  <p className="categoryShowcaseSubtitle">{section.subtitle || defaults.subtitle}</p>
+                </div>
+                <a className="categoryShowcaseAll" href="#products">
+                  View all pieces <ArrowRight size={15} aria-hidden="true" />
+                </a>
+              </header>
+              <div className="categoryCards" aria-label="Shop by category">
                 {categoryCards.map((category, index) => (
                   <a className={`categoryCard card${index + 1}`} href={`/category/${category.slug}`} key={category.slug} style={category.image ? { backgroundImage: `url(${category.image})` } : undefined}>
-                    <small>{String(index + 1).padStart(2, "0")}</small>
-                    <span>{category.name}</span>
-                    <b>Explore</b>
+                    <div className="categoryCardContent">
+                      <small>Collection {String(index + 1).padStart(2, "0")}</small>
+                      <p>{category.description || "Curated essentials, made for everyday elegance."}</p>
+                      <h3>{category.name}</h3>
+                      <b>Explore collection <ArrowRight size={15} aria-hidden="true" /></b>
+                    </div>
                   </a>
                 ))}
               </div>
