@@ -3,7 +3,7 @@ import { buildMetadata } from "../../lib/seo";
 export const metadata = buildMetadata({
   title: "Shipping Policy",
   description:
-    "Read Bustaniya's shipping policy for Pakistani clothing orders, delivery charges, courier handling and confirmation payments.",
+    "Read Lisette's shipping policy for lingerie and essentials orders, delivery charges, courier handling and confirmation payments.",
   path: "/shipping-policy",
 });
 
@@ -13,7 +13,7 @@ export default function ShippingPolicyPage() {
       <InfoNav />
       <section className="infoHero">
         <p className="eyebrow">SHIPPING POLICY</p>
-        <h1>Delivery information for Bustaniya orders</h1>
+        <h1>Delivery information for Lisette orders</h1>
         <p>Shipping charges are calculated during checkout based on the items in your cart.</p>
       </section>
       <section className="infoContent">
@@ -37,7 +37,7 @@ export default function ShippingPolicyPage() {
 function InfoNav() {
   return (
     <header className="categoryHeader infoHeader">
-      <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
+      <a className="brand lisetteBrand" href="/" aria-label="Lisette home">LISETTE<small>LINGERIE</small></a>
       <nav><a href="/contact">Contact</a><a href="/exchange-return-policy">Returns</a><a href="/terms-and-conditions">Terms</a></nav>
     </header>
   );

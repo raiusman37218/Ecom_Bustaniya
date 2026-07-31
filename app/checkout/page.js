@@ -29,7 +29,7 @@ export default function CheckoutPage() {
   const [paymentSettings, setPaymentSettings] = useState(DEFAULT_STORE_SETTINGS.paymentSettings);
 
   useEffect(() => {
-    const saved = localStorage.getItem("bustaniya-cart");
+    const saved = localStorage.getItem("lisette-cart");
     if (saved) {
       try {
         setCart(JSON.parse(saved));
@@ -150,7 +150,7 @@ export default function CheckoutPage() {
         paymentMethod,
       });
       setCart([]);
-      localStorage.removeItem("bustaniya-cart");
+      localStorage.removeItem("lisette-cart");
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -169,7 +169,7 @@ export default function CheckoutPage() {
   return (
     <main className="checkoutPage">
       <header className="checkoutHeader">
-        <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
+        <a className="brand lisetteBrand" href="/">LISETTE<small>LINGERIE</small></a>
         <span><Lock size={14} /> Secure checkout</span>
       </header>
 
@@ -261,7 +261,7 @@ function OrderConfirmation({ order, items, subtotal, delivery }) {
   return (
     <main className="checkoutPage">
       <header className="checkoutHeader">
-        <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
+        <a className="brand lisetteBrand" href="/">LISETTE<small>LINGERIE</small></a>
         <span><Lock size={14} /> Order confirmed</span>
       </header>
       <section className="orderSuccess shopifySuccess">

@@ -4,6 +4,7 @@ import ProductDetails from "../../../components/ProductDetails";
 import { getCatalogProducts } from "../../../lib/catalog";
 import { JsonLd, breadcrumbSchema, buildMetadata, productDescription, productSchema, productSlug } from "../../../lib/seo";
 import { getStoreSettings } from "../../../lib/storeSettings";
+import { categoryToSlug } from "../../../data/store";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,7 @@ export default async function ProductPage({ params }) {
     <>
       <JsonLd data={breadcrumbSchema([
         { name: "Home", path: "/" },
-        { name: product.category, path: product.category === "Kurtis" ? "/category/kurtis" : product.category === "Bottoms" ? "/category/bottoms" : product.category === "3 Piece Suits" ? "/category/3-piece-suits" : "/category/coord-sets" },
+        { name: product.category, path: `/category/${categoryToSlug(product.category)}` },
         { name: product.name, path: productSlug(product) },
       ])} />
       <JsonLd data={productSchema(product)} />

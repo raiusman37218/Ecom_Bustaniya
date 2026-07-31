@@ -50,7 +50,7 @@ a { text-decoration:none; }
 .heroImage img { object-fit:cover; object-position:58% top; }
 .heroImage::before { content:""; position:absolute; inset:0; z-index:1; background:linear-gradient(180deg,transparent 56%,#f8fced 100%); pointer-events:none; }
 .heroImage::after { content:""; position:absolute; inset:0; z-index:1; background:linear-gradient(90deg,#fffefb45 0%,transparent 45%,#0f2f1d0e 100%); pointer-events:none; }
-.hero::after { content:"BUSTANIYA / EDIT 01"; position:absolute; z-index:3; right:clamp(.55rem,2vw,1.625rem); top:clamp(5.5rem,28vw,8rem); color:#16452c; font-size:clamp(.45rem,.38rem + .22vw,.56rem); font-weight:700; letter-spacing:.22em; writing-mode:vertical-rl; opacity:.34; }
+.hero::after { content:"LISETTE / EDIT 01"; position:absolute; z-index:3; right:clamp(.55rem,2vw,1.625rem); top:clamp(5.5rem,28vw,8rem); color:#16452c; font-size:clamp(.45rem,.38rem + .22vw,.56rem); font-weight:700; letter-spacing:.22em; writing-mode:vertical-rl; opacity:.34; }
 @keyframes heroDrift {
   from { background-position:center,center,58% center; transform:scale(1); }
   to { background-position:center,center,64% center; transform:scale(1.025); }
@@ -79,8 +79,7 @@ a { text-decoration:none; }
   .hero::after { display:none; }
 }
 
-/* Theme engine: all public pages receive a named storefront theme.  Editorial is
-   the first complete theme and preserves Bustaniya's current luxury identity. */
+/* Theme engine: all public pages receive a named storefront theme. */
 .storefrontTheme--editorial {
   --ink:#183d29;
   --cream:#fcfaf5;
@@ -91,6 +90,42 @@ a { text-decoration:none; }
   --muted:#6f7d73;
   --font-display:"Cormorant Garamond",Georgia,serif;
   --font-sans:"Manrope",Arial,sans-serif;
+}
+
+/* Lisette: warm, intimate palette for lingerie and everyday essentials. */
+.storefrontTheme--lisette {
+  --ink:#442c37;
+  --cream:#fffaf8;
+  --sage:#f7ecec;
+  --berry:#9b4968;
+  --orange:#9b4968;
+  --forest:#4d2637;
+  --forest-dark:#351521;
+  --muted:#7d6870;
+  --font-display:"Cormorant Garamond",Georgia,serif;
+  --font-sans:"Manrope",Arial,sans-serif;
+}
+.storefrontTheme--lisette .header { background:linear-gradient(180deg,#fffdfb,#fff5f3); border-color:#ead9dd; color:var(--forest); }
+.storefrontTheme--lisette .header::after { background:linear-gradient(90deg,transparent,#b46a80 48%,transparent); }
+.storefrontTheme--lisette .nav { border-color:#ead9dd; }
+.storefrontTheme--lisette .nav a.navActive { background:#f7e6ea; }
+.storefrontTheme--lisette .announcement { background:linear-gradient(90deg,#3c1d2b,#613044 50%,#3c1d2b); }
+.storefrontTheme--lisette .campaignHero { background:#f3e3e2; color:var(--forest); }
+.storefrontTheme--lisette .campaignHeroOverlay { background:linear-gradient(90deg,#fff8f5 0%,#fff8f5 34%,transparent 70%); }
+.storefrontTheme--lisette .campaignHeroCopy>p { color:#9b4968; }
+.storefrontTheme--lisette .campaignHeroCopy h1 { color:#4d2637; }
+.storefrontTheme--lisette .campaignHeroCopy>span { color:#6f4b59; }
+.storefrontTheme--lisette .campaignHeroPrimary { background:#4d2637; }
+.storefrontTheme--lisette .campaignHeroPrimary:hover { background:#9b4968; }
+.lisetteBrand { width:auto; min-width:156px; color:#4d2637; font-family:var(--font-display); font-size:2rem; font-weight:600; letter-spacing:.16em; line-height:.75; text-align:center; }
+.lisetteBrand small { display:block; margin-top:.55rem; font-family:var(--font-sans); font-size:.43rem; font-weight:800; letter-spacing:.35em; }
+.storefrontTheme--lisette .storyImage { background-image:linear-gradient(120deg,#54283aa8,#f6dde1aa),url('/lisette-hero.png'); background-position:center; }
+.storefrontTheme--lisette .categoryShowcase { background:#4d2637; }
+.storefrontTheme--lisette .newsletter { background:#faeded; }
+@media (max-width:767px) {
+  .storefrontTheme--lisette .campaignHeroOverlay { background:linear-gradient(180deg,transparent 15%,#4d2637 100%); }
+  .storefrontTheme--lisette .campaignHeroCopy>p,.storefrontTheme--lisette .campaignHeroCopy h1,.storefrontTheme--lisette .campaignHeroCopy>span { color:#fffaf8; }
+  .lisetteBrand { min-width:130px; font-size:1.65rem; }
 }
 .themeStudioHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:22px; }
 .themeStudioHeading p { margin:0 0 6px; color:#bd194b; font-size:10px; font-weight:800; letter-spacing:.14em; }
@@ -140,8 +175,78 @@ a { text-decoration:none; }
   .hero .primaryButton { width:max-content; max-width:100%; min-height:2.9rem; margin-top:1.25rem; padding:.8rem 1rem; box-shadow:0 12px 25px #173d2922; }
 }
 
+/* Lisette color system — shared across the storefront, checkout and admin. */
+:root {
+  --lisette-ivory:#fff8f6;
+  --lisette-blush:#f6e7ea;
+  --lisette-plum:#54263a;
+  --lisette-rose:#a84f70;
+  --lisette-ink:#33232b;
+  --lisette-line:#e8d5db;
+  --lisette-sale:#c13d5b;
+  --lisette-sage:#58725e;
+}
+body { background:var(--lisette-ivory); color:var(--lisette-ink); }
+.storefrontTheme--lisette {
+  --ink:var(--lisette-ink);
+  --cream:var(--lisette-ivory);
+  --sage:var(--lisette-blush);
+  --berry:var(--lisette-rose);
+  --orange:var(--lisette-sale);
+  --forest:var(--lisette-plum);
+  --forest-dark:#351521;
+  --muted:#7d6870;
+}
+.storefrontTheme--lisette .announcement { background:linear-gradient(90deg,#3d1b2a,#54263a 50%,#3d1b2a); }
+.storefrontTheme--lisette .announcementProgress i.active { background:#f5cbd5; }
+.storefrontTheme--lisette .header,.storefrontTheme--lisette .categoryHeader,.storefrontTheme--lisette .checkoutHeader { background:#fffdfc; border-color:var(--lisette-line); color:var(--lisette-plum); }
+.storefrontTheme--lisette .header::after { background:linear-gradient(90deg,transparent,var(--lisette-rose),transparent); }
+.storefrontTheme--lisette .nav,.storefrontTheme--lisette .categoryHeader nav { border-color:var(--lisette-line); }
+.storefrontTheme--lisette .nav a.navActive,.storefrontTheme--lisette .nav a:hover { color:var(--lisette-rose); background:#fbebee; }
+.storefrontTheme--lisette .campaignHero { background:var(--lisette-blush); }
+.storefrontTheme--lisette .campaignHeroOverlay { background:linear-gradient(90deg,#fff8f6 0%,#fff8f6 34%,transparent 72%); }
+.storefrontTheme--lisette .campaignHeroCopy h1,.storefrontTheme--lisette .campaignHeroSecondary { color:var(--lisette-plum); }
+.storefrontTheme--lisette .campaignHeroCopy>p { color:var(--lisette-rose); }
+.storefrontTheme--lisette .campaignHeroCopy>span { color:#755461; }
+.storefrontTheme--lisette .campaignHeroPrimary,.storefrontTheme--lisette .primaryButton,.storefrontTheme--lisette .addBagButton,.storefrontTheme--lisette .checkoutButton { background:var(--lisette-plum); }
+.storefrontTheme--lisette .campaignHeroPrimary:hover,.storefrontTheme--lisette .primaryButton:hover,.storefrontTheme--lisette .addBagButton:hover,.storefrontTheme--lisette .checkoutButton:hover { background:var(--lisette-rose); }
+.storefrontTheme--lisette .shopSection,.storefrontTheme--lisette .collectionArea,.storefrontTheme--lisette .productPage,.storefrontTheme--lisette .infoPage { background:var(--lisette-ivory); }
+.storefrontTheme--lisette .categoryShowcase,.storefrontTheme--lisette .story { background:var(--lisette-plum); }
+.storefrontTheme--lisette .newsletter { background:var(--lisette-blush); }
+.storefrontTheme--lisette .productCard,.storefrontTheme--lisette .quickViewModal,.storefrontTheme--lisette .cartDrawer,.storefrontTheme--lisette .orderSummary,.storefrontTheme--lisette .checkoutForm { border-color:var(--lisette-line); background:#fffdfc; }
+.storefrontTheme--lisette .badge,.storefrontTheme--lisette .saleBadge { background:var(--lisette-sale); color:#fff; }
+.storefrontTheme--lisette .sizeOptions button.selected,.storefrontTheme--lisette .categoryTabs button.active { border-color:var(--lisette-rose); background:#fbebee; color:var(--lisette-plum); }
+.storefrontTheme--lisette .productPromises svg,.storefrontTheme--lisette .eyebrow { color:var(--lisette-rose); }
+.infoPage,.categoryPage,.productPage,.checkoutPage { background:var(--lisette-ivory); }
+.infoHero,.infoContent,.checkoutShell,.shopifySuccess { border-color:var(--lisette-line); }
+.infoPage .eyebrow,.checkoutForm .eyebrow,.categoryHero .eyebrow { color:var(--lisette-rose); }
+.checkoutLayout,.shopifySuccess { background:radial-gradient(circle at 10% 0%,rgba(168,79,112,.08) 0,transparent 28%),var(--lisette-ivory); }
+.checkoutForm input,.checkoutForm textarea,.checkoutForm select,.infoContent input { border-color:var(--lisette-line); }
+.checkoutForm input:focus,.checkoutForm textarea:focus,.checkoutForm select:focus { border-color:var(--lisette-rose); box-shadow:0 0 0 3px rgba(168,79,112,.12); }
+
+/* Admin uses the same restrained palette, with a darker navigation rail. */
+.adminShell { --admin-ink:var(--lisette-ink); --admin-muted:#7d6870; --admin-subtle:#f9eff1; --admin-line:var(--lisette-line); --admin-surface:#fffdfc; --admin-danger:var(--lisette-sale); --admin-warning:#a86a25; background:linear-gradient(135deg,#fff8f6 0%,#f9eef0 55%,#f4e5e9 100%); }
+.adminShell :is(button,a,input,select,textarea):focus-visible { outline-color:rgba(168,79,112,.28); }
+.adminSidebar { background:linear-gradient(180deg,#351521 0%,#54263a 56%,#3d1b2a 100%); box-shadow:8px 0 30px rgba(84,38,58,.12); }
+.adminSidebar nav a { color:#f3dfe5; }
+.adminSidebar nav a.active { background:linear-gradient(90deg,rgba(255,255,255,.2),rgba(255,255,255,.08)); box-shadow:inset 3px 0 0 #f5cbd5; }
+.adminSidebarLogout { color:#f8c4d1; background:rgba(193,61,91,.18); border-color:rgba(248,196,209,.25); }
+.adminTopbar { background:rgba(255,253,252,.94); box-shadow:0 4px 18px rgba(84,38,58,.06); }
+.adminCard,.adminPanel,.ordersConnect,.adminErrorBanner { border-color:var(--lisette-line); box-shadow:0 4px 14px rgba(84,38,58,.06); }
+.adminShell .primaryButton,.adminShell .dashboardPrimaryAction,.adminShell .customOrderCta,.adminShell .saveButton { background:var(--lisette-plum); color:#fff; }
+.adminShell .primaryButton:hover,.adminShell .dashboardPrimaryAction:hover,.adminShell .customOrderCta:hover,.adminShell .saveButton:hover { background:var(--lisette-rose); }
+.adminShell .statusBadge.activeStatus,.adminShell .successStatus { background:#e8f1e9; color:#355a3e; }
+.adminShell .statusBadge.processing { background:#faedf1; color:#923b5a; }
+.adminShell input,.adminShell select,.adminShell textarea { border-color:var(--lisette-line); background:#fffdfc; }
+.adminShell input:focus,.adminShell select:focus,.adminShell textarea:focus { border-color:var(--lisette-rose); box-shadow:0 0 0 3px rgba(168,79,112,.12); }
+@media (max-width:767px) {
+  .storefrontTheme--lisette .campaignHeroOverlay { background:linear-gradient(180deg,transparent 15%,#54263a 100%); }
+  .storefrontTheme--lisette .campaignHeroCopy>p,.storefrontTheme--lisette .campaignHeroCopy h1,.storefrontTheme--lisette .campaignHeroCopy>span,.storefrontTheme--lisette .campaignHeroSecondary { color:#fff8f6; }
+  .storefrontTheme--lisette .nav::before { background:linear-gradient(180deg,#fffdfc 0%,#faedf0 58%,#f3dce2 100%); }
+}
+
 /* Connected editorial product cards — inspired by the retail rhythm of Sapphire's
-   collection grid, but built in Bustaniya's own visual language.  These rules sit
+   collection grid, but built in Lisette's own visual language. These rules sit
    at the end deliberately so the selected storefront layout wins over section CSS. */
 .productGrid:has(.productCard--connected) {
   gap:0 !important;
@@ -2156,7 +2261,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .cardOne { background-image:url("https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=85"); }
 .cardTwo { background-image:url("https://images.unsplash.com/photo-1605763240000-7e93b172d754?auto=format&fit=crop&w=900&q=85"); }
 .cardThree { background-image:url("https://images.unsplash.com/photo-1597983073514-4a0c3e18d892?auto=format&fit=crop&w=900&q=85"); }
-.cardFour { background-image:url("/bustaniya-campaign-hero-v4.png"); background-position:62% center; }
+.cardFour { background-image:url("/lisette-hero.png"); background-position:62% center; }
 .categoryPage { min-height:100vh; background:var(--cream); }
 .categoryHeader { height:105px; padding:0 4vw; background:var(--cream); color:var(--forest); display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
 .categoryHeader nav { display:flex; gap:32px; font-size:11px; text-transform:uppercase; letter-spacing:.08em; }

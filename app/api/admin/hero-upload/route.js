@@ -18,7 +18,7 @@ function validSignature(buffer, type) {
   return false;
 }
 
-const HERO_BUCKET = "bustaniya-hero";
+const HERO_BUCKET = "lisette-hero";
 
 function storageConfig() {
   return {
@@ -47,7 +47,7 @@ function cloudinaryConfig() {
 
 async function uploadToCloudinary(file, bytes, config) {
   const timestamp = Math.floor(Date.now() / 1000);
-  const folder = "bustaniya/hero";
+  const folder = "lisette/hero";
   const signature = createHash("sha1").update(`folder=${folder}&timestamp=${timestamp}${config.apiSecret}`).digest("hex");
   const form = new FormData();
   form.append("file", new Blob([bytes], { type: file.type }), file.name || `hero-${timestamp}`);

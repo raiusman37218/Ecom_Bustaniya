@@ -68,7 +68,7 @@ const FEATURE_SUPPORT = [
     required: ["orders"],
     selectChecks: [{ table: "orders", select: "id,shipping_full_name,customer_phone,customer_email,shipping_city" }],
     purpose: "Customer list is derived from orders until a dedicated customer profile table is needed.",
-    note: "A separate customers table is optional; derived customers are acceptable for the current Bustaniya size.",
+    note: "A separate customers table is optional; derived customers are acceptable for the current Lisette size.",
   },
   {
     feature: "Addresses",
@@ -278,11 +278,11 @@ async function buildSecurityAudit() {
     ADMIN_SESSION_MAX_AGE_SECONDS <= 60 * 60 * 12 ? "" : "Keep admin sessions at 12 hours or less for safer shared-device use."
   );
   push(
-    password && password !== "Bustaniya@1122" && password.length >= 14 ? "ok" : password && password !== "Bustaniya@1122" ? "warning" : "fail",
+    password && password !== "Lisette@1122" && password.length >= 14 ? "ok" : password && password !== "Lisette@1122" ? "warning" : "fail",
     "Password",
     "Owner password strength",
-    !password ? "ADMIN_PASSWORD is missing." : password === "Bustaniya@1122" ? "Default admin password is still configured." : `Custom admin password is configured with ${password.length} characters.`,
-    password && password !== "Bustaniya@1122" && password.length >= 14 ? "" : "Use a unique owner password of at least 14 characters and remove the previous/default password."
+    !password ? "ADMIN_PASSWORD is missing." : password === "Lisette@1122" ? "Default admin password is still configured." : `Custom admin password is configured with ${password.length} characters.`,
+    password && password !== "Lisette@1122" && password.length >= 14 ? "" : "Use a unique owner password of at least 14 characters and remove the previous/default password."
   );
   push(
     publicServiceKeys.length ? "fail" : "ok",
@@ -414,11 +414,11 @@ function buildDeploymentAudit(request) {
     siteUrl ? "" : "Add canonical production URL env for SEO, emails, payment callbacks and absolute links."
   );
   push(
-    forwardedHost.includes("bustaniya.com") || (siteUrl && siteUrl.includes("bustaniya.com")) ? "ok" : "warning",
+    forwardedHost.includes("lisette.pk") || (siteUrl && siteUrl.includes("lisette.pk")) ? "ok" : "warning",
     "Domains",
     "Production domain",
     forwardedHost ? `Current host observed as ${forwardedHost}.` : "No host header observed.",
-    forwardedHost.includes("bustaniya.com") || (siteUrl && siteUrl.includes("bustaniya.com")) ? "" : "Verify bustaniya.com is attached as the production domain in Vercel."
+    forwardedHost.includes("lisette.pk") || (siteUrl && siteUrl.includes("lisette.pk")) ? "" : "Verify lisette.pk is attached as the production domain in Vercel."
   );
   push(
     forwardedProto.includes("https") || optionalEnv("VERCEL") ? "ok" : "warning",

@@ -17,7 +17,7 @@ export async function generateMetadata({ params }) {
   const details = subcategoryOptions(categories, slug).find((item) => item.slug === subcategory);
   return parent && details ? buildMetadata({
     title: `${details.name} ${parent.name}`,
-    description: `${details.description} Shop ${details.name.toLowerCase()} online from Bustaniya.`,
+    description: `${details.description} Shop ${details.name.toLowerCase()} online from Lisette.`,
     path: `/category/${slug}/${subcategory}`,
     image: details.image,
   }) : {};
@@ -52,7 +52,7 @@ export default async function SubcategoryPage({ params }) {
       ])} />
       <AnnouncementBar storeSettings={storeSettings} className="categoryAnnouncement" />
       <header className="categoryHeader">
-        <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
+        <a className="brand lisetteBrand" href="/" aria-label="Lisette home">LISETTE<small>LINGERIE</small></a>
         <nav>
           {siblingCategories.map((item) => <a href={`/category/${slug}/${item.slug}`} key={item.slug}>{item.name}</a>)}
         </nav>
@@ -65,7 +65,7 @@ export default async function SubcategoryPage({ params }) {
       >
         <a href={`/category/${slug}`}><ArrowLeft size={16} /> All {parent.name}</a>
         <div>
-          <p className="eyebrow">BUSTANIYA - {parent.name.toUpperCase()}</p>
+          <p className="eyebrow">LISETTE - {parent.name.toUpperCase()}</p>
           <h1>{details.name}</h1>
           <p>{details.description}</p>
         </div>
@@ -82,7 +82,7 @@ export default async function SubcategoryPage({ params }) {
               <a href={`/product/${product.id}`} className="productImage">
                 <Image
                   src={product.image}
-                  alt={`${product.name} - ${details.name} by Bustaniya`}
+                  alt={`${product.name} - ${details.name} by Lisette`}
                   fill
                   sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                 />
