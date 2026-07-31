@@ -2,6 +2,7 @@ import "./globals.css";
 import "./campaign-hero.css";
 import Script from "next/script";
 import { buildMetadata, siteConfig } from "../lib/seo";
+import MetaPixel from "../components/MetaPixel";
 
 export const metadata = {
   ...buildMetadata(),
@@ -52,10 +53,12 @@ export const viewport = {
 export default function RootLayout({ children }) {
   const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
+  const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID || "5621950704696012";
 
   return (
     <html lang="en-PK">
       <body>
+        <MetaPixel pixelId={metaPixelId} />
         {gtmId && (
           <noscript>
             <iframe
