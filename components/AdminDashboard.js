@@ -380,6 +380,9 @@ function ExecutiveAnalyticsSuite({
   salesByDay = [],
   salesPeriodTotal = 0,
   salesPeriodChange = null,
+  periodLabel = "selected period",
+  periodAverageOrderValue = 0,
+  periodDeliveredOrders = [],
   dashboardSales = 0,
   dashboardCogs = 0,
   dashboardCourierCost = 0,
@@ -392,9 +395,11 @@ function ExecutiveAnalyticsSuite({
   const maxDailySales = Math.max(...salesByDay.map((day) => day.sales), 1);
   const peakDay = salesByDay.reduce((best, current) => (current.sales > best.sales ? current : best), { label: "—", sales: 0 });
 
-  const deliveredOrders = liveOrders.filter(isDeliveredOrder);
-  const deliveredCount = deliveredOrders.length;
-  const aov = deliveredCount > 0 ? Math.round(dashboardSales / deliveredCount) : 0;
+  // Keep the chart, AOV and best-seller list on exactly the same selected
+  // date range. Finance values below deliberately remain all-time because
+  // cash, CPR receipts and recorded expenses are balances, not period sales.
+  const deliveredOrders = periodDeliveredOrders;
+  const aov = periodAverageOrderValue;
 
   // Unit Economics Margins
   const netMarginPercent = dashboardSales > 0 ? Math.max(0, Math.round((dashboardNetProfit / dashboardSales) * 100)) : 0;
@@ -417,7 +422,7 @@ function ExecutiveAnalyticsSuite({
 
   // Top Destination Cities
   const cityMap = new Map();
-  liveOrders.forEach((order) => {
+  deliveredOrders.forEach((order) => {
     const city = (order.city || order.shippingAddress?.city || "Other").trim();
     if (!city) return;
     const current = cityMap.get(city) || { city, count: 0, total: 0 };
@@ -457,11 +462,11 @@ function ExecutiveAnalyticsSuite({
 
           <div className="analyticsTrendHeader">
             <div className="analyticsTrendStat">
-              <span>Period Sales</span>
+              <span>{periodLabel} sales</span>
               <b>Rs. {salesPeriodTotal.toLocaleString()}</b>
             </div>
             <div className="analyticsTrendStat">
-              <span>Avg Order Value</span>
+              <span>{periodLabel} AOV</span>
               <b>Rs. {aov.toLocaleString()}</b>
             </div>
             <div className="analyticsTrendStat">
@@ -491,7 +496,7 @@ function ExecutiveAnalyticsSuite({
           <div className="analyticsCardHead">
             <div>
               <h3>Unit Economics &amp; Margin Breakdown</h3>
-              <p>Proportional split of revenue across profit, COGS and logistics.</p>
+              <p>All-time Finance P&amp;L split. This is intentionally separate from the selected-period sales chart.</p>
             </div>
             <span className="analyticsMetricBadge">P&amp;L Health</span>
           </div>
@@ -525,7 +530,7 @@ function ExecutiveAnalyticsSuite({
           <div className="analyticsCardHead">
             <div>
               <h3>Top Performing Products</h3>
-              <p>Highest delivered revenue generators in catalog.</p>
+              <p>Highest delivered revenue generators in the selected period.</p>
             </div>
             <span className="analyticsMetricBadge">Best Sellers</span>
           </div>
@@ -560,7 +565,7 @@ function ExecutiveAnalyticsSuite({
           <div className="analyticsCardHead">
             <div>
               <h3>Regional Demand &amp; Destination Cities</h3>
-              <p>Top order fulfillment hubs by total sales value.</p>
+              <p>Top delivered destinations by sales value in the selected period.</p>
             </div>
             <span className="analyticsMetricBadge">Geography</span>
           </div>
@@ -1894,7 +1899,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
         <div className="premiumMetricValue">Rs. {salesPeriodTotal.toLocaleString()}</div>
         <div className="premiumMetricNote">
           <span className={salesPeriodChange !== null && salesPeriodChange < 0 ? "metricTrendDown" : "metricTrendUp"}>
-            {salesPeriodChange === null ? "Delivered sales this period" : `${salesPeriodChange >= 0 ? "+" : ""}${salesPeriodChange}% vs prior period`}
+            {salesPeriodChange === null ? `Last ${chartRange} days` : `${salesPeriodChange >= 0 ? "+" : ""}${salesPeriodChange}% vs prior ${chartRange} days`}
           </span>
         </div>
       </div>
@@ -1908,7 +1913,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
           <div className="premiumMetricValue">
             {financeSnapshotStatus === "ready" ? `Rs. ${dashboardAvailableCash.toLocaleString()}` : "Unavailable"}
           </div>
-          <div className="premiumMetricNote">After recorded cash costs</div>
+          <div className="premiumMetricNote">All-time cash balance after recorded cash costs</div>
         </div>
       )}
 
@@ -1918,7 +1923,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
           <Landmark />
         </div>
         <div className="premiumMetricValue">Rs. {dashboardPostexReceivable.toLocaleString()}</div>
-        <div className="premiumMetricNote">Outstanding or in transit</div>
+        <div className="premiumMetricNote">All-time outstanding / in transit settlement</div>
       </div>
 
       {isOwnerDashboard && (
@@ -1930,7 +1935,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
           <div className="premiumMetricValue">
             {financeSnapshotStatus === "ready" ? `Rs. ${dashboardNetProfit.toLocaleString()}` : "Unavailable"}
           </div>
-          <div className="premiumMetricNote">Actual P&L after deductions</div>
+          <div className="premiumMetricNote">All-time Finance P&amp;L after deductions</div>
         </div>
       )}
     </div>
@@ -1938,16 +1943,16 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     {/* Secondary KPI Badges Row */}
     <div className="premiumMetricGrid" style={{ marginTop: '-8px', marginBottom: '24px', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
       <div className="statusBadge confirmed" style={{ padding: '10px 16px', justifyContent: 'center', background: '#f0f7f3', color: '#1a5f38', borderColor: '#d3ebd9', borderRadius: '12px', fontSize: '12px' }}>
-        Average Order Value: <b style={{ marginLeft: '4px' }}>Rs. {averageOrderValue.toLocaleString()}</b>
+        Last {chartRange} days AOV: <b style={{ marginLeft: '4px' }}>Rs. {averageOrderValue.toLocaleString()}</b>
       </div>
       <div className="statusBadge activeStatus" style={{ padding: '10px 16px', justifyContent: 'center', background: '#f0f4f8', color: '#1b4d7c', borderColor: '#d2e3f0', borderRadius: '12px', fontSize: '12px' }}>
-        Repeat Customer Rate: <b style={{ marginLeft: '4px' }}>{repeatCustomerRate}%</b>
+        Last {chartRange} days repeat rate: <b style={{ marginLeft: '4px' }}>{repeatCustomerRate}%</b>
       </div>
       <div className="statusBadge processing" style={{ padding: '10px 16px', justifyContent: 'center', background: '#fdf7ee', color: '#88580b', borderColor: '#f7e3c9', borderRadius: '12px', fontSize: '12px' }}>
-        Items Delivered: <b style={{ marginLeft: '4px' }}>{items.reduce((sum, i) => sum + Number(i.quantity || 0), 0)} pcs</b>
+        Last {chartRange} days items: <b style={{ marginLeft: '4px' }}>{items.reduce((sum, i) => sum + Number(i.quantity || 0), 0)} pcs</b>
       </div>
       <div className="statusBadge unbooked" style={{ padding: '10px 16px', justifyContent: 'center', background: '#fbfbfb', color: '#555', borderColor: '#eaeaea', borderRadius: '12px', fontSize: '12px' }}>
-        Fulfilled Orders: <b style={{ marginLeft: '4px' }}>{deliveredCount} orders</b>
+        Last {chartRange} days fulfilled: <b style={{ marginLeft: '4px' }}>{deliveredCount} orders</b>
       </div>
     </div>
 
@@ -1957,7 +1962,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
       <div className="dashboardCol6">
         <VisualDonut
           title="Order pipeline"
-          subtitle="Live courier health fulfilment status."
+          subtitle="All tracked orders by live courier fulfilment status."
           centerValue={dashboardOrderCount}
           centerLabel="total"
           items={Object.entries(statusBuckets).map(([label, value]) => ({ label, value, color: statusPalette[label] || "#8aa08f" })).filter((item) => item.value > 0)}
@@ -1967,8 +1972,8 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
       {/* Revenue Waterfall */}
       <div className="dashboardCol6">
         <VisualBars
-          title="Revenue waterfall"
-          subtitle="How delivered sales flow into product costs, courier deductions and net profit."
+          title="All-time revenue waterfall"
+          subtitle="Finance P&L: how delivered sales flow into product costs, courier deductions and net profit."
           format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`}
           items={[
             { label: "Gross sales", value: dashboardSales, color: "#10b981" },
@@ -1985,6 +1990,9 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
       salesByDay={salesByDay}
       salesPeriodTotal={salesPeriodTotal}
       salesPeriodChange={salesPeriodChange}
+      periodLabel={`Last ${chartRange} days`}
+      periodAverageOrderValue={averageOrderValue}
+      periodDeliveredOrders={deliveredScoped}
       dashboardSales={dashboardSales}
       dashboardCogs={dashboardCogs}
       dashboardCourierCost={dashboardCourierCost}
