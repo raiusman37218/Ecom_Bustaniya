@@ -5350,7 +5350,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
   const tabs = ["Store","Sections","Payments","Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications","Domains","Checkout","System"];
 
   useEffect(() => {
-    if (["Store", "Payments"].includes(activeTab)) {
+    if (["Store", "Payments", "Shipping", "Notifications", "Domains", "Checkout"].includes(activeTab)) {
       loadStoreSettings();
     }
     if (activeTab === "Users") loadAdminUsers();
@@ -5375,7 +5375,9 @@ function SettingsPanel({ onOpen, signedInUser }) {
       const response = await fetch("/api/admin/settings", { cache: "no-store" });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to load store settings.");
-      setStoreSettings(result.settings || DEFAULT_STORE_SETTINGS);
+      const nextSettings = result.settings || DEFAULT_STORE_SETTINGS;
+      setStoreSettings(nextSettings);
+      setShippingZones(nextSettings.shippingZones || DEFAULT_STORE_SETTINGS.shippingZones);
       setStoreSettingsSetup(result.needsSetup ? `Run ${result.setupSql || "scripts/supabase-store-settings.sql"} in Supabase before saving live settings.` : "");
     } catch (error) {
       setStoreSettingsError(error.message);
@@ -5429,8 +5431,11 @@ function SettingsPanel({ onOpen, signedInUser }) {
   }
 
   function saveSettings(event) {
-    event.preventDefault();
-    setSavedAt(new Date().toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }));
+    return saveStoreSettings(event);
+  }
+
+  function updateSettingsGroup(group, changes) {
+    setStoreSettings((current) => ({ ...current, [group]: { ...(DEFAULT_STORE_SETTINGS[group] || {}), ...(current[group] || {}), ...changes } }));
   }
 
   function updateAnnouncement(index, changes) {
@@ -5569,12 +5574,15 @@ function SettingsPanel({ onOpen, signedInUser }) {
   function addShippingZone(event) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    setShippingZones((current) => [...current, {
-      zone: form.get("zone") || "New zone",
-      cities: form.get("cities") || "Selected cities",
-      rate: `Rs. ${form.get("rate") || 0}`,
-      freeAbove: `Rs. ${form.get("freeAbove") || 0}`,
-    }]);
+    const nextZone = {
+      id: `shipping-zone-${Date.now()}`,
+      zone: String(form.get("zone") || "New zone"),
+      cities: String(form.get("cities") || "Selected cities"),
+      rate: Math.max(0, Number(form.get("rate") || 0)),
+      freeAbove: Math.max(0, Number(form.get("freeAbove") || 0)),
+    };
+    setShippingZones((current) => [...current, nextZone]);
+    setStoreSettings((current) => ({ ...current, shippingZones: [...(current.shippingZones || []), nextZone] }));
     event.currentTarget.reset();
   }
 
@@ -5811,7 +5819,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
         </form>}
 
         {activeTab === "Shipping" && <div className="settingsStack">
-          <section className="adminCard settingsForm settingsWideForm"><h2>Shipping zones and rates</h2><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Zone</th><th>Cities</th><th>Rate</th><th>Free above</th></tr></thead><tbody>{shippingZones.map((zone) => <tr key={zone.zone}><td><b>{zone.zone}</b></td><td>{zone.cities}</td><td>{zone.rate}</td><td>{zone.freeAbove}</td></tr>)}</tbody></table></div></section>
+          <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}><h2>Shipping zones and rates</h2><p className="settingsHint">Add one or more zones below, then save them to use the same configuration after every refresh.</p><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Zone</th><th>Cities</th><th>Rate</th><th>Free above</th></tr></thead><tbody>{shippingZones.map((zone) => <tr key={zone.id || zone.zone}><td><b>{zone.zone}</b></td><td>{zone.cities}</td><td>Rs. {Number(zone.rate || 0).toLocaleString()}</td><td>{Number(zone.freeAbove || 0) ? `Rs. ${Number(zone.freeAbove).toLocaleString()}` : "—"}</td></tr>)}</tbody></table></div><button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save shipping zones"}</button></form>
           <form className="adminCard settingsForm settingsWideForm" onSubmit={addShippingZone}><h2>Add shipping zone</h2><div className="formRow"><label>Zone name<input name="zone" required placeholder="Karachi express" /></label><label>Cities<input name="cities" required placeholder="Karachi, Hyderabad" /></label></div><div className="formRow"><label>Rate<input name="rate" type="number" min="0" defaultValue="200" /></label><label>Free delivery above<input name="freeAbove" type="number" min="0" defaultValue="5000" /></label></div><button>Add zone</button></form>
         </div>}
 
@@ -5835,29 +5843,30 @@ function SettingsPanel({ onOpen, signedInUser }) {
 
         {activeTab === "Notifications" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
           <h2>Notification templates</h2>
-          <div className="settingsOption"><div><b>Order confirmation</b><span>Sent after checkout or manual DM order confirmation.</span></div><label className="switchLabel"><input type="checkbox" defaultChecked /> Enabled</label></div>
-          <label>Order confirmation subject<input defaultValue="Your Bustaniya order is confirmed" /></label>
-          <label>Email template<textarea rows="6" defaultValue={"Hi {{customer_name}},\n\nYour order {{order_number}} has been confirmed. Tracking: {{tracking_number}}.\n\nThank you,\nBustaniya"} /></label>
-          <div className="settingsOption"><div><b>Fulfillment update</b><span>Sent when tracking number or PostEx status changes.</span></div><label className="switchLabel"><input type="checkbox" defaultChecked /> Enabled</label></div>
-          <div className="settingsOption"><div><b>COD phone verification reminder</b><span>Internal reminder for risky COD orders.</span></div><label className="switchLabel"><input type="checkbox" defaultChecked /> Enabled</label></div>
-          <button>Save template preview</button>
+          <div className="settingsOption"><div><b>Order confirmation</b><span>Template configuration saved for your order communication workflow.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.notificationSettings?.orderConfirmationEnabled !== false} onChange={(event) => updateSettingsGroup("notificationSettings", { orderConfirmationEnabled: event.target.checked })} /> Enabled</label></div>
+          <label>Order confirmation subject<input value={storeSettings.notificationSettings?.orderConfirmationSubject || ""} onChange={(event) => updateSettingsGroup("notificationSettings", { orderConfirmationSubject: event.target.value })} /></label>
+          <label>Email template<textarea rows="6" value={storeSettings.notificationSettings?.orderConfirmationTemplate || ""} onChange={(event) => updateSettingsGroup("notificationSettings", { orderConfirmationTemplate: event.target.value })} /></label>
+          <div className="settingsOption"><div><b>Fulfillment update</b><span>Used when tracking number or PostEx status changes.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.notificationSettings?.fulfillmentUpdateEnabled !== false} onChange={(event) => updateSettingsGroup("notificationSettings", { fulfillmentUpdateEnabled: event.target.checked })} /> Enabled</label></div>
+          <div className="settingsOption"><div><b>COD phone verification reminder</b><span>Internal reminder for risky COD orders.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.notificationSettings?.codVerificationReminderEnabled !== false} onChange={(event) => updateSettingsGroup("notificationSettings", { codVerificationReminderEnabled: event.target.checked })} /> Enabled</label></div>
+          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save notification settings"}</button>
         </form>}
 
         {activeTab === "Domains" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
           <h2>Domains</h2>
-          <label>Primary domain<input defaultValue="bustaniya.pk" /></label>
-          <div className="settingsOption"><div><b>www redirect</b><span>Redirect www.bustaniya.pk to primary domain.</span></div><label className="switchLabel"><input type="checkbox" defaultChecked /> Enabled</label></div>
-          <div className="formRow"><label>SEO title<input defaultValue="Bustaniya - Pakistani fashion store" /></label><label>Meta pixel / analytics<input placeholder="Measurement ID" /></label></div>
-          <button>Save domain preview</button>
+          <p className="settingsHint">These saved values control storefront messaging and metadata. DNS / Vercel redirects still need to be configured in your hosting provider.</p>
+          <label>Primary domain<input value={storeSettings.domainSettings?.primaryDomain || ""} onChange={(event) => updateSettingsGroup("domainSettings", { primaryDomain: event.target.value })} /></label>
+          <div className="settingsOption"><div><b>www redirect</b><span>Keep the preferred public domain recorded for SEO and support links.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.domainSettings?.wwwRedirect !== false} onChange={(event) => updateSettingsGroup("domainSettings", { wwwRedirect: event.target.checked })} /> Enabled</label></div>
+          <div className="formRow"><label>SEO title<input value={storeSettings.domainSettings?.seoTitle || ""} onChange={(event) => updateSettingsGroup("domainSettings", { seoTitle: event.target.value })} /></label><label>Analytics measurement ID<input value={storeSettings.domainSettings?.analyticsMeasurementId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { analyticsMeasurementId: event.target.value })} placeholder="G-..." /></label></div>
+          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save domain settings"}</button>
         </form>}
 
         {activeTab === "Checkout" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
           <h2>Checkout settings</h2>
-          <div className="settingsOption"><div><b>Guest checkout</b><span>Let Instagram and walk-in customers order without accounts.</span></div><label className="switchLabel"><input type="checkbox" defaultChecked /> Enabled</label></div>
-          <div className="settingsOption"><div><b>Phone required</b><span>Required for PostEx booking and COD verification.</span></div><label className="switchLabel"><input type="checkbox" defaultChecked /> Enabled</label></div>
-          <div className="formRow"><label>Default payment<select><option>Cash on Delivery</option><option>Bank deposit</option></select></label><label>Address fields<select><option>Full address required</option><option>Simple city/address only</option></select></label></div>
-          <label>Checkout note<textarea rows="3" defaultValue="COD orders may receive a confirmation call before dispatch." /></label>
-          <button>Save checkout preview</button>
+          <div className="settingsOption"><div><b>Guest checkout</b><span>Let Instagram and walk-in customers order without accounts.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.checkoutSettings?.guestCheckoutEnabled !== false} onChange={(event) => updateSettingsGroup("checkoutSettings", { guestCheckoutEnabled: event.target.checked })} /> Enabled</label></div>
+          <div className="settingsOption"><div><b>Phone required</b><span>Required for PostEx booking and COD verification.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.checkoutSettings?.phoneRequired !== false} onChange={(event) => updateSettingsGroup("checkoutSettings", { phoneRequired: event.target.checked })} /> Enabled</label></div>
+          <div className="formRow"><label>Default payment<select value={storeSettings.checkoutSettings?.defaultPayment || "cod"} onChange={(event) => updateSettingsGroup("checkoutSettings", { defaultPayment: event.target.value })}><option value="cod">Cash on Delivery</option><option value="bank_deposit">Bank deposit</option></select></label><label>Address fields<select value={storeSettings.checkoutSettings?.addressMode || "detailed"} onChange={(event) => updateSettingsGroup("checkoutSettings", { addressMode: event.target.value })}><option value="detailed">Full address required</option><option value="simple">Simple city/address only</option></select></label></div>
+          <label>Checkout note<textarea rows="3" value={storeSettings.checkoutSettings?.checkoutNote || ""} onChange={(event) => updateSettingsGroup("checkoutSettings", { checkoutNote: event.target.value })} /></label>
+          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save checkout settings"}</button>
         </form>}
 
         {activeTab === "System" && <BackendHealthPanel />}

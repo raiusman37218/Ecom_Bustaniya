@@ -129,5 +129,29 @@ export const DEFAULT_STORE_SETTINGS = {
     easypaisaNumber: "",
     instructions: "Use the exact order reference with your transfer. Admin will verify before dispatch.",
   },
+  shippingZones: [
+    { id: "pakistan-standard", zone: "Pakistan - Standard", cities: "All PostEx service cities", rate: 200, freeAbove: 5000 },
+    { id: "lahore-same-day", zone: "Lahore same-day", cities: "Lahore", rate: 250, freeAbove: 8000 },
+  ],
+  notificationSettings: {
+    orderConfirmationEnabled: true,
+    orderConfirmationSubject: "Your Bustaniya order is confirmed",
+    orderConfirmationTemplate: "Hi {{customer_name}},\n\nYour order {{order_number}} has been confirmed. Tracking: {{tracking_number}}.\n\nThank you,\nBustaniya",
+    fulfillmentUpdateEnabled: true,
+    codVerificationReminderEnabled: true,
+  },
+  domainSettings: {
+    primaryDomain: "bustaniya.com",
+    wwwRedirect: true,
+    seoTitle: "Bustaniya: Pakistani Women's Wear",
+    analyticsMeasurementId: "",
+  },
+  checkoutSettings: {
+    guestCheckoutEnabled: true,
+    phoneRequired: true,
+    defaultPayment: "cod",
+    addressMode: "detailed",
+    checkoutNote: "COD orders may receive a confirmation call before dispatch.",
+  },
   homepageSections: DEFAULT_HOMEPAGE_SECTIONS,
 };
