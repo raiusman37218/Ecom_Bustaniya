@@ -1479,7 +1479,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
-          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
+          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Courier Ops" && <CourierOperationsPanel />}
@@ -2440,6 +2440,19 @@ const customOrderStatusOptions = [
   "On Hold",
   "Cancelled",
 ];
+
+const returnWorkflowTransitions = {
+  "No return": ["No return", "Return requested", "Exchange requested", "Refund requested"],
+  "Return requested": ["Return requested", "Return approved"],
+  "Return approved": ["Return approved", "Return received"],
+  "Return received": ["Return received", "Exchange requested", "Refund requested", "Closed"],
+  "Exchange requested": ["Exchange requested", "Exchange approved"],
+  "Exchange approved": ["Exchange approved", "Closed"],
+  "Refund requested": ["Refund requested", "Refund approved"],
+  "Refund approved": ["Refund approved", "Refund processed"],
+  "Refund processed": ["Refund processed", "Closed"],
+  Closed: ["Closed"],
+};
 
 function normalizePostexCategory(value = "") {
   const normalized = String(value || "Unbooked")
@@ -4020,7 +4033,7 @@ function ProductionBatchModal({ isOpen, onClose, onSubmit, products, saving }) {
   );
 }
 
-function InventoryPanel({ products, movements, orders, connected, currentAdminUser, onAdjust, onCreateCustomInventory, onCreateProductionBatch, initialView }) {
+function InventoryPanel({ products, movements, orders, connected, currentAdminUser, onAdjust, onCreateCustomInventory, onCreateProductionBatch, onOpenOrder, initialView }) {
   const emptyProductionCosts = () => ({ fabric: 0, stitching: 0, stitchingMaterial: 0, packaging: 0, travel: 0, other: 0 });
   const inventoryMoney = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
   const newProductionItem = () => ({ key: `batch-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, productId: "", quantity: "", newProductName: "", newProductPrice: "", newProductCategory: "Kurtis", newProductImage: "", directCostBreakdown: emptyProductionCosts() });
@@ -4478,7 +4491,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     </div>
 
     {low + out > 0 && <div className="inventoryAlert"><Bell /><div><b>{low + out} products need attention</b><span>Out-of-stock products cannot be ordered, and low stock is highlighted here.</span></div><button onClick={() => setInventoryView(low ? "Low stock" : "Out of stock")}>Review items</button></div>}
-    {returnedHistoricalOrders.length > 0 && <section id="returned-order-inspection" className="adminCard managementCard inventoryLedger"><div className="inventoryListHead"><div><h2>Returned-order inspection queue</h2><span>Inspect every returned parcel before marking return received.</span></div><b>{returnedHistoricalOrders.length} pending</b></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Finance impact</th><th>Required action</th></tr></thead><tbody>{returnedHistoricalOrders.slice(0, 10).map((order) => <tr key={order.id}><td><b>{order.id}</b></td><td>{order.customer || "—"}</td><td>{normalizeOrderItems(order.raw || order).map((item) => `${item.name} × ${item.quantity}`).join(", ")}</td><td className="expenseAmount">Actual PostEx loss</td><td><b>Inspect → mark Return received to restore stock</b></td></tr>)}</tbody></table></div><p className="trackingNumber">Finance deducts the actual PostEx return/shipping loss from synced CPR/payment data. Stock is restored one time only after staff marks the return as received, so damaged/missing parcels are not added back accidentally.</p></section>}
+    {returnedHistoricalOrders.length > 0 && <section id="returned-order-inspection" className="adminCard managementCard inventoryLedger"><div className="inventoryListHead"><div><h2>Returned-order inspection queue</h2><span>Inspect the physical parcel, then confirm stock restoration from its order workflow.</span></div><b>{returnedHistoricalOrders.length} pending</b></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Finance impact</th><th>Required action</th></tr></thead><tbody>{returnedHistoricalOrders.slice(0, 10).map((order) => <tr key={order.id}><td><b>{order.id}</b></td><td>{order.customer || "—"}</td><td>{normalizeOrderItems(order.raw || order).map((item) => `${item.name} × ${item.quantity}`).join(", ")}</td><td className="expenseAmount">Actual PostEx loss</td><td><button type="button" onClick={() => onOpenOrder?.(order)}>Inspect &amp; restore stock</button></td></tr>)}</tbody></table></div><p className="trackingNumber">Finance deducts the actual PostEx return, shipping, GST and tax loss from synced CPR/payment data. After inspection, select <b>Return received</b> and confirm the stock restoration once; the system records a movement and prevents a second restore.</p></section>}
     {lowMaterialCount > 0 && <div className="inventoryAlert materialAlert"><Bell /><div><b>{lowMaterialCount} material items need reorder review</b><span>Buttons, laces, trims and other raw materials are tracked separately from finished product stock.</span></div><button onClick={() => setTab("Sources")}>Review materials</button></div>}
 
     <section className="adminCard managementCard inventoryLedger">
@@ -4721,6 +4734,8 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
   const [saveError, setSaveError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const items = normalizeOrderItems(order);
+  const returnStatusOptions = returnWorkflowTransitions[order.operation?.returnStatus || "No return"] || [returnStatus];
+  const restoringReturnedStock = order.operation?.returnStatus !== "Return received" && returnStatus === "Return received";
 
   function changes(overrides = {}) {
     return {
@@ -4891,11 +4906,12 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
 
       <section className="adminCard orderOpsCard">
         <h3>Returns, exchanges, refunds</h3>
-        <div className="formRow"><label>Status<select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)}><option>No return</option><option>Return requested</option><option>Return approved</option><option>Return received</option><option>Exchange requested</option><option>Exchange approved</option><option>Refund requested</option><option>Refund approved</option><option>Refund processed</option><option>Closed</option></select></label><label>Reason<input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Size, defect, incorrect item..." /></label></div>
+        <div className="formRow"><label>Status<select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)}>{returnStatusOptions.map((status) => <option key={status}>{status}</option>)}</select></label><label>Reason<input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Size, defect, incorrect item..." /></label></div>
         <div className="formRow"><label>Resolution<textarea value={returnResolution} onChange={(event) => setReturnResolution(event.target.value)} rows="2" placeholder="Approved replacement, customer contacted..." /></label><label>Tags<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Urgent, DM, Exchange" /></label></div>
         <div className="formRow"><label>Refund amount (PKR)<input type="number" min="0" max={order.total} step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} /></label><label>Refund method<select value={refundMethod} onChange={(event) => setRefundMethod(event.target.value)} disabled={!canRecordRefund}><option value="">Select method</option><option>Bank transfer</option><option>Easypaisa</option><option>JazzCash</option><option>Card reversal</option><option>Cash</option><option>Other</option></select></label></div>
         {!canRecordRefund && <p className="shippingRuleHint">Only an Owner can approve or record refund details.</p>}
-        <p className="shippingRuleHint">A refund here is an internal record only; it does not send money, change a payment-provider transaction, deduct cash, or change inventory. Returned items must be physically received and inspected before any separate stock adjustment.</p>
+        {restoringReturnedStock ? <p className="checkoutError">Final check: this will restore {items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} item(s) to stock once. Only continue after the returned parcel has been physically inspected.</p> : <p className="shippingRuleHint">Refund entries are internal records only; they do not send money. Finance uses the actual PostEx CPR return, shipping, GST and tax deductions. Stock changes only when an inspected return is marked <b>Return received</b>.</p>}
+        <button type="button" onClick={() => saveChanges()} disabled={saving}>{saving ? "Saving..." : restoringReturnedStock ? "Confirm inspection & restore stock" : "Save return workflow"}</button>
       </section>
 
       <section className="adminCard orderOpsCard">
