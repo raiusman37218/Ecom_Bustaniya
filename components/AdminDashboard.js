@@ -946,8 +946,8 @@ export default function AdminDashboard() {
         courierNormalizedStatus: order.courier_normalized_status || "unassigned",
         courierServiceType: order.courier_service_type || "",
         paymentStatus: order.payment_status || (order.payment_method === "bank_deposit" ? "Verification due" : "COD pending"),
-        fulfillmentStatus: order.fulfillment_status || (order.courier_tracking_number ? "Booked with PostEx" : "Unfulfilled"),
-        tracking: order.courier_tracking_number || "",
+        fulfillmentStatus: order.fulfillment_status || (order.courier_tracking_number || order.tracking_number ? "Booked with PostEx" : "Unfulfilled"),
+        tracking: order.courier_tracking_number || order.tracking_number || "",
         phone: order.shipping_phone || order.guest_phone || "",
         address: [order.shipping_address, order.shipping_city, order.shipping_postal_code].filter(Boolean).join(", "),
         items: Array.isArray(order.items) ? order.items : [],
@@ -968,12 +968,14 @@ export default function AdminDashboard() {
       setOrders(formatted);
       setOrdersPagination(result.pagination || { page, pageSize: ordersPagination.pageSize, total: formatted.length, totalPages: formatted.length ? 1 : 0 });
       setOrdersConnected(true);
-      try {
-        await loadAdminData();
-      } catch (adminDataError) {
+      // Orders are the shared source for Finance and Inventory. Render them as
+      // soon as their request completes; catalog/dashboard enrichment must not
+      // keep the entire admin workspace behind the Orders loading screen.
+      setOrdersLoading(false);
+      void loadAdminData().catch((adminDataError) => {
         // Orders remain usable when a separate dashboard/catalog request fails.
         console.error("Admin workspace data load failed", adminDataError);
-      }
+      });
     } catch (loadError) {
       setOrdersConnected(false);
       setOrdersError(loadError.message);
