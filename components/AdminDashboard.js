@@ -1763,7 +1763,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const dashboardSupplierPayments = financeSnapshot.transactions.filter((item) => item.type === "supplier_payment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardOwnerInvestments = financeSnapshot.transactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardOwnerWithdrawals = financeSnapshot.transactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const dashboardManualPostexReceipts = financeSnapshot.transactions.filter((item) => item.type === "postex_bank_receipt").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardManualPostexReceipts = financeSnapshot.transactions.filter((item) => item.type === "postex_bank_receipt" && !item.voided).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardPostexBankReceived = Number(financeSnapshot.postex?.summary?.bankReceivedPkr || 0) + dashboardManualPostexReceipts;
   const dashboardExpectedPostexNet = Number(dashboardCalculatedPostex.totalExpectedNetPkr || financeSnapshot.postex?.summary?.totalExpectedNetPkr || dashboardSales);
   const dashboardPostexReceivable = Math.max(0, Number(dashboardCalculatedPostex.outstandingPkr || financeSnapshot.postex?.summary?.outstandingPkr || dashboardExpectedPostexNet || dashboardCod) - dashboardManualPostexReceipts);
@@ -3061,6 +3061,9 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const [voidPostexBatch, setVoidPostexBatch] = useState(null);
   const [voidPostexConfirmation, setVoidPostexConfirmation] = useState("");
   const [voidingPostexBatchId, setVoidingPostexBatchId] = useState("");
+  const [voidManualPostexReceipt, setVoidManualPostexReceipt] = useState(null);
+  const [voidManualPostexConfirmation, setVoidManualPostexConfirmation] = useState("");
+  const [voidingManualPostexReceiptId, setVoidingManualPostexReceiptId] = useState("");
   const [cprTrackingText, setCprTrackingText] = useState("");
   const [financeTab, setFinanceTab] = useState(["overview","settlements","pnl","cashbook","suppliers","marketing","reports"].includes(initialTab) ? initialTab : "overview");
 
@@ -3129,7 +3132,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const postexSummary = postexSnapshot?.summary || {};
   const postexPayments = Array.isArray(postexSnapshot?.payments) ? postexSnapshot.payments : [];
   const postexBatches = Array.isArray(postexSnapshot?.batches) ? postexSnapshot.batches : [];
-  const manualPostexReceipts = cashbookTransactions.filter((item) => item.type === "postex_bank_receipt");
+  const manualPostexReceiptHistory = cashbookTransactions.filter((item) => item.type === "postex_bank_receipt");
+  const manualPostexReceipts = manualPostexReceiptHistory.filter((item) => !item.voided);
   const manualPostexBankReceived = manualPostexReceipts.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const calculatedPostex = postexCalculatedSummary(postexSnapshot || {});
   const postexAllocatedByPayment = calculatedPostex.allocations;
@@ -3385,6 +3389,14 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     if (!amount || amount < 0) return;
     const reference = String(data.get("reference") || "").trim();
     const bank = String(data.get("bank") || "").trim();
+    if (!reference) {
+      setCashbookError("Enter the PostEx CPR or bank reference so this receipt can be tracked and reversed safely.");
+      return;
+    }
+    if (manualPostexReceipts.some((entry) => String(entry.reference || entry.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim().toLowerCase() === reference.toLowerCase())) {
+      setCashbookError("This PostEx CPR / bank reference is already recorded. Open its history below and void the wrong entry if needed.");
+      return;
+    }
     const nextTransactions = [{
       id: `postex-receipt-${Date.now()}`,
       type: "postex_bank_receipt",
@@ -3392,6 +3404,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       category: bank || "PostEx wallet",
       amount,
       date: data.get("date") || today,
+      reference,
       note: String(data.get("note") || "").trim(),
     }, ...cashbookTransactions];
     setCashbookLoading(true);
@@ -3409,6 +3422,56 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     } catch (error) {
       setCashbookError(error.message);
     } finally {
+      setCashbookLoading(false);
+    }
+  }
+
+  function requestVoidManualPostexReceipt(receipt) {
+    if (!isOwnerFinance) {
+      setCashbookError("Only an Owner can void a PostEx wallet receipt.");
+      return;
+    }
+    setVoidManualPostexReceipt(receipt);
+    setVoidManualPostexConfirmation("");
+    setCashbookError("");
+  }
+
+  function closeVoidManualPostexReceipt() {
+    if (voidingManualPostexReceiptId) return;
+    setVoidManualPostexReceipt(null);
+    setVoidManualPostexConfirmation("");
+  }
+
+  async function voidManualPostexWalletReceipt(event) {
+    event.preventDefault();
+    const receipt = voidManualPostexReceipt;
+    const reference = String(receipt?.reference || receipt?.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim();
+    if (!receipt || voidManualPostexConfirmation.trim() !== `VOID ${reference}`) return;
+    const nextTransactions = cashbookTransactions.map((entry) => entry.id === receipt.id ? {
+      ...entry,
+      voided: true,
+      voidedAt: new Date().toISOString(),
+      voidedBy: currentAdminUser?.name || currentAdminUser?.email || "Owner",
+      note: [entry.note, `VOIDED ${new Date().toLocaleString("en-PK")}`].filter(Boolean).join(" · "),
+    } : entry);
+    setVoidingManualPostexReceiptId(receipt.id);
+    setCashbookLoading(true);
+    setCashbookError("");
+    try {
+      const response = await fetch("/api/admin/finance-transactions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactions: nextTransactions }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to void PostEx wallet receipt.");
+      setCashbookTransactions(result.transactions || nextTransactions);
+      setVoidManualPostexReceipt(null);
+      setVoidManualPostexConfirmation("");
+    } catch (error) {
+      setCashbookError(error.message);
+    } finally {
+      setVoidingManualPostexReceiptId("");
       setCashbookLoading(false);
     }
   }
@@ -3653,7 +3716,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
           <h2>Add PostEx bank receipt</h2>
           <p className="trackingNumber">Easy mode: jab PostEx bank/JazzCash mein amount bheje, bas amount, date aur reference enter kar dein. Ye available cash mein add ho jayega aur pending receivable se minus ho jayega.</p>
           <div className="formRow"><label>Amount received<input name="amount" type="number" min="1" step="0.01" required placeholder="e.g. 18500" /></label><label>Receipt date<input name="date" type="date" defaultValue={today} /></label></div>
-          <div className="formRow"><label>Bank / wallet<input name="bank" placeholder="Meezan, HBL, JazzCash..." /></label><label>Reference / CPR<input name="reference" placeholder="Bank ref, CPR no, week no..." /></label></div>
+          <div className="formRow"><label>Bank / wallet<input name="bank" placeholder="Meezan, HBL, JazzCash..." /></label><label>Reference / CPR<input name="reference" required placeholder="Bank ref, CPR no, week no..." /></label></div>
           <label>Note<input name="note" placeholder="Short payment, carry forward, adjustment..." /></label>
           <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Add to PostEx wallet"}</button>
         </form>
@@ -3668,6 +3731,14 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
           </div>
           <p className="cashBreakdownNote">Detailed CPR matching below is optional. For daily business balance, this wallet receipt is enough.</p>
         </div>
+      </div>
+
+      <div className="adminCard managementCard settlementHistory">
+        <div className="inventoryListHead"><div><h2>Manual wallet receipt history</h2><span>Every manually entered bank receipt stays here. Void a wrong entry instead of editing or re-entering it.</span></div><b>{manualPostexReceiptHistory.length} entries</b></div>
+        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Reference / CPR</th><th>Bank / wallet</th><th>Date</th><th>Amount</th><th>Note</th><th>Status</th><th>Action</th></tr></thead><tbody>
+          {manualPostexReceiptHistory.map((receipt) => { const reference = String(receipt.reference || receipt.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim() || receipt.id; return <tr key={receipt.id}><td><b>{reference}</b></td><td>{receipt.category || "PostEx wallet"}</td><td>{receipt.date || "—"}</td><td className={receipt.voided ? "" : "incomeAmount"}>{money(receipt.amount)}</td><td>{receipt.note || "—"}</td><td><span className={`statusBadge ${receipt.voided ? "cancelled" : "reconciled"}`}>{receipt.voided ? "Voided" : "Active"}</span>{receipt.voidedAt && <small className="trackingNumber"><br />{formatFinanceDate(receipt.voidedAt)}</small>}</td><td>{!receipt.voided && isOwnerFinance ? <button type="button" className="removeProductButton" onClick={() => requestVoidManualPostexReceipt(receipt)} disabled={cashbookLoading}>Void</button> : "—"}</td></tr>; })}
+          {!manualPostexReceiptHistory.length && <tr><td colSpan="7" className="emptyFinanceCell">No manual PostEx wallet receipts recorded yet.</td></tr>}
+        </tbody></table></div>
       </div>
 
       <div className="financeGrid financeGridWide settlementWorkspace">
@@ -3746,6 +3817,22 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
         </div>
         <label>Type <b>{`VOID ${voidPostexBatch.cpr_number}`}</b> exactly to confirm<input value={voidPostexConfirmation} onChange={(event) => setVoidPostexConfirmation(event.target.value)} autoComplete="off" autoFocus /></label>
         <button className="removeProductButton" type="submit" disabled={voidingPostexBatchId === voidPostexBatch.id || voidPostexConfirmation.trim() !== `VOID ${voidPostexBatch.cpr_number}`}>{voidingPostexBatchId === voidPostexBatch.id ? "Voiding receipt..." : "Void / reverse receipt"}</button>
+      </form>
+    </>}
+
+    {voidManualPostexReceipt && <>
+      <div className="adminOverlay" onClick={closeVoidManualPostexReceipt} />
+      <form className="inventoryDialog" onSubmit={voidManualPostexWalletReceipt}>
+        <DialogHead title="Void manual PostEx receipt" onClose={closeVoidManualPostexReceipt} />
+        <div className="inventoryAlert materialAlert">
+          <Landmark />
+          <div>
+            <b>This will reverse this manually entered bank receipt</b>
+            <span>Available cash will decrease by {money(voidManualPostexReceipt.amount)}. The receipt will remain visible as voided for audit, and the PostEx receivable will update again.</span>
+          </div>
+        </div>
+        <label>Type <b>{`VOID ${String(voidManualPostexReceipt.reference || voidManualPostexReceipt.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim()}`}</b> exactly to confirm<input value={voidManualPostexConfirmation} onChange={(event) => setVoidManualPostexConfirmation(event.target.value)} autoComplete="off" autoFocus /></label>
+        <button className="removeProductButton" type="submit" disabled={voidingManualPostexReceiptId === voidManualPostexReceipt.id || voidManualPostexConfirmation.trim() !== `VOID ${String(voidManualPostexReceipt.reference || voidManualPostexReceipt.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim()}`}>{voidingManualPostexReceiptId === voidManualPostexReceipt.id ? "Voiding receipt..." : "Void / reverse receipt"}</button>
       </form>
     </>}
 

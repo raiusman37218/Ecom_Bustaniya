@@ -31,9 +31,20 @@ export async function PATCH(request) {
     await authorizeAdminSession(request, "finance");
     const body = await request.json();
     const existing = await getStoreSettings({ includeFinance: true });
+    const proposedTransactions = body.transactions ?? existing.financeTransactions;
+    const activePostexReferences = new Set();
+    for (const transaction of Array.isArray(proposedTransactions) ? proposedTransactions : []) {
+      if (transaction?.type !== "postex_bank_receipt" || transaction?.voided === true) continue;
+      const reference = String(transaction?.reference || String(transaction?.title || "").replace(/^PostEx bank receipt:\s*/i, "")).trim().toLowerCase();
+      if (!reference) continue;
+      if (activePostexReferences.has(reference)) {
+        return NextResponse.json({ error: "This PostEx bank reference / CPR is already active. Void the incorrect receipt instead of adding it again." }, { status: 422 });
+      }
+      activePostexReferences.add(reference);
+    }
     const settings = await updateStoreSettings({
       ...existing,
-      financeTransactions: body.transactions ?? existing.financeTransactions,
+      financeTransactions: proposedTransactions,
       financeAllocation: body.allocation ?? existing.financeAllocation,
       supplierBills: body.supplierBills ?? existing.supplierBills,
       financeFixedCosts: body.fixedCosts ?? existing.financeFixedCosts,
