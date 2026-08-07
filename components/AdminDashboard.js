@@ -5706,7 +5706,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
   }
 
   return <><div className="adminTitle"><div><p>CONFIGURATION</p><h1>Settings</h1><span>Manage storefront and workspace configuration. Store Details changes save live; use the relevant section to save its settings.</span></div></div>
-    {savedAt && <div className="adminErrorBanner settingsSaved">Store settings saved at {savedAt}.</div>}
+{savedAt && <div className="adminErrorBanner settingsSaved">Store settings saved at {savedAt}.</div>}
     <section className="settingsLayout">
       <aside className="settingsNav">{tabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>{tab}<span>{settingsTabHint(tab)}</span></button>)}</aside>
       <div className="settingsPanel">
@@ -5715,82 +5715,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
           {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
           {storeSettingsSetup && <div className="adminErrorBanner">{storeSettingsSetup}</div>}
           <section className="settingsOption productCardStyleSetting"><div><b>Product card design</b><span>Choose the storefront product-card layout. Changes apply to home, collections and related products.</span></div><select value={storeSettings.productCardStyle || "connected"} onChange={(event) => setStoreSettings((current) => ({ ...current, productCardStyle: event.target.value }))}><option value="classic">Classic cards</option><option value="connected">Connected tiles (Sapphire-inspired)</option></select></section>
-          <section className="heroSettingsEditor">
-            <div className="heroSettingsHeading"><div><p>HOMEPAGE</p><h2>Hero Banner Settings</h2><span>Manage the desktop and mobile campaign compositions independently.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.heroEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEnabled: event.target.checked }))} /> Enabled</label></div>
-            <div className="heroImageSettingsGrid">
-              {[{ field: "heroDesktopImages", legacyField: "heroDesktopImage", label: "Desktop Hero Slides", hint: "Select multiple wide campaign images · recommended 16:8" }, { field: "heroMobileImages", legacyField: "heroMobileImage", label: "Mobile Hero Slides", hint: "Select multiple portrait campaign images · recommended 4:5" }].map((item) => {
-                const images = storeSettings[item.field]?.length ? storeSettings[item.field] : [storeSettings[item.legacyField]].filter(Boolean);
-                return <div className="heroImageSetting" key={item.field}>
-                  <span><b>{item.label}</b><small>{item.hint}</small></span>
-                  <div className="heroSlidesEditor">{images.map((image, index) => <div className="heroSlideEditor" key={`${image}-${index}`}><div className="heroAdminImagePreview"><img src={image} alt="" /></div><input value={image} onChange={(event) => setStoreSettings((current) => ({ ...current, [item.field]: images.map((value, imageIndex) => imageIndex === index ? event.target.value : value) }))} placeholder="/hero-image.jpg or https://..." /><button type="button" disabled={images.length === 1} onClick={() => setStoreSettings((current) => ({ ...current, [item.field]: images.filter((_, imageIndex) => imageIndex !== index) }))}>Remove</button></div>)}</div>
-                  <p className="heroUrlHelp">Upload images to your Cloudinary account first, then paste each secure Cloudinary URL below.</p>
-                  <div className="heroUrlAdder"><input value={heroUrlInputs[item.field] || ""} onChange={(event) => setHeroUrlInputs((current) => ({ ...current, [item.field]: event.target.value }))} placeholder="Paste Cloudinary image URL (https://...)" /><button type="button" onClick={() => addHeroImageUrl(item.field)}>Add URL</button></div>
-                </div>;
-              })}
-            </div>
-            <div className="formRow"><label>Hero Eyebrow Text<input value={storeSettings.heroEyebrow || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEyebrow: event.target.value }))} placeholder="NEW SEASON" /></label><label>Main Heading<input value={storeSettings.heroHeading || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroHeading: event.target.value }))} placeholder="Elevated Eastern Wear" /></label></div>
-            <label>Short Supporting Text<textarea rows="2" value={storeSettings.heroSupportingText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSupportingText: event.target.value }))} placeholder="Thoughtfully designed kurtis for everyday elegance." /></label>
-            <div className="formRow"><label>Primary Button Text<input value={storeSettings.heroPrimaryButtonText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroPrimaryButtonText: event.target.value }))} /></label><label>Primary Button Link<input value={storeSettings.heroPrimaryButtonLink || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroPrimaryButtonLink: event.target.value }))} /></label></div>
-            <div className="formRow"><label>Secondary Button Text (optional)<input value={storeSettings.heroSecondaryButtonText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSecondaryButtonText: event.target.value }))} /></label><label>Secondary Button Link (optional)<input value={storeSettings.heroSecondaryButtonLink || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSecondaryButtonLink: event.target.value }))} /></label></div>
-            <div className="formRow"><label>Text Alignment<select value={storeSettings.heroTextAlignment || "left"} onChange={(event) => setStoreSettings((current) => ({ ...current, heroTextAlignment: event.target.value }))}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>Text Position<select value={storeSettings.heroTextPosition || "left"} onChange={(event) => setStoreSettings((current) => ({ ...current, heroTextPosition: event.target.value }))}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label></div>
-            <label>Overlay Intensity — {Number(storeSettings.heroOverlayIntensity || 0)}%<input type="range" min="0" max="80" step="1" value={Number(storeSettings.heroOverlayIntensity || 0)} onChange={(event) => setStoreSettings((current) => ({ ...current, heroOverlayIntensity: Number(event.target.value) }))} /></label>
-          </section>
-          <section className="sectionColorEditor">
-            <div className="heroSettingsHeading"><div><p>HOMEPAGE DESIGN</p><h2>Section Background & Text Colors</h2><span>Select custom background and text colors for each landing-page section.</span></div></div>
-            <div className="sectionColorGrid">
-              {HOMEPAGE_COLOR_SECTIONS.map((section) => {
-                const selectedBg = storeSettings.sectionColors?.[section.key] || DEFAULT_STORE_SETTINGS.sectionColors[section.key];
-                const selectedText = storeSettings.sectionTextColors?.[section.key] || DEFAULT_STORE_SETTINGS.sectionTextColors?.[section.key] || "#173d29";
-                return <div className="sectionColorOption" key={section.key}>
-                  <div className="sectionColorHeader">
-                    <b>{section.label}</b>
-                    <span className="badgePreview" style={{ background: selectedBg, color: selectedText, border: "1px solid #d5ddd3" }}>Preview Text</span>
-                  </div>
-
-                  <div className="colorControlBlock">
-                    <div className="colorLabelRow">
-                      <label>Background Color</label>
-                      <div className="hexInputRow">
-                        <input type="color" value={selectedBg} onChange={(event) => setStoreSettings((current) => ({ ...current, sectionColors: { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(current.sectionColors || {}), [section.key]: event.target.value } }))} />
-                        <span>{selectedBg}</span>
-                      </div>
-                    </div>
-                    <div className="sectionColorSwatches" role="group" aria-label={`${section.label} background color`}>
-                      {HOMEPAGE_COLOR_OPTIONS.map((color) => <button type="button" key={color.value} title={color.name} aria-label={`${section.label} BG: ${color.name}`} className={selectedBg === color.value ? "selected" : ""} style={{ background: color.value }} onClick={() => setStoreSettings((current) => ({ ...current, sectionColors: { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(current.sectionColors || {}), [section.key]: color.value } }))} />)}
-                    </div>
-                  </div>
-
-                  <div className="colorControlBlock" style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px dashed #e0e6df" }}>
-                    <div className="colorLabelRow">
-                      <label>Text Color</label>
-                      <div className="hexInputRow">
-                        <input type="color" value={selectedText} onChange={(event) => setStoreSettings((current) => ({ ...current, sectionTextColors: { ...DEFAULT_STORE_SETTINGS.sectionTextColors, ...(current.sectionTextColors || {}), [section.key]: event.target.value } }))} />
-                        <span>{selectedText}</span>
-                      </div>
-                    </div>
-                    <div className="sectionColorSwatches" role="group" aria-label={`${section.label} text color`}>
-                      {HOMEPAGE_COLOR_OPTIONS.map((color) => <button type="button" key={color.value} title={color.name} aria-label={`${section.label} Text: ${color.name}`} className={selectedText === color.value ? "selected" : ""} style={{ background: color.value }} onClick={() => setStoreSettings((current) => ({ ...current, sectionTextColors: { ...DEFAULT_STORE_SETTINGS.sectionTextColors, ...(current.sectionTextColors || {}), [section.key]: color.value } }))} />)}
-                    </div>
-                  </div>
-                </div>;
-              })}
-            </div>
-          </section>
-          <div className="settingsOption"><div><b>Announcement bar</b><span>Shown above the main header. Multiple active announcements rotate automatically.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.announcementEnabled} onChange={(event) => setStoreSettings((current) => ({ ...current, announcementEnabled: event.target.checked }))} /> Enabled</label></div>
-          <section className="announcementEditor">
-            <div className="inventoryListHead"><div><h2>Announcements</h2><span>{(storeSettings.announcements || []).length} messages</span></div><button type="button" onClick={addAnnouncement}><Plus /> Add announcement</button></div>
-            {(storeSettings.announcements || []).map((announcement, index) => (
-              <article className="announcementEditorItem" key={announcement.id || index}>
-                <div className="announcementEditorHead">
-                  <b>Announcement {index + 1}</b>
-                  <label className="switchLabel"><input type="checkbox" checked={announcement.enabled !== false} onChange={(event) => updateAnnouncement(index, { enabled: event.target.checked })} /> Active</label>
-                  <button type="button" onClick={() => removeAnnouncement(index)} aria-label={`Remove announcement ${index + 1}`}><X /></button>
-                </div>
-                <label>Message<textarea rows="2" value={announcement.text || ""} onChange={(event) => updateAnnouncement(index, { text: event.target.value })} placeholder="Free delivery, sale, advance payment, new arrivals..." /></label>
-                <div className="formRow"><label>Link label<input value={announcement.linkLabel || ""} onChange={(event) => updateAnnouncement(index, { linkLabel: event.target.value })} placeholder="Shop now" /></label><label>Link URL<input value={announcement.linkHref || ""} onChange={(event) => updateAnnouncement(index, { linkHref: event.target.value })} placeholder="#products or /category/kurtis" /></label></div>
-              </article>
-            ))}
-          </section>
+          <section className="settingsOption categoryStyleSetting"><div><b>Shop by Category design</b><span>Choose how the Shop by Category section displays on the homepage.</span></div><select value={storeSettings.categorySectionStyle || "atelier"} onChange={(event) => setStoreSettings((current) => ({ ...current, categorySectionStyle: event.target.value }))}><option value="atelier">Atelier Overlay Cards (Dark Theme Overlay)</option><option value="minimal">Minimal Collections Grid (House of Lucknawi Style - Rounded cards with titles below)</option></select></section>
           <div className="formRow"><label>Store name<input defaultValue="Bustaniya" /></label><label>Legal business name<input defaultValue="Bustaniya" /></label></div>
           <div className="formRow"><label>Support email<input defaultValue="hello@bustaniya.pk" /></label><label>Customer phone<input placeholder="+92 3xx xxxxxxx" /></label></div>
           <label>Business address<textarea rows="3" placeholder="Warehouse / office address" /></label>
@@ -5854,6 +5779,13 @@ function SettingsPanel({ onOpen, signedInUser }) {
                         sections[index] = { ...sections[index], subtitle: event.target.value };
                         return { ...current, homepageSections: sections };
                       })} /></label>
+                      {section.type === "shop_by_category" && (
+                        <label style={{ gridColumn: "1 / -1" }}>Category Display Layout<select value={section.style || storeSettings.categorySectionStyle || "atelier"} onChange={(event) => setStoreSettings((current) => {
+                          const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                          sections[index] = { ...sections[index], style: event.target.value };
+                          return { ...current, categorySectionStyle: event.target.value, homepageSections: sections };
+                        })}><option value="atelier">Atelier Card Overlay (Dark Theme Overlay)</option><option value="minimal">Minimal Collections Grid (House of Lucknawi Style)</option></select></label>
+                      )}
                     </div>
                   )}
                   {isHero && <p className="sectionManagerHint">Hero banner settings are managed in the Store tab above.</p>}
@@ -5887,6 +5819,69 @@ function SettingsPanel({ onOpen, signedInUser }) {
             );
           })()}
           <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save sections"}</button>
+        </form>}
+
+
+        {activeTab === "Theme" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
+          <section className="sectionColorEditor">
+            <div className="heroSettingsHeading"><div><p>HOMEPAGE DESIGN</p><h2>Section Background & Text Colors</h2><span>Select custom background and text colors for each landing-page section.</span></div></div>
+            <div className="sectionColorGrid">
+              {HOMEPAGE_COLOR_SECTIONS.map((section) => {
+                const selectedBg = storeSettings.sectionColors?.[section.key] || DEFAULT_STORE_SETTINGS.sectionColors[section.key];
+                const selectedText = storeSettings.sectionTextColors?.[section.key] || DEFAULT_STORE_SETTINGS.sectionTextColors?.[section.key] || "#173d29";
+                return (
+                  <div className="sectionColorOption" key={section.key}>
+                    <div className="sectionColorHeader">
+                      <b>{section.label}</b>
+                      <span className="badgePreview" style={{ background: selectedBg, color: selectedText, border: "1px solid #d5ddd3" }}>Preview Text</span>
+                    </div>
+
+                    <div className="colorControlBlock">
+                      <div className="colorLabelRow">
+                        <label>Background Color</label>
+                        <div className="hexInputRow">
+                          <input type="color" value={selectedBg} onChange={(event) => setStoreSettings((current) => ({ ...current, sectionColors: { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(current.sectionColors || {}), [section.key]: event.target.value } }))} />
+                          <span>{selectedBg}</span>
+                        </div>
+                      </div>
+                      <div className="sectionColorSwatches" role="group" aria-label={`${section.label} background color`}>
+                        {HOMEPAGE_COLOR_OPTIONS.map((color) => <button type="button" key={color.value} title={color.name} aria-label={`${section.label} BG: ${color.name}`} className={selectedBg === color.value ? "selected" : ""} style={{ background: color.value }} onClick={() => setStoreSettings((current) => ({ ...current, sectionColors: { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(current.sectionColors || {}), [section.key]: color.value } }))} />)}
+                      </div>
+                    </div>
+
+                    <div className="colorControlBlock" style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px dashed #e0e6df" }}>
+                      <div className="colorLabelRow">
+                        <label>Text Color</label>
+                        <div className="hexInputRow">
+                          <input type="color" value={selectedText} onChange={(event) => setStoreSettings((current) => ({ ...current, sectionTextColors: { ...DEFAULT_STORE_SETTINGS.sectionTextColors, ...(current.sectionTextColors || {}), [section.key]: event.target.value } }))} />
+                          <span>{selectedText}</span>
+                        </div>
+                      </div>
+                      <div className="sectionColorSwatches" role="group" aria-label={`${section.label} text color`}>
+                        {HOMEPAGE_COLOR_OPTIONS.map((color) => <button type="button" key={color.value} title={color.name} aria-label={`${section.label} Text: ${color.name}`} className={selectedText === color.value ? "selected" : ""} style={{ background: color.value }} onClick={() => setStoreSettings((current) => ({ ...current, sectionTextColors: { ...DEFAULT_STORE_SETTINGS.sectionTextColors, ...(current.sectionTextColors || {}), [section.key]: color.value } }))} />)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+          <div className="settingsOption"><div><b>Announcement bar</b><span>Shown above the main header. Multiple active announcements rotate automatically.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.announcementEnabled} onChange={(event) => setStoreSettings((current) => ({ ...current, announcementEnabled: event.target.checked }))} /> Enabled</label></div>
+          <section className="announcementEditor">
+            <div className="inventoryListHead"><div><h2>Announcements</h2><span>{(storeSettings.announcements || []).length} messages</span></div><button type="button" onClick={addAnnouncement}><Plus /> Add announcement</button></div>
+            {(storeSettings.announcements || []).map((announcement, index) => (
+              <article className="announcementEditorItem" key={announcement.id || index}>
+                <div className="announcementEditorHead">
+                  <b>Announcement {index + 1}</b>
+                  <label className="switchLabel"><input type="checkbox" checked={announcement.enabled !== false} onChange={(event) => updateAnnouncement(index, { enabled: event.target.checked })} /> Active</label>
+                  <button type="button" onClick={() => removeAnnouncement(index)} aria-label={`Remove announcement ${index + 1}`}><X /></button>
+                </div>
+                <label>Message<textarea rows="2" value={announcement.text || ""} onChange={(event) => updateAnnouncement(index, { text: event.target.value })} placeholder="Free delivery, sale, advance payment, new arrivals..." /></label>
+                <div className="formRow"><label>Link label<input value={announcement.linkLabel || ""} onChange={(event) => updateAnnouncement(index, { linkLabel: event.target.value })} placeholder="Shop now" /></label><label>Link URL<input value={announcement.linkHref || ""} onChange={(event) => updateAnnouncement(index, { linkHref: event.target.value })} placeholder="#products or /category/kurtis" /></label></div>
+              </article>
+            ))}
+          </section>
+          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save theme settings"}</button>
         </form>}
 
         {activeTab === "Payments" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>

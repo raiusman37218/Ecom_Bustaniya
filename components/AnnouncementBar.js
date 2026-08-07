@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 
 function activeAnnouncements(settings) {
@@ -34,14 +34,14 @@ export default function AnnouncementBar({ storeSettings = DEFAULT_STORE_SETTINGS
       setActiveIndex(0);
       return;
     }
-    setActiveIndex(Math.floor(Math.random() * announcements.length));
+    setActiveIndex(0);
   }, [announcements.length]);
 
   useEffect(() => {
     if (announcements.length <= 1) return undefined;
     const timer = window.setInterval(() => {
       setActiveIndex((current) => (current + 1) % announcements.length);
-    }, 4200);
+    }, 4500);
     return () => window.clearInterval(timer);
   }, [announcements.length]);
 
@@ -49,13 +49,28 @@ export default function AnnouncementBar({ storeSettings = DEFAULT_STORE_SETTINGS
 
   const announcement = announcements[activeIndex] || announcements[0];
 
+  const handlePrev = () => {
+    setActiveIndex((current) => (current > 0 ? current - 1 : announcements.length - 1));
+  };
+
+  const handleNext = () => {
+    setActiveIndex((current) => (current + 1) % announcements.length);
+  };
+
   return (
-    <div className={["announcement", className].filter(Boolean).join(" ")}>
-      <span className="announcementMessage" key={announcement.id}>{announcement.text}</span>
-      <span className="announcementProgress" aria-hidden="true">{announcements.map((item, index) => <i className={index === activeIndex ? "active" : ""} key={item.id} />)}</span>
-      {announcement.linkLabel && announcement.linkHref && (
-        <a href={announcement.linkHref}>{announcement.linkLabel} <ArrowRight size={14} /></a>
-      )}
+    <div className={["lucknawiAnnouncementBar", className].filter(Boolean).join(" ")}>
+      <button type="button" className="announcementArrowBtn" onClick={handlePrev} aria-label="Previous announcement">
+        <ChevronLeft size={16} />
+      </button>
+      <div className="announcementContent">
+        <span className="announcementText" key={announcement.id}>{announcement.text}</span>
+        {announcement.linkLabel && announcement.linkHref && (
+          <a href={announcement.linkHref} className="announcementLink">{announcement.linkLabel}</a>
+        )}
+      </div>
+      <button type="button" className="announcementArrowBtn" onClick={handleNext} aria-label="Next announcement">
+        <ChevronRight size={16} />
+      </button>
     </div>
   );
 }

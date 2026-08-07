@@ -2,6 +2,7 @@ import { ArrowLeft, Search, ShoppingBag, UserRound } from "lucide-react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import AnnouncementBar from "../../../components/AnnouncementBar";
+import SiteHeader from "../../../components/SiteHeader";
 import { normalizeCategory } from "../../../data/store";
 import { getCatalogCategories, subcategoryOptions } from "../../../lib/categories";
 import { getCatalogProducts } from "../../../lib/catalog";
@@ -51,18 +52,7 @@ export default async function CategoryPage({ params }) {
         { name: "Home", path: "/" },
         { name: category.name, path: `/category/${slug}` },
       ])} />
-      <AnnouncementBar storeSettings={storeSettings} className="categoryAnnouncement" />
-      <header className="categoryHeader">
-        <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
-        <nav>
-          {mainCategories.map((item) => <a href={`/category/${item.slug}`} key={item.slug}>{item.name}</a>)}
-        </nav>
-        <div>
-          <Search />
-          <UserRound />
-          <ShoppingBag />
-        </div>
-      </header>
+      <SiteHeader storeSettings={storeSettings} activeNav={slug} />
 
       <section
         className="categoryHero"

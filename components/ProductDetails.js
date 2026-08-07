@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Heart, Maximize2, Minus, Plus, Ruler, ShieldCheck, ShoppingBag, Truck, X } from "lucide-react";
 import { productDescription } from "../lib/seo";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
-import AnnouncementBar from "./AnnouncementBar";
 import SizeChartModal, { SizeTable } from "./SizeChartModal";
+import SiteHeader from "./SiteHeader";
 
 export default function ProductDetails({ product, related, storeSettings = DEFAULT_STORE_SETTINGS }) {
   const [size, setSize] = useState("S");
@@ -62,12 +62,11 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   return (
     <>
     <main className="productPage">
-      <AnnouncementBar storeSettings={storeSettings} />
-      <header className="categoryHeader productHeader">
-        <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
-        <nav><a href="/category/kurtis">Kurtis</a><a href="/category/bottoms">Bottoms</a><a href="/category/coord-sets">Co-ord Sets</a></nav>
-        <button className="headerBag" onClick={() => setCartOpen(true)}><ShoppingBag /><span>Bag {cartCount ? `(${cartCount})` : ""}</span></button>
-      </header>
+      <SiteHeader
+        storeSettings={storeSettings}
+        cartCount={cartCount}
+        onOpenCart={() => setCartOpen(true)}
+      />
 
       <div className="productDetailLayout">
         <section className="productGallery mariabGallery">
