@@ -229,14 +229,14 @@ export default function Home({
           }
 
           if (section.type === "shop_by_category") {
-            const currentStyle = section.style || storeSettings.categorySectionStyle || "atelier";
+            const currentStyle = (section.style === "minimal" || storeSettings.categorySectionStyle === "minimal") ? "minimal" : "atelier";
             if (currentStyle === "minimal") {
               return (
                 <section key={section.id} className="categoryShowcase categoryShowcase--minimal scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories || "#ffffff", "--section-text": sectionTextColors.categories || "#1a1612" }}>
                   <div className="categoryMinimalHeader">
-                    {section.eyebrow && <p className="eyebrow">{section.eyebrow}</p>}
-                    <h2>{section.heading || "Shop by Collections"}</h2>
-                    {section.subtitle && <p className="categoryMinimalSubtitle">{section.subtitle}</p>}
+                    {(section.eyebrow || defaults.eyebrow) && <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>}
+                    <h2>{section.heading || defaults.heading || "Shop by Collections"}</h2>
+                    {(section.subtitle || defaults.subtitle) && <p className="categoryMinimalSubtitle">{section.subtitle || defaults.subtitle}</p>}
                   </div>
                   <div className="categoryMinimalGrid" aria-label="Shop by category">
                     {categoryCards.map((category) => (

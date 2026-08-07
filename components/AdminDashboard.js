@@ -5715,7 +5715,15 @@ function SettingsPanel({ onOpen, signedInUser }) {
           {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
           {storeSettingsSetup && <div className="adminErrorBanner">{storeSettingsSetup}</div>}
           <section className="settingsOption productCardStyleSetting"><div><b>Product card design</b><span>Choose the storefront product-card layout. Changes apply to home, collections and related products.</span></div><select value={storeSettings.productCardStyle || "connected"} onChange={(event) => setStoreSettings((current) => ({ ...current, productCardStyle: event.target.value }))}><option value="classic">Classic cards</option><option value="connected">Connected tiles (Sapphire-inspired)</option></select></section>
-          <section className="settingsOption categoryStyleSetting"><div><b>Shop by Category design</b><span>Choose how the Shop by Category section displays on the homepage.</span></div><select value={storeSettings.categorySectionStyle || "atelier"} onChange={(event) => setStoreSettings((current) => ({ ...current, categorySectionStyle: event.target.value }))}><option value="atelier">Atelier Overlay Cards (Dark Theme Overlay)</option><option value="minimal">Minimal Collections Grid (House of Lucknawi Style - Rounded cards with titles below)</option></select></section>
+          <section className="settingsOption categoryStyleSetting"><div><b>Shop by Category design</b><span>Choose how the Shop by Category section displays on the homepage.</span></div><select value={storeSettings.categorySectionStyle || "atelier"} onChange={(event) => {
+            const nextStyle = event.target.value;
+            setStoreSettings((current) => {
+              const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
+                sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
+              );
+              return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
+            });
+          }}><option value="atelier">Atelier Overlay Cards (Dark Theme Overlay)</option><option value="minimal">Minimal Collections Grid (House of Lucknawi Style - Rounded cards with titles below)</option></select></section>
           <div className="formRow"><label>Store name<input defaultValue="Bustaniya" /></label><label>Legal business name<input defaultValue="Bustaniya" /></label></div>
           <div className="formRow"><label>Support email<input defaultValue="hello@bustaniya.pk" /></label><label>Customer phone<input placeholder="+92 3xx xxxxxxx" /></label></div>
           <label>Business address<textarea rows="3" placeholder="Warehouse / office address" /></label>
