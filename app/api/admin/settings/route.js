@@ -27,6 +27,25 @@ async function validateHeroImageUrl(value) {
   }
 }
 
+async function validateInstagramPosts(settings) {
+  const posts = Array.isArray(settings.instagramPosts) ? settings.instagramPosts : [];
+  if (posts.length > 12) throw new Error("Add no more than 12 Instagram posts.");
+  for (const post of posts) {
+    const image = String(post?.image || "").trim();
+    if (!image) throw new Error("Each Instagram post needs an image URL or local image path.");
+    await validateHeroImageUrl(image);
+    const link = String(post?.url || "").trim();
+    if (link) {
+      try {
+        const url = new URL(link);
+        if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error();
+      } catch {
+        throw new Error("Instagram post links must be valid http:// or https:// URLs.");
+      }
+    }
+  }
+}
+
 async function validateHeroImages(settings) {
   const lists = [settings.heroDesktopImages || settings.heroDesktopImage, settings.heroMobileImages || settings.heroMobileImage];
   for (const list of lists) {
@@ -71,6 +90,7 @@ export async function PATCH(request) {
       financeTransactions: body?.settings?.financeTransactions ?? existing.financeTransactions,
     };
     await validateHeroImages(nextSettings);
+    await validateInstagramPosts(nextSettings);
     const settings = await updateStoreSettings(nextSettings);
     return NextResponse.json({ success: true, settings });
   } catch (error) {

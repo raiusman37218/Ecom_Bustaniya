@@ -8619,6 +8619,19 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   opacity: 1;
 }
 
+/* Admin: managed homepage Instagram gallery. */
+.instagramManager { display:grid; gap:16px; padding:18px; border:1px solid #dbe7dc; border-radius:12px; background:#f8fcf8; }
+.instagramManagerIntro,.instagramManagerPostHead { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+.instagramManagerIntro b,.instagramManagerPostHead b { display:block; color:#173d29; font-size:14px; }
+.instagramManagerIntro span { display:block; max-width:620px; margin-top:4px; color:#607166; font-size:12px; line-height:1.5; }
+.instagramManagerPosts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.instagramManagerPost { display:grid; gap:10px; padding:14px; border:1px solid #dbe7dc; border-radius:10px; background:#fff; }
+.instagramManagerPost label { display:grid; gap:6px; color:#42564a; font-size:12px; font-weight:700; }
+.instagramManagerPost label small { color:#748278; font-size:10px; font-weight:500; }
+.instagramManagerPost input { width:100%; min-width:0; padding:10px 11px; border:1px solid #d6e0d7; border-radius:8px; color:#173d29; font:inherit; font-size:12px; }
+.addInstagramPost { justify-self:start; padding:9px 12px; border:1px solid #1d573a; border-radius:8px; color:#1d573a; background:#fff; font-size:12px; font-weight:700; }
+.addInstagramPost:hover { color:#fff; background:#1d573a; }
+
 @media (max-width: 1024px) {
   .instagramFeedGrid {
     grid-template-columns: repeat(3, 1fr);
@@ -8630,4 +8643,6 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     grid-template-columns: repeat(2, 1fr);
     gap: 2px;
   }
+  .instagramManagerPosts { grid-template-columns:1fr; }
+  .instagramManagerIntro,.instagramManagerPostHead { align-items:flex-start; flex-direction:column; }
 }

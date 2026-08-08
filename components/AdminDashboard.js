@@ -27,6 +27,7 @@ const HOMEPAGE_COLOR_SECTIONS = [
   { key: "categories", label: "Curated Collections (Shop by Category)" },
   { key: "story", label: "Our Story" },
   { key: "newsletter", label: "Newsletter" },
+  { key: "instagram", label: "Instagram Gallery" },
 ];
 
 function HelpHint({ text }) {
@@ -5852,6 +5853,14 @@ function SettingsPanel({ onOpen, signedInUser }) {
                           sections[index] = { ...sections[index], style: event.target.value };
                           return { ...current, categorySectionStyle: event.target.value, homepageSections: sections };
                         })}><option value="atelier">Atelier Card Overlay (Dark Theme Overlay)</option><option value="minimal">Minimal Collections Grid (House of Lucknawi Style)</option></select></label>
+                      )}
+                      {section.type === "instagram_feed" && (
+                        <div className="instagramManager" style={{ gridColumn: "1 / -1" }}>
+                          <div className="instagramManagerIntro"><div><b>Instagram gallery</b><span>Show campaign posts in a full-width gallery. Each image opens its post or your profile.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.instagramEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, instagramEnabled: event.target.checked }))} /> Visible</label></div>
+                          <label>Instagram handle<input value={storeSettings.instagramHandle || ""} placeholder="@bustaniya_" onChange={(event) => setStoreSettings((current) => ({ ...current, instagramHandle: event.target.value }))} /></label>
+                          <div className="instagramManagerPosts">{(storeSettings.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).map((post, postIndex) => <article className="instagramManagerPost" key={post.id || postIndex}><div className="instagramManagerPostHead"><b>Post {postIndex + 1}</b><button type="button" className="sectionRemoveBtn" aria-label={`Remove Instagram post ${postIndex + 1}`} onClick={() => setStoreSettings((current) => ({ ...current, instagramPosts: (current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).filter((_, itemIndex) => itemIndex !== postIndex) }))}><X size={14} /></button></div><label>Image URL<input value={post.image || ""} placeholder="https://res.cloudinary.com/..." onChange={(event) => setStoreSettings((current) => { const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])]; posts[postIndex] = { ...posts[postIndex], image: event.target.value }; return { ...current, instagramPosts: posts }; })} /></label><label>Instagram post URL <small>Optional — otherwise the profile opens.</small><input value={post.url || ""} placeholder="https://www.instagram.com/p/..." onChange={(event) => setStoreSettings((current) => { const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])]; posts[postIndex] = { ...posts[postIndex], url: event.target.value }; return { ...current, instagramPosts: posts }; })} /></label><label>Hover caption <small>Optional</small><input value={post.caption || ""} placeholder="Short post description" onChange={(event) => setStoreSettings((current) => { const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])]; posts[postIndex] = { ...posts[postIndex], caption: event.target.value }; return { ...current, instagramPosts: posts }; })} /></label></article>)}</div>
+                          <button type="button" className="addInstagramPost" onClick={() => setStoreSettings((current) => ({ ...current, instagramPosts: [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []), { id: `instagram-${Date.now()}`, image: "", url: "", caption: "" }] }))}>+ Add Instagram post</button>
+                        </div>
                       )}
                     </div>
                   )}
