@@ -15,6 +15,9 @@ export default function SiteHeader({
   activeNav = "",
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navigationCategories = categories
+    .filter((category) => category && !category.parentSlug && category.showInHeader !== false)
+    .map((category) => ({ name: category.name, slug: category.slug }));
 
   return (
     <header className="siteHeaderLucknawi">
@@ -69,10 +72,11 @@ export default function SiteHeader({
       {/* 3. Bottom Centered Navigation Bar */}
       <nav className={`headerNavRow ${mobileOpen ? "mobileOpen" : ""}`}>
         <a className={activeNav === "home" ? "navItem active" : "navItem"} href="/">HOME</a>
-        <a className={activeNav === "kurtis" ? "navItem active" : "navItem"} href="/category/kurtis">KURTIS</a>
-        <a className={activeNav === "bottoms" ? "navItem active" : "navItem"} href="/category/bottoms">BOTTOMS</a>
-        <a className={activeNav === "coord-sets" ? "navItem active" : "navItem"} href="/category/coord-sets">CO-ORD SETS</a>
-        <a className={activeNav === "3-piece-suits" ? "navItem active" : "navItem"} href="/category/3-piece-suits">3 PIECE SUITS</a>
+        {navigationCategories.map((category) => (
+          <a className={activeNav === category.slug ? "navItem active" : "navItem"} href={`/category/${category.slug}`} key={category.slug}>
+            {category.name}
+          </a>
+        ))}
         <a className="navItem" href="/#story">ABOUT US</a>
         <a className="navItem" href="/#contact">CONTACT US</a>
       </nav>

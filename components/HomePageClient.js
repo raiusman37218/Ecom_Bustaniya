@@ -120,7 +120,10 @@ export default function Home({
 
   const categoryNames = useMemo(() => ["All", ...(categoryRecords || []).map((category) => category?.name || "").filter(Boolean)], [categoryRecords]);
 
-  const categoryCards = useMemo(() => (categoryRecords || []).filter((category) => category && category.showOnHomepage !== false).map((category) => ({
+  // The homepage collection rail deliberately follows the storefront navigation.
+  // This prevents a category being discoverable in the header but missing from
+  // "Shop by Category" (or the other way round).
+  const categoryCards = useMemo(() => (categoryRecords || []).filter((category) => category && category.showInHeader !== false).map((category) => ({
     ...category,
     name: category?.name || "",
     slug: category?.slug || "",
