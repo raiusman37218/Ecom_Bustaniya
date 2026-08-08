@@ -5477,10 +5477,10 @@ function SettingsPanel({ onOpen, signedInUser }) {
     { zone: "Lahore same-day", cities: "Lahore", rate: "Rs. 250", freeAbove: "Rs. 8,000" },
   ]);
   const canManageUsers = canUseAdminArea(signedInUser, "users");
-  const tabs = ["Store","Sections","Payments","Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications","Domains","Checkout","System"];
+  const tabs = ["Store", "Sections", "Theme", "Payments", "Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications", "Domains", "Checkout", "System"];
 
   useEffect(() => {
-    if (["Store", "Payments", "Shipping", "Notifications", "Domains", "Checkout"].includes(activeTab)) {
+    if (["Store", "Sections", "Theme", "Payments", "Shipping", "Notifications", "Domains", "Checkout"].includes(activeTab)) {
       loadStoreSettings();
     }
     if (activeTab === "Users") loadAdminUsers();
@@ -5735,6 +5735,22 @@ function SettingsPanel({ onOpen, signedInUser }) {
               return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
             });
           }}><option value="atelier">Atelier Overlay Cards (Dark Theme Overlay)</option><option value="minimal">Minimal Collections Grid (House of Lucknawi Style - Rounded cards with titles below)</option></select></section>
+
+          <div className="settingsOption"><div><b>Announcement bar</b><span>Shown above the main header. Multiple active announcements rotate automatically.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.announcementEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, announcementEnabled: event.target.checked }))} /> Enabled</label></div>
+          <section className="announcementEditor">
+            <div className="inventoryListHead"><div><h2>Announcements</h2><span>{(storeSettings.announcements || []).length} messages</span></div><button type="button" onClick={addAnnouncement}><Plus /> Add announcement</button></div>
+            {(storeSettings.announcements || []).map((announcement, index) => (
+              <article className="announcementEditorItem" key={announcement.id || index}>
+                <div className="announcementEditorHead">
+                  <b>Announcement {index + 1}</b>
+                  <label className="switchLabel"><input type="checkbox" checked={announcement.enabled !== false} onChange={(event) => updateAnnouncement(index, { enabled: event.target.checked })} /> Active</label>
+                  <button type="button" onClick={() => removeAnnouncement(index)} aria-label={`Remove announcement ${index + 1}`}><X /></button>
+                </div>
+                <label>Message<textarea rows="2" value={announcement.text || ""} onChange={(event) => updateAnnouncement(index, { text: event.target.value })} placeholder="Free delivery, sale, advance payment, new arrivals..." /></label>
+                <div className="formRow"><label>Link label<input value={announcement.linkLabel || ""} onChange={(event) => updateAnnouncement(index, { linkLabel: event.target.value })} placeholder="Shop now" /></label><label>Link URL<input value={announcement.linkHref || ""} onChange={(event) => updateAnnouncement(index, { linkHref: event.target.value })} placeholder="#products or /category/kurtis" /></label></div>
+              </article>
+            ))}
+          </section>
 
           <section className="heroSettingsEditor">
             <div className="heroSettingsHeading"><div><p>HOMEPAGE BANNERS</p><h2>Hero Carousel & Messaging</h2><span>Manage desktop and mobile campaign images, headings and primary call-to-actions.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.heroEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEnabled: event.target.checked }))} /> Enabled</label></div>
