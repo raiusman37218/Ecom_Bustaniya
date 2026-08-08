@@ -240,12 +240,13 @@ export default function Home({
 
           if (section.type === "shop_by_category") {
             const currentStyle = (section.style === "minimal" || storeSettings.categorySectionStyle === "minimal") ? "minimal" : "atelier";
+            const sectionHeading = (!section.heading || section.heading === "Choose your mood") ? "Shop by Category" : section.heading;
             if (currentStyle === "minimal") {
               return (
-                <section key={section.id} className="categoryShowcase categoryShowcase--minimal scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories || "#ffffff", "--section-text": sectionTextColors.categories || "#1a1612" }}>
+                <section key={section.id} className="categoryShowcase categoryShowcase--minimal scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories || "#ffffff", "--section-text": sectionTextColors.categories || "#173d29" }}>
                   <div className="categoryMinimalHeader">
                     {(section.eyebrow || defaults.eyebrow) && <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>}
-                    <h2>{section.heading || defaults.heading || "Shop by Collections"}</h2>
+                    <h2>{sectionHeading}</h2>
                     {(section.subtitle || defaults.subtitle) && <p className="categoryMinimalSubtitle">{section.subtitle || defaults.subtitle}</p>}
                   </div>
                   <div className="categoryMinimalGrid" aria-label="Shop by category">
@@ -268,11 +269,11 @@ export default function Home({
             }
 
             return (
-              <section key={section.id} className="categoryShowcase categoryShowcase--atelier scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories, "--section-text": sectionTextColors.categories }}>
+              <section key={section.id} className="categoryShowcase categoryShowcase--atelier scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories || "#ffffff", "--section-text": sectionTextColors.categories || "#173d29" }}>
                 <header className="categoryShowcaseIntro">
                   <div>
                     <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
-                    <h2>{section.heading || defaults.heading}</h2>
+                    <h2>{sectionHeading}</h2>
                     <p className="categoryShowcaseSubtitle">{section.subtitle || defaults.subtitle}</p>
                   </div>
                   <a className="categoryShowcaseAll" href="#products">
