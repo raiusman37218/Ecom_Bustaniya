@@ -32,15 +32,17 @@ function normalizeProducts(items) {
 }
 
 function CampaignHeroImage({ desktopSrc, mobileSrc, alt }) {
-  const shared = { alt, fill: true, priority: true, quality: 90, sizes: "100vw" };
-  const { props: desktop } = getImageProps({ ...shared, src: desktopSrc });
-  const { props: mobile } = getImageProps({ ...shared, src: mobileSrc });
+  const safeDesktop = desktopSrc || "/bustaniya-campaign-hero-v5.png";
+  const safeMobile = mobileSrc || safeDesktop;
+  const shared = { alt: alt || "Bustaniya campaign hero", fill: true, priority: true, quality: 90, sizes: "100vw" };
+  const { props: desktop } = getImageProps({ ...shared, src: safeDesktop });
+  const { props: mobile } = getImageProps({ ...shared, src: safeMobile });
 
   return (
     <picture>
       <source media="(max-width: 767px)" srcSet={mobile.srcSet} />
       <source media="(min-width: 768px)" srcSet={desktop.srcSet} />
-      <img {...desktop} src={desktop.src} alt={alt} fetchPriority="high" />
+      <img {...desktop} src={desktop.src} alt={alt || "Bustaniya campaign hero"} fetchPriority="high" />
     </picture>
   );
 }
@@ -50,22 +52,26 @@ export default function Home({
   initialCategories = fallbackCategoryRecords,
   storeSettings = DEFAULT_STORE_SETTINGS,
 }) {
-  const sectionColors = { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(storeSettings.sectionColors || {}) };
-  const sectionTextColors = { ...DEFAULT_STORE_SETTINGS.sectionTextColors, ...(storeSettings.sectionTextColors || {}) };
+  const safeSettings = storeSettings || DEFAULT_STORE_SETTINGS;
+  const sectionColors = { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(safeSettings.sectionColors || {}) };
+  const sectionTextColors = { ...DEFAULT_STORE_SETTINGS.sectionTextColors, ...(safeSettings.sectionTextColors || {}) };
   const [activeCategory, setActiveCategory] = useState("All");
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [cartReady, setCartReady] = useState(false);
-  const [products, setProducts] = useState(() => normalizeProducts(serverProducts));
-  const [categoryRecords, setCategoryRecords] = useState(() => initialCategories.filter((category) => !category.parentSlug));
+  const [products, setProducts] = useState(() => normalizeProducts(serverProducts || []));
+  const [categoryRecords, setCategoryRecords] = useState(() => (initialCategories || []).filter((category) => category && !category.parentSlug));
   const [heroSlide, setHeroSlide] = useState(0);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const [quickViewSize, setQuickViewSize] = useState("S");
   const [quickViewQty, setQuickViewQty] = useState(1);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
-  const heroDesktopImages = storeSettings.heroDesktopImages?.length ? storeSettings.heroDesktopImages : [storeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage];
-  const heroMobileImages = storeSettings.heroMobileImages?.length ? storeSettings.heroMobileImages : [storeSettings.heroMobileImage || DEFAULT_STORE_SETTINGS.heroMobileImage];
+  
+  const rawDesktop = Array.isArray(safeSettings.heroDesktopImages) && safeSettings.heroDesktopImages.length ? safeSettings.heroDesktopImages : [safeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage];
+  const rawMobile = Array.isArray(safeSettings.heroMobileImages) && safeSettings.heroMobileImages.length ? safeSettings.heroMobileImages : [safeSettings.heroMobileImage || DEFAULT_STORE_SETTINGS.heroMobileImage];
+  const heroDesktopImages = rawDesktop.map((img) => img || "/bustaniya-campaign-hero-v5.png");
+  const heroMobileImages = rawMobile.map((img) => img || "/bustaniya-campaign-hero-v5.png");
   const heroSlideCount = Math.max(heroDesktopImages.length, heroMobileImages.length);
 
   useEffect(() => {
@@ -105,16 +111,20 @@ export default function Home({
     return () => observer.disconnect();
   }, []);
 
-  const visibleProducts = useMemo(() => products.filter((product) => {
+  const visibleProducts = useMemo(() => (products || []).filter((product) => {
+    if (!product) return false;
     const categoryMatch = activeCategory === "All" || normalizeCategory(product.category) === activeCategory;
-    return categoryMatch && product.name.toLowerCase().includes(search.toLowerCase());
+    const name = String(product.name || "");
+    return categoryMatch && name.toLowerCase().includes(String(search || "").toLowerCase());
   }), [activeCategory, products, search]);
 
-  const categoryNames = useMemo(() => ["All", ...categoryRecords.map((category) => category.name)], [categoryRecords]);
+  const categoryNames = useMemo(() => ["All", ...(categoryRecords || []).map((category) => category?.name || "").filter(Boolean)], [categoryRecords]);
 
-  const categoryCards = useMemo(() => categoryRecords.filter((category) => category.showOnHomepage !== false).map((category) => ({
+  const categoryCards = useMemo(() => (categoryRecords || []).filter((category) => category && category.showOnHomepage !== false).map((category) => ({
     ...category,
-    image: products.find((product) => normalizeCategory(product.category) === category.name)?.image || category.image,
+    name: category?.name || "",
+    slug: category?.slug || "",
+    image: (products || []).find((product) => normalizeCategory(product?.category) === category?.name)?.image || category?.image || "/bustaniya-campaign-hero-v4.png",
   })), [categoryRecords, products]);
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
@@ -291,7 +301,7 @@ export default function Home({
                 <div className="storyImage" />
                 <div className="storyContent">
                   <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
-                  <h2>{(section.heading || defaults.heading).split(",").map((part, i) => i > 0 ? <span key={i}>,<br />{part}</span> : part)}</h2>
+                  <h2>{String(section.heading || defaults.heading || "").split(",").map((part, i) => i > 0 ? <span key={i}>,<br />{part}</span> : part)}</h2>
                   <p>{section.subtitle || defaults.subtitle}</p>
                   <a href="/about">Discover our story <ArrowRight size={17} /></a>
                   <div className="storyStats"><div><b>PKR</b><span>prices shown clearly</span></div><div><b>COD</b><span>available at checkout</span></div></div>

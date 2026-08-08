@@ -33,6 +33,17 @@ function HelpHint({ text }) {
   return <span className="helpHint" tabIndex="0" role="note" aria-label={text} data-tooltip={text}><Info /></span>;
 }
 
+function normalizeHeroImages(value, fallback) {
+  let source = value;
+  if (typeof value === "string") {
+    try { source = JSON.parse(value); } catch { source = value; }
+  }
+  const images = (Array.isArray(source) ? source : [source])
+    .map((image) => String(image || "").trim())
+    .filter(Boolean);
+  return images.length ? images : [fallback];
+}
+
 function clampPercent(value) {
   const number = Number(value || 0);
   return Math.max(0, Math.min(100, Number.isFinite(number) ? number : 0));
