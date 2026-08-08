@@ -8525,15 +8525,19 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
    INSTAGRAM FEED SECTION (HOUSE OF LUCKNAWI STYLE)
    ------------------------------------------------------------- */
 .instagramFeedSection {
-  padding: 56px 0 0;
+  padding: 56px 0 38px;
   background: var(--section-bg, #ffffff);
   color: var(--section-text, #173d29);
-  text-align: center;
   overflow: hidden;
 }
 .instagramFeedHeader {
-  margin-bottom: 28px;
-  padding: 0 20px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto 24px;
+  text-align: left;
 }
 .instagramFeedHeader h2 {
   font-family: var(--font-display);
@@ -8558,17 +8562,32 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   color: #bd194b;
   transform: translateY(-1px);
 }
+.instagramFeedIntro { margin:0; color:#68766d; font-size:.95rem; line-height:1.5; }
+.instagramCarouselShell { display:flex; align-items:center; gap:12px; padding:0 clamp(12px, 3vw, 42px); }
 .instagramFeedGrid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 3px;
+  display: flex;
+  flex: 1;
+  gap: 14px;
   width: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+  padding: 2px;
 }
+.instagramFeedGrid::-webkit-scrollbar { display:none; }
+.instagramCarouselButton { display:inline-grid; flex:0 0 auto; width:44px; height:44px; place-items:center; border:1px solid #d8e2da; border-radius:50%; color:#173d29; background:#fff; box-shadow:0 6px 20px #173d2914; cursor:pointer; transition:transform .2s ease,background .2s ease,color .2s ease,border-color .2s ease; }
+.instagramCarouselButton:hover { border-color:#173d29; color:#fff; background:#173d29; transform:translateY(-2px); }
+.instagramCarouselButton:focus-visible,.instagramPostCard:focus-visible { outline:3px solid #bd194b; outline-offset:3px; }
 .instagramPostCard {
   display: block;
+  flex: 0 0 clamp(200px, 26vw, 340px);
   position: relative;
   overflow: hidden;
   aspect-ratio: 1 / 1;
+  scroll-snap-align: start;
+  border-radius: 12px;
   background-color: #f5f0e8;
   text-decoration: none;
 }
@@ -8577,7 +8596,11 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   width: 100%;
   height: 100%;
 }
-.instagramPostImageWrap img {
+.instagramPostImageWrap img,
+.instagramPostImageWrap video {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   object-position: center;
   transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -8612,7 +8635,8 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.instagramPostCard:hover .instagramPostImageWrap img {
+.instagramPostCard:hover .instagramPostImageWrap img,
+.instagramPostCard:hover .instagramPostImageWrap video {
   transform: scale(1.08);
 }
 .instagramPostCard:hover .instagramPostOverlay {
@@ -8629,20 +8653,26 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .instagramManagerPost label { display:grid; gap:6px; color:#42564a; font-size:12px; font-weight:700; }
 .instagramManagerPost label small { color:#748278; font-size:10px; font-weight:500; }
 .instagramManagerPost input { width:100%; min-width:0; padding:10px 11px; border:1px solid #d6e0d7; border-radius:8px; color:#173d29; font:inherit; font-size:12px; }
+.instagramManagerPost select { width:100%; min-width:0; padding:10px 11px; border:1px solid #d6e0d7; border-radius:8px; color:#173d29; background:#fff; font:inherit; font-size:12px; }
 .addInstagramPost { justify-self:start; padding:9px 12px; border:1px solid #1d573a; border-radius:8px; color:#1d573a; background:#fff; font-size:12px; font-weight:700; }
 .addInstagramPost:hover { color:#fff; background:#1d573a; }
 
 @media (max-width: 1024px) {
   .instagramFeedGrid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2px;
+    gap: 10px;
   }
+  .instagramPostCard { flex-basis:clamp(220px, 43vw, 340px); }
 }
 @media (max-width: 600px) {
+  .instagramFeedHeader { align-items:flex-start; flex-direction:column; gap:9px; width:calc(100% - 32px); }
+  .instagramFeedHeader h2 { margin-bottom:4px; }
+  .instagramFeedHandle { margin:0; }
+  .instagramCarouselShell { gap:7px; padding:0 10px; }
   .instagramFeedGrid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 2px;
+    gap: 9px;
   }
+  .instagramPostCard { flex-basis:76vw; border-radius:10px; }
+  .instagramCarouselButton { width:36px; height:36px; }
   .instagramManagerPosts { grid-template-columns:1fr; }
   .instagramManagerIntro,.instagramManagerPostHead { align-items:flex-start; flex-direction:column; }
 }

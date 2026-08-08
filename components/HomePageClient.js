@@ -1,8 +1,8 @@
 "use client";
 
 import Image, { getImageProps } from "next/image";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, ChevronDown, Instagram, Menu, Minus, Plus, Ruler, Search, ShieldCheck, ShoppingBag, Truck, UserRound, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, Minus, Play, Plus, Ruler, Search, ShieldCheck, ShoppingBag, Truck, UserRound, X } from "lucide-react";
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import SiteHeader from "./SiteHeader";
@@ -67,6 +67,7 @@ export default function Home({
   const [quickViewSize, setQuickViewSize] = useState("S");
   const [quickViewQty, setQuickViewQty] = useState(1);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
+  const instagramRailRef = useRef(null);
   
   const rawDesktop = Array.isArray(safeSettings.heroDesktopImages) && safeSettings.heroDesktopImages.length ? safeSettings.heroDesktopImages : [safeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage];
   const rawMobile = Array.isArray(safeSettings.heroMobileImages) && safeSettings.heroMobileImages.length ? safeSettings.heroMobileImages : [safeSettings.heroMobileImage || DEFAULT_STORE_SETTINGS.heroMobileImage];
@@ -137,6 +138,12 @@ export default function Home({
     const previous = Number(product.compareAtPrice || product.compare_at_price || 0);
     const current = Number(product.price || 0);
     return previous > current && current > 0 ? Math.round(((previous - current) / previous) * 100) : 0;
+  }
+
+  function scrollInstagramRail(direction) {
+    const rail = instagramRailRef.current;
+    if (!rail) return;
+    rail.scrollBy({ left: direction * rail.clientWidth * 0.78, behavior: "smooth" });
   }
 
   function addToCart(product, size = "S", qty = 1) {
@@ -367,7 +374,10 @@ export default function Home({
             return (
               <section key={section.id} className="instagramFeedSection scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.instagram || "#ffffff", "--section-text": sectionTextColors.instagram || "#173d29" }}>
                 <div className="instagramFeedHeader">
-                  <h2>{section.heading || defaults.heading || "Follow us Instagram"}</h2>
+                  <div>
+                    <h2>{section.heading || defaults.heading || "Follow us Instagram"}</h2>
+                    <p className="instagramFeedIntro">Latest product drops and reels from our Instagram.</p>
+                  </div>
                   <p className="instagramFeedHandle">
                     <a href={profileUrl} target="_blank" rel="noreferrer">
                       <Instagram size={18} />
@@ -375,7 +385,9 @@ export default function Home({
                     </a>
                   </p>
                 </div>
-                <div className="instagramFeedGrid" aria-label="Instagram Feed Gallery">
+                <div className="instagramCarouselShell">
+                  <button type="button" className="instagramCarouselButton instagramCarouselButton--previous" onClick={() => scrollInstagramRail(-1)} aria-label="Show previous Instagram posts"><ChevronLeft size={20} /></button>
+                  <div className="instagramFeedGrid" ref={instagramRailRef} aria-label="Instagram Feed Gallery">
                   {posts.map((post, idx) => (
                     <a
                       key={post.id || idx}
@@ -386,20 +398,26 @@ export default function Home({
                       title={post.caption || `Instagram post ${idx + 1}`}
                     >
                       <div className="instagramPostImageWrap">
-                        <Image
-                          src={post.image || "/bustaniya-instagram-hero.jpg"}
-                          alt={post.caption || "Bustaniya Instagram post"}
-                          fill
-                          sizes="(max-width: 600px) 50vw, (max-width: 1000px) 33vw, 16vw"
-                        />
+                        {post.mediaType === "video" ? (
+                          <video src={post.image} muted autoPlay loop playsInline preload="metadata" aria-label={post.caption || "Bustaniya Instagram reel"} />
+                        ) : (
+                          <Image
+                            src={post.image || "/bustaniya-instagram-hero.jpg"}
+                            alt={post.caption || "Bustaniya Instagram post"}
+                            fill
+                            sizes="(max-width: 600px) 82vw, (max-width: 1000px) 43vw, 28vw"
+                          />
+                        )}
                         <div className="instagramPostOverlay">
-                          <Instagram size={28} />
+                          {post.mediaType === "video" ? <Play size={28} fill="currentColor" /> : <Instagram size={28} />}
                           <span className="instagramPostHandle">{handle}</span>
                           {post.caption && <span className="instagramPostCaption">{post.caption}</span>}
                         </div>
                       </div>
                     </a>
                   ))}
+                  </div>
+                  <button type="button" className="instagramCarouselButton instagramCarouselButton--next" onClick={() => scrollInstagramRail(1)} aria-label="Show next Instagram posts"><ChevronRight size={20} /></button>
                 </div>
               </section>
             );
