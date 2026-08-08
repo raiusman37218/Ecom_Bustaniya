@@ -156,7 +156,12 @@ export default function Home({
   }
 
   const homepageSectionsToRender = useMemo(() => {
-    const raw = (safeSettings.homepageSections && safeSettings.homepageSections.length) ? safeSettings.homepageSections : DEFAULT_HOMEPAGE_SECTIONS;
+    const configured = (safeSettings.homepageSections && safeSettings.homepageSections.length) ? safeSettings.homepageSections : DEFAULT_HOMEPAGE_SECTIONS;
+    // Defensive client-side fallback for an existing store setting that was
+    // saved before the Instagram feed feature existed.
+    const hasInstagramFeed = configured.some((section) => section?.type === "instagram_feed");
+    const instagramDefaults = DEFAULT_HOMEPAGE_SECTIONS.find((section) => section.type === "instagram_feed");
+    const raw = hasInstagramFeed || !instagramDefaults ? configured : [...configured, instagramDefaults];
     const enabled = raw.filter((s) => s && s.enabled !== false);
     const heroIndex = enabled.findIndex((s) => s.type === "hero");
     const catIndex = enabled.findIndex((s) => s.type === "shop_by_category");
