@@ -5724,6 +5724,36 @@ function SettingsPanel({ onOpen, signedInUser }) {
               return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
             });
           }}><option value="atelier">Atelier Overlay Cards (Dark Theme Overlay)</option><option value="minimal">Minimal Collections Grid (House of Lucknawi Style - Rounded cards with titles below)</option></select></section>
+
+          <section className="heroSettingsEditor">
+            <div className="heroSettingsHeading"><div><p>HOMEPAGE BANNERS</p><h2>Hero Carousel & Messaging</h2><span>Manage desktop and mobile campaign images, headings and primary call-to-actions.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.heroEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEnabled: event.target.checked }))} /> Enabled</label></div>
+            {[{ field: "heroDesktopImages", legacyField: "heroDesktopImage", label: "Desktop Hero Slides", hint: "Select multiple wide campaign images · recommended 16:8" }, { field: "heroMobileImages", legacyField: "heroMobileImage", label: "Mobile Hero Slides", hint: "Select multiple portrait campaign images · recommended 4:5" }].map((item) => {
+              const list = normalizeHeroImages(storeSettings[item.field] || storeSettings[item.legacyField], item.field === "heroDesktopImages" ? DEFAULT_STORE_SETTINGS.heroDesktopImage : DEFAULT_STORE_SETTINGS.heroMobileImage);
+              return (
+                <div className="heroSlideManager" key={item.field}>
+                  <div className="heroSlideHead"><div><b>{item.label}</b><span>{item.hint}</span></div><small>{list.length} slide{list.length === 1 ? "" : "s"}</small></div>
+                  <div className="heroSlideGrid">
+                    {list.map((url, idx) => (
+                      <div className="heroSlideCard" key={`${url}-${idx}`}>
+                        <div className="heroSlideMedia"><img src={url} alt={`${item.label} ${idx + 1}`} /><button type="button" onClick={() => setStoreSettings((current) => ({ ...current, [item.field]: list.filter((_, i) => i !== idx) }))} title="Remove slide"><X size={14} /></button></div>
+                        <span className="heroSlidePath">{url}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="heroUrlInputRow">
+                    <input value={heroUrlInputs[item.field] || ""} onChange={(event) => setHeroUrlInputs((current) => ({ ...current, [item.field]: event.target.value }))} placeholder="Paste image URL (https://...) or local path (/hero.png)" />
+                    <button type="button" onClick={() => addHeroImageUrl(item.field)}>+ Add slide URL</button>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="formRow"><label>Eyebrow<input value={storeSettings.heroEyebrow || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEyebrow: event.target.value }))} placeholder="NEW SEASON" /></label><label>Heading<input value={storeSettings.heroHeading || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroHeading: event.target.value }))} placeholder="Unstitched Luxury Lawn '26" /></label></div>
+            <label>Supporting Text<textarea rows="2" value={storeSettings.heroSupportingText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSupportingText: event.target.value }))} placeholder="Crafted for effortless grace..." /></label>
+            <div className="formRow"><label>Primary Button Text<input value={storeSettings.heroPrimaryButtonText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroPrimaryButtonText: event.target.value }))} placeholder="Shop Lawns" /></label><label>Primary Button Link<input value={storeSettings.heroPrimaryButtonLink || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroPrimaryButtonLink: event.target.value }))} placeholder="#products or /category/unstitched" /></label></div>
+            <div className="formRow"><label>Secondary Button Text<input value={storeSettings.heroSecondaryButtonText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSecondaryButtonText: event.target.value }))} placeholder="View Lookbook" /></label><label>Secondary Button Link<input value={storeSettings.heroSecondaryButtonLink || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSecondaryButtonLink: event.target.value }))} placeholder="#story" /></label></div>
+            <div className="formRow"><label>Text Alignment<select value={storeSettings.heroTextAlignment || "left"} onChange={(event) => setStoreSettings((current) => ({ ...current, heroTextAlignment: event.target.value }))}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>Text Position<select value={storeSettings.heroTextPosition || "left"} onChange={(event) => setStoreSettings((current) => ({ ...current, heroTextPosition: event.target.value }))}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label></div>
+            <label>Overlay Intensity — {Number(storeSettings.heroOverlayIntensity || 0)}%<input type="range" min="0" max="80" step="1" value={Number(storeSettings.heroOverlayIntensity || 0)} onChange={(event) => setStoreSettings((current) => ({ ...current, heroOverlayIntensity: Number(event.target.value) }))} /></label>
+          </section>
           <div className="formRow"><label>Store name<input defaultValue="Bustaniya" /></label><label>Legal business name<input defaultValue="Bustaniya" /></label></div>
           <div className="formRow"><label>Support email<input defaultValue="hello@bustaniya.pk" /></label><label>Customer phone<input placeholder="+92 3xx xxxxxxx" /></label></div>
           <label>Business address<textarea rows="3" placeholder="Warehouse / office address" /></label>
