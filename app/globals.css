@@ -2136,21 +2136,13 @@ footer {
 /* Premium collection gallery: homepage Shop by category. */
 .categoryShowcase--atelier {
   isolation:isolate;
-  padding:clamp(76px,9vw,144px) clamp(18px,5vw,86px) clamp(84px,10vw,156px);
+  padding:clamp(60px,7vw,100px) clamp(18px,5vw,86px) clamp(64px,8vw,120px);
   text-align:left;
-  background:
-    radial-gradient(circle at 12% 2%, rgba(220,255,184,.18), transparent 29%),
-    radial-gradient(circle at 93% 78%, rgba(189,25,75,.18), transparent 27%),
-    linear-gradient(135deg, #082416 0%, var(--section-bg,#173d29) 52%, #0a2919 100%);
+  background: var(--section-bg, #ffffff);
+  color: var(--section-text, #173d29);
 }
 .categoryShowcase--atelier::before {
-  width:min(52vw,720px);
-  height:min(52vw,720px);
-  left:auto;
-  right:-22vw;
-  bottom:-32vw;
-  border-color:rgba(220,255,184,.2);
-  box-shadow:0 0 0 72px rgba(220,255,184,.035), 0 0 0 144px rgba(255,255,255,.025);
+  display: none;
 }
 .categoryShowcase--atelier .categoryShowcaseIntro {
   position:relative;
@@ -2165,7 +2157,7 @@ footer {
   margin:0 auto clamp(36px,5vw,70px);
   padding:0 0 28px;
   border:0;
-  border-bottom:1px solid rgba(255,253,244,.3);
+  border-bottom:1px solid rgba(23, 61, 41, 0.15);
   border-radius:0;
   background:transparent;
   box-shadow:none;
@@ -2173,7 +2165,7 @@ footer {
 }
 .categoryShowcase--atelier .categoryShowcaseIntro .eyebrow {
   margin:0;
-  color:#dcffb8;
+  color:#7c624d;
   font-size:10px;
   font-weight:800;
   letter-spacing:.22em;
@@ -2181,17 +2173,16 @@ footer {
 .categoryShowcase--atelier .categoryShowcaseIntro h2 {
   max-width:10ch;
   margin:13px 0 0;
-  color:#fffdf4;
-  font-size:clamp(52px,6vw,94px);
-  line-height:.84;
-  text-shadow:0 9px 35px rgba(2,15,8,.32);
+  color:var(--section-text, #173d29);
+  font-size:clamp(40px,5vw,72px);
+  line-height:.9;
 }
 .categoryShowcaseSubtitle {
   max-width:470px;
-  margin:22px 0 0;
-  color:rgba(255,253,244,.78);
+  margin:16px 0 0;
+  color:#556655;
   font-size:14px;
-  line-height:1.75;
+  line-height:1.6;
 }
 .categoryShowcaseAll {
   display:inline-flex;
@@ -2200,15 +2191,15 @@ footer {
   flex:none;
   margin-bottom:3px;
   padding:13px 0 10px;
-  border-bottom:1px solid #dcffb8;
-  color:#fffdf4;
+  border-bottom:1px solid var(--section-text, #173d29);
+  color:var(--section-text, #173d29);
   font-size:10px;
   font-weight:850;
   letter-spacing:.16em;
   text-transform:uppercase;
   transition:color .22s ease, gap .22s ease;
 }
-.categoryShowcaseAll:hover { color:#dcffb8; gap:14px; }
+.categoryShowcaseAll:hover { color:#173d29; opacity: 0.8; gap:14px; }
 .categoryShowcase--atelier .categoryCards {
   position:relative;
   z-index:1;
