@@ -1385,11 +1385,13 @@ export default function AdminDashboard() {
         setCategorySetupNeeded(true);
         setCatalogCategories(result.categories || fallbackCategoryRecords);
         setOrdersError(`Run ${result.setupSql || "scripts/supabase-catalog-categories.sql"} in Supabase before saving live categories.`);
-        return;
+        return false;
       }
       await loadAdminData();
+      return true;
     } catch (error) {
       setOrdersError(error.message);
+      return false;
     } finally {
       setCategorySaving(false);
     }
@@ -2109,6 +2111,9 @@ function productStatus(product) {
 
 function CategoriesPanel({ categories, products, onSave, onArchive, saving, needsSetup }) {
   const [editing, setEditing] = useState(null);
+  const [categoryImageUrl, setCategoryImageUrl] = useState("");
+  const [imagePreviewAdded, setImagePreviewAdded] = useState(false);
+  const [imagePreviewError, setImagePreviewError] = useState("");
   const visibleCategories = categories.filter((category) => category.status !== "Archived");
   const archivedCategories = categories.filter((category) => category.status === "Archived");
   const mainCategories = visibleCategories.filter((category) => !category.parentSlug);
@@ -2127,6 +2132,12 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
       setSelectedSlug(mainCategories[0].slug);
     }
   }, [mainCategories, selectedSlug]);
+
+  useEffect(() => {
+    setCategoryImageUrl(editing?.image || "");
+    setImagePreviewAdded(Boolean(editing?.image));
+    setImagePreviewError("");
+  }, [editing]);
 
   function productCount(category) {
     if (category.parentSlug) {
@@ -2160,17 +2171,17 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
     if (window.confirm(`${category.name} ${label} remove/archive karni hai?${count ? ` ${count} product${count === 1 ? "" : "s"} is category mein mapped hain.` : ""}${childCount ? ` ${childCount} nested subcategories bhi hide ho sakti hain.` : ""} Products delete nahi honge, category storefront aur active list se hide ho jayegi.`)) onArchive(category);
   }
 
-  function saveCategory(event) {
+  async function saveCategory(event) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") || "").trim();
-    onSave({
+    const saved = await onSave({
       id: editing?.id,
       name,
       slug: String(form.get("slug") || slugifyCategory(name)).trim(),
       parentSlug: form.get("parentSlug") || "",
       description: form.get("description") || "",
-      image: form.get("image") || "",
+      image: categoryImageUrl.trim(),
       status: form.get("status") || "Active",
       sortOrder: Number(form.get("sortOrder") || 100),
       showInHeader: form.get("showInHeader") === "on",
@@ -2181,8 +2192,23 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
       seoDescription: form.get("seoDescription") || "",
       imageAlt: form.get("imageAlt") || name,
     });
-    if (!editing) event.currentTarget.reset();
+    if (!saved) return;
+    if (!editing?.id) event.currentTarget.reset();
     setEditing(null);
+  }
+
+  function addImagePreview() {
+    const url = categoryImageUrl.trim();
+    if (!url) {
+      setImagePreviewError("Pehle image URL paste karein.");
+      return;
+    }
+    if (!url.startsWith("/") && !/^https:\/\//i.test(url)) {
+      setImagePreviewError("Image URL https:// se start hona chahiye, ya local image / se.");
+      return;
+    }
+    setImagePreviewError("");
+    setImagePreviewAdded(true);
   }
 
   return <><div className="adminTitle"><div><p>CATALOGUE</p><h1>Categories</h1><span>Main categories pehle dikhti hain. Kisi category ko select karke uske andar subcategories manage karein.</span></div><button onClick={openNewMainCategory}><Plus /> Add main category</button></div>
@@ -2232,7 +2258,9 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
       <div className="formRow"><label>Slug<input name="slug" defaultValue={editing.slug || ""} placeholder="summer-collection" /></label><label>Sort order<input name="sortOrder" type="number" defaultValue={editing.sortOrder || 100} /></label></div>
       <label>Parent<select name="parentSlug" defaultValue={editing.parentSlug || ""}><option value="">Main category</option>{mainCategories.filter((category) => category.id !== editing.id).map((category) => <option value={category.slug} key={category.slug}>{category.name}</option>)}</select></label>
       <label>Description<textarea name="description" rows="3" defaultValue={editing.description || ""} placeholder="Short SEO-friendly category description" /></label>
-      <label>Cover image URL<input name="image" defaultValue={editing.image || ""} placeholder="https://... or /bustaniya-campaign-hero-v4.png" /></label>
+      <label>Cover image URL<div className="categoryImageUrlRow"><input name="image" value={categoryImageUrl} onChange={(event) => { setCategoryImageUrl(event.target.value); setImagePreviewAdded(false); setImagePreviewError(""); }} placeholder="https://... or /bustaniya-campaign-hero-v4.png" /><button type="button" onClick={addImagePreview}>Add image</button></div></label>
+      {imagePreviewError && <p className="categoryImageError">{imagePreviewError}</p>}
+      {imagePreviewAdded && categoryImageUrl && <div className="categoryImagePreview"><img src={categoryImageUrl} alt="Category preview" onError={() => setImagePreviewError("Is URL par image load nahi hui. URL check karein.")} /><div><b>Image ready</b><span>Save category par ye cover image category card aur category page par show hogi.</span></div></div>}
       <label>Cover image alt text<input name="imageAlt" defaultValue={editing.imageAlt || editing.name || ""} placeholder="Describe this category image" /></label>
       <div className="categoryVisibility"><b>Storefront visibility</b><label><input type="checkbox" name="showInHeader" defaultChecked={editing.showInHeader ?? true} /> Header menu</label><label><input type="checkbox" name="showOnHomepage" defaultChecked={editing.showOnHomepage ?? true} /> Homepage</label><label><input type="checkbox" name="showInFooter" defaultChecked={editing.showInFooter ?? false} /> Footer</label><label><input type="checkbox" name="showInSearch" defaultChecked={editing.showInSearch ?? true} /> Search & filters</label></div>
       <details className="categorySeo"><summary>SEO settings</summary><label>SEO title<input name="seoTitle" maxLength="60" defaultValue={editing.seoTitle || ""} placeholder="Category title for Google" /></label><label>Meta description<textarea name="seoDescription" rows="3" maxLength="160" defaultValue={editing.seoDescription || ""} placeholder="Short search-result description" /></label></details>
