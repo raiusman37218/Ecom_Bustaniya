@@ -29,6 +29,15 @@ export const DEFAULT_ANNOUNCEMENTS = [
   },
 ];
 
+export const DEFAULT_INSTAGRAM_POSTS = [
+  { id: "1", image: "/bustaniya-instagram-hero.jpg", url: "https://www.instagram.com/bustaniya_/", caption: "Crafted for every beautiful moment. #Bustaniya" },
+  { id: "2", image: "/bustaniya-instagram-hero-v2.jpg", url: "https://www.instagram.com/bustaniya_/", caption: "Signature elegance in unstitched & prêt lawn. #Bustaniya" },
+  { id: "3", image: "/bustaniya-instagram-hero-v3.jpg", url: "https://www.instagram.com/bustaniya_/", caption: "Thoughtfully designed silhouettes for everyday grace." },
+  { id: "4", image: "/bustaniya-instagram-hero-v3b.jpg", url: "https://www.instagram.com/bustaniya_/", caption: "Rooted in grace, crafted in Pakistan." },
+  { id: "5", image: "/bustaniya-campaign-hero-v5.png", url: "https://www.instagram.com/bustaniya_/", caption: "New Season '26 now live on website." },
+  { id: "6", image: "/bustaniya-hero-summer-v2.png", url: "https://www.instagram.com/bustaniya_/", caption: "Pure Pakistani cotton kurtis & co-ord sets." },
+];
+
 export const DEFAULT_HOMEPAGE_SECTIONS = [
   {
     id: "hero",
@@ -40,15 +49,6 @@ export const DEFAULT_HOMEPAGE_SECTIONS = [
     subtitle: "",
   },
   {
-    id: "new-arrivals",
-    type: "new_arrivals",
-    enabled: true,
-    label: "New Arrivals",
-    heading: "Top Picks for You",
-    eyebrow: "NEW ARRIVALS",
-    subtitle: "Fresh styles selected for everyday elegance.",
-  },
-  {
     id: "shop-by-category",
     type: "shop_by_category",
     enabled: true,
@@ -56,6 +56,15 @@ export const DEFAULT_HOMEPAGE_SECTIONS = [
     heading: "Shop by Category",
     eyebrow: "CURATED COLLECTIONS",
     subtitle: "Fresh silhouettes, easy everyday fits and statement pieces grouped so customers can find the right style faster.",
+  },
+  {
+    id: "new-arrivals",
+    type: "new_arrivals",
+    enabled: true,
+    label: "New Arrivals",
+    heading: "Top Picks for You",
+    eyebrow: "NEW ARRIVALS",
+    subtitle: "Fresh styles selected for everyday elegance.",
   },
   {
     id: "our-story",
@@ -75,6 +84,15 @@ export const DEFAULT_HOMEPAGE_SECTIONS = [
     eyebrow: "STAY IN THE LOOP",
     subtitle: "New collections, styling inspiration and 10% off your first order.",
   },
+  {
+    id: "instagram-feed",
+    type: "instagram_feed",
+    enabled: true,
+    label: "Instagram Feed",
+    heading: "Follow us Instagram",
+    eyebrow: "@BUSTANIYA_",
+    subtitle: "Tag @bustaniya_ to be featured on our official page.",
+  },
 ];
 
 export const DEFAULT_STORE_SETTINGS = {
@@ -84,6 +102,7 @@ export const DEFAULT_STORE_SETTINGS = {
     categories: "#ffffff",
     story: "#173d29",
     newsletter: "#f7f2e8",
+    instagram: "#ffffff",
   },
   sectionTextColors: {
     heroOverlay: "#173d29",
@@ -91,6 +110,7 @@ export const DEFAULT_STORE_SETTINGS = {
     categories: "#173d29",
     story: "#fffdf7",
     newsletter: "#173d29",
+    instagram: "#173d29",
   },
   heroEnabled: true,
   heroDesktopImage: "/bustaniya-campaign-hero-v5.png",
@@ -108,6 +128,9 @@ export const DEFAULT_STORE_SETTINGS = {
   productCardStyle: "connected",
   categorySectionStyle: "atelier",
   announcementEnabled: true,
+  instagramEnabled: true,
+  instagramHandle: "@bustaniya_",
+  instagramPosts: DEFAULT_INSTAGRAM_POSTS,
   announcementText: "Rs. 300 advance payment required for order confirmation",
   announcementLinkLabel: "Shop now",
   announcementLinkHref: "#products",

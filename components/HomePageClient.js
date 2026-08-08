@@ -2,7 +2,7 @@
 
 import Image, { getImageProps } from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, ChevronDown, Menu, Minus, Plus, Ruler, Search, ShieldCheck, ShoppingBag, Truck, UserRound, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Instagram, Menu, Minus, Plus, Ruler, Search, ShieldCheck, ShoppingBag, Truck, UserRound, X } from "lucide-react";
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import SiteHeader from "./SiteHeader";
@@ -152,6 +152,22 @@ export default function Home({
       .filter((item) => item.quantity > 0));
   }
 
+  const homepageSectionsToRender = useMemo(() => {
+    const raw = (safeSettings.homepageSections && safeSettings.homepageSections.length) ? safeSettings.homepageSections : DEFAULT_HOMEPAGE_SECTIONS;
+    const enabled = raw.filter((s) => s && s.enabled !== false);
+    const heroIndex = enabled.findIndex((s) => s.type === "hero");
+    const catIndex = enabled.findIndex((s) => s.type === "shop_by_category");
+    const newIndex = enabled.findIndex((s) => s.type === "new_arrivals");
+    if (catIndex > -1 && newIndex > -1 && catIndex > newIndex) {
+      const list = [...enabled];
+      const [catSection] = list.splice(catIndex, 1);
+      const targetPos = heroIndex > -1 ? heroIndex + 1 : 0;
+      list.splice(targetPos, 0, catSection);
+      return list;
+    }
+    return enabled;
+  }, [safeSettings.homepageSections]);
+
   return (
     <>
       <SiteHeader
@@ -165,7 +181,7 @@ export default function Home({
       />
 
       <main>
-        {(storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).filter((s) => s.enabled).map((section) => {
+        {homepageSectionsToRender.map((section) => {
           const defaults = DEFAULT_HOMEPAGE_SECTIONS.find((d) => d.type === section.type) || {};
 
           if (section.type === "hero") {
@@ -241,12 +257,16 @@ export default function Home({
           if (section.type === "shop_by_category") {
             const currentStyle = (section.style === "minimal" || storeSettings.categorySectionStyle === "minimal") ? "minimal" : "atelier";
             const sectionHeading = (!section.heading || section.heading === "Choose your mood") ? "Shop by Category" : section.heading;
+            const catBg = sectionColors.categories || "#ffffff";
+            const isLightCatBg = !catBg || ["#ffffff", "#fffefb", "#fff", "#fcf8ef", "#f7f2e8"].includes(catBg.toLowerCase().trim());
+            const catTextColor = isLightCatBg ? "#173d29" : (sectionTextColors.categories || "#ffffff");
+
             if (currentStyle === "minimal") {
               return (
-                <section key={section.id} className="categoryShowcase categoryShowcase--minimal scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories || "#ffffff", "--section-text": sectionTextColors.categories || "#173d29" }}>
+                <section key={section.id} className="categoryShowcase categoryShowcase--minimal scrollReveal" data-scroll-reveal style={{ "--section-bg": catBg, "--section-text": catTextColor, color: catTextColor }}>
                   <div className="categoryMinimalHeader">
                     {(section.eyebrow || defaults.eyebrow) && <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>}
-                    <h2>{sectionHeading}</h2>
+                    <h2 style={{ color: catTextColor }}>{sectionHeading}</h2>
                     {(section.subtitle || defaults.subtitle) && <p className="categoryMinimalSubtitle">{section.subtitle || defaults.subtitle}</p>}
                   </div>
                   <div className="categoryMinimalGrid" aria-label="Shop by category">
@@ -259,8 +279,14 @@ export default function Home({
                             fill
                             sizes="(max-width: 600px) 50vw, (max-width: 1000px) 25vw, 300px"
                           />
+                          <span className="categoryCardOverlay">
+                            <span className="categoryCardBtn">Explore Collection <ArrowRight size={14} /></span>
+                          </span>
                         </div>
-                        <h3 className="categoryMinimalTitle">{category.name}</h3>
+                        <h3 className="categoryMinimalTitle">
+                          <span>{category.name}</span>
+                          <ArrowRight size={14} className="categoryTitleArrow" />
+                        </h3>
                       </a>
                     ))}
                   </div>
@@ -269,11 +295,11 @@ export default function Home({
             }
 
             return (
-              <section key={section.id} className="categoryShowcase categoryShowcase--atelier scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.categories || "#ffffff", "--section-text": sectionTextColors.categories || "#173d29" }}>
+              <section key={section.id} className="categoryShowcase categoryShowcase--atelier scrollReveal" data-scroll-reveal style={{ "--section-bg": catBg, "--section-text": catTextColor, color: catTextColor }}>
                 <header className="categoryShowcaseIntro">
                   <div>
                     <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
-                    <h2>{sectionHeading}</h2>
+                    <h2 style={{ color: catTextColor }}>{sectionHeading}</h2>
                     <p className="categoryShowcaseSubtitle">{section.subtitle || defaults.subtitle}</p>
                   </div>
                   <a className="categoryShowcaseAll" href="#products">
@@ -318,6 +344,55 @@ export default function Home({
                 <h2>{section.heading || defaults.heading}</h2>
                 <p>{section.subtitle || defaults.subtitle}</p>
                 <form onSubmit={(e) => e.preventDefault()}><input type="email" placeholder="Your email address" /><button aria-label="Subscribe"><ArrowRight /></button></form>
+              </section>
+            );
+          }
+
+          if (section.type === "instagram_feed") {
+            if (storeSettings.instagramEnabled === false) return null;
+            const posts = (Array.isArray(storeSettings.instagramPosts) && storeSettings.instagramPosts.length)
+              ? storeSettings.instagramPosts
+              : (DEFAULT_STORE_SETTINGS.instagramPosts || []);
+            const handle = storeSettings.instagramHandle || "@bustaniya_";
+            const profileUrl = `https://www.instagram.com/${handle.replace("@", "")}/`;
+
+            return (
+              <section key={section.id} className="instagramFeedSection scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.instagram || "#ffffff", "--section-text": sectionTextColors.instagram || "#173d29" }}>
+                <div className="instagramFeedHeader">
+                  <h2>{section.heading || defaults.heading || "Follow us Instagram"}</h2>
+                  <p className="instagramFeedHandle">
+                    <a href={profileUrl} target="_blank" rel="noreferrer">
+                      <Instagram size={18} />
+                      <span>{handle}</span>
+                    </a>
+                  </p>
+                </div>
+                <div className="instagramFeedGrid" aria-label="Instagram Feed Gallery">
+                  {posts.map((post, idx) => (
+                    <a
+                      key={post.id || idx}
+                      href={post.url || profileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="instagramPostCard"
+                      title={post.caption || `Instagram post ${idx + 1}`}
+                    >
+                      <div className="instagramPostImageWrap">
+                        <Image
+                          src={post.image || "/bustaniya-instagram-hero.jpg"}
+                          alt={post.caption || "Bustaniya Instagram post"}
+                          fill
+                          sizes="(max-width: 600px) 50vw, (max-width: 1000px) 33vw, 16vw"
+                        />
+                        <div className="instagramPostOverlay">
+                          <Instagram size={28} />
+                          <span className="instagramPostHandle">{handle}</span>
+                          {post.caption && <span className="instagramPostCaption">{post.caption}</span>}
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
               </section>
             );
           }
