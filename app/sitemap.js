@@ -2,6 +2,8 @@ import { categoryDetails, kurtiSubcategories } from "../data/store";
 import { getCatalogProducts } from "../lib/catalog";
 import { absoluteUrl, infoPages, productSlug } from "../lib/seo";
 
+export const dynamic = "force-dynamic";
+
 export default async function sitemap() {
   const now = new Date();
   const products = await getCatalogProducts();

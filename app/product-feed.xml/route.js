@@ -1,6 +1,8 @@
 import { getCatalogProducts } from "../../lib/catalog";
 import { absoluteUrl, productDescription, productSlug, seoImage, siteConfig } from "../../lib/seo";
 
+export const dynamic = "force-dynamic";
+
 function xmlEscape(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
