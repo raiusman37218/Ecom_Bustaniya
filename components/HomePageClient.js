@@ -2,7 +2,7 @@
 
 import Image, { getImageProps } from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, Minus, Play, Plus, Ruler, Search, ShieldCheck, ShoppingBag, Truck, UserRound, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, Minus, Play, Plus, Ruler, ShieldCheck, ShoppingBag, Truck, UserRound, X } from "lucide-react";
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import SiteHeader from "./SiteHeader";
@@ -59,7 +59,6 @@ export default function Home({
   const [activeCategory, setActiveCategory] = useState("All");
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const [cartReady, setCartReady] = useState(false);
   const [products, setProducts] = useState(() => normalizeProducts(serverProducts || []));
   const [categoryRecords, setCategoryRecords] = useState(() => (initialCategories || []).filter((category) => category && !category.parentSlug));
@@ -118,9 +117,8 @@ export default function Home({
   const visibleProducts = useMemo(() => (products || []).filter((product) => {
     if (!product) return false;
     const categoryMatch = activeCategory === "All" || normalizeCategory(product.category) === activeCategory;
-    const name = String(product.name || "");
-    return categoryMatch && name.toLowerCase().includes(String(search || "").toLowerCase());
-  }), [activeCategory, products, search]);
+    return categoryMatch;
+  }), [activeCategory, products]);
 
   const categoryNames = useMemo(() => ["All", ...(categoryRecords || []).map((category) => category?.name || "").filter(Boolean)], [categoryRecords]);
 
@@ -203,8 +201,6 @@ export default function Home({
     <>
       <SiteHeader
         storeSettings={storeSettings}
-        search={search}
-        setSearch={setSearch}
         cartCount={cartCount}
         onOpenCart={() => setCartOpen(true)}
         categories={categoryRecords}

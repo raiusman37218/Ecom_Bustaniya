@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Search, UserRound, Heart, ShoppingBag, Menu, X } from "lucide-react";
+import { UserRound, Heart, ShoppingBag, Menu, X } from "lucide-react";
 import AnnouncementBar from "./AnnouncementBar";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 
 export default function SiteHeader({
   storeSettings = DEFAULT_STORE_SETTINGS,
-  search = "",
-  setSearch = () => {},
   cartCount = 0,
   onOpenCart = () => {},
   categories = [],
@@ -24,24 +22,8 @@ export default function SiteHeader({
       {/* 1. Top Cognac Announcement Bar */}
       <AnnouncementBar storeSettings={storeSettings} />
 
-      {/* 2. Middle Brand Row: Search | Logo | Action Icons */}
+      {/* 2. Middle Brand Row: Logo | Action Icons */}
       <div className="headerMiddleRow">
-        <div className="headerSearchInputWrap">
-          <Search size={17} className="searchIcon" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products"
-            aria-label="Search products"
-          />
-          {search && (
-            <button type="button" className="clearSearchBtn" onClick={() => setSearch("")} aria-label="Clear search">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-
         <a href="/" className="headerBrandLogo" aria-label="Bustaniya Home">
           <img src="/bustaniya-logo-v2.png" alt="Bustaniya" />
         </a>
