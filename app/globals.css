@@ -8790,4 +8790,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     height:80px;
     flex:0 0 64px;
   }
+  .mariabGallery .mariabPhotoGrid {
+    display:none;
+  }
 }
