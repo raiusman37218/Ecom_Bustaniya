@@ -151,7 +151,9 @@ export default function CheckoutPage() {
           <a className="backShopping" href="/"><ArrowLeft size={16} /> Continue shopping</a>
           <p className="eyebrow">DELIVERY DETAILS</p>
           <h1>Checkout</h1>
+          <p className="checkoutIntro">Complete the details below, choose how you would like to pay, and we will verify your payment before dispatch.</p>
           <form onSubmit={placeOrder}>
+            <div className="checkoutSectionHeading"><span>01</span><div><b>Contact information</b><small>We use this only for order confirmation and delivery updates.</small></div></div>
             <label>Full name<input required name="fullName" value={form.fullName} onChange={updateField} placeholder="Your full name" /></label>
             <label>Phone number<input required name="phone" value={form.phone} onChange={updateField} type="tel" inputMode="tel" placeholder="Phone / WhatsApp number" /></label>
             <label>Email address (optional)<input name="email" value={form.email} onChange={updateField} type="email" placeholder="you@example.com" /></label>
@@ -181,6 +183,7 @@ export default function CheckoutPage() {
               <label>Postal code (optional)<input name="postalCode" value={form.postalCode} onChange={updateField} placeholder="Postal code" /></label>
             </div>
 
+            <div className="checkoutSectionHeading"><span>02</span><div><b>Choose payment method</b><small>Both options require a verified transfer before your order is dispatched.</small></div></div>
             <label className={paymentMethod === PAYMENT_METHODS.COD_ADVANCE_DELIVERY ? "paymentBox" : "paymentBox paymentChoice"}>
               <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} disabled={paymentSettings.codEnabled === false} onChange={() => setPaymentMethod("cod")} />
               <div><b>Cash on Delivery — delivery charges paid in advance</b><span>Pay Rs. {paymentAmounts.deliveryCharges.toLocaleString()} now to confirm. Pay the complete product subtotal to the courier on delivery.</span></div>
@@ -201,11 +204,12 @@ export default function CheckoutPage() {
             <button className="placeOrder" type="submit" disabled={!cart.length || submitting}>
               {submitting ? "Placing order..." : `Place order · Rs. ${paymentAmounts.totalOrderValue.toLocaleString()}`}
             </button>
+            <p className="checkoutPrivacy"><Lock size={13} /> Your information is used only to process this order securely.</p>
           </form>
         </section>
 
         <aside className="orderSummary">
-          <h2>Your order <span>({cart.reduce((n, item) => n + item.quantity, 0)})</span></h2>
+          <div className="orderSummaryHead"><p>ORDER SUMMARY</p><h2>Your order <span>({cart.reduce((n, item) => n + item.quantity, 0)})</span></h2></div>
           {!cart.length ? (
             <div className="checkoutEmpty"><ShoppingBag /><p>Your cart is empty.</p><a href="/">Shop collection</a></div>
           ) : cart.map((item) => (
