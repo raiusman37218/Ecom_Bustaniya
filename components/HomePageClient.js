@@ -74,6 +74,8 @@ export default function Home({
   const heroDesktopImages = rawDesktop.map((img) => img || "/bustaniya-campaign-hero-v5.png");
   const heroMobileImages = rawMobile.map((img) => img || "/bustaniya-campaign-hero-v5.png");
   const heroSlideCount = Math.max(heroDesktopImages.length, heroMobileImages.length);
+  const desktopHero = { ...DEFAULT_STORE_SETTINGS.heroDesktopContent, ...(safeSettings.heroDesktopContent || {}) };
+  const mobileHero = { ...DEFAULT_STORE_SETTINGS.heroMobileContent, ...desktopHero, ...(safeSettings.heroMobileContent || {}) };
 
   useEffect(() => {
     const savedCart = localStorage.getItem("bustaniya-cart");
@@ -204,7 +206,7 @@ export default function Home({
             return (
               <section
                 key={section.id}
-                className={`campaignHero campaignHero--position-${storeSettings.heroTextPosition} campaignHero--align-${storeSettings.heroTextAlignment}`}
+                className={`campaignHero campaignHero--position-${desktopHero.position} campaignHero--align-${desktopHero.alignment} campaignHero--mobile-position-${mobileHero.position} campaignHero--mobile-align-${mobileHero.alignment}`}
                 id="new"
                 style={{ "--campaign-overlay": Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0))) / 100, "--campaign-overlay-color": sectionColors.heroOverlay, "--campaign-text-color": sectionTextColors.heroOverlay }}
               >
@@ -219,12 +221,14 @@ export default function Home({
                 <div className="campaignHeroOverlay" />
                 <div className="campaignHeroInner">
                   <div className="campaignHeroCopy">
-                    {storeSettings.heroEyebrow && <p>{storeSettings.heroEyebrow}</p>}
-                    <h1>{storeSettings.heroHeading || DEFAULT_STORE_SETTINGS.heroHeading}</h1>
-                    {storeSettings.heroSupportingText && <span>{storeSettings.heroSupportingText}</span>}
+                    <p className="campaignHeroDesktopOnly">{desktopHero.eyebrow}</p><p className="campaignHeroMobileOnly">{mobileHero.eyebrow}</p>
+                    <h1><span className="campaignHeroDesktopOnly">{desktopHero.heading || DEFAULT_STORE_SETTINGS.heroHeading}</span><span className="campaignHeroMobileOnly">{mobileHero.heading || DEFAULT_STORE_SETTINGS.heroHeading}</span></h1>
+                    <span className="campaignHeroDesktopOnly">{desktopHero.supportingText}</span><span className="campaignHeroMobileOnly">{mobileHero.supportingText}</span>
                     <div className="campaignHeroActions">
-                      {storeSettings.heroPrimaryButtonText && <a className="campaignHeroPrimary" href={storeSettings.heroPrimaryButtonLink || "#products"}>{storeSettings.heroPrimaryButtonText}<ArrowRight size={17} /></a>}
-                      {storeSettings.heroSecondaryButtonText && <a className="campaignHeroSecondary" href={storeSettings.heroSecondaryButtonLink || "#products"}>{storeSettings.heroSecondaryButtonText}</a>}
+                      {desktopHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroDesktopOnly" href={desktopHero.primaryButtonLink || "#products"}>{desktopHero.primaryButtonText}<ArrowRight size={17} /></a>}
+                      {mobileHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroMobileOnly" href={mobileHero.primaryButtonLink || "#products"}>{mobileHero.primaryButtonText}<ArrowRight size={17} /></a>}
+                      {desktopHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroDesktopOnly" href={desktopHero.secondaryButtonLink || "#products"}>{desktopHero.secondaryButtonText}</a>}
+                      {mobileHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroMobileOnly" href={mobileHero.secondaryButtonLink || "#products"}>{mobileHero.secondaryButtonText}</a>}
                     </div>
                   </div>
                 </div>

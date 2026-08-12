@@ -5523,8 +5523,32 @@ function SettingsPanel({ onOpen, signedInUser }) {
       return;
     }
     setStoreSettingsError("");
-    setStoreSettings((current) => ({ ...current, [field]: [...(current[field] || []), url] }));
+    setStoreSettings((current) => {
+      const fallback = field === "heroDesktopImages" ? current.heroDesktopImage : current.heroMobileImage;
+      const currentImages = normalizeHeroImages(current[field] || fallback, fallback);
+      return { ...current, [field]: [...currentImages, url] };
+    });
     setHeroUrlInputs((current) => ({ ...current, [field]: "" }));
+  }
+
+  function updateHeroContent(device, changes) {
+    const key = device === "mobile" ? "heroMobileContent" : "heroDesktopContent";
+    setStoreSettings((current) => {
+      const fallback = device === "mobile"
+        ? { ...(current.heroDesktopContent || DEFAULT_STORE_SETTINGS.heroDesktopContent), position: "bottom" }
+        : (current.heroDesktopContent || {
+          eyebrow: current.heroEyebrow,
+          heading: current.heroHeading,
+          supportingText: current.heroSupportingText,
+          primaryButtonText: current.heroPrimaryButtonText,
+          primaryButtonLink: current.heroPrimaryButtonLink,
+          secondaryButtonText: current.heroSecondaryButtonText,
+          secondaryButtonLink: current.heroSecondaryButtonLink,
+          alignment: current.heroTextAlignment || "left",
+          position: current.heroTextPosition || "left",
+        });
+      return { ...current, [key]: { ...fallback, ...changes } };
+    });
   }
 
   async function loadStoreSettings() {
@@ -5793,7 +5817,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
                   <div className="heroSlideGrid">
                     {list.map((url, idx) => (
                       <div className="heroSlideCard" key={`${url}-${idx}`}>
-                        <div className="heroSlideMedia"><img src={url} alt={`${item.label} ${idx + 1}`} /><button type="button" onClick={() => setStoreSettings((current) => ({ ...current, [item.field]: list.filter((_, i) => i !== idx) }))} title="Remove slide"><X size={14} /></button></div>
+                        <div className="heroSlideMedia"><img src={url} alt={`${item.label} ${idx + 1}`} /><button type="button" disabled={list.length === 1} onClick={() => setStoreSettings((current) => ({ ...current, [item.field]: list.filter((_, i) => i !== idx) }))} title={list.length === 1 ? "Keep at least one slide" : "Remove slide"}><X size={14} /></button></div>
                         <span className="heroSlidePath">{url}</span>
                       </div>
                     ))}
@@ -5805,11 +5829,12 @@ function SettingsPanel({ onOpen, signedInUser }) {
                 </div>
               );
             })}
-            <div className="formRow"><label>Eyebrow<input value={storeSettings.heroEyebrow || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEyebrow: event.target.value }))} placeholder="NEW SEASON" /></label><label>Heading<input value={storeSettings.heroHeading || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroHeading: event.target.value }))} placeholder="Unstitched Luxury Lawn '26" /></label></div>
-            <label>Supporting Text<textarea rows="2" value={storeSettings.heroSupportingText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSupportingText: event.target.value }))} placeholder="Crafted for effortless grace..." /></label>
-            <div className="formRow"><label>Primary Button Text<input value={storeSettings.heroPrimaryButtonText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroPrimaryButtonText: event.target.value }))} placeholder="Shop Lawns" /></label><label>Primary Button Link<input value={storeSettings.heroPrimaryButtonLink || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroPrimaryButtonLink: event.target.value }))} placeholder="#products or /category/unstitched" /></label></div>
-            <div className="formRow"><label>Secondary Button Text<input value={storeSettings.heroSecondaryButtonText || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSecondaryButtonText: event.target.value }))} placeholder="View Lookbook" /></label><label>Secondary Button Link<input value={storeSettings.heroSecondaryButtonLink || ""} onChange={(event) => setStoreSettings((current) => ({ ...current, heroSecondaryButtonLink: event.target.value }))} placeholder="#story" /></label></div>
-            <div className="formRow"><label>Text Alignment<select value={storeSettings.heroTextAlignment || "left"} onChange={(event) => setStoreSettings((current) => ({ ...current, heroTextAlignment: event.target.value }))}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>Text Position<select value={storeSettings.heroTextPosition || "left"} onChange={(event) => setStoreSettings((current) => ({ ...current, heroTextPosition: event.target.value }))}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label></div>
+            <div className="heroCopyEditors">{[{ key: "desktop", label: "Desktop content", hint: "Shown on laptop and desktop banners.", positions: ["left", "center", "right"] }, { key: "mobile", label: "Mobile content", hint: "Shown only on phones — place it at the top, center or bottom.", positions: ["top", "center", "bottom"] }].map((device) => {
+              const contentKey = device.key === "mobile" ? "heroMobileContent" : "heroDesktopContent";
+              const legacy = { eyebrow: storeSettings.heroEyebrow || "", heading: storeSettings.heroHeading || "", supportingText: storeSettings.heroSupportingText || "", primaryButtonText: storeSettings.heroPrimaryButtonText || "", primaryButtonLink: storeSettings.heroPrimaryButtonLink || "", secondaryButtonText: storeSettings.heroSecondaryButtonText || "", secondaryButtonLink: storeSettings.heroSecondaryButtonLink || "", alignment: storeSettings.heroTextAlignment || "left", position: device.key === "mobile" ? "bottom" : (storeSettings.heroTextPosition || "left") };
+              const content = { ...legacy, ...(storeSettings[contentKey] || {}) };
+              return <section className="heroCopyEditor" key={device.key}><div className="heroCopyEditorHead"><div><b>{device.label}</b><span>{device.hint}</span></div></div><div className="formRow"><label>Eyebrow<input value={content.eyebrow || ""} onChange={(event) => updateHeroContent(device.key, { eyebrow: event.target.value })} placeholder="NEW SEASON" /></label><label>Heading<input value={content.heading || ""} onChange={(event) => updateHeroContent(device.key, { heading: event.target.value })} placeholder="Unstitched Luxury Lawn '26" /></label></div><label>Supporting text<textarea rows="2" value={content.supportingText || ""} onChange={(event) => updateHeroContent(device.key, { supportingText: event.target.value })} placeholder="Crafted for effortless grace..." /></label><div className="formRow"><label>Primary CTA text<input value={content.primaryButtonText || ""} onChange={(event) => updateHeroContent(device.key, { primaryButtonText: event.target.value })} placeholder="Shop now" /></label><label>Primary CTA link<input value={content.primaryButtonLink || ""} onChange={(event) => updateHeroContent(device.key, { primaryButtonLink: event.target.value })} placeholder="#products or /category/kurtis" /></label></div><div className="formRow"><label>Secondary CTA text<input value={content.secondaryButtonText || ""} onChange={(event) => updateHeroContent(device.key, { secondaryButtonText: event.target.value })} placeholder="Optional" /></label><label>Secondary CTA link<input value={content.secondaryButtonLink || ""} onChange={(event) => updateHeroContent(device.key, { secondaryButtonLink: event.target.value })} placeholder="Optional" /></label></div><div className="formRow"><label>Text alignment<select value={content.alignment || "left"} onChange={(event) => updateHeroContent(device.key, { alignment: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>{device.key === "mobile" ? "Vertical position" : "Horizontal position"}<select value={content.position || device.positions[0]} onChange={(event) => updateHeroContent(device.key, { position: event.target.value })}>{device.positions.map((position) => <option value={position} key={position}>{position[0].toUpperCase() + position.slice(1)}</option>)}</select></label></div></section>;
+            })}</div>
             <label>Overlay Intensity — {Number(storeSettings.heroOverlayIntensity || 0)}%<input type="range" min="0" max="80" step="1" value={Number(storeSettings.heroOverlayIntensity || 0)} onChange={(event) => setStoreSettings((current) => ({ ...current, heroOverlayIntensity: Number(event.target.value) }))} /></label>
           </section>
           <div className="formRow"><label>Store name<input defaultValue="Bustaniya" /></label><label>Legal business name<input defaultValue="Bustaniya" /></label></div>
