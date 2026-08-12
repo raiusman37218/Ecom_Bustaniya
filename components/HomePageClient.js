@@ -261,7 +261,7 @@ export default function Home({
             return (
               <section key={section.id} className="shopSection khaadiTopPicks scrollReveal" data-scroll-reveal id="products" style={{ "--section-bg": sectionColors.products, "--section-text": sectionTextColors.products }}>
                 <div className="sectionHeading">
-                  <div><p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p><h2>{section.heading || defaults.heading}</h2><span>{section.subtitle || defaults.subtitle}</span></div>
+                  <div><p className="eyebrow">BEST SELLERS</p><h2>Best Sellers</h2></div>
                 </div>
                 <div className="categoryTabs">
                   {categoryNames.map((category) => <button key={category} className={category === activeCategory ? "active" : ""} onClick={() => setActiveCategory(category)}>{category}</button>)}
@@ -307,7 +307,6 @@ export default function Home({
                   <div className="categoryMinimalHeader">
                     {(section.eyebrow || defaults.eyebrow) && <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>}
                     <h2 style={{ color: catTextColor }}>{sectionHeading}</h2>
-                    {(section.subtitle || defaults.subtitle) && <p className="categoryMinimalSubtitle">{section.subtitle || defaults.subtitle}</p>}
                   </div>
                   <div className="categoryMinimalGrid" aria-label="Shop by category">
                     {categoryCards.map((category) => (
@@ -340,7 +339,6 @@ export default function Home({
                   <div>
                     <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
                     <h2 style={{ color: catTextColor }}>{sectionHeading}</h2>
-                    <p className="categoryShowcaseSubtitle">{section.subtitle || defaults.subtitle}</p>
                   </div>
                   <a className="categoryShowcaseAll" href="#products">
                     View all pieces <ArrowRight size={15} aria-hidden="true" />
@@ -366,7 +364,7 @@ export default function Home({
             return (
               <section key={section.id} className="shopSection khaadiTopPicks bestSellersSection scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.story, "--section-text": sectionTextColors.story }}>
                 <div className="sectionHeading">
-                  <div><p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p><h2>{section.heading || defaults.heading}</h2><span>{section.subtitle || defaults.subtitle}</span></div>
+                  <div><p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p><h2>{section.heading || defaults.heading}</h2></div>
                   <a href="#products">View all pieces <ArrowRight size={16} /></a>
                 </div>
                 <div className="productGrid">
