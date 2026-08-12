@@ -3372,6 +3372,15 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .bankPaymentDetails { display:grid; gap:6px; margin-top:8px; padding-top:9px; border-top:1px dashed #cfdccd; }
 .bankPaymentDetails span { display:grid; grid-template-columns:minmax(82px,.55fr) 1fr; gap:8px; color:#344b3b; }
 .bankPaymentDetails b { color:#173d29; }
+.checkoutPaymentBreakdown,.paymentOrderBreakdown { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:12px; }
+.checkoutPaymentBreakdown span,.paymentOrderBreakdown span { display:flex; justify-content:space-between; gap:10px; padding:9px 10px; border:1px solid #dce5dc; background:#fbfdf9; color:#587064; font-size:12px; }
+.checkoutPaymentBreakdown span:last-child,.paymentOrderBreakdown span:last-child { background:#edf6ee; color:#173d29; }
+.checkoutPaymentBreakdown b,.paymentOrderBreakdown b { color:#173d29; text-align:right; }
+.paymentVerificationCard { border-color:#bad6c0; background:linear-gradient(135deg,#f7fcf7,#fffdfa); }
+.paymentVerificationCard>p { color:#506557; line-height:1.6; }
+.whatsappPaymentButton { display:inline-flex; align-items:center; justify-content:center; min-height:44px; margin-top:16px; padding:0 16px; border-radius:5px; background:#1d6840; color:#fff!important; font-size:12px; font-weight:800; text-decoration:none; }
+.paymentVerificationWorkspace { border-color:#c8decf; background:linear-gradient(145deg,#fffefa,#f7fcf7); }
+.paymentVerificationWorkspace .orderActionRow .dangerButton { background:#b52b4b; }
 .placeOrder { min-height:54px; padding:17px; border:0; border-radius:6px; background:var(--berry); color:#fff; text-transform:uppercase; letter-spacing:.09em; font-size:11px; display:flex; align-items:center; justify-content:center; transition:background .2s ease,transform .2s ease,box-shadow .2s ease; }
 .placeOrder:not(:disabled):hover { background:#a9103e; transform:translateY(-1px); box-shadow:0 14px 30px #bd194b24; }
 .placeOrder:disabled { opacity:.45; cursor:not-allowed; }
@@ -8052,6 +8061,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .orderDetailDrawer>header h2 { font-size:30px; }
   .orderDetailBody { padding:14px 12px 60px; }
   .orderDetailGrid { grid-template-columns:1fr; }
+  .checkoutPaymentBreakdown,.paymentOrderBreakdown { grid-template-columns:1fr; }
   .orderOpsCard .formRow,.orderDialog .formRow { grid-template-columns:1fr; }
   .orderActionRow { flex-direction:column; }
   .orderActionRow button,.orderOpsCard>button { width:100%; }

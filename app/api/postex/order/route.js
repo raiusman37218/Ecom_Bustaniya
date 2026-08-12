@@ -6,6 +6,7 @@ import { buildShippingAddress, hasStructuredShippingAddress } from "../../../../
 import { getCourierAdapter, postexTrackingNumberFromBooking } from "../../../../lib/courierAdapters";
 import { recordShipmentState } from "../../../../lib/shipments";
 import { getStoreSettings } from "../../../../lib/storeSettings";
+import { calculatePaymentAmounts, normalizePaymentMethod, paymentSnapshot } from "../../../../lib/paymentRules";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -180,12 +181,12 @@ export async function POST(request) {
     const requestedItems = Array.isArray(body?.items) ? body.items : [];
     const settings = await getStoreSettings();
     const paymentSettings = settings.paymentSettings || {};
-    const paymentMethod = body?.paymentMethod === "bank_deposit" ? "bank_deposit" : "cod";
+    const paymentMethod = normalizePaymentMethod(body?.paymentMethod);
     if (paymentMethod === "cod" && paymentSettings.codEnabled === false) {
       return NextResponse.json({ error: "Cash on Delivery is not available right now." }, { status: 400 });
     }
-    if (paymentMethod === "bank_deposit" && paymentSettings.manualTransferEnabled === false) {
-      return NextResponse.json({ error: "Manual transfer is not available right now." }, { status: 400 });
+    if (paymentMethod === "full_advance" && paymentSettings.manualTransferEnabled === false) {
+      return NextResponse.json({ error: "Full advance payment is not available right now." }, { status: 400 });
     }
     const phone = cleanText(customer.phone, 40);
     const courierPhone = normalizePhone(phone);
@@ -259,6 +260,11 @@ export async function POST(request) {
     });
 
     const cartTotalBeforeDelivery = verifiedItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1), 0);
+    const paymentAmounts = calculatePaymentAmounts({
+      subtotal: cartTotalBeforeDelivery,
+      paymentMethod,
+      paymentSettings,
+    });
     if (paymentMethod === "cod") {
       const minOrder = Number(paymentSettings.codMinOrderPkr || 0);
       const maxOrder = Number(paymentSettings.codMaxOrderPkr || 0);
@@ -299,7 +305,56 @@ export async function POST(request) {
     });
     await ensureOrderItems(reservedOrder.order_id, verifiedItems);
 
-    const postexCollectionAmount = paymentMethod === "bank_deposit" ? 0 : Number(reservedOrder.total);
+    // Keep every amount as an immutable order snapshot. The browser never
+    // supplies these values; they are calculated only from verified catalog
+    // prices and the active payment settings on the server.
+    const paymentDetails = paymentSnapshot(paymentSettings);
+    await supabaseAdminRequest(`orders?id=eq.${encodeURIComponent(reservedOrder.order_id)}`, {
+      method: "PATCH",
+      prefer: "return=minimal",
+      body: {
+        payment_method: paymentAmounts.paymentMethod,
+        payment_status: "Awaiting Payment",
+        payment_proof_status: "Awaiting Payment",
+        order_confirmation_status: "Awaiting payment verification",
+        product_subtotal_pkr: paymentAmounts.productSubtotal,
+        delivery_charges_pkr: paymentAmounts.deliveryCharges,
+        total_order_value_pkr: paymentAmounts.totalOrderValue,
+        amount_payable_in_advance_pkr: paymentAmounts.amountPayableInAdvance,
+        amount_payable_on_delivery_pkr: paymentAmounts.amountPayableOnDelivery,
+        payment_details_snapshot: paymentDetails,
+        fulfillment_status: "On hold",
+        status: "Unbooked",
+        courier_status: "Unbooked",
+      },
+    });
+
+    const responseBody = {
+      success: true,
+      orderRef: reservedOrder.order_number,
+      trackingNumber: "",
+      paymentMethod: paymentAmounts.paymentMethod,
+      paymentStatus: "Awaiting Payment",
+      productSubtotal: paymentAmounts.productSubtotal,
+      deliveryCharges: paymentAmounts.deliveryCharges,
+      totalOrderValue: paymentAmounts.totalOrderValue,
+      amountPayableInAdvance: paymentAmounts.amountPayableInAdvance,
+      amountPayableOnDelivery: paymentAmounts.amountPayableOnDelivery,
+      postexCollectionAmount: paymentAmounts.courierCollectionAmount,
+      paymentDetails,
+      courierBooked: false,
+      courierMessage: "Courier booking will start after payment verification.",
+      emailSent: false,
+    };
+    activeCheckoutFingerprints.set(duplicateKey, {
+      expiresAt: Date.now() + DUPLICATE_ORDER_WINDOW_MS,
+      order: responseBody,
+    });
+    keepDuplicateGuard = true;
+    reservedOrder = null;
+    return NextResponse.json(responseBody);
+
+    const postexCollectionAmount = paymentMethod === "full_advance" ? 0 : Number(reservedOrder.total);
     const courier = await getCourierAdapter("postex");
     const courierConfigured = courier.configured;
 
@@ -314,7 +369,7 @@ export async function POST(request) {
       customerPhone: courierPhone,
       deliveryAddress,
       transactionNotes: [
-        paymentMethod === "bank_deposit"
+        paymentMethod === "full_advance"
           ? "Payment: Bank deposit / advance - collect Rs. 0"
           : "Payment: Cash on Delivery",
         customer.email?.trim() ? `Email: ${customer.email.trim()}` : "",
@@ -353,7 +408,7 @@ export async function POST(request) {
           p_tracking_number: trackingNumber,
           p_response: postexResult,
         });
-        await recordShipmentState({ orderId: reservedOrder.order_id, courier, trackingNumber, rawStatus: postexResult?.dist?.transactionStatus || "Booked", serviceType: paymentMethod === "bank_deposit" ? "prepaid" : "COD" });
+        await recordShipmentState({ orderId: reservedOrder.order_id, courier, trackingNumber, rawStatus: postexResult?.dist?.transactionStatus || "Booked", serviceType: paymentMethod === "full_advance" ? "prepaid" : "COD" });
         courierBooked = true;
       } else {
         courierMessage =
@@ -369,7 +424,7 @@ export async function POST(request) {
       const manualOrder = await completeManualCourierOrder(reservedOrder, courierMessage);
       completedOrder = manualOrder.completedOrder;
       trackingNumber = manualOrder.trackingNumber;
-      await recordShipmentState({ orderId: reservedOrder?.order_id, trackingNumber, rawStatus: "Manual delivery", serviceType: paymentMethod === "bank_deposit" ? "prepaid" : "COD", manual: true });
+      await recordShipmentState({ orderId: reservedOrder?.order_id, trackingNumber, rawStatus: "Manual delivery", serviceType: paymentMethod === "full_advance" ? "prepaid" : "COD", manual: true });
     }
 
     reservedOrder = null;
@@ -386,7 +441,7 @@ export async function POST(request) {
       return false;
     });
 
-    const responseBody = {
+    const courierResponseBody = {
       success: true,
       orderRef: completedOrder.order_number,
       trackingNumber: completedOrder.tracking_number,
@@ -399,11 +454,11 @@ export async function POST(request) {
     };
     activeCheckoutFingerprints.set(duplicateKey, {
       expiresAt: Date.now() + DUPLICATE_ORDER_WINDOW_MS,
-      order: responseBody,
+      order: courierResponseBody,
     });
     keepDuplicateGuard = true;
 
-    return NextResponse.json(responseBody);
+    return NextResponse.json(courierResponseBody);
   } catch (error) {
     if (reservedOrder) {
       await supabaseAdminRpc("release_checkout_order", {

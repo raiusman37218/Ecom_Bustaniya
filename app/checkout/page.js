@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, Lock, ShoppingBag, Truck } from "lucide-react";
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
+import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
 
 export default function CheckoutPage() {
   const [cart, setCart] = useState([]);
@@ -24,7 +25,6 @@ export default function CheckoutPage() {
   const [cities, setCities] = useState([]);
   const [citiesLoading, setCitiesLoading] = useState(true);
   const [citiesError, setCitiesError] = useState(false);
-  const [quotedDelivery, setQuotedDelivery] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [paymentSettings, setPaymentSettings] = useState(DEFAULT_STORE_SETTINGS.paymentSettings);
 
@@ -55,9 +55,10 @@ export default function CheckoutPage() {
         const nextPaymentSettings = result.paymentSettings || DEFAULT_STORE_SETTINGS.paymentSettings;
         setPaymentSettings(nextPaymentSettings);
         setPaymentMethod((current) => {
-          if (nextPaymentSettings.codEnabled === false && nextPaymentSettings.manualTransferEnabled !== false) return "bank_deposit";
+          const configuredDefault = normalizePaymentMethod(result.checkoutSettings?.defaultPayment);
+          if (nextPaymentSettings.codEnabled === false && nextPaymentSettings.manualTransferEnabled !== false) return PAYMENT_METHODS.FULL_ADVANCE;
           if (nextPaymentSettings.manualTransferEnabled === false && nextPaymentSettings.codEnabled !== false) return "cod";
-          return current;
+          return current === "cod" && configuredDefault === PAYMENT_METHODS.FULL_ADVANCE ? configuredDefault : current;
         });
       })
       .catch(() => {});
@@ -67,42 +68,10 @@ export default function CheckoutPage() {
     () => cart.reduce((total, item) => total + item.price * item.quantity, 0),
     [cart]
   );
-  // Product prices exclude shipping. Every non-empty order has one flat fee,
-  // regardless of how many products are in the cart.
-  const estimatedDelivery = cart.length ? 200 : 0;
-  const delivery = quotedDelivery ?? estimatedDelivery;
-
-  useEffect(() => {
-    if (!cart.length) {
-      setQuotedDelivery(0);
-      return;
-    }
-    let active = true;
-    fetch("/api/checkout/quote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        items: cart.map(({ id, articleNumber, article_number, sku, name, quantity }) => ({
-          id,
-          articleNumber,
-          article_number,
-          sku,
-          name,
-          quantity,
-        })),
-      }),
-    })
-      .then((response) => response.json())
-      .then((result) => {
-        if (active && Number.isFinite(Number(result.delivery))) {
-          setQuotedDelivery(Number(result.delivery));
-        }
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [cart]);
+  const paymentAmounts = useMemo(
+    () => calculatePaymentAmounts({ subtotal, paymentMethod, paymentSettings }),
+    [subtotal, paymentMethod, paymentSettings]
+  );
 
   function updateField(event) {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
@@ -147,9 +116,14 @@ export default function CheckoutPage() {
         ...result,
         customer,
         items: [...cart],
-        subtotal,
-        delivery,
-        paymentMethod,
+        subtotal: Number(result.productSubtotal ?? paymentAmounts.productSubtotal),
+        delivery: Number(result.deliveryCharges ?? paymentAmounts.deliveryCharges),
+        total: Number(result.totalOrderValue ?? paymentAmounts.totalOrderValue),
+        advanceAmount: Number(result.amountPayableInAdvance ?? paymentAmounts.amountPayableInAdvance),
+        payableOnDelivery: Number(result.amountPayableOnDelivery ?? paymentAmounts.amountPayableOnDelivery),
+        paymentMethod: normalizePaymentMethod(result.paymentMethod || paymentMethod),
+        paymentDetails: result.paymentDetails || paymentSettings,
+        paymentStatus: result.paymentStatus || "Awaiting Payment",
       });
       setCart([]);
       localStorage.removeItem("bustaniya-cart");
@@ -162,10 +136,7 @@ export default function CheckoutPage() {
 
   if (order) {
     const confirmedItems = order.items || [];
-    const confirmedSubtotal = Number(order.subtotal ?? Math.max(0, order.total - (order.delivery || 0)));
-    const confirmedDelivery = Number(order.delivery ?? Math.max(0, order.total - confirmedSubtotal));
-
-    return <OrderConfirmation order={order} items={confirmedItems} subtotal={confirmedSubtotal} delivery={confirmedDelivery} />;
+    return <OrderConfirmation order={order} items={confirmedItems} />;
   }
 
   return (
@@ -210,23 +181,25 @@ export default function CheckoutPage() {
               <label>Postal code (optional)<input name="postalCode" value={form.postalCode} onChange={updateField} placeholder="Postal code" /></label>
             </div>
 
-            <label className={paymentMethod === "cod" ? "paymentBox" : "paymentBox paymentChoice"}>
+            <label className={paymentMethod === PAYMENT_METHODS.COD_ADVANCE_DELIVERY ? "paymentBox" : "paymentBox paymentChoice"}>
               <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} disabled={paymentSettings.codEnabled === false} onChange={() => setPaymentMethod("cod")} />
-              <div><b>Cash on Delivery</b><span>Pay when your order arrives</span></div>
+              <div><b>Cash on Delivery — delivery charges paid in advance</b><span>Pay Rs. {paymentAmounts.deliveryCharges.toLocaleString()} now to confirm. Pay the complete product subtotal to the courier on delivery.</span></div>
             </label>
             {paymentSettings.manualTransferEnabled !== false && (
-              <label className={paymentMethod === "bank_deposit" ? "paymentBox" : "paymentBox paymentChoice"}>
-                <input type="radio" name="paymentMethod" value="bank_deposit" checked={paymentMethod === "bank_deposit"} onChange={() => setPaymentMethod("bank_deposit")} />
-                <div><b>Advance bank deposit</b><span>Pay the configured advance after placing your order. We verify it before dispatch.</span></div>
+              <label className={paymentMethod === PAYMENT_METHODS.FULL_ADVANCE ? "paymentBox" : "paymentBox paymentChoice"}>
+                <input type="radio" name="paymentMethod" value="full_advance" checked={paymentMethod === PAYMENT_METHODS.FULL_ADVANCE} onChange={() => setPaymentMethod(PAYMENT_METHODS.FULL_ADVANCE)} />
+                <div><b>Full advance payment — free delivery</b><span>Pay the complete product subtotal now. Delivery is free and nothing is due on delivery.</span></div>
               </label>
             )}
             <div className="advancePaymentNote">
-              <b>{paymentMethod === "bank_deposit" ? "Bank deposit selected" : "COD selected"}</b>
-              {paymentMethod === "bank_deposit" ? <><span>{paymentSettings.instructions || "Admin will verify your payment before dispatch. Delivery fee is Rs. 200 per order."}</span><div className="bankPaymentDetails">{paymentSettings.bankName && <span><b>Bank</b>{paymentSettings.bankName}</span>}{paymentSettings.bankTitle && <span><b>Account title</b>{paymentSettings.bankTitle}</span>}{paymentSettings.bankAccountNumber && <span><b>Account no.</b>{paymentSettings.bankAccountNumber}</span>}{paymentSettings.bankIban && <span><b>IBAN</b>{paymentSettings.bankIban}</span>}</div></> : <span>{paymentSettings.codInstructions || "Pay the courier at delivery. Flat delivery fee is Rs. 200 per order."}</span>}
+              <b>{paymentAmounts.paymentLabel}</b>
+              <span>{paymentMethod === PAYMENT_METHODS.FULL_ADVANCE ? paymentSettings.instructions : paymentSettings.codInstructions}</span>
+              <div className="checkoutPaymentBreakdown"><span>Product subtotal <b>Rs. {paymentAmounts.productSubtotal.toLocaleString()}</b></span><span>Delivery charges <b>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</b></span><span>Total order value <b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></span><span>Pay now <b>Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</b></span><span>Pay on delivery <b>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</b></span></div>
+              <div className="bankPaymentDetails">{paymentSettings.bankName && <span><b>Bank / wallet</b>{paymentSettings.bankName}</span>}{paymentSettings.bankTitle && <span><b>Account title</b>{paymentSettings.bankTitle}</span>}{paymentSettings.bankAccountNumber && <span><b>Account no.</b>{paymentSettings.bankAccountNumber}</span>}{paymentSettings.bankIban && <span><b>IBAN</b>{paymentSettings.bankIban}</span>}</div>
             </div>
             {error && <p className="checkoutError" role="alert">{error}</p>}
             <button className="placeOrder" type="submit" disabled={!cart.length || submitting}>
-              {submitting ? "Placing order..." : `Place order · Rs. ${(subtotal + delivery).toLocaleString()}`}
+              {submitting ? "Placing order..." : `Place order · Rs. ${paymentAmounts.totalOrderValue.toLocaleString()}`}
             </button>
           </form>
         </section>
@@ -243,9 +216,11 @@ export default function CheckoutPage() {
             </div>
           ))}
           <div className="summaryTotals">
-            <div><span>Subtotal</span><span>Rs. {subtotal.toLocaleString()}</span></div>
-            <div><span>COD delivery</span><span>{delivery ? `Rs. ${delivery}` : "Free"}</span></div>
-            <div className="totalLine"><b>Total</b><b>Rs. {(subtotal + delivery).toLocaleString()}</b></div>
+            <div><span>Product subtotal</span><span>Rs. {paymentAmounts.productSubtotal.toLocaleString()}</span></div>
+            <div><span>Delivery charges</span><span>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</span></div>
+            <div><span>Pay now</span><span>Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</span></div>
+            <div><span>Pay on delivery</span><span>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</span></div>
+            <div className="totalLine"><b>Total order value</b><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div>
           </div>
         </aside>
       </div>
@@ -253,12 +228,18 @@ export default function CheckoutPage() {
   );
 }
 
-function OrderConfirmation({ order, items, subtotal, delivery }) {
+function OrderConfirmation({ order, items }) {
+  const paymentDetails = order.paymentDetails || {};
+  const isFullAdvance = normalizePaymentMethod(order.paymentMethod) === PAYMENT_METHODS.FULL_ADVANCE;
+  const paymentAmount = Number(order.advanceAmount || 0);
+  const whatsappNumber = String(paymentDetails.whatsappNumber || "").replace(/\D/g, "");
+  const whatsappMessage = `Assalam-o-Alaikum, I have placed Order #${order.orderRef}. I selected ${isFullAdvance ? "Full Advance Payment" : "Cash on Delivery"} and transferred Rs. ${paymentAmount.toLocaleString()}. I am sending the payment screenshot for verification.`;
+  const whatsappHref = whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}` : "";
   return (
     <main className="checkoutPage">
       <header className="checkoutHeader">
         <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
-        <span><Lock size={14} /> Order confirmed</span>
+        <span><Lock size={14} /> Payment verification required</span>
       </header>
       <section className="orderSuccess shopifySuccess">
         <div className="confirmationPanel">
@@ -267,46 +248,41 @@ function OrderConfirmation({ order, items, subtotal, delivery }) {
             <div>
               <p className="eyebrow">ORDER {order.orderRef}</p>
               <h1>Thank you, {order.customer?.fullName || "there"}!</h1>
-              <p>{order.emailSent ? "Your confirmation email has been sent. Keep your tracking ID safe." : "Your order is confirmed. Keep your tracking ID safe."}</p>
+              <p>Your order is saved. Send the required payment proof on WhatsApp; we will confirm it before dispatch.</p>
             </div>
           </div>
 
           <div className="confirmationCard deliveryCard">
-            <div><Truck /><span><b>Your order is confirmed</b>We&apos;ve accepted your order, and we&apos;re getting it ready.</span></div>
-            <small>Tracking ID: <b>{order.trackingNumber}</b></small>
+            <div><Truck /><span><b>Payment verification pending</b>We&apos;ve saved your order. We will confirm and prepare it after the required payment is verified.</span></div>
+            <small>Payment status: <b>{order.paymentStatus || "Awaiting Payment"}</b></small>
           </div>
-          {!order.courierBooked && (
-            <div className="confirmationCard deliveryCard manualCourierNotice">
-              <div>
-                <Truck />
-                <span>
-                  <b>Courier booking needs staff review</b>
-                  Your order is saved safely. Our team will book PostEx manually if automatic booking is temporarily unavailable.
-                </span>
-              </div>
-              {order.courierMessage && <small>{order.courierMessage}</small>}
-            </div>
-          )}
+          <div className="confirmationCard paymentVerificationCard">
+            <h2>{isFullAdvance ? "Full advance payment" : "COD delivery charges"}</h2>
+            <p>Transfer <b>Rs. {paymentAmount.toLocaleString()}</b> using the details below. This order will be confirmed only after payment verification.</p>
+            <div className="bankPaymentDetails">{paymentDetails.bankName && <span><b>Bank / wallet</b>{paymentDetails.bankName}</span>}{paymentDetails.bankTitle && <span><b>Account title</b>{paymentDetails.bankTitle}</span>}{paymentDetails.bankAccountNumber && <span><b>Account no.</b>{paymentDetails.bankAccountNumber}</span>}{paymentDetails.bankIban && <span><b>IBAN</b>{paymentDetails.bankIban}</span>}</div>
+            {paymentDetails.instructions && <p>{paymentDetails.instructions}</p>}
+            {whatsappHref && <a className="whatsappPaymentButton" href={whatsappHref} target="_blank" rel="noreferrer">Send Payment Screenshot on WhatsApp</a>}
+          </div>
 
           <div className="confirmationGrid">
             <div className="confirmationCard">
               <h2>Customer information</h2>
               <span><b>Contact</b>{order.customer?.email || order.customer?.phone}</span>
               <span><b>Ship to</b>{order.customer?.address}, {order.customer?.city}</span>
-              <span><b>Payment</b>{order.paymentMethod === "bank_deposit" ? "Bank deposit / advance payment" : "Cash on Delivery"}</span>
+              <span><b>Payment</b>{isFullAdvance ? "Full Advance Payment — Free Delivery" : "COD — delivery charges paid in advance"}</span>
             </div>
             <div className="confirmationCard">
               <h2>Order details</h2>
               <span><b>Order reference</b>{order.orderRef}</span>
-              <span><b>Tracking number</b>{order.trackingNumber}</span>
-              <span><b>Delivery method</b>{order.courierBooked ? (order.paymentMethod === "bank_deposit" ? "Courier - Rs. 0 collection" : "Courier COD") : "Manual courier booking"}</span>
-              <span><b>Courier collection</b>Rs. {Number(order.postexCollectionAmount ?? order.total).toLocaleString()}</span>
+              <span><b>Confirmation</b>Pending payment verification</span>
+              <span><b>Pay now</b>Rs. {paymentAmount.toLocaleString()}</span>
+              <span><b>Pay on delivery</b>Rs. {Number(order.payableOnDelivery || 0).toLocaleString()}</span>
             </div>
           </div>
 
           <div className="confirmationActions">
             <a className="primaryButton" href="/">Continue shopping</a>
-            {order.courierBooked && <a className="secondaryButton" href={`https://postex.pk/tracking?cn=${order.trackingNumber}`} target="_blank" rel="noreferrer">Track order</a>}
+            {whatsappHref && <a className="secondaryButton" href={whatsappHref} target="_blank" rel="noreferrer">WhatsApp payment proof</a>}
           </div>
         </div>
 
@@ -320,9 +296,11 @@ function OrderConfirmation({ order, items, subtotal, delivery }) {
             </div>
           ))}
           <div className="summaryTotals">
-            <div><span>Subtotal</span><span>Rs. {subtotal.toLocaleString()}</span></div>
-            <div><span>COD delivery</span><span>{delivery ? `Rs. ${delivery.toLocaleString()}` : "Free"}</span></div>
-            <div className="totalLine"><b>Total</b><b>Rs. {Number(order.total).toLocaleString()}</b></div>
+            <div><span>Product subtotal</span><span>Rs. {Number(order.subtotal || 0).toLocaleString()}</span></div>
+            <div><span>Delivery charges</span><span>{Number(order.delivery || 0) ? `Rs. ${Number(order.delivery).toLocaleString()}` : "Free"}</span></div>
+            <div><span>Pay now</span><span>Rs. {paymentAmount.toLocaleString()}</span></div>
+            <div><span>Pay on delivery</span><span>Rs. {Number(order.payableOnDelivery || 0).toLocaleString()}</span></div>
+            <div className="totalLine"><b>Total order value</b><b>Rs. {Number(order.total).toLocaleString()}</b></div>
           </div>
         </aside>
       </section>

@@ -990,13 +990,21 @@ export default function AdminDashboard() {
         id: `#${order.order_number}`,
         customer: order.shipping_full_name || order.guest_name || "Guest",
         city: order.shipping_city || "—",
-        total: Number(order.total_pkr || 0),
+        total: Number(order.total_order_value_pkr ?? order.total_pkr ?? 0),
+        productSubtotal: Number(order.product_subtotal_pkr ?? order.subtotal_pkr ?? order.total_pkr ?? 0),
+        deliveryCharges: Number(order.delivery_charges_pkr ?? order.delivery_pkr ?? 0),
+        amountPayableInAdvance: Number(order.amount_payable_in_advance_pkr ?? 0),
+        amountPayableOnDelivery: Number(order.amount_payable_on_delivery_pkr ?? order.total_pkr ?? 0),
+        paymentMethod: order.payment_method === "full_advance" || order.payment_method === "bank_deposit" ? "Full advance payment" : "COD — delivery charge in advance",
+        paymentReference: order.payment_reference || "",
+        confirmationStatus: order.order_confirmation_status || "Awaiting payment verification",
+        paymentDetails: order.payment_details_snapshot || {},
         status: formatOrderStatus(order.courier_normalized_status || order.courier_status || order.status || "pending"),
         postexStatus: formatOrderStatus(order.courier_status || order.status || "pending"),
         courierRawStatus: order.courier_raw_status || order.courier_status || "",
         courierNormalizedStatus: order.courier_normalized_status || "unassigned",
         courierServiceType: order.courier_service_type || "",
-        paymentStatus: order.payment_status || (order.payment_method === "bank_deposit" ? "Verification due" : "COD pending"),
+        paymentStatus: order.payment_proof_status || order.payment_status || "Awaiting Payment",
         fulfillmentStatus: order.fulfillment_status || (order.courier_tracking_number || order.tracking_number ? "Booked with PostEx" : "Unfulfilled"),
         tracking: order.courier_tracking_number || order.tracking_number || "",
         phone: order.shipping_phone || order.guest_phone || "",
@@ -2830,6 +2838,8 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
         orderId: order.rawId,
         orderStage: changes.postexStatus || changes.status,
         paymentStatus: changes.paymentStatus,
+        paymentReference: changes.paymentReference,
+        confirmationStatus: changes.confirmationStatus,
         fulfillmentStatus: changes.fulfillmentStatus,
         tracking: changes.tracking,
         notes: changes.notes,
@@ -4899,6 +4909,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
   const [tracking, setTracking] = useState(order.tracking || "");
   const [orderStage, setOrderStage] = useState(order.postexStatus || order.status || "Un-Assigned By Me");
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || "COD pending");
+  const [paymentReference, setPaymentReference] = useState(order.paymentReference || "");
   const [fulfillmentStatus, setFulfillmentStatus] = useState(order.fulfillmentStatus || "Unfulfilled");
   const [deliveryMethod, setDeliveryMethod] = useState(order.deliveryMethod || (order.tracking ? "PostEx" : "Rider / same city"));
   const [risk, setRisk] = useState(order.risk || "Standard COD");
@@ -4922,6 +4933,8 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
       status: orderStage,
       postexStatus: orderStage,
       paymentStatus,
+      paymentReference,
+      confirmationStatus: order.confirmationStatus,
       fulfillmentStatus,
       deliveryMethod,
       risk,
@@ -4961,6 +4974,10 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
   }
 
   async function bookWithPostex() {
+    if (paymentStatus !== "Payment Verified") {
+      window.alert("Verify the required payment before booking this order with the courier.");
+      return;
+    }
     try {
       const response = await fetch("/api/admin/postex-custom", {
         method: "POST",
@@ -5069,7 +5086,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
       <section className="orderDetailGrid">
         <article className="adminCard orderDetailCard"><h3>Customer</h3><b>{order.customer}</b><span>{order.phone || "No phone saved"}</span><p>{order.address || order.city || "No address saved"}</p></article>
         <article className="adminCard orderDetailCard"><h3>Status</h3><select value={orderStage} onChange={(event) => setOrderStage(event.target.value)}>{customOrderStatusOptions.map((status) => <option key={status}>{status}</option>)}</select></article>
-        <article className="adminCard orderDetailCard"><h3>Payment</h3><select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>COD pending</option><option>Advance pending</option><option>Verification due</option><option>Paid</option><option>Refunded</option></select></article>
+        <article className="adminCard orderDetailCard"><h3>Payment</h3><select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Awaiting Payment</option><option>Proof Submitted</option><option>Payment Verified</option><option>Payment Rejected</option><option>COD pending</option><option>Advance pending</option><option>Verification due</option><option>Paid</option><option>Refunded</option></select></article>
         <article className="adminCard orderDetailCard"><h3>Fulfillment</h3><select value={fulfillmentStatus} onChange={(event) => setFulfillmentStatus(event.target.value)}><option>Unfulfilled</option><option>Packing</option><option>Booked with PostEx</option><option>Shipped</option><option>Delivered</option><option>On hold</option></select></article>
         <article className="adminCard orderDetailCard"><h3>Delivery</h3><select value={deliveryMethod} onChange={(event) => setDeliveryMethod(event.target.value)}><option>PostEx</option><option>Rider / same city</option><option>Customer pickup</option><option>Staff delivery</option><option>Manual courier</option><option>PostEx later</option></select></article>
         <article className="adminCard orderDetailCard"><h3>Risk</h3><select value={risk} onChange={(event) => setRisk(event.target.value)}><option>Standard COD</option><option>High risk COD</option><option>Repeat customer</option></select></article>
@@ -5091,6 +5108,16 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
         {!canRecordRefund && <p className="shippingRuleHint">Only an Owner can approve or record refund details.</p>}
         {restoringReturnedStock ? <p className="checkoutError">Final check: this will restore {items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} item(s) to stock once. Only continue after the returned parcel has been physically inspected.</p> : <p className="shippingRuleHint">Refund entries are internal records only; they do not send money. Finance uses the actual PostEx CPR return, shipping, GST and tax deductions. Stock changes only when an inspected return is marked <b>Return received</b>.</p>}
         <button type="button" onClick={() => saveChanges()} disabled={saving}>{saving ? "Saving..." : restoringReturnedStock ? "Confirm inspection & restore stock" : "Save return workflow"}</button>
+      </section>
+
+      <section className="adminCard orderOpsCard paymentVerificationWorkspace">
+        <div className="inventoryListHead"><div><h3>Payment verification</h3><span>{order.confirmationStatus || "Awaiting payment verification"}</span></div><span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`}>{paymentStatus}</span></div>
+        <div className="paymentOrderBreakdown">
+          <span>Method <b>{order.paymentMethod || "COD — delivery charge in advance"}</b></span><span>Product subtotal <b>Rs. {Number(order.productSubtotal ?? order.total ?? 0).toLocaleString()}</b></span><span>Delivery charges <b>{Number(order.deliveryCharges || 0) ? `Rs. ${Number(order.deliveryCharges).toLocaleString()}` : "Free"}</b></span><span>Total order value <b>Rs. {Number(order.total || 0).toLocaleString()}</b></span><span>Required in advance <b>Rs. {Number(order.amountPayableInAdvance || 0).toLocaleString()}</b></span><span>Payable on delivery <b>Rs. {Number(order.amountPayableOnDelivery ?? order.total ?? 0).toLocaleString()}</b></span>
+        </div>
+        <div className="formRow"><label>Transaction / reference ID<input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder="Bank transfer reference, if provided" /></label><label>Verification status<select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Awaiting Payment</option><option>Proof Submitted</option><option>Payment Verified</option><option>Payment Rejected</option></select></label></div>
+        <div className="orderActionRow"><button type="button" onClick={() => { setPaymentStatus("Proof Submitted"); saveChanges({ paymentStatus: "Proof Submitted", paymentReference }); }} disabled={saving}>Mark proof submitted</button><button type="button" onClick={() => { setPaymentStatus("Payment Verified"); setFulfillmentStatus("Packing"); saveChanges({ paymentStatus: "Payment Verified", paymentReference, fulfillmentStatus: "Packing", confirmationStatus: "Confirmed" }); }} disabled={saving}>Verify & confirm</button><button type="button" className="dangerButton" onClick={() => { setPaymentStatus("Payment Rejected"); saveChanges({ paymentStatus: "Payment Rejected", paymentReference, confirmationStatus: "Payment rejected" }); }} disabled={saving}>Reject payment</button></div>
+        <p className="shippingRuleHint">Verify only after checking the bank or wallet transfer. The courier must collect exactly the payable-on-delivery amount shown above.</p>
       </section>
 
       <section className="adminCard orderOpsCard">
@@ -5123,6 +5150,7 @@ function OrderTable({ rows, onSelect, density = "comfortable" }) {
             <th>Order</th>
             <th>Customer</th>
             <th>Amount</th>
+            <th>Payment</th>
             <th>PostEx status</th>
             <th>Date</th>
             <th>Risk</th>
@@ -5141,7 +5169,8 @@ function OrderTable({ rows, onSelect, density = "comfortable" }) {
                 {order.customer}
                 <small className="trackingNumber"><br />{order.city}</small>
               </td>
-              <td><b>Rs. {Number(order.total || 0).toLocaleString()}</b></td>
+              <td><b>Rs. {Number(order.total || 0).toLocaleString()}</b><small className="trackingNumber"><br />Advance: Rs. {Number(order.amountPayableInAdvance || 0).toLocaleString()}</small></td>
+              <td><b>{order.paymentMethod || "COD"}</b><small className="trackingNumber"><br />{order.paymentStatus || "Awaiting Payment"}</small></td>
               <td>
                 <span className={`statusBadge ${orderStatus(order).replaceAll(" ", "").toLowerCase()}`}>
                   {order.postexStatus || order.status}
@@ -6073,7 +6102,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
             <section className="adminVisualCard">
               <div className="adminVisualHead"><div><h3>Payment readiness</h3><p>Enabled methods and operational safeguards.</p></div></div>
               <VisualProgress label="COD flow" value={storeSettings.paymentSettings?.codEnabled !== false ? 100 : 0} helper={storeSettings.paymentSettings?.codEnabled !== false ? "COD is active at checkout" : "COD is currently disabled"} color="#1d6840" />
-              <VisualProgress label="Advance bank deposit" value={storeSettings.paymentSettings?.manualTransferEnabled !== false ? 100 : 0} helper="Customer receives your bank details and pays the configured advance." color="#4777a8" />
+              <VisualProgress label="Full advance payment" value={storeSettings.paymentSettings?.manualTransferEnabled !== false ? 100 : 0} helper="Customer pays the complete product subtotal before confirmation." color="#4777a8" />
             </section>
             <VisualDonut
               title="Payment methods"
@@ -6082,26 +6111,26 @@ function SettingsPanel({ onOpen, signedInUser }) {
               centerLabel="enabled"
               items={[
                 { label: "COD", value: storeSettings.paymentSettings?.codEnabled !== false ? 1 : 0, color: "#1d6840" },
-                { label: "Bank deposit", value: storeSettings.paymentSettings?.manualTransferEnabled !== false ? 1 : 0, color: "#4777a8" },
+                { label: "Full advance", value: storeSettings.paymentSettings?.manualTransferEnabled !== false ? 1 : 0, color: "#4777a8" },
               ]}
             />
           </div>
           <div className="paymentSettingsGrid">
-            <div className="settingsOption"><div><b>Cash on Delivery</b><span>Courier collects the full payable amount when the order is delivered.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.codEnabled !== false} onChange={(event) => updatePaymentSettings({ codEnabled: event.target.checked })} /> Enabled</label></div>
-            <div className="settingsOption"><div><b>Advance bank deposit</b><span>Customer places the order, then transfers the configured advance using your bank details.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.manualTransferEnabled !== false} onChange={(event) => updatePaymentSettings({ manualTransferEnabled: event.target.checked })} /> Enabled</label></div>
+            <div className="settingsOption"><div><b>Cash on Delivery</b><span>Customer pays the delivery charge in advance; the complete product subtotal is collected by the courier at delivery.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.codEnabled !== false} onChange={(event) => updatePaymentSettings({ codEnabled: event.target.checked })} /> Enabled</label></div>
+            <div className="settingsOption"><div><b>Full advance payment</b><span>Customer pays the complete product subtotal in advance and receives free delivery.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.manualTransferEnabled !== false} onChange={(event) => updatePaymentSettings({ manualTransferEnabled: event.target.checked })} /> Enabled</label></div>
           </div>
           <div className="paymentRulesCard">
             <h3>COD risk rules</h3>
             <div className="settingsOption"><div><b>Phone verification</b><span>Staff should verify COD number before dispatch.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.codPhoneVerification !== false} onChange={(event) => updatePaymentSettings({ codPhoneVerification: event.target.checked })} /> Required</label></div>
-            <div className="formRow"><label>Minimum COD order (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codMinOrderPkr ?? 0} onChange={(event) => updatePaymentSettings({ codMinOrderPkr: event.target.value })} /></label><label>Maximum COD order (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codMaxOrderPkr ?? 50000} onChange={(event) => updatePaymentSettings({ codMaxOrderPkr: event.target.value })} /></label></div>
-            <label>Customer note for COD<textarea rows="3" value={storeSettings.paymentSettings?.codInstructions || ""} onChange={(event) => updatePaymentSettings({ codInstructions: event.target.value })} placeholder="Pay cash to courier at delivery..." /></label>
+            <div className="formRow"><label>Minimum COD order (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codMinOrderPkr ?? 0} onChange={(event) => updatePaymentSettings({ codMinOrderPkr: event.target.value })} /></label><label>Maximum COD order (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codMaxOrderPkr ?? 50000} onChange={(event) => updatePaymentSettings({ codMaxOrderPkr: event.target.value })} /></label><label>COD delivery charge (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codDeliveryChargePkr ?? 250} onChange={(event) => updatePaymentSettings({ codDeliveryChargePkr: event.target.value })} /></label></div>
+            <label>Customer note for COD<textarea rows="3" value={storeSettings.paymentSettings?.codInstructions || ""} onChange={(event) => updatePaymentSettings({ codInstructions: event.target.value })} placeholder="Pay the delivery charge now. Pay the complete product subtotal to the courier at delivery." /></label>
           </div>
           <div className="paymentRulesCard">
-            <h3>Advance bank deposit</h3>
-            <div className="formRow"><label>Advance rule<select value={storeSettings.paymentSettings?.advanceType || "fixed"} onChange={(event) => updatePaymentSettings({ advanceType: event.target.value })}><option value="fixed">Fixed amount</option><option value="percent">Percentage</option></select></label><label>{storeSettings.paymentSettings?.advanceType === "percent" ? "Advance percent" : "Advance amount (PKR)"}<input type="number" min="0" max={storeSettings.paymentSettings?.advanceType === "percent" ? "100" : undefined} value={storeSettings.paymentSettings?.advanceType === "percent" ? (storeSettings.paymentSettings?.advancePercent ?? 20) : (storeSettings.paymentSettings?.advanceAmountPkr ?? 300)} onChange={(event) => updatePaymentSettings(storeSettings.paymentSettings?.advanceType === "percent" ? { advancePercent: event.target.value } : { advanceAmountPkr: event.target.value })} /></label></div>
+            <h3>Payment receiving details</h3>
+            <p className="settingsHint">These details are shown after every COD delivery-charge payment and full advance order. Customers send a screenshot to WhatsApp for manual verification.</p>
             <div className="formRow"><label>Bank name<input value={storeSettings.paymentSettings?.bankName || ""} onChange={(event) => updatePaymentSettings({ bankName: event.target.value })} placeholder="e.g. Meezan Bank" /></label><label>Account title<input value={storeSettings.paymentSettings?.bankTitle || ""} onChange={(event) => updatePaymentSettings({ bankTitle: event.target.value })} placeholder="Account holder name" /></label></div>
             <div className="formRow"><label>Account number<input value={storeSettings.paymentSettings?.bankAccountNumber || ""} onChange={(event) => updatePaymentSettings({ bankAccountNumber: event.target.value })} placeholder="Bank account number" /></label><label>IBAN (optional)<input value={storeSettings.paymentSettings?.bankIban || ""} onChange={(event) => updatePaymentSettings({ bankIban: event.target.value })} placeholder="PK..." /></label></div>
-            <label>Customer instructions<textarea rows="3" value={storeSettings.paymentSettings?.instructions || ""} onChange={(event) => updatePaymentSettings({ instructions: event.target.value })} placeholder="Use exact order reference with your transfer." /></label>
+            <div className="formRow"><label>WhatsApp verification number<input type="tel" value={storeSettings.paymentSettings?.whatsappNumber || ""} onChange={(event) => updatePaymentSettings({ whatsappNumber: event.target.value })} placeholder="923001234567" /></label><label>Customer instructions<textarea rows="3" value={storeSettings.paymentSettings?.instructions || ""} onChange={(event) => updatePaymentSettings({ instructions: event.target.value })} placeholder="Transfer the exact amount, then send your screenshot and order number on WhatsApp." /></label></div>
           </div>
           <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save payment settings"}</button>
         </form>}
@@ -6152,7 +6181,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
           <h2>Checkout settings</h2>
           <div className="settingsOption"><div><b>Guest checkout</b><span>Let Instagram and walk-in customers order without accounts.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.checkoutSettings?.guestCheckoutEnabled !== false} onChange={(event) => updateSettingsGroup("checkoutSettings", { guestCheckoutEnabled: event.target.checked })} /> Enabled</label></div>
           <div className="settingsOption"><div><b>Phone required</b><span>Required for PostEx booking and COD verification.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.checkoutSettings?.phoneRequired !== false} onChange={(event) => updateSettingsGroup("checkoutSettings", { phoneRequired: event.target.checked })} /> Enabled</label></div>
-          <div className="formRow"><label>Default payment<select value={storeSettings.checkoutSettings?.defaultPayment || "cod"} onChange={(event) => updateSettingsGroup("checkoutSettings", { defaultPayment: event.target.value })}><option value="cod">Cash on Delivery</option><option value="bank_deposit">Bank deposit</option></select></label><label>Address fields<select value={storeSettings.checkoutSettings?.addressMode || "detailed"} onChange={(event) => updateSettingsGroup("checkoutSettings", { addressMode: event.target.value })}><option value="detailed">Full address required</option><option value="simple">Simple city/address only</option></select></label></div>
+          <div className="formRow"><label>Default payment<select value={storeSettings.checkoutSettings?.defaultPayment || "cod"} onChange={(event) => updateSettingsGroup("checkoutSettings", { defaultPayment: event.target.value })}><option value="cod">COD — delivery charge in advance</option><option value="full_advance">Full advance — free delivery</option></select></label><label>Address fields<select value={storeSettings.checkoutSettings?.addressMode || "detailed"} onChange={(event) => updateSettingsGroup("checkoutSettings", { addressMode: event.target.value })}><option value="detailed">Full address required</option><option value="simple">Simple city/address only</option></select></label></div>
           <label>Checkout note<textarea rows="3" value={storeSettings.checkoutSettings?.checkoutNote || ""} onChange={(event) => updateSettingsGroup("checkoutSettings", { checkoutNote: event.target.value })} /></label>
           <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save checkout settings"}</button>
         </form>}
