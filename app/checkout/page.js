@@ -151,7 +151,7 @@ export default function CheckoutPage() {
           <a className="backShopping" href="/"><ArrowLeft size={16} /> Continue shopping</a>
           <p className="eyebrow">DELIVERY DETAILS</p>
           <h1>Checkout</h1>
-          <p className="checkoutIntro">Complete the details below, choose how you would like to pay, and we will verify your payment before dispatch.</p>
+          <p className="checkoutIntro">Complete the details below, choose your payment option, then send the payment screenshot on WhatsApp after placing the order.</p>
           <form onSubmit={placeOrder}>
             <div className="checkoutSectionHeading"><span>01</span><div><b>Contact information</b><small>We use this only for order confirmation and delivery updates.</small></div></div>
             <label>Full name<input required name="fullName" value={form.fullName} onChange={updateField} placeholder="Your full name" /></label>
@@ -183,7 +183,7 @@ export default function CheckoutPage() {
               <label>Postal code (optional)<input name="postalCode" value={form.postalCode} onChange={updateField} placeholder="Postal code" /></label>
             </div>
 
-            <div className="checkoutSectionHeading"><span>02</span><div><b>Choose payment method</b><small>Both options require a verified transfer before your order is dispatched.</small></div></div>
+            <div className="checkoutSectionHeading"><span>02</span><div><b>Choose payment method</b><small>After placing the order, transfer the required amount and send its screenshot on WhatsApp for verification.</small></div></div>
             <label className={paymentMethod === PAYMENT_METHODS.COD_ADVANCE_DELIVERY ? "paymentBox" : "paymentBox paymentChoice"}>
               <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} disabled={paymentSettings.codEnabled === false} onChange={() => setPaymentMethod("cod")} />
               <div><b>Cash on Delivery — delivery charges paid in advance</b><span>Pay Rs. {paymentAmounts.deliveryCharges.toLocaleString()} now to confirm. Pay the complete product subtotal to the courier on delivery.</span></div>
@@ -252,7 +252,7 @@ function OrderConfirmation({ order, items }) {
             <div>
               <p className="eyebrow">ORDER {order.orderRef}</p>
               <h1>Thank you, {order.customer?.fullName || "there"}!</h1>
-              <p>Your order is saved. Send the required payment proof on WhatsApp; we will confirm it before dispatch.</p>
+            <p>Your order is saved. Transfer the required amount, then send its screenshot on WhatsApp; we will confirm it before dispatch.</p>
             </div>
           </div>
 
@@ -262,9 +262,10 @@ function OrderConfirmation({ order, items }) {
           </div>
           <div className="confirmationCard paymentVerificationCard">
             <h2>{isFullAdvance ? "Full advance payment" : "COD delivery charges"}</h2>
-            <p>Transfer <b>Rs. {paymentAmount.toLocaleString()}</b> using the details below. This order will be confirmed only after payment verification.</p>
+            <p>Transfer <b>Rs. {paymentAmount.toLocaleString()}</b> using the details below, then send the payment screenshot on WhatsApp. No transaction/reference ID is required.</p>
             <div className="bankPaymentDetails">{paymentDetails.bankName && <span><b>Bank / wallet</b>{paymentDetails.bankName}</span>}{paymentDetails.bankTitle && <span><b>Account title</b>{paymentDetails.bankTitle}</span>}{paymentDetails.bankAccountNumber && <span><b>Account no.</b>{paymentDetails.bankAccountNumber}</span>}{paymentDetails.bankIban && <span><b>IBAN</b>{paymentDetails.bankIban}</span>}</div>
             {paymentDetails.instructions && <p>{paymentDetails.instructions}</p>}
+            <ol className="paymentScreenshotSteps"><li>Transfer the exact amount shown above.</li><li>Take a screenshot of the successful payment.</li><li>Tap WhatsApp below and attach the screenshot.</li></ol>
             {whatsappHref && <a className="whatsappPaymentButton" href={whatsappHref} target="_blank" rel="noreferrer">Send Payment Screenshot on WhatsApp</a>}
           </div>
 
@@ -277,7 +278,7 @@ function OrderConfirmation({ order, items }) {
             </div>
             <div className="confirmationCard">
               <h2>Order details</h2>
-              <span><b>Order reference</b>{order.orderRef}</span>
+              <span><b>Order number</b>{order.orderRef}</span>
               <span><b>Confirmation</b>Pending payment verification</span>
               <span><b>Pay now</b>Rs. {paymentAmount.toLocaleString()}</span>
               <span><b>Pay on delivery</b>Rs. {Number(order.payableOnDelivery || 0).toLocaleString()}</span>

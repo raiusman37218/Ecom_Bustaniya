@@ -170,7 +170,7 @@ export const DEFAULT_STORE_SETTINGS = {
     bankAccountNumber: "",
     bankIban: "",
     whatsappNumber: "",
-    instructions: "Transfer the exact amount shown against your order reference, then send your payment screenshot on WhatsApp. Dispatch starts after verification.",
+    instructions: "Transfer the exact amount shown, then send the payment screenshot on WhatsApp. Dispatch starts after verification.",
   },
   shippingZones: [
     { id: "pakistan-standard", zone: "Pakistan - Standard", cities: "All PostEx service cities", rate: 200, freeAbove: 5000 },
