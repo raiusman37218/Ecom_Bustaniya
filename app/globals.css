@@ -2948,6 +2948,30 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   display:flex;
   align-items:center;
 }
+.campaignHeroDots {
+  position:absolute;
+  z-index:3;
+  left:50%;
+  bottom:clamp(22px,3vw,38px);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  transform:translateX(-50%);
+}
+.campaignHeroDots button {
+  width:10px;
+  height:10px;
+  padding:0;
+  border:0;
+  border-radius:50%;
+  background:rgba(255,253,245,.55);
+  box-shadow:0 1px 8px rgba(4,21,12,.35);
+  cursor:pointer;
+  transition:width .24s ease,background .24s ease,transform .24s ease;
+}
+.campaignHeroDots button:hover { transform:scale(1.12); background:#fffdf5; }
+.campaignHeroDots button.active { width:28px; border-radius:999px; background:#fffdf5; }
+.campaignHeroDots button:focus-visible { outline:2px solid #d8ffb2; outline-offset:4px; }
 .campaignHero--position-center .campaignHeroInner { justify-content:center; text-align:center; }
 .campaignHero--position-right .campaignHeroInner { justify-content:flex-end; text-align:right; }
 .campaignHero--align-center .campaignHeroCopy { align-items:center; text-align:center; }

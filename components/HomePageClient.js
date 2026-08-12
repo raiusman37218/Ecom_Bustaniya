@@ -228,6 +228,17 @@ export default function Home({
                     </div>
                   </div>
                 </div>
+                {heroSlideCount > 1 && <div className="campaignHeroDots" role="tablist" aria-label="Hero banner slides">
+                  {Array.from({ length: heroSlideCount }, (_, index) => <button
+                    key={index}
+                    type="button"
+                    role="tab"
+                    aria-label={`Show banner ${index + 1}`}
+                    aria-selected={heroSlide === index}
+                    className={heroSlide === index ? "active" : ""}
+                    onClick={() => setHeroSlide(index)}
+                  />)}
+                </div>}
               </section>
             );
           }
