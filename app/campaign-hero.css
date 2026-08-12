@@ -64,6 +64,21 @@
 .heroUrlAdder input { min-width:0; flex:1; }
 .heroUrlAdder button { flex:0 0 auto; padding:0 10px; font-size:10px; }
 .heroSettingsEditor input[type="range"] { width:100%; padding:0; accent-color:var(--berry); }
+.heroSlideManager { min-width:0; padding:15px; border:1px solid #d9e2d7; border-radius:8px; background:#fff; box-shadow:0 8px 24px rgba(23,61,41,.035); }
+.heroSlideHead { min-width:0; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.heroSlideHead>div { min-width:0; }
+.heroSlideHead b { display:block; color:#173d29; font-size:12px; line-height:1.3; }
+.heroSlideHead span { display:block; margin-top:4px; color:#65766a; font-size:10px; line-height:1.45; }
+.heroSlideHead small { flex:0 0 auto; padding:4px 7px; border-radius:999px; background:#edf5ee; color:#306044; font-size:9px; font-weight:800; white-space:nowrap; }
+.heroSlideGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+.heroSlideCard { min-width:0; overflow:hidden; border:1px solid #e1e8e1; border-radius:7px; background:#fbfcfa; }
+.heroSlideMedia { position:relative; width:100%; aspect-ratio:16 / 8; overflow:hidden; background:#edf1eb; }
+.heroSlideMedia img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; }
+.heroMobileManager .heroSlideMedia { aspect-ratio:4 / 5; max-height:250px; }
+.heroSlideMedia button { position:absolute; top:7px; right:7px; width:28px; height:28px; padding:0; border:1px solid rgba(255,255,255,.85); border-radius:50%; display:grid; place-items:center; background:rgba(255,253,247,.96); color:#8d2449; box-shadow:0 3px 10px rgba(22,42,30,.16); }
+.heroSlideMedia button:disabled { opacity:.48; cursor:not-allowed; }
+.heroSlidePath { min-height:33px; padding:8px 9px; display:block; overflow:hidden; color:#607064; font-size:9px; line-height:1.35; overflow-wrap:anywhere; text-overflow:ellipsis; }
+.heroSlideManager .heroUrlAdder { margin-top:12px; }
 .heroCopyEditors { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .heroCopyEditor { min-width:0; padding:14px; border:1px solid #d9e2d7; border-radius:7px; background:#fff; display:grid; gap:12px; }
 .heroCopyEditorHead { display:flex; gap:10px; padding-bottom:10px; border-bottom:1px solid #edf0eb; }
@@ -107,6 +122,8 @@
   .campaignHeroPrimary { min-height:2.75rem; padding:.7rem .95rem; background:#fffdf7; color:#173d29; font-size:.54rem; }
   .campaignHeroSecondary { color:#fffdf7; font-size:.53rem; }
   .heroImageSettingsGrid { grid-template-columns:1fr; }
+  .heroSlideGrid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .heroMobileManager .heroSlideMedia { max-height:220px; }
   .heroCopyEditors { grid-template-columns:1fr; }
   .sectionColorGrid { grid-template-columns:1fr; }
   .heroSettingsHeading { flex-direction:column; }
