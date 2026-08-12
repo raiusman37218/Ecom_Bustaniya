@@ -6021,42 +6021,35 @@ function SettingsPanel({ onOpen, signedInUser }) {
             <section className="adminVisualCard">
               <div className="adminVisualHead"><div><h3>Payment readiness</h3><p>Enabled methods and operational safeguards.</p></div></div>
               <VisualProgress label="COD flow" value={storeSettings.paymentSettings?.codEnabled !== false ? 100 : 0} helper={storeSettings.paymentSettings?.codEnabled !== false ? "COD is active at checkout" : "COD is currently disabled"} color="#1d6840" />
-              <VisualProgress label="Manual bank transfer" value={storeSettings.paymentSettings?.manualTransferEnabled !== false ? 100 : 0} helper="Bank / JazzCash / Easypaisa transfer instructions" color="#4777a8" />
-              <VisualProgress label="Online payment gateway" value={storeSettings.paymentSettings?.onlineGatewayEnabled === true ? 100 : 0} helper={storeSettings.paymentSettings?.onlineGatewayEnabled === true ? "Gateway enabled — add credentials before going live" : "Enable after payment provider setup is complete"} color="#287a4c" />
+              <VisualProgress label="Advance bank deposit" value={storeSettings.paymentSettings?.manualTransferEnabled !== false ? 100 : 0} helper="Customer receives your bank details and pays the configured advance." color="#4777a8" />
             </section>
             <VisualDonut
               title="Payment methods"
               subtitle="Current checkout method visibility."
-              centerValue={[storeSettings.paymentSettings?.codEnabled !== false, storeSettings.paymentSettings?.onlineGatewayEnabled === true, storeSettings.paymentSettings?.manualTransferEnabled !== false].filter(Boolean).length}
+              centerValue={[storeSettings.paymentSettings?.codEnabled !== false, storeSettings.paymentSettings?.manualTransferEnabled !== false].filter(Boolean).length}
               centerLabel="enabled"
               items={[
                 { label: "COD", value: storeSettings.paymentSettings?.codEnabled !== false ? 1 : 0, color: "#1d6840" },
-                { label: "Online", value: storeSettings.paymentSettings?.onlineGatewayEnabled === true ? 1 : 0, color: "#8d2449" },
-                { label: "Manual", value: storeSettings.paymentSettings?.manualTransferEnabled !== false ? 1 : 0, color: "#4777a8" },
+                { label: "Bank deposit", value: storeSettings.paymentSettings?.manualTransferEnabled !== false ? 1 : 0, color: "#4777a8" },
               ]}
             />
           </div>
           <div className="paymentSettingsGrid">
-            <div className="settingsOption"><div><b>Cash on Delivery</b><span>Default customer option. PostEx collection stays equal to order total.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.codEnabled !== false} onChange={(event) => updatePaymentSettings({ codEnabled: event.target.checked })} /> Enabled</label></div>
-            <div className="settingsOption"><div><b>Online prepaid gateway</b><span>Hosted checkout placeholder. Enable after PayFast/Easypaisa/JazzCash credentials are live.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.onlineGatewayEnabled === true} onChange={(event) => updatePaymentSettings({ onlineGatewayEnabled: event.target.checked })} /> Enabled</label></div>
-            <div className="settingsOption"><div><b>Manual bank / wallet transfer</b><span>Fallback flow with transaction/reference ID verification queue.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.manualTransferEnabled !== false} onChange={(event) => updatePaymentSettings({ manualTransferEnabled: event.target.checked })} /> Enabled</label></div>
+            <div className="settingsOption"><div><b>Cash on Delivery</b><span>Courier collects the full payable amount when the order is delivered.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.codEnabled !== false} onChange={(event) => updatePaymentSettings({ codEnabled: event.target.checked })} /> Enabled</label></div>
+            <div className="settingsOption"><div><b>Advance bank deposit</b><span>Customer places the order, then transfers the configured advance using your bank details.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.manualTransferEnabled !== false} onChange={(event) => updatePaymentSettings({ manualTransferEnabled: event.target.checked })} /> Enabled</label></div>
           </div>
           <div className="paymentRulesCard">
             <h3>COD risk rules</h3>
             <div className="settingsOption"><div><b>Phone verification</b><span>Staff should verify COD number before dispatch.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.codPhoneVerification !== false} onChange={(event) => updatePaymentSettings({ codPhoneVerification: event.target.checked })} /> Required</label></div>
             <div className="formRow"><label>Minimum COD order (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codMinOrderPkr ?? 0} onChange={(event) => updatePaymentSettings({ codMinOrderPkr: event.target.value })} /></label><label>Maximum COD order (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codMaxOrderPkr ?? 50000} onChange={(event) => updatePaymentSettings({ codMaxOrderPkr: event.target.value })} /></label></div>
+            <label>Customer note for COD<textarea rows="3" value={storeSettings.paymentSettings?.codInstructions || ""} onChange={(event) => updatePaymentSettings({ codInstructions: event.target.value })} placeholder="Pay cash to courier at delivery..." /></label>
+          </div>
+          <div className="paymentRulesCard">
+            <h3>Advance bank deposit</h3>
             <div className="formRow"><label>Advance rule<select value={storeSettings.paymentSettings?.advanceType || "fixed"} onChange={(event) => updatePaymentSettings({ advanceType: event.target.value })}><option value="fixed">Fixed amount</option><option value="percent">Percentage</option></select></label><label>{storeSettings.paymentSettings?.advanceType === "percent" ? "Advance percent" : "Advance amount (PKR)"}<input type="number" min="0" max={storeSettings.paymentSettings?.advanceType === "percent" ? "100" : undefined} value={storeSettings.paymentSettings?.advanceType === "percent" ? (storeSettings.paymentSettings?.advancePercent ?? 20) : (storeSettings.paymentSettings?.advanceAmountPkr ?? 300)} onChange={(event) => updatePaymentSettings(storeSettings.paymentSettings?.advanceType === "percent" ? { advancePercent: event.target.value } : { advanceAmountPkr: event.target.value })} /></label></div>
-          </div>
-          <div className="paymentRulesCard">
-            <h3>Manual transfer details</h3>
-            <div className="formRow"><label>Bank title<input value={storeSettings.paymentSettings?.bankTitle || ""} onChange={(event) => updatePaymentSettings({ bankTitle: event.target.value })} placeholder="Account title" /></label><label>IBAN / account<input value={storeSettings.paymentSettings?.bankIban || ""} onChange={(event) => updatePaymentSettings({ bankIban: event.target.value })} placeholder="PK..." /></label></div>
-            <div className="formRow"><label>JazzCash number<input value={storeSettings.paymentSettings?.jazzcashNumber || ""} onChange={(event) => updatePaymentSettings({ jazzcashNumber: event.target.value })} placeholder="03xx xxxxxxx" /></label><label>Easypaisa number<input value={storeSettings.paymentSettings?.easypaisaNumber || ""} onChange={(event) => updatePaymentSettings({ easypaisaNumber: event.target.value })} placeholder="03xx xxxxxxx" /></label></div>
+            <div className="formRow"><label>Bank name<input value={storeSettings.paymentSettings?.bankName || ""} onChange={(event) => updatePaymentSettings({ bankName: event.target.value })} placeholder="e.g. Meezan Bank" /></label><label>Account title<input value={storeSettings.paymentSettings?.bankTitle || ""} onChange={(event) => updatePaymentSettings({ bankTitle: event.target.value })} placeholder="Account holder name" /></label></div>
+            <div className="formRow"><label>Account number<input value={storeSettings.paymentSettings?.bankAccountNumber || ""} onChange={(event) => updatePaymentSettings({ bankAccountNumber: event.target.value })} placeholder="Bank account number" /></label><label>IBAN (optional)<input value={storeSettings.paymentSettings?.bankIban || ""} onChange={(event) => updatePaymentSettings({ bankIban: event.target.value })} placeholder="PK..." /></label></div>
             <label>Customer instructions<textarea rows="3" value={storeSettings.paymentSettings?.instructions || ""} onChange={(event) => updatePaymentSettings({ instructions: event.target.value })} placeholder="Use exact order reference with your transfer." /></label>
-          </div>
-          <div className="paymentRulesCard">
-            <h3>Gateway readiness</h3>
-            <div className="formRow"><label>Preferred provider<select value={storeSettings.paymentSettings?.provider || "payfast"} onChange={(event) => updatePaymentSettings({ provider: event.target.value })}><option value="payfast">PayFast hosted checkout</option><option value="easypaisa">Easypaisa hosted checkout</option><option value="jazzcash">JazzCash gateway</option><option value="manual">Manual only</option></select></label><label>Webhook status<input value="Waiting for server credentials and signature secret" disabled /></label></div>
-            <p className="paymentSecurityNote">Secret keys will stay in server environment variables only. Customer browser status will not mark an order paid.</p>
           </div>
           <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save payment settings"}</button>
         </form>}

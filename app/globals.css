@@ -3369,6 +3369,9 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .paymentUnavailable { border-color:#dfe5df; background:#f7f8f6; opacity:.72; }
 .advancePaymentNote { margin-top:6px; padding:13px 15px; border:1px solid #dce7d8; border-radius:6px; background:#f5faef; display:flex; flex-direction:column; gap:4px; font-size:12px; }
 .advancePaymentNote span { color:#667268; font-size:11px; line-height:1.5; }
+.bankPaymentDetails { display:grid; gap:6px; margin-top:8px; padding-top:9px; border-top:1px dashed #cfdccd; }
+.bankPaymentDetails span { display:grid; grid-template-columns:minmax(82px,.55fr) 1fr; gap:8px; color:#344b3b; }
+.bankPaymentDetails b { color:#173d29; }
 .placeOrder { min-height:54px; padding:17px; border:0; border-radius:6px; background:var(--berry); color:#fff; text-transform:uppercase; letter-spacing:.09em; font-size:11px; display:flex; align-items:center; justify-content:center; transition:background .2s ease,transform .2s ease,box-shadow .2s ease; }
 .placeOrder:not(:disabled):hover { background:#a9103e; transform:translateY(-1px); box-shadow:0 14px 30px #bd194b24; }
 .placeOrder:disabled { opacity:.45; cursor:not-allowed; }

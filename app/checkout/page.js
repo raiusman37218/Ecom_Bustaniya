@@ -54,9 +54,11 @@ export default function CheckoutPage() {
       .then((result) => {
         const nextPaymentSettings = result.paymentSettings || DEFAULT_STORE_SETTINGS.paymentSettings;
         setPaymentSettings(nextPaymentSettings);
-        if (nextPaymentSettings.codEnabled === false && nextPaymentSettings.manualTransferEnabled !== false) {
-          setPaymentMethod("bank_deposit");
-        }
+        setPaymentMethod((current) => {
+          if (nextPaymentSettings.codEnabled === false && nextPaymentSettings.manualTransferEnabled !== false) return "bank_deposit";
+          if (nextPaymentSettings.manualTransferEnabled === false && nextPaymentSettings.codEnabled !== false) return "cod";
+          return current;
+        });
       })
       .catch(() => {});
   }, []);
@@ -212,21 +214,15 @@ export default function CheckoutPage() {
               <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} disabled={paymentSettings.codEnabled === false} onChange={() => setPaymentMethod("cod")} />
               <div><b>Cash on Delivery</b><span>Pay when your order arrives</span></div>
             </label>
-            {paymentSettings.onlineGatewayEnabled && (
-              <label className="paymentBox paymentUnavailable">
-                <input type="radio" name="paymentMethod" value="online_gateway" disabled />
-                <div><b>Online prepaid payment</b><span>Hosted gateway will activate after merchant credentials are connected.</span></div>
-              </label>
-            )}
             {paymentSettings.manualTransferEnabled !== false && (
               <label className={paymentMethod === "bank_deposit" ? "paymentBox" : "paymentBox paymentChoice"}>
                 <input type="radio" name="paymentMethod" value="bank_deposit" checked={paymentMethod === "bank_deposit"} onChange={() => setPaymentMethod("bank_deposit")} />
-                <div><b>Manual bank / wallet transfer</b><span>Enter the exact order reference in your transfer notes. Courier collection amount will be Rs. 0 after verification.</span></div>
+                <div><b>Advance bank deposit</b><span>Pay the configured advance after placing your order. We verify it before dispatch.</span></div>
               </label>
             )}
             <div className="advancePaymentNote">
               <b>{paymentMethod === "bank_deposit" ? "Bank deposit selected" : "COD selected"}</b>
-              <span>{paymentMethod === "bank_deposit" ? (paymentSettings.instructions || "Admin will verify your payment before dispatch. Delivery fee is Rs. 200 per order.") : "Flat delivery fee is Rs. 200 per order, regardless of item quantity."}</span>
+              {paymentMethod === "bank_deposit" ? <><span>{paymentSettings.instructions || "Admin will verify your payment before dispatch. Delivery fee is Rs. 200 per order."}</span><div className="bankPaymentDetails">{paymentSettings.bankName && <span><b>Bank</b>{paymentSettings.bankName}</span>}{paymentSettings.bankTitle && <span><b>Account title</b>{paymentSettings.bankTitle}</span>}{paymentSettings.bankAccountNumber && <span><b>Account no.</b>{paymentSettings.bankAccountNumber}</span>}{paymentSettings.bankIban && <span><b>IBAN</b>{paymentSettings.bankIban}</span>}</div></> : <span>{paymentSettings.codInstructions || "Pay the courier at delivery. Flat delivery fee is Rs. 200 per order."}</span>}
             </div>
             {error && <p className="checkoutError" role="alert">{error}</p>}
             <button className="placeOrder" type="submit" disabled={!cart.length || submitting}>
