@@ -2742,8 +2742,8 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .categoryHero {
   position:relative;
   overflow:hidden;
-  min-height:clamp(430px,52vw,620px);
-  padding:clamp(30px,4vw,46px) 6vw clamp(58px,7vw,90px);
+  min-height:clamp(300px,34vw,430px);
+  padding:clamp(26px,3vw,38px) 6vw clamp(38px,4vw,58px);
   color:#fffdf5;
   isolation:isolate;
 }
@@ -3308,6 +3308,25 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   color:#132f22;
   font-size:15px;
   font-weight:850;
+}
+
+/* Category listings stay compact: a shorter editorial cover above a useful
+   two-column mobile product grid. This is intentionally scoped so product
+   and collection pages keep their own layouts. */
+@media (max-width:640px) {
+  .categoryPage .categoryHero {
+    min-height:300px;
+    padding:22px 18px 34px;
+    background-position:center top;
+  }
+  .categoryPage .productGrid,
+  .categoryPage .productGrid:has(.productCard--connected) {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+  }
+  .categoryPage .productGrid .productCard {
+    min-width:0;
+  }
 }
 .subcategoryHero {
   min-height:clamp(430px,50vw,620px);
