@@ -241,7 +241,7 @@ export default function Home({
                 key={section.id}
                 className={`campaignHero campaignHero--position-${desktopHero.position} campaignHero--align-${desktopHero.alignment} campaignHero--mobile-position-${mobileHero.position} campaignHero--mobile-align-${mobileHero.alignment}`}
                 id="new"
-                style={{ "--campaign-overlay": Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0))) / 100, "--campaign-overlay-color": sectionColors.heroOverlay, "--campaign-text-color": sectionTextColors.heroOverlay }}
+                style={{ "--campaign-overlay": Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0))) / 100, "--campaign-overlay-color": "#102a1d", "--campaign-text-color": sectionTextColors.heroOverlay }}
               >
                 <div className="campaignHeroMedia">
                   <CampaignHeroImage
@@ -302,7 +302,6 @@ export default function Home({
                         <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
                         {product.badge && <span className="badge">{product.badge}</span>}
                         {salePercent(product) > 0 && <span className="saleBadge">-{salePercent(product)}%</span>}
-                        <span className="connectedCardAction" aria-hidden="true">+</span>
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
                       </div>
                       <div className="productInfo">

@@ -87,7 +87,6 @@ export default async function SubcategoryPage({ params }) {
                   sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                 />
                 {product.badge && <span className="badge">{product.badge}</span>}
-                <span className="connectedCardAction" aria-hidden="true">+</span>
                 <span className="quickAdd">Choose options</span>
               </a>
               <div className="productInfo">

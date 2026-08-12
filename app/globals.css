@@ -565,6 +565,7 @@ a { text-decoration:none; }
 .productCard--connected .quickViewButton,
 .productCard--connected .quickAdd { display:none !important; }
 .productCard--connected .connectedCardAction {
+  display: none !important;
   position:absolute;
   z-index:4;
   right:0;
@@ -2924,9 +2925,8 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   inset:0;
   z-index:1;
   background:
-    linear-gradient(90deg,rgba(8,26,15,.72) 0%,rgba(8,26,15,.46) 34%,rgba(8,26,15,.12) 62%,rgba(8,26,15,.42) 100%),
-    linear-gradient(180deg,rgba(8,26,15,.12) 0%,rgba(8,26,15,.08) 55%,rgba(8,26,15,.62) 100%),
-    color-mix(in srgb,var(--campaign-overlay-color,#102a1d) calc(var(--campaign-overlay,0) * 100%),transparent);
+    linear-gradient(90deg,rgba(8,26,15,.65) 0%,rgba(8,26,15,.35) 40%,rgba(8,26,15,.05) 70%,rgba(8,26,15,.35) 100%),
+    linear-gradient(180deg,rgba(8,26,15,.05) 0%,rgba(8,26,15,.15) 50%,rgba(8,26,15,.65) 100%);
 }
 .campaignHeroInner {
   position:relative;
@@ -7824,11 +7824,20 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     font-size:clamp(42px,10vw,68px);
   }
   .campaignHeroActions {
-    width:100%;
+    width:auto;
+    justify-content:center;
+    margin-top:14px;
   }
   .campaignHeroPrimary,
   .campaignHeroSecondary {
-    flex:1 1 170px;
+    flex:0 0 auto;
+    width:max-content;
+    max-width:100%;
+    min-height:38px;
+    padding:8px 18px;
+    font-size:10px;
+    letter-spacing:0.08em;
+    border-radius:4px;
   }
   .categoryCards { grid-template-columns:1fr 1fr; }
   .categoryCard { height:500px; }
