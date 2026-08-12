@@ -8759,3 +8759,35 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .categoryPage .subCollectionGrid a>div { width:82px; height:82px; }
   .categoryPage .subCollectionGrid h3 { font-size:11px; }
 }
+
+/* On phones, put the gallery switcher below the featured product image.
+   The controls remain a single horizontal, scrollable row with touch-sized
+   targets, instead of taking a sidebar position above the photo. */
+@media (max-width:767px) {
+  .mariabGallery .galleryWorkspace.hasThumbnails {
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:auto auto;
+  }
+  .mariabGallery .galleryWorkspace.hasThumbnails .galleryMainView {
+    grid-column:1;
+    grid-row:1;
+  }
+  .mariabGallery .galleryWorkspace.hasThumbnails .galleryThumbnails {
+    grid-column:1;
+    grid-row:2;
+    display:flex;
+    flex-direction:row;
+    gap:9px;
+    max-width:100%;
+    max-height:none;
+    overflow-x:auto;
+    overflow-y:hidden;
+    padding:2px 1px 5px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .mariabGallery .galleryWorkspace.hasThumbnails .thumbBtn {
+    width:64px;
+    height:80px;
+    flex:0 0 64px;
+  }
+}
