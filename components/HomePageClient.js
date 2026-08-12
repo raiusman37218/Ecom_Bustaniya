@@ -259,7 +259,7 @@ export default function Home({
                     <span className="campaignHeroDesktopOnly">{desktopHero.supportingText}</span><span className="campaignHeroMobileOnly">{mobileHero.supportingText}</span>
                     <div className="campaignHeroActions">
                       {desktopHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroDesktopOnly" href={desktopHero.primaryButtonLink || "#products"}>{desktopHero.primaryButtonText}<ArrowRight size={17} /></a>}
-                      {mobileHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroMobileOnly" href={mobileHero.primaryButtonLink || "#products"}>{mobileHero.primaryButtonText}<ArrowRight size={17} /></a>}
+                      {mobileHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroMobileOnly" href={mobileHero.primaryButtonLink || "#products"}>{mobileHero.primaryButtonText}<ArrowRight size={14} /></a>}
                       {desktopHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroDesktopOnly" href={desktopHero.secondaryButtonLink || "#products"}>{desktopHero.secondaryButtonText}</a>}
                       {mobileHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroMobileOnly" href={mobileHero.secondaryButtonLink || "#products"}>{mobileHero.secondaryButtonText}</a>}
                     </div>

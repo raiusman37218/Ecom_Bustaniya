@@ -119,9 +119,10 @@
   .campaignHeroCopy>p { margin-bottom:.65rem; color:#fff6ed; font-size:clamp(.5rem,.42rem + .25vw,.58rem); text-shadow:0 1px 12px #132b20b8; }
   .campaignHeroCopy h1 { max-width:10ch; color:#fffdf7; font-size:clamp(2.2rem,10.5vw,3.3rem); line-height:.87; letter-spacing:-.025em; text-shadow:0 2px 20px #102a1dd9; }
   .campaignHeroCopy>span { max-width:25rem; margin-top:.55rem; color:#fffdf7; font-size:clamp(.68rem,2.5vw,.78rem); line-height:1.45; text-shadow:0 1px 14px #102a1dd9; }
-  .campaignHeroActions { margin-top:.8rem; gap:.75rem; }
-  .campaignHeroPrimary { min-height:2.75rem; padding:.7rem .95rem; background:#fffdf7; color:#173d29; font-size:.54rem; }
-  .campaignHeroSecondary { color:#fffdf7; font-size:.53rem; }
+  .campaignHeroActions { margin-top:.65rem; gap:.6rem; }
+  .campaignHeroPrimary { min-height:2.2rem; padding:.45rem .8rem; background:#fffdf7; color:#173d29; font-size:.5rem; gap:.5rem; border-radius:4px; }
+  .campaignHeroPrimary svg { width:14px; height:14px; }
+  .campaignHeroSecondary { color:#fffdf7; font-size:.48rem; padding:.35rem 0; }
   .heroImageSettingsGrid { grid-template-columns:1fr; }
   .heroSlideGrid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .heroMobileManager .heroSlideMedia { max-height:220px; }
@@ -134,6 +135,8 @@
   .campaignHero { height:clamp(20.25rem,54svh,24.75rem); min-height:20.25rem; }
   .campaignHeroCopy h1 { font-size:clamp(2rem,10vw,2.8rem); }
   .campaignHeroCopy>span { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+  .campaignHeroPrimary { min-height:2rem; padding:.38rem .65rem; font-size:.46rem; }
+  .campaignHeroPrimary svg { width:12px; height:12px; }
 }
 
 @media (min-width:768px) and (max-width:1100px) {

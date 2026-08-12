@@ -7833,10 +7833,10 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     flex:0 0 auto;
     width:max-content;
     max-width:100%;
-    min-height:38px;
-    padding:8px 18px;
-    font-size:10px;
-    letter-spacing:0.08em;
+    min-height:32px;
+    padding:6px 12px;
+    font-size:9px;
+    letter-spacing:0.06em;
     border-radius:4px;
   }
   .categoryCards { grid-template-columns:1fr 1fr; }
