@@ -103,22 +103,23 @@
 @keyframes campaignCopyIn { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
 
 @media (max-width:767px) {
-  .campaignHero { height:clamp(29rem,74svh,38rem); min-height:29rem; max-height:38rem; }
+  /* Compact mobile banner: retain the campaign treatment in 75% of the prior vertical space. */
+  .campaignHero { height:clamp(21.75rem,56svh,28.5rem); min-height:21.75rem; max-height:28.5rem; }
   .campaignHeroMedia img { object-position:center center; }
   .campaignHeroOverlay { opacity:max(.5,var(--campaign-overlay)); background:linear-gradient(180deg,transparent 20%,var(--campaign-overlay-color,#173d29) 100%); }
   .campaignHeroDesktopOnly { display:none!important; }
   .campaignHeroMobileOnly { display:block!important; }
   .campaignHeroActions .campaignHeroMobileOnly { display:inline-flex!important; }
-  .campaignHeroInner { padding:max(1.25rem,env(safe-area-inset-top)) clamp(1rem,5vw,1.4rem) max(1.35rem,env(safe-area-inset-bottom)); align-items:flex-end; justify-content:flex-start!important; }
+  .campaignHeroInner { padding:max(1rem,env(safe-area-inset-top)) clamp(1rem,5vw,1.4rem) max(1rem,env(safe-area-inset-bottom)); align-items:flex-end; justify-content:flex-start!important; }
   .campaignHero--mobile-position-top .campaignHeroInner { align-items:flex-start; }
   .campaignHero--mobile-position-center .campaignHeroInner { align-items:center; }
   .campaignHero--mobile-align-center .campaignHeroCopy { align-items:center!important; text-align:center!important; }
   .campaignHero--mobile-align-right .campaignHeroCopy { align-items:flex-end!important; text-align:right!important; }
   .campaignHeroCopy { width:min(100%,29rem); align-items:flex-start!important; text-align:left!important; color:#fffdf7; }
   .campaignHeroCopy>p { margin-bottom:.65rem; color:#fff6ed; font-size:clamp(.5rem,.42rem + .25vw,.58rem); text-shadow:0 1px 12px #132b20b8; }
-  .campaignHeroCopy h1 { max-width:10ch; color:#fffdf7; font-size:clamp(2.55rem,12vw,4rem); line-height:.87; letter-spacing:-.025em; text-shadow:0 2px 20px #102a1dd9; }
-  .campaignHeroCopy>span { max-width:25rem; margin-top:.7rem; color:#fffdf7; font-size:clamp(.72rem,2.7vw,.84rem); line-height:1.5; text-shadow:0 1px 14px #102a1dd9; }
-  .campaignHeroActions { margin-top:1rem; gap:.9rem; }
+  .campaignHeroCopy h1 { max-width:10ch; color:#fffdf7; font-size:clamp(2.2rem,10.5vw,3.3rem); line-height:.87; letter-spacing:-.025em; text-shadow:0 2px 20px #102a1dd9; }
+  .campaignHeroCopy>span { max-width:25rem; margin-top:.55rem; color:#fffdf7; font-size:clamp(.68rem,2.5vw,.78rem); line-height:1.45; text-shadow:0 1px 14px #102a1dd9; }
+  .campaignHeroActions { margin-top:.8rem; gap:.75rem; }
   .campaignHeroPrimary { min-height:2.75rem; padding:.7rem .95rem; background:#fffdf7; color:#173d29; font-size:.54rem; }
   .campaignHeroSecondary { color:#fffdf7; font-size:.53rem; }
   .heroImageSettingsGrid { grid-template-columns:1fr; }
@@ -130,8 +131,8 @@
 }
 
 @media (max-width:360px) {
-  .campaignHero { height:clamp(27rem,72svh,33rem); min-height:27rem; }
-  .campaignHeroCopy h1 { font-size:clamp(2.3rem,11.5vw,3.15rem); }
+  .campaignHero { height:clamp(20.25rem,54svh,24.75rem); min-height:20.25rem; }
+  .campaignHeroCopy h1 { font-size:clamp(2rem,10vw,2.8rem); }
   .campaignHeroCopy>span { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
 }
 

@@ -8294,12 +8294,16 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .quantity { width:104px; min-height:38px; }
   .cartFooter { padding:18px; padding-bottom:calc(18px + env(safe-area-inset-bottom)); }
   .checkoutButton,.cartFooter .shopMoreButton { min-height:48px; }
-  footer { grid-template-columns:1fr; gap:20px; padding:38px 22px 20px; }
+  /* Two-column mobile footer keeps every link while materially reducing scrolling. */
+  footer { grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 16px; padding:24px 18px 12px; }
   .footerBrand { grid-column:1/-1; }
-  .footerBrand .brand { width:195px; }
-  footer>div:not(.footerBrand):not(.copyright) { gap:11px; }
-  .copyright { align-items:flex-start; flex-direction:column; }
-  .copyright>div { flex-wrap:wrap; gap:12px 20px; }
+  .footerBrand .brand { width:145px; margin-bottom:8px; }
+  .footerBrand p { margin-bottom:0; font-size:17px; }
+  .footerBrand>span { display:none; }
+  footer>div:not(.footerBrand):not(.copyright) { gap:7px; font-size:11px; }
+  footer>div>b { margin-bottom:2px; }
+  .copyright { grid-column:1/-1; align-items:flex-start; flex-direction:column; gap:8px; padding-top:10px; margin-top:2px; }
+  .copyright>div { flex-wrap:wrap; gap:8px 14px; }
 }
 @media (max-width:600px) {
   html,body { width:100%; max-width:100vw; overflow-x:hidden; }
