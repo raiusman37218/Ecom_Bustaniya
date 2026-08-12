@@ -183,7 +183,30 @@ export default function Home({
     const hasInstagramFeed = configured.some((section) => section?.type === "instagram_feed");
     const instagramDefaults = DEFAULT_HOMEPAGE_SECTIONS.find((section) => section.type === "instagram_feed");
     const raw = hasInstagramFeed || !instagramDefaults ? configured : [...configured, instagramDefaults];
-    const enabled = raw.filter((s) => s && s.enabled !== false);
+    // Legacy stores may still have the old "Our Story" block saved. Keep its
+    // position, but turn it into Best Sellers so no obsolete brand-story copy
+    // reaches the storefront.
+    const storyReplacementIndex = raw.findIndex((section) => section?.type === "our_story");
+    const normalized = raw.map((section) => (
+      section?.type === "our_story"
+        ? {
+          ...section,
+          type: "best_sellers",
+          label: "Best Sellers",
+          heading: "Best Sellers",
+          eyebrow: "BEST SELLERS",
+          subtitle: "",
+        }
+        : section
+    ));
+    const firstBestSellerIndex = storyReplacementIndex > -1
+      ? storyReplacementIndex
+      : normalized.findIndex((section) => section?.type === "best_sellers");
+    const enabled = normalized.filter((section, index) => (
+      section
+      && section.enabled !== false
+      && (section.type !== "best_sellers" || index === firstBestSellerIndex)
+    ));
     const heroIndex = enabled.findIndex((s) => s.type === "hero");
     const catIndex = enabled.findIndex((s) => s.type === "shop_by_category");
     const newIndex = enabled.findIndex((s) => s.type === "new_arrivals");
@@ -261,7 +284,7 @@ export default function Home({
             return (
               <section key={section.id} className="shopSection khaadiTopPicks scrollReveal" data-scroll-reveal id="products" style={{ "--section-bg": sectionColors.products, "--section-text": sectionTextColors.products }}>
                 <div className="sectionHeading">
-                  <div><p className="eyebrow">BEST SELLERS</p><h2>Best Sellers</h2></div>
+                  <div><p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p><h2>{section.heading || defaults.heading}</h2></div>
                 </div>
                 <div className="categoryTabs">
                   {categoryNames.map((category) => <button key={category} className={category === activeCategory ? "active" : ""} onClick={() => setActiveCategory(category)}>{category}</button>)}

@@ -62,8 +62,8 @@ export const DEFAULT_HOMEPAGE_SECTIONS = [
     type: "new_arrivals",
     enabled: true,
     label: "New Arrivals",
-    heading: "Best Sellers",
-    eyebrow: "BEST SELLERS",
+    heading: "New Arrivals",
+    eyebrow: "NEW ARRIVALS",
     subtitle: "",
   },
   {
