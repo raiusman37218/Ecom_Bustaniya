@@ -8713,3 +8713,81 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .instagramManagerPosts { grid-template-columns:1fr; }
   .instagramManagerIntro,.instagramManagerPostHead { align-items:flex-start; flex-direction:column; }
 }
+
+/* Category page: let the collection photography stay crisp and make nested
+   styles compact, circular discovery links rather than oversized banners. */
+.categoryPage .categoryHero::before {
+  background:linear-gradient(90deg,rgba(8,26,15,.48),rgba(8,26,15,.12) 60%,rgba(8,26,15,.26)),linear-gradient(180deg,rgba(8,26,15,.04),rgba(8,26,15,.35));
+}
+.categoryPage .subCollectionBlock {
+  padding:clamp(28px,4vw,46px);
+}
+.categoryPage .subCollectionGrid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
+  justify-content:center;
+  gap:clamp(18px,2.4vw,30px);
+}
+.categoryPage .subCollectionGrid a {
+  display:flex;
+  align-items:center;
+  flex-direction:column;
+  min-width:0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  text-align:center;
+}
+.categoryPage .subCollectionGrid a:hover {
+  transform:none;
+  border:0;
+  box-shadow:none;
+}
+.categoryPage .subCollectionGrid a>div {
+  width:clamp(96px,10vw,138px);
+  height:clamp(96px,10vw,138px);
+  max-height:none;
+  flex:0 0 auto;
+  border:3px solid #fffefb;
+  border-radius:50%;
+  background-position:center;
+  box-shadow:0 12px 26px rgba(23,61,41,.15);
+  transform:none;
+}
+.categoryPage .subCollectionGrid a>div::before {
+  background:linear-gradient(180deg,rgba(8,26,15,.02),rgba(8,26,15,.18));
+}
+.categoryPage .subCollectionGrid a>div::after {
+  inset:6px;
+  border-radius:50%;
+  border-color:rgba(255,254,251,.7);
+}
+.categoryPage .subCollectionGrid a:hover>div {
+  transform:translateY(-4px);
+  box-shadow:0 18px 34px rgba(23,61,41,.22);
+}
+.categoryPage .subCollectionGrid a:hover>div::after {
+  inset:8px;
+}
+.categoryPage .subCollectionGrid h3 {
+  width:auto;
+  margin:10px 0 0;
+  padding:0;
+  color:#173d29;
+  font-family:var(--font-sans);
+  font-size:clamp(11px,1.1vw,14px);
+  font-weight:800;
+  line-height:1.25;
+  text-shadow:none;
+}
+.categoryPage .subCollectionGrid span {
+  display:none;
+}
+@media (max-width:600px) {
+  .categoryPage .subCollectionBlock { padding:28px 16px; border-radius:20px; }
+  .categoryPage .subCollectionGrid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px 10px; }
+  .categoryPage .subCollectionGrid a>div { width:82px; height:82px; }
+  .categoryPage .subCollectionGrid h3 { font-size:11px; }
+}

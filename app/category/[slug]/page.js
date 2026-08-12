@@ -56,7 +56,7 @@ export default async function CategoryPage({ params }) {
 
       <section
         className="categoryHero"
-        style={{ backgroundImage: `linear-gradient(90deg, #f4f7eeed, #f4f7ee45), url(${categoryCoverImage})` }}
+        style={{ backgroundImage: `url(${categoryCoverImage})` }}
       >
         <a href="/"><ArrowLeft size={16} /> Back to home</a>
         <div>
