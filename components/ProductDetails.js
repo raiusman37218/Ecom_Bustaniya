@@ -8,6 +8,55 @@ import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import SizeChartModal, { SizeTable } from "./SizeChartModal";
 import SiteHeader from "./SiteHeader";
 
+function getProductDetailsText(product, fallbackDescription) {
+  const description = String(product?.description || "").trim();
+  const fabricDetails = String(product?.fabricDetails || "").trim();
+  const careInstructions = String(product?.careInstructions || "").trim();
+  const sections = [description || fallbackDescription];
+
+  if (fabricDetails && !description.includes(fabricDetails)) sections.push(`## Fabric & material\n${fabricDetails}`);
+  if (careInstructions && !description.includes(careInstructions)) sections.push(`## Care instructions\n${careInstructions}`);
+
+  return sections.filter(Boolean).join("\n\n");
+}
+
+function StructuredProductDetails({ value }) {
+  const blocks = [];
+  let bullets = [];
+  const flushBullets = () => {
+    if (bullets.length) blocks.push({ type: "bullets", items: bullets });
+    bullets = [];
+  };
+
+  String(value || "").replace(/\r/g, "").split("\n").forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) {
+      flushBullets();
+      return;
+    }
+    if (/^#{1,3}\s+/.test(line)) {
+      flushBullets();
+      blocks.push({ type: "heading", text: line.replace(/^#{1,3}\s+/, "") });
+      return;
+    }
+    if (/^[-*]\s+/.test(line)) {
+      bullets.push(line.replace(/^[-*]\s+/, ""));
+      return;
+    }
+    flushBullets();
+    blocks.push({ type: "paragraph", text: line });
+  });
+  flushBullets();
+
+  return <div className="structuredProductDetails">
+    {blocks.map((block, index) => {
+      if (block.type === "heading") return <h3 key={`heading-${index}`}>{block.text}</h3>;
+      if (block.type === "bullets") return <ul key={`bullets-${index}`}>{block.items.map((item, itemIndex) => <li key={`${item}-${itemIndex}`}>{item}</li>)}</ul>;
+      return <p key={`paragraph-${index}`}>{block.text}</p>;
+    })}
+  </div>;
+}
+
 export default function ProductDetails({ product, related, storeSettings = DEFAULT_STORE_SETTINGS }) {
   const [size, setSize] = useState("S");
   const [quantity, setQuantity] = useState(1);
@@ -32,6 +81,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const outOfStock = availableStock <= 0;
   const sizes = Array.isArray(product.sizes) && product.sizes.length ? product.sizes : ["XS", "S", "M", "L", "XL"];
   const detailDescription = productDescription(product);
+  const productDetails = getProductDetailsText(product, detailDescription);
 
   function addToBag({ openDrawer = true } = {}) {
     if (outOfStock) return;
@@ -183,8 +233,6 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           <h1>{product.name}</h1>
           <p className="detailPrice">Rs. {product.price.toLocaleString()}</p>
           <p className="taxNote">Tax included. Delivery calculated at checkout.</p>
-          <p className="productDescription">{detailDescription}</p>
-
           <div className="selectorHeading">
             <b>Select size</b>
             <button type="button" className="sizeGuidePillBtn" onClick={() => setSizeChartOpen(true)}>
@@ -213,22 +261,14 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             <div><ShieldCheck /><span><b>Exchange support</b>7-day easy exchange</span></div>
           </div>
           <details open>
-            <summary>Product &amp; Fabric details</summary>
-            <p style={{ whiteSpace: "pre-line" }}>
-              {product.fabricDetails ? <><b style={{ color: "#132f22" }}>Fabric &amp; Stitching:</b> {product.fabricDetails}<br /><br /></> : null}
-              {detailDescription}
-              <br /><br />
-              <small style={{ color: "#6b7d71" }}>Colours may vary slightly due to camera lighting and screen settings.</small>
-            </p>
+            <summary>Product details</summary>
+            <StructuredProductDetails value={productDetails} />
+            <small className="productDetailsNote">Colours may vary slightly due to camera lighting and screen settings.</small>
           </details>
           <details id="size-guide" open>
             <summary>Size guide &amp; measurements</summary>
             <p style={{ marginBottom: "10px" }}>Standard ready-to-wear stitched garment measurements in inches:</p>
             <SizeTable />
-          </details>
-          <details open>
-            <summary>Care instructions</summary>
-            <p>{product.careInstructions || "Dry clean recommended or gentle hand wash in cold water. Wash dark colors separately. Do not bleach or tumble dry."}</p>
           </details>
         </section>
       </div>

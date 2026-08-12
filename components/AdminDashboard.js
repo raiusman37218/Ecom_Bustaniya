@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
   LogOut, Menu, Minus, MoreHorizontal, Package, Plus,
@@ -48,6 +48,18 @@ function normalizeHeroImages(value, fallback) {
 function clampPercent(value) {
   const number = Number(value || 0);
   return Math.max(0, Math.min(100, Number.isFinite(number) ? number : 0));
+}
+
+function getUnifiedProductDetails(product) {
+  const description = String(product?.description || "").trim();
+  const fabricDetails = String(product?.fabricDetails || product?.cost_breakdown?.metadata?.fabricDetails || "").trim();
+  const careInstructions = String(product?.careInstructions || product?.cost_breakdown?.metadata?.careInstructions || "").trim();
+  const sections = [description];
+
+  if (fabricDetails && !description.includes(fabricDetails)) sections.push(`## Fabric & material\n${fabricDetails}`);
+  if (careInstructions && !description.includes(careInstructions)) sections.push(`## Care instructions\n${careInstructions}`);
+
+  return sections.filter(Boolean).join("\n\n");
 }
 
 function VisualBars({ title, subtitle, items = [], format = (value) => value, compact = false }) {
@@ -735,6 +747,7 @@ export default function AdminDashboard() {
   const [productPrice, setProductPrice] = useState(0);
   const [costBreakdown, setCostBreakdown] = useState({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0 });
   const [productSaving, setProductSaving] = useState(false);
+  const productDetailsEditorRef = useRef(null);
   const [workspace, setWorkspace] = useState(null);
   const [tableDensity, setTableDensity] = useState(() => (typeof window !== "undefined" && localStorage.getItem("bustaniya-admin-table-density")) || "comfortable");
   const [confirmModalState, setConfirmModalState] = useState({
@@ -748,6 +761,27 @@ export default function AdminDashboard() {
 
   function requestConfirm({ title, message, confirmText = "Confirm", isDanger = true, onConfirm }) {
     setConfirmModalState({ isOpen: true, title, message, confirmText, isDanger, onConfirm });
+  }
+
+  function insertProductDetailsFormat(format) {
+    const editor = productDetailsEditorRef.current;
+    if (!editor) return;
+
+    const start = editor.selectionStart ?? editor.value.length;
+    const end = editor.selectionEnd ?? start;
+    const selectedText = editor.value.slice(start, end);
+    const needsNewLine = start > 0 && editor.value[start - 1] !== "\n";
+    const prefix = format === "heading" ? "## " : "- ";
+    const placeholder = format === "heading" ? "Section heading" : "Bullet point";
+    const formatted = selectedText
+      ? (format === "bullet" ? selectedText.split("\n").map((line) => line ? `${prefix}${line.replace(/^[-*]\s+/, "")}` : line).join("\n") : `${prefix}${selectedText.replace(/\n/g, " ")}`)
+      : `${prefix}${placeholder}`;
+    const nextValue = `${editor.value.slice(0, start)}${needsNewLine ? "\n" : ""}${formatted}${editor.value.slice(end)}`;
+    const nextCursor = start + (needsNewLine ? 1 : 0) + formatted.length;
+
+    editor.value = nextValue;
+    editor.focus();
+    editor.setSelectionRange(nextCursor, nextCursor);
   }
 
   useEffect(() => {
@@ -1068,8 +1102,8 @@ export default function AdminDashboard() {
         cost_breakdown: {
           ...costBreakdown,
           metadata: {
-            fabricDetails: String(form.get("fabricDetails") || "").trim(),
-            careInstructions: String(form.get("careInstructions") || "").trim(),
+            fabricDetails: "",
+            careInstructions: "",
             vendor: String(form.get("vendor") || "").trim(),
             barcode: String(form.get("barcode") || "").trim(),
             weight: String(form.get("weight") || "").trim(),
@@ -1521,9 +1555,27 @@ export default function AdminDashboard() {
             <section className="productEditorCard">
               <h3>Basic information</h3>
               <label>Product title<input name="name" required defaultValue={editingProduct?.name || ""} placeholder="e.g. Gulnaar Corset Kurti" /></label>
-              <label>Description<textarea name="description" rows="4" defaultValue={editingProduct?.description || ""} placeholder="Describe fit, embroidery and styling details..." /></label>
-              <label>Fabric &amp; Material Details<textarea name="fabricDetails" rows="3" defaultValue={editingProduct?.fabricDetails || editingProduct?.cost_breakdown?.metadata?.fabricDetails || ""} placeholder="e.g. 100% Pure Lawn Stitched Kurti with Embroidered Neckline & organza trim" /></label>
-              <label>Care Instructions<textarea name="careInstructions" rows="2" defaultValue={editingProduct?.careInstructions || editingProduct?.cost_breakdown?.metadata?.careInstructions || ""} placeholder="e.g. Dry clean recommended. Wash dark colors separately in cold water." /></label>
+              <div className="productDetailsEditor">
+                <div className="productDetailsEditorHead">
+                  <div>
+                    <label htmlFor="product-details-editor">Product details</label>
+                    <p>Add description, fabric, styling and care instructions together.</p>
+                  </div>
+                  <div className="productDetailsToolbar" aria-label="Product details formatting">
+                    <button type="button" onClick={() => insertProductDetailsFormat("heading")} aria-label="Insert heading">Heading</button>
+                    <button type="button" onClick={() => insertProductDetailsFormat("bullet")} aria-label="Insert bullet point">• Bullet</button>
+                  </div>
+                </div>
+                <textarea
+                  id="product-details-editor"
+                  ref={productDetailsEditorRef}
+                  name="description"
+                  rows="11"
+                  defaultValue={getUnifiedProductDetails(editingProduct)}
+                  placeholder={"## Fabric & material\n- Premium lawn fabric\n- Embroidered neckline\n\n## Care instructions\n- Gentle hand wash in cold water"}
+                />
+                <p className="productDetailsEditorHint">Use <b>Heading</b> for section titles and <b>Bullet</b> for features. Your formatting will appear on the product page.</p>
+              </div>
             </section>
 
             <section className="productEditorCard">
