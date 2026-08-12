@@ -1,6 +1,6 @@
 import HomePageClient from "../components/HomePageClient";
 import { getCatalogCategories } from "../lib/categories";
-import { getCatalogProducts } from "../lib/catalog";
+import { getCatalogBestSellerIds, getCatalogProducts } from "../lib/catalog";
 import { JsonLd, breadcrumbSchema, buildMetadata, organizationSchema, siteConfig, websiteSchema } from "../lib/seo";
 import { getStoreSettings } from "../lib/storeSettings";
 
@@ -15,10 +15,11 @@ export const metadata = buildMetadata({
 });
 
 export default async function HomePage() {
-  const [products, categories, storeSettings] = await Promise.all([
+  const [products, categories, storeSettings, bestSellingProductIds] = await Promise.all([
     getCatalogProducts(),
     getCatalogCategories(),
     getStoreSettings(),
+    getCatalogBestSellerIds(),
   ]);
 
   return (
@@ -38,7 +39,7 @@ export default async function HomePage() {
           paymentAccepted: "Cash on Delivery, Bank Deposit",
         }}
       />
-      <HomePageClient initialProducts={products} initialCategories={categories} storeSettings={storeSettings} />
+      <HomePageClient initialProducts={products} initialCategories={categories} storeSettings={storeSettings} bestSellingProductIds={bestSellingProductIds} />
     </>
   );
 }

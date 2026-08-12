@@ -2647,6 +2647,9 @@ footer {
 .khaadiTopPicks .productPrice { margin-top:7px; }
 .khaadiTopPicks .productPrice span { color:#171717; font-size:13px; font-weight:600; }
 .khaadiTopPicks .viewAll { margin-top:clamp(28px,4vw,44px); border-bottom:1px solid #171717; color:#171717; }
+.bestSellersSection .sectionHeading { max-width:1120px; display:flex; align-items:flex-end; justify-content:space-between; gap:24px; text-align:left; }
+.bestSellersSection .sectionHeading::after { display:none; }
+.bestSellersSection .sectionHeading>a { flex:0 0 auto; color:var(--section-text,#173d29); font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
 .story { display:grid; grid-template-columns:1.12fr .88fr; min-height:680px; background:var(--section-bg,var(--forest-dark)); color:#fff; }
 .storyImage { background:url("https://images.unsplash.com/photo-1583391733956-6c78276477e2?auto=format&fit=crop&w=1200&q=85") center 20%/cover; margin:42px 0 42px 42px; }
 .storyContent { padding:12% 13%; display:flex; flex-direction:column; justify-content:center; }

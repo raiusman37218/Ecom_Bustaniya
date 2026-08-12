@@ -25,7 +25,7 @@ const HOMEPAGE_COLOR_SECTIONS = [
   { key: "heroOverlay", label: "Hero Overlay" },
   { key: "products", label: "Top Picks (New Arrivals)" },
   { key: "categories", label: "Curated Collections (Shop by Category)" },
-  { key: "story", label: "Our Story" },
+  { key: "story", label: "Best Sellers" },
   { key: "newsletter", label: "Newsletter" },
   { key: "instagram", label: "Instagram Gallery" },
 ];

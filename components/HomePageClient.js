@@ -51,6 +51,7 @@ export default function Home({
   initialProducts: serverProducts = initialProducts,
   initialCategories = fallbackCategoryRecords,
   storeSettings = DEFAULT_STORE_SETTINGS,
+  bestSellingProductIds = [],
 }) {
   const safeSettings = storeSettings || DEFAULT_STORE_SETTINGS;
   const sectionColors = { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(safeSettings.sectionColors || {}) };
@@ -132,6 +133,19 @@ export default function Home({
     slug: category?.slug || "",
     image: (products || []).find((product) => normalizeCategory(product?.category) === category?.name)?.image || category?.image || "/bustaniya-campaign-hero-v4.png",
   })), [categoryRecords, products]);
+
+  const bestSellers = useMemo(() => {
+    const salesRank = new Map((bestSellingProductIds || []).map((id, index) => [String(id), index]));
+    const soldProducts = products
+      .filter((product) => salesRank.has(String(product.id)))
+      .sort((left, right) => salesRank.get(String(left.id)) - salesRank.get(String(right.id)));
+    const fallbackProducts = products
+      .filter((product) => !salesRank.has(String(product.id)))
+      .sort((left, right) => Number(right.isBestseller) - Number(left.isBestseller));
+    return [...soldProducts, ...fallbackProducts]
+      .filter((product) => product.status !== "Archived")
+      .slice(0, 4);
+  }, [bestSellingProductIds, products]);
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
   const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
@@ -352,17 +366,27 @@ export default function Home({
             );
           }
 
-          if (section.type === "our_story") {
+          if (section.type === "best_sellers" || section.type === "our_story") {
             return (
-              <section key={section.id} className="story scrollReveal" data-scroll-reveal id="story" style={{ "--section-bg": sectionColors.story, "--section-text": sectionTextColors.story }}>
-                <div className="storyImage" />
-                <div className="storyContent">
-                  <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
-                  <h2>{String(section.heading || defaults.heading || "").split(",").map((part, i) => i > 0 ? <span key={i}>,<br />{part}</span> : part)}</h2>
-                  <p>{section.subtitle || defaults.subtitle}</p>
-                  <a href="/about">Discover our story <ArrowRight size={17} /></a>
-                  <div className="storyStats"><div><b>PKR</b><span>prices shown clearly</span></div><div><b>COD</b><span>available at checkout</span></div></div>
+              <section key={section.id} className="shopSection khaadiTopPicks bestSellersSection scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.story, "--section-text": sectionTextColors.story }}>
+                <div className="sectionHeading">
+                  <div><p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p><h2>{section.heading || defaults.heading}</h2><span>{section.subtitle || defaults.subtitle}</span></div>
+                  <a href="#products">View all pieces <ArrowRight size={16} /></a>
                 </div>
+                <div className="productGrid">
+                  {bestSellers.map((product) => (
+                    <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
+                      <div className="productImage">
+                        <Image src={product.image} alt={`${product.name} - bestseller by Bustaniya`} fill sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
+                        <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
+                        <span className="badge">Best seller</span>
+                        <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
+                      </div>
+                      <div className="productInfo"><div><p>{product.category}</p><h3><a href={`/product/${product.id}`}>{product.name}</a></h3></div><div className="productPrice"><span>PKR {product.price.toLocaleString()}</span></div></div>
+                    </article>
+                  ))}
+                </div>
+                {!bestSellers.length && <p className="empty">Best sellers will appear once products are active.</p>}
               </section>
             );
           }
