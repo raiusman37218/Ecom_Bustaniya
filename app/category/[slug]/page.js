@@ -85,34 +85,6 @@ export default async function CategoryPage({ params }) {
               })}
             </div>
           </div>
-      >
-        <a href="/"><ArrowLeft size={16} /> Back to home</a>
-        <div>
-          <p className="eyebrow">BUSTANIYA COLLECTIONS</p>
-          <h1>{category.name}</h1>
-          <p>{category.description}</p>
-        </div>
-      </section>
-
-      <section className="collectionArea">
-        {!!subcategories.length && (
-          <div className="subCollectionBlock">
-            <p className="eyebrow">EXPLORE {category.name.toUpperCase()}</p>
-            <h2>Shop by style</h2>
-            <div className="subCollectionGrid">
-              {subcategories.map((item) => {
-                const subcategoryCoverImage =
-                  categoryProducts.find((product) => product.subcategory === item.slug)?.image || item.image;
-                return (
-                <a href={`/category/${category.slug}/${item.slug}`} key={item.slug}>
-                  <div style={{ backgroundImage: `url(${subcategoryCoverImage})` }} />
-                  <h3>{item.name}</h3>
-                  <span>Explore collection</span>
-                </a>
-              );
-              })}
-            </div>
-          </div>
         )}
         <div className="collectionTop">
           <p>{categoryProducts.length} products</p>
