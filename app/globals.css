@@ -8347,7 +8347,10 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .productPrice { margin-top:6px; }
   .categoryTabs { width:100%; border-radius:12px; }
   .categoryTabs button { font-size:9px; }
-  .categoryShowcase { padding:58px 12px 70px; }
+  /* Remove the stacked section padding so New Arrivals follows the category
+     cards without a large empty band on mobile. */
+  .categoryShowcase { padding:58px 12px 30px; }
+  .categoryShowcase + .khaadiTopPicks { padding-top:28px; }
   .categoryCard { height:340px; background-size:cover; }
   .categoryCard:nth-child(even) { height:340px; }
   .categoryHero { min-height:330px; background-position:center top; }
