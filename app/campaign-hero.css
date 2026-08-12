@@ -68,6 +68,19 @@
 .heroCopyEditor { min-width:0; padding:14px; border:1px solid #d9e2d7; border-radius:7px; background:#fff; display:grid; gap:12px; }
 .heroCopyEditorHead { display:flex; gap:10px; padding-bottom:10px; border-bottom:1px solid #edf0eb; }
 .heroCopyEditorHead b { color:#173d29; font-size:12px; }
+.heroOverlayControl { display:grid; gap:8px; }
+
+@media (min-width:880px) {
+  .heroSettingsEditor { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }
+  .heroSettingsHeading,
+  .heroOverlayControl { grid-column:1 / -1; }
+  .heroDesktopManager { grid-column:1; grid-row:2; }
+  .heroMobileManager { grid-column:2; grid-row:2; }
+  .heroCopyEditors { display:contents; }
+  .heroCopyEditor--desktop { grid-column:1; grid-row:3; }
+  .heroCopyEditor--mobile { grid-column:2; grid-row:3; }
+  .heroOverlayControl { grid-row:4; }
+}
 .heroCopyEditorHead span { display:block; margin-top:3px; color:#6c7b71; font-size:10px; line-height:1.45; }
 
 @keyframes campaignImageIn { from { opacity:.25; transform:scale(1.025); } to { opacity:1; transform:scale(1); } }
