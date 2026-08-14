@@ -255,15 +255,24 @@ export default function Home({
                 <div className="campaignHeroOverlay" />
                 <div className="campaignHeroInner">
                   <div className="campaignHeroCopy">
-                    <p className="campaignHeroDesktopOnly">{desktopHero.eyebrow}</p><p className="campaignHeroMobileOnly">{mobileHero.eyebrow}</p>
-                    <h1><span className="campaignHeroDesktopOnly">{desktopHero.heading || DEFAULT_STORE_SETTINGS.heroHeading}</span><span className="campaignHeroMobileOnly">{mobileHero.heading || DEFAULT_STORE_SETTINGS.heroHeading}</span></h1>
-                    <span className="campaignHeroDesktopOnly">{desktopHero.supportingText}</span><span className="campaignHeroMobileOnly">{mobileHero.supportingText}</span>
-                    <div className="campaignHeroActions">
-                      {desktopHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroDesktopOnly" href={desktopHero.primaryButtonLink || "#products"}>{desktopHero.primaryButtonText}<ArrowRight size={17} /></a>}
-                      {mobileHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroMobileOnly" href={mobileHero.primaryButtonLink || "#products"}>{mobileHero.primaryButtonText}<ArrowRight size={14} /></a>}
-                      {desktopHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroDesktopOnly" href={desktopHero.secondaryButtonLink || "#products"}>{desktopHero.secondaryButtonText}</a>}
-                      {mobileHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroMobileOnly" href={mobileHero.secondaryButtonLink || "#products"}>{mobileHero.secondaryButtonText}</a>}
-                    </div>
+                    {desktopHero.eyebrow && <p className="campaignHeroDesktopOnly">{desktopHero.eyebrow}</p>}
+                    {mobileHero.eyebrow && <p className="campaignHeroMobileOnly">{mobileHero.eyebrow}</p>}
+                    {(desktopHero.heading || mobileHero.heading) && (
+                      <h1>
+                        {desktopHero.heading && <span className="campaignHeroDesktopOnly">{desktopHero.heading}</span>}
+                        {mobileHero.heading && <span className="campaignHeroMobileOnly">{mobileHero.heading}</span>}
+                      </h1>
+                    )}
+                    {desktopHero.supportingText && <span className="campaignHeroDesktopOnly">{desktopHero.supportingText}</span>}
+                    {mobileHero.supportingText && <span className="campaignHeroMobileOnly">{mobileHero.supportingText}</span>}
+                    {(desktopHero.primaryButtonText || mobileHero.primaryButtonText || desktopHero.secondaryButtonText || mobileHero.secondaryButtonText) && (
+                      <div className="campaignHeroActions">
+                        {desktopHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroDesktopOnly" href={desktopHero.primaryButtonLink || "#products"}>{desktopHero.primaryButtonText}<ArrowRight size={17} /></a>}
+                        {mobileHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroMobileOnly" href={mobileHero.primaryButtonLink || "#products"}>{mobileHero.primaryButtonText}<ArrowRight size={14} /></a>}
+                        {desktopHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroDesktopOnly" href={desktopHero.secondaryButtonLink || "#products"}>{desktopHero.secondaryButtonText}</a>}
+                        {mobileHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroMobileOnly" href={mobileHero.secondaryButtonLink || "#products"}>{mobileHero.secondaryButtonText}</a>}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {heroSlideCount > 1 && <div className="campaignHeroDots" role="tablist" aria-label="Hero banner slides">
