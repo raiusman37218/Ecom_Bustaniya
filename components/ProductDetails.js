@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Heart, Maximize2, Minus, Plus, Ruler, ShieldCheck, ShoppingBag, Truck, X } from "lucide-react";
 import { productDescription } from "../lib/seo";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
+import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
 import SizeChartModal, { SizeTable } from "./SizeChartModal";
 import SiteHeader from "./SiteHeader";
 
@@ -136,7 +137,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                     onClick={() => setActiveImgIndex(idx)}
                     aria-label={`View photo ${idx + 1}`}
                   >
-                    <img src={img} alt={`${product.name} thumbnail ${idx + 1}`} />
+                    <img src={optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.thumbnail)} alt={`${product.name} thumbnail ${idx + 1}`} loading="lazy" decoding="async" />
                   </button>
                 ))}
               </div>
@@ -145,7 +146,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             {/* Main Featured Display Photo */}
             <div className="galleryMainView" onClick={() => setLightboxOpen(true)}>
               <Image
-                src={productImages[activeImgIndex] || productImages[0]}
+                src={optimizedImageUrl(productImages[activeImgIndex] || productImages[0], CLOUDINARY_IMAGE_PRESETS.product)}
                 alt={`${product.name} - View ${activeImgIndex + 1} by Bustaniya`}
                 fill
                 priority
@@ -181,7 +182,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             <div className="mariabPhotoGrid">
               {productImages.map((img, idx) => (
                 <div className="gridPhotoCard" key={idx} onClick={() => { setActiveImgIndex(idx); setLightboxOpen(true); }}>
-                  <Image src={img} alt={`${product.name} detail photo ${idx + 1}`} fill sizes="(max-width: 1100px) 50vw, 25vw" />
+                  <Image src={optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} detail photo ${idx + 1}`} fill sizes="(max-width: 1100px) 50vw, 25vw" />
                 </div>
               ))}
             </div>
@@ -207,7 +208,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                 )}
 
                 <div className="lightboxImgWrap">
-                  <img src={productImages[activeImgIndex] || productImages[0]} alt={`${product.name} high res zoom`} />
+                  <img src={optimizedImageUrl(productImages[activeImgIndex] || productImages[0], CLOUDINARY_IMAGE_PRESETS.product)} alt={`${product.name} high res zoom`} />
                 </div>
 
                 {productImages.length > 1 && (
@@ -279,7 +280,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           {related.map((item) => <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={item.id}>
             <a className="productImage" href={`/product/${item.id}`}>
               <Image
-                src={item.image}
+                src={optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.card)}
                 alt={`${item.name} - ${item.category} by Bustaniya`}
                 fill
                 sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
@@ -300,7 +301,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           <div className="emptyCart"><ShoppingBag size={36} /><h3>Your bag is empty</h3><p>Looks like you haven&apos;t added anything yet.</p><button onClick={() => setCartOpen(false)}>Continue shopping</button></div>
         ) : cart.map((item) => (
           <div className="cartItem" key={`${item.id}-${item.size || "default"}`}>
-            <div style={{ backgroundImage: `url(${item.image})` }} />
+            <div style={{ backgroundImage: `url(${optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
             <section>
               <h3>{item.name}</h3>
               {item.size && <small>Size: {item.size}</small>}

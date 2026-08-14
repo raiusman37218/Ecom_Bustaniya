@@ -8,6 +8,7 @@ import { getCatalogCategories, subcategoryOptions } from "../../../lib/categorie
 import { getCatalogProducts } from "../../../lib/catalog";
 import { JsonLd, breadcrumbSchema, buildMetadata, collectionSchema } from "../../../lib/seo";
 import { getStoreSettings } from "../../../lib/storeSettings";
+import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../../lib/images";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,7 @@ export default async function CategoryPage({ params }) {
 
       <section
         className="categoryHero"
-        style={{ backgroundImage: `url(${categoryCoverImage})` }}
+        style={{ backgroundImage: `url(${optimizedImageUrl(categoryCoverImage, CLOUDINARY_IMAGE_PRESETS.heroDesktop)})` }}
       >
         <a href="/"><ArrowLeft size={16} /> Back to home</a>
         <div>
@@ -77,7 +78,7 @@ export default async function CategoryPage({ params }) {
                   categoryProducts.find((product) => product.subcategory === item.slug)?.image || item.image;
                 return (
                 <a href={`/category/${category.slug}/${item.slug}`} key={item.slug}>
-                  <div style={{ backgroundImage: `url(${subcategoryCoverImage})` }} />
+                  <div style={{ backgroundImage: `url(${optimizedImageUrl(subcategoryCoverImage, CLOUDINARY_IMAGE_PRESETS.category)})` }} />
                   <h3>{item.name}</h3>
                   <span>Explore collection</span>
                 </a>
@@ -95,7 +96,7 @@ export default async function CategoryPage({ params }) {
             <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
               <a href={`/product/${product.id}`} className="productImage">
                 <Image
-                  src={product.image}
+                  src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                   alt={`${product.name} - ${product.category} by Bustaniya`}
                   fill
                   sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"

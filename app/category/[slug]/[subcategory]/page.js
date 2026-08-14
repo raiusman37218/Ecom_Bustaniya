@@ -7,6 +7,7 @@ import { getCatalogCategories, subcategoryOptions } from "../../../../lib/catego
 import { getCatalogProducts } from "../../../../lib/catalog";
 import { JsonLd, breadcrumbSchema, buildMetadata, collectionSchema } from "../../../../lib/seo";
 import { getStoreSettings } from "../../../../lib/storeSettings";
+import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../../../lib/images";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,7 @@ export default async function SubcategoryPage({ params }) {
 
       <section
         className="categoryHero subcategoryHero"
-        style={{ backgroundImage: `linear-gradient(90deg, #f4f7eef0, #f4f7ee30), url(${coverImage})` }}
+        style={{ backgroundImage: `linear-gradient(90deg, #f4f7eef0, #f4f7ee30), url(${optimizedImageUrl(coverImage, CLOUDINARY_IMAGE_PRESETS.heroDesktop)})` }}
       >
         <a href={`/category/${slug}`}><ArrowLeft size={16} /> All {parent.name}</a>
         <div>
@@ -81,7 +82,7 @@ export default async function SubcategoryPage({ params }) {
             <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
               <a href={`/product/${product.id}`} className="productImage">
                 <Image
-                  src={product.image}
+                  src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                   alt={`${product.name} - ${details.name} by Bustaniya`}
                   fill
                   sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"

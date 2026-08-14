@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, Minus, Play, Plus, Ruler, ShieldCheck, ShoppingBag, Truck, UserRound, X } from "lucide-react";
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
+import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
 import SiteHeader from "./SiteHeader";
 import SizeChartModal from "./SizeChartModal";
 
@@ -35,8 +36,8 @@ function CampaignHeroImage({ desktopSrc, mobileSrc, alt }) {
   const safeDesktop = desktopSrc || "/bustaniya-campaign-hero-v5.png";
   const safeMobile = mobileSrc || safeDesktop;
   const shared = { alt: alt || "Bustaniya campaign hero", fill: true, priority: true, quality: 90, sizes: "100vw" };
-  const { props: desktop } = getImageProps({ ...shared, src: safeDesktop });
-  const { props: mobile } = getImageProps({ ...shared, src: safeMobile });
+  const { props: desktop } = getImageProps({ ...shared, src: optimizedImageUrl(safeDesktop, CLOUDINARY_IMAGE_PRESETS.heroDesktop) });
+  const { props: mobile } = getImageProps({ ...shared, src: optimizedImageUrl(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile) });
 
   return (
     <picture>
@@ -294,7 +295,7 @@ export default function Home({
                     <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
                       <div className="productImage">
                         <Image
-                          src={product.image}
+                          src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                           alt={`${product.name} - ${product.category} by Bustaniya`}
                           fill
                           sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
@@ -335,7 +336,7 @@ export default function Home({
                       <a className="categoryMinimalCard" href={`/category/${category.slug}`} key={category.slug}>
                         <div className="categoryMinimalImageWrap">
                           <Image
-                            src={category.image || "/bustaniya-campaign-hero-v4.png"}
+                            src={optimizedImageUrl(category.image || "/bustaniya-campaign-hero-v4.png", CLOUDINARY_IMAGE_PRESETS.category)}
                             alt={category.name}
                             fill
                             sizes="(max-width: 600px) 50vw, (max-width: 1000px) 25vw, 300px"
@@ -368,7 +369,7 @@ export default function Home({
                 </header>
                 <div className="categoryCards" aria-label="Shop by category">
                   {categoryCards.map((category, index) => (
-                    <a className={`categoryCard card${index + 1}`} href={`/category/${category.slug}`} key={category.slug} style={category.image ? { backgroundImage: `url(${category.image})` } : undefined}>
+                    <a className={`categoryCard card${index + 1}`} href={`/category/${category.slug}`} key={category.slug} style={category.image ? { backgroundImage: `url(${optimizedImageUrl(category.image, CLOUDINARY_IMAGE_PRESETS.category)})` } : undefined}>
                       <div className="categoryCardContent">
                         <small>Collection {String(index + 1).padStart(2, "0")}</small>
                         <p>{category.description || "Curated essentials, made for everyday elegance."}</p>
@@ -393,7 +394,7 @@ export default function Home({
                   {bestSellers.map((product) => (
                     <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
                       <div className="productImage">
-                        <Image src={product.image} alt={`${product.name} - bestseller by Bustaniya`} fill sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
+                        <Image src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
                         <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
                         <span className="badge">Best seller</span>
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
@@ -561,7 +562,7 @@ export default function Home({
         <div className="cartItems">
           {!cart.length ? <div className="emptyCart"><ShoppingBag size={36} /><h3>Your bag is empty</h3><p>Looks like you haven&apos;t added anything yet.</p><button onClick={() => setCartOpen(false)}>Continue shopping</button></div>
           : cart.map((item) => <div className="cartItem" key={item.id}>
-              <div style={{ backgroundImage: `url(${item.image})` }} />
+              <div style={{ backgroundImage: `url(${optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
               <section><h3>{item.name}</h3><p>Rs. {item.price.toLocaleString()}</p><span className="quantity"><button onClick={() => updateQuantity(item.id, -1)}><Minus size={14} /></button>{item.quantity}<button onClick={() => updateQuantity(item.id, 1)}><Plus size={14} /></button></span></section>
             </div>)}
         </div>
