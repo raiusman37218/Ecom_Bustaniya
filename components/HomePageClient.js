@@ -55,6 +55,7 @@ export default function Home({
   bestSellingProductIds = [],
 }) {
   const safeSettings = storeSettings || DEFAULT_STORE_SETTINGS;
+  const supportWhatsapp = String(safeSettings.paymentSettings?.whatsappNumber || "").replace(/[^0-9]/g, "");
   const sectionColors = { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(safeSettings.sectionColors || {}) };
   const sectionTextColors = { ...DEFAULT_STORE_SETTINGS.sectionTextColors, ...(safeSettings.sectionTextColors || {}) };
   const [activeCategory, setActiveCategory] = useState("All");
@@ -316,7 +317,7 @@ export default function Home({
                       </div>
                       <div className="productInfo">
                         <div><p>{product.category}</p><h3><a href={`/product/${product.id}`}>{product.name}</a></h3>{Array.isArray(product.colors) && product.colors.length > 0 && <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>{product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}{product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}</div>}</div>
-                        <div className="productPrice"><span>PKR {product.price.toLocaleString()}</span>{salePercent(product) > 0 && <del>PKR {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</del>}</div>
+                        <div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span>{salePercent(product) > 0 && <del>Rs. {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</del>}</div>
                       </div>
                     </article>
                   ))}
@@ -408,7 +409,7 @@ export default function Home({
                         <span className="badge">Best seller</span>
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
                       </div>
-                      <div className="productInfo"><div><p>{product.category}</p><h3><a href={`/product/${product.id}`}>{product.name}</a></h3></div><div className="productPrice"><span>PKR {product.price.toLocaleString()}</span></div></div>
+                      <div className="productInfo"><div><p>{product.category}</p><h3><a href={`/product/${product.id}`}>{product.name}</a></h3></div><div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span></div></div>
                     </article>
                   ))}
                 </div>
@@ -499,8 +500,9 @@ export default function Home({
           <span>Thoughtfully designed silhouettes for everyday elegance and memorable occasions.</span>
         </div>
         <div><b>Shop</b>{categoryRecords.map((category) => <a href={`/category/${category.slug}`} key={category.slug}>{category.name}</a>)}</div>
-        <div><b>Help</b><a href="/shipping-policy">Delivery</a><a href="/exchange-return-policy">Exchange</a><a href="/contact">Contact Us</a></div>
+        <div><b>Help</b><a href="/shipping-policy">Delivery</a><a href="/exchange-return-policy">Exchange & returns</a><a href="/contact">Contact Us</a><a href="/about">About Bustaniya</a></div>
         <div><b>Follow</b><a href="https://www.instagram.com/bustaniya_/" target="_blank" rel="noreferrer">Instagram</a></div>
+        <div><b>Shop with confidence</b><span className="footerTrustCopy">COD delivery charges are verified in advance.</span><span className="footerTrustCopy">Full advance orders include free delivery.</span>{supportWhatsapp && <a href={`https://wa.me/${supportWhatsapp}`} target="_blank" rel="noreferrer">WhatsApp support</a>}</div>
         <div className="copyright">
           <p>Copyright 2026 Bustaniya. Made with care in Pakistan.</p>
           <div><a href="/privacy-policy">Privacy</a><a href="/terms-and-conditions">Terms</a><a href="/shipping-policy">Shipping</a></div>
@@ -520,8 +522,8 @@ export default function Home({
               <p className="eyebrow">{quickViewProduct.category}</p>
               <h2>{quickViewProduct.name}</h2>
               <div className="quickViewPrice">
-                <span>PKR {Number(quickViewProduct.price).toLocaleString()}</span>
-                {salePercent(quickViewProduct) > 0 && <del>PKR {Number(quickViewProduct.compareAtPrice || quickViewProduct.compare_at_price).toLocaleString()}</del>}
+                <span>Rs. {Number(quickViewProduct.price).toLocaleString()}</span>
+                {salePercent(quickViewProduct) > 0 && <del>Rs. {Number(quickViewProduct.compareAtPrice || quickViewProduct.compare_at_price).toLocaleString()}</del>}
               </div>
 
               <span className="productDescription">{quickViewProduct.description || "A thoughtfully designed Bustaniya piece, stitched to perfection with premium Pakistani fabrics."}</span>

@@ -59,7 +59,7 @@ function StructuredProductDetails({ value }) {
 }
 
 export default function ProductDetails({ product, related, storeSettings = DEFAULT_STORE_SETTINGS }) {
-  const [size, setSize] = useState("S");
+  const [size, setSize] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -109,6 +109,14 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     : [product.image || "/bustaniya-campaign-hero-v4.png"];
   const [activeImgIndex, setActiveImgIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [useOriginalMainImage, setUseOriginalMainImage] = useState(false);
+  const [mainImageUnavailable, setMainImageUnavailable] = useState(false);
+  const activeImage = productImages[activeImgIndex] || productImages[0];
+
+  useEffect(() => {
+    setUseOriginalMainImage(false);
+    setMainImageUnavailable(false);
+  }, [activeImgIndex]);
 
   return (
     <>
@@ -144,14 +152,17 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             )}
 
             {/* Main Featured Display Photo */}
-            <div className="galleryMainView" onClick={() => setLightboxOpen(true)}>
-              <Image
-                src={optimizedImageUrl(productImages[activeImgIndex] || productImages[0], CLOUDINARY_IMAGE_PRESETS.product)}
+            <div className="galleryMainView" onClick={() => !mainImageUnavailable && setLightboxOpen(true)}>
+              {!mainImageUnavailable ? <img
+                className="galleryMainImage"
+                src={useOriginalMainImage ? activeImage : optimizedImageUrl(activeImage, CLOUDINARY_IMAGE_PRESETS.product)}
                 alt={`${product.name} - View ${activeImgIndex + 1} by Bustaniya`}
-                fill
-                priority
-                sizes="(max-width: 1100px) 100vw, 54vw"
-              />
+                fetchPriority="high"
+                onError={() => {
+                  if (!useOriginalMainImage) setUseOriginalMainImage(true);
+                  else setMainImageUnavailable(true);
+                }}
+              /> : <div className="galleryImageFallback"><b>Product image is unavailable</b><span>Please choose another photo or contact us for help.</span></div>}
               <div className="galleryZoomHint">
                 <Maximize2 size={15} /> <span>Click to zoom</span>
               </div>
@@ -235,7 +246,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           <p className="detailPrice">Rs. {product.price.toLocaleString()}</p>
           <p className="taxNote">Tax included. Delivery calculated at checkout.</p>
           <div className="selectorHeading">
-            <b>Select size</b>
+            <b>{size ? "Select size" : "Select your size to continue"}</b>
             <button type="button" className="sizeGuidePillBtn" onClick={() => setSizeChartOpen(true)}>
               <Ruler size={14} /> View Size Chart
             </button>
@@ -252,10 +263,10 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           </div>
 
           <div className="productActions">
-            <button className="addBagButton" disabled={outOfStock} onClick={addToBag}>{outOfStock ? "Out of stock" : added ? <><Check /> Added to bag</> : <><ShoppingBag /> Add to bag</>}</button>
+            <button className="addBagButton" disabled={outOfStock || !size} onClick={addToBag}>{outOfStock ? "Out of stock" : added ? <><Check /> Added to bag</> : !size ? "Select a size" : <><ShoppingBag /> Add to bag</>}</button>
             <button className="wishButton" aria-label="Add to wishlist"><Heart /></button>
           </div>
-          {outOfStock ? <span className="buyNowButton disabledBuy">Unavailable</span> : <a className="buyNowButton" href="/checkout" onClick={() => addToBag({ openDrawer: false })}>Buy it now</a>}
+          {outOfStock ? <span className="buyNowButton disabledBuy">Unavailable</span> : !size ? <span className="buyNowButton disabledBuy">Select a size first</span> : <a className="buyNowButton" href="/checkout" onClick={() => addToBag({ openDrawer: false })}>Buy it now</a>}
 
           <div className="productPromises">
             <div><Truck /><span><b>Delivery</b>Calculated at checkout</span></div>

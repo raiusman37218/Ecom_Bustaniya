@@ -64,8 +64,8 @@ export default function SiteHeader({
           {category.name}
           </a>
         ))}
-        <a onClick={() => setMobileOpen(false)} className="navItem" href="/#story">ABOUT US</a>
-        <a onClick={() => setMobileOpen(false)} className="navItem" href="/#contact">CONTACT US</a>
+        <a onClick={() => setMobileOpen(false)} className="navItem" href="/about">ABOUT US</a>
+        <a onClick={() => setMobileOpen(false)} className="navItem" href="/contact">CONTACT US</a>
         <a className="mobileNavInstagram" href="https://www.instagram.com/bustaniya_/" target="_blank" rel="noreferrer">Follow @bustaniya_</a>
       </nav>
     </header>
