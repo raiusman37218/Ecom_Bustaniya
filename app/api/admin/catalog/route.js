@@ -430,12 +430,18 @@ async function deleteProductDirect(productId) {
 
     return { deleted: true, archived: false };
   } catch (error) {
-    // If referenced in orders, archive product
+    // If referenced in orders, preserve revenue & history but archive product from active list
+    const existing = await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(productId)}&select=cost_breakdown`).catch(() => []);
+    const existingBreakdown = parseJsonObject(existing?.[0]?.cost_breakdown);
+    const updatedMetadata = { ...parseJsonObject(existingBreakdown.metadata), status: "Archived" };
+    const updatedBreakdown = JSON.stringify({ ...existingBreakdown, metadata: updatedMetadata });
+
     await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(productId)}`, {
       method: "PATCH",
       prefer: "return=minimal",
       body: {
         instock: false,
+        cost_breakdown: updatedBreakdown,
       },
     }).catch(() => {});
 

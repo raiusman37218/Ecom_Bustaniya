@@ -2326,17 +2326,21 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
   const [variantProduct, setVariantProduct] = useState(null);
   const visibleProducts = products.filter((product) => {
     const status = productStatus(product);
+    if (tab === "Archived") return status === "Archived";
+    if (status === "Archived") return false;
     return tab === "All" || status === tab || (tab === "Low stock" && Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)) || (tab === "Missing cost" && !Number(product.costTotalPkr || 0));
   });
-  const collections = [...new Set(products.map(productCollection))].filter(Boolean);
-  const lowStockCount = products.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length;
-  const missingCostCount = products.filter((product) => !Number(product.costTotalPkr || 0)).length;
-  const activeCount = products.filter((p) => productStatus(p) === "Active").length;
+  const nonArchivedProducts = products.filter((product) => productStatus(product) !== "Archived");
+  const collections = [...new Set(nonArchivedProducts.map(productCollection))].filter(Boolean);
+  const lowStockCount = nonArchivedProducts.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length;
+  const missingCostCount = nonArchivedProducts.filter((product) => !Number(product.costTotalPkr || 0)).length;
+  const activeCount = nonArchivedProducts.filter((p) => productStatus(p) === "Active").length;
+  const archivedCount = products.filter((p) => productStatus(p) === "Archived").length;
   const productStatusVisual = [
     { label: "Active", value: activeCount, color: "#1d6840" },
     { label: "Low stock", value: lowStockCount, color: "#d08a18" },
     { label: "Missing cost", value: missingCostCount, color: "#b73543" },
-    { label: "Other", value: Math.max(0, products.length - activeCount), color: "#8aa08f" },
+    { label: "Archived", value: archivedCount, color: "#8aa08f" },
   ].filter((item) => item.value > 0);
   const collectionVisual = collections.slice(0, 6).map((collection, index) => ({
     label: collection,
