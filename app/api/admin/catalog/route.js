@@ -409,7 +409,38 @@ async function archiveProductDirect(productId) {
 async function deleteProductDirect(productId) {
   if (!productId) throw new Error("Product is required.");
 
-  return archiveProductDirect(productId);
+  try {
+    // 1. Delete inventory movements first
+    await supabaseAdminRequest(`inventory_movements?product_id=eq.${encodeURIComponent(productId)}`, {
+      method: "DELETE",
+      prefer: "return=minimal",
+    }).catch(() => {});
+
+    // 2. Delete inventory record
+    await supabaseAdminRequest(`inventory?product_id=eq.${encodeURIComponent(productId)}`, {
+      method: "DELETE",
+      prefer: "return=minimal",
+    }).catch(() => {});
+
+    // 3. Delete product from products table
+    await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(productId)}`, {
+      method: "DELETE",
+      prefer: "return=minimal",
+    });
+
+    return { deleted: true, archived: false };
+  } catch (error) {
+    // If referenced in orders, archive product
+    await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(productId)}`, {
+      method: "PATCH",
+      prefer: "return=minimal",
+      body: {
+        instock: false,
+      },
+    }).catch(() => {});
+
+    return { deleted: false, archived: true };
+  }
 }
 
 export async function POST(request) {
@@ -563,7 +594,6 @@ export async function DELETE(request) {
         archived: !deleted,
       };
     } catch (error) {
-      if (!isRpcUnavailableError(error)) throw error;
       result = await deleteProductDirect(productId);
     }
     return NextResponse.json({

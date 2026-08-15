@@ -821,9 +821,11 @@ export default function AdminDashboard() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ productId }),
           });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || "Unable to remove product.");
-          await refreshCatalog();
+          setProducts((current) => current.filter((item) => String(item.id) !== String(productId)));
+          await loadAdminData();
+          if (result.archived) {
+            setOrdersError(`${productName} was archived because it may be linked to existing order history.`);
+          }
         } catch (error) {
           setOrdersError(error.message || "Product deletion failed.");
         } finally {
