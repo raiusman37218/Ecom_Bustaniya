@@ -815,19 +815,22 @@ export default function AdminDashboard() {
       onConfirm: async () => {
         setCatalogLoading(true);
         setOrdersError("");
+        setProducts((current) => current.filter((item) => String(item.id) !== String(productId)));
         try {
           const response = await fetch("/api/admin/catalog", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ productId }),
           });
-          setProducts((current) => current.filter((item) => String(item.id) !== String(productId)));
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Unable to remove product.");
           await loadAdminData();
           if (result.archived) {
             setOrdersError(`${productName} was archived because it may be linked to existing order history.`);
           }
         } catch (error) {
           setOrdersError(error.message || "Product deletion failed.");
+          await loadAdminData();
         } finally {
           setCatalogLoading(false);
         }
@@ -1169,35 +1172,6 @@ export default function AdminDashboard() {
       await fetch("/api/admin/logout", { method: "POST" });
     } finally {
       window.location.href = "/admin";
-    }
-  }
-
-  async function deleteProduct(product) {
-    const confirmed = window.confirm(
-      `Remove ${product.name}? If it has order history, it will be archived and hidden from the store.`
-    );
-    if (!confirmed) return;
-    setCatalogLoading(true);
-    setOrdersError("");
-    try {
-      const response = await fetch("/api/admin/catalog", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ productId: product.id }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Unable to remove product.");
-      setProducts((current) => current.filter((item) => item.id !== product.id));
-      await loadAdminData();
-      if (result.archived) {
-        setOrdersError(`${product.name} was archived because it may be linked to existing records.`);
-      }
-    } catch (removeError) {
-      setOrdersError(removeError.message);
-    } finally {
-      setCatalogLoading(false);
     }
   }
 
@@ -2454,7 +2428,7 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
             <td><b className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)} units</b></td>
             <td>Rs. {Number(product.deliveryCostPkr || 0).toLocaleString()}</td>
             <td><span className={`statusBadge ${status.toLowerCase()}`}>{status}</span></td>
-            <td><div className="productRowActions"><button type="button" className="editProductButton" onClick={() => onEdit(product)}>Edit</button><button type="button" className="removeProductButton" onClick={() => onDelete(product.id)}><X /> Delete</button></div></td>
+            <td><div className="productRowActions"><button type="button" className="editProductButton" onClick={() => onEdit(product)}>Edit</button><button type="button" className="removeProductButton" onClick={() => onDelete(product)}><X /> Delete</button></div></td>
           </tr>;
         })}
       </tbody></table>
