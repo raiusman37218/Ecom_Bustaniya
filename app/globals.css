@@ -9249,7 +9249,8 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .checkoutPage { --checkout-bg:#fff; background:#fff; }
 .checkoutHeader { background:#fff; border-bottom-color:#e1e3e5; box-shadow:none; }
 .checkoutLayout { background:#fff; }
-.checkoutForm { background:#fff; }
+.checkoutForm { background:#fff; max-width:640px; justify-self:end; width:100%; }
+.checkoutVisuallyHidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 .checkoutForm h1 {
   margin:4px 0 18px;
   color:#202223;
@@ -9261,10 +9262,11 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 }
 .checkoutIntro { margin:0 0 28px; color:#6d7175; font-size:14px; }
 .checkoutSectionHeading { margin:20px 0 2px; padding-top:24px; border-top-color:#e1e3e5; }
-.checkoutSectionHeading>span { background:#edf6ee; color:#16452c; }
-.checkoutSectionHeading b { color:#202223; }
-.checkoutSectionHeading small { color:#6d7175; }
-.checkoutForm label { color:#202223; font-size:11px; font-weight:750; }
+.checkoutSectionHeading>span { display:none; }
+.checkoutSectionHeading div { gap:4px; }
+.checkoutSectionHeading b { color:#202223; font-size:19px; font-weight:700; letter-spacing:-.02em; text-transform:none; }
+.checkoutSectionHeading small { color:#6d7175; font-size:13px; }
+.checkoutForm label { color:#202223; font-size:12px; font-weight:500; letter-spacing:0; text-transform:none; }
 .checkoutForm input,.checkoutForm textarea,.checkoutForm select {
   min-height:52px;
   border-color:#c9cccf;
@@ -9277,6 +9279,27 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   border-color:#16452c;
   box-shadow:0 0 0 1px #16452c;
 }
+.checkoutForm form>label:not(.paymentBox),
+.checkoutForm .formRow>label {
+  gap:3px;
+  padding:9px 13px 8px;
+  border:1px solid #c9cccf;
+  border-radius:8px;
+  background:#fff;
+  transition:border-color .18s ease,box-shadow .18s ease;
+}
+.checkoutForm form>label:not(.paymentBox):focus-within,
+.checkoutForm .formRow>label:focus-within { border-color:#16452c; box-shadow:0 0 0 1px #16452c; }
+.checkoutForm form>label:not(.paymentBox) input,
+.checkoutForm .formRow>label input,
+.checkoutForm .formRow>label select {
+  min-height:30px;
+  padding:0;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+}
+.checkoutForm .formRow>label select { background:transparent; }
 .checkoutAddressFields {
   margin-top:5px;
   padding:20px;
@@ -9309,12 +9332,16 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 }
 .paymentBox,.advancePaymentNote { border-color:#d9ddda; border-radius:6px; background:#fff; }
 .paymentBox:not(.paymentChoice) { border-color:#16452c; background:#f5faf4; }
+.paymentChoice { background:#fff; }
+.paymentChoice .paymentMethodTitle>span { display:none; }
 .placeOrder { border-radius:6px; background:#16452c; }
 .placeOrder:not(:disabled):hover { background:#0f3924; }
 .orderSummary { background:#fafafa; border-left-color:#e1e3e5; }
 .orderSummaryHead { border-bottom-color:#e1e3e5; }
 .orderSummaryHead>p { color:#16452c; }
 .summaryItem,.totalLine { border-color:#e1e3e5; }
+.checkoutPolicyLinks { display:flex; flex-wrap:wrap; gap:8px 16px; padding:3px 0 0; }
+.checkoutPolicyLinks a { color:#16452c; font-size:11px; font-weight:600; text-decoration:underline; text-underline-offset:3px; }
 
 /* Payment choices use a compact Shopify-style checklist: the selected option
    makes the “pay now” and “pay on delivery” amounts easy to scan. */
@@ -9426,6 +9453,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 @media (max-width:700px) {
   .checkoutForm { padding:28px 16px 56px; }
   .checkoutForm h1 { font-size:31px; }
+  .checkoutSectionHeading:first-child { margin-top:0; padding-top:0; border-top:0; }
   .checkoutAddressFields { padding:16px; }
   .checkoutAddressGrid { grid-template-columns:1fr; gap:10px; }
   .checkoutAddressGrid label { min-height:68px; padding:10px 13px 9px; }
@@ -9435,8 +9463,12 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .paymentMethodTitle>b { font-size:13px; }
   .paymentOptionList li { gap:10px; }
   .paymentOptionList small { font-size:10px; }
-  .checkoutSectionHeading { margin-top:24px; padding-top:24px; }
-  .checkoutSectionHeading>span { width:24px; height:24px; }
+  .checkoutSectionHeading { margin-top:28px; padding-top:0; border-top:0; }
+  .checkoutSectionHeading b { font-size:20px; }
+  .checkoutSectionHeading small { font-size:12px; }
+  .checkoutForm form>label:not(.paymentBox),.checkoutForm .formRow>label { min-height:64px; padding:10px 13px 8px; }
+  .checkoutForm form>label:not(.paymentBox) input,.checkoutForm .formRow>label input,.checkoutForm .formRow>label select { min-height:28px; font-size:16px; }
+  .checkoutForm .formRow>label select { width:100%; }
   .shippingMethodBox { padding:14px; }
   .checkoutSubmitBar { grid-template-columns:1fr; gap:12px; padding-top:16px; }
   .checkoutSubmitBar>div { display:flex; align-items:baseline; justify-content:space-between; }
@@ -9475,4 +9507,5 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .orderSummary .summaryItem>div:nth-child(2)>b { font-size:13px; }
   .orderSummary .summaryItem>p { font-size:12px; }
   .summaryTotals { margin-top:6px; }
+  .checkoutPolicyLinks { justify-content:flex-start; gap:10px 14px; }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, ChevronDown, Lock, ShoppingBag, Truck } from "lucide-react";
+import { CheckCircle2, ChevronDown, Lock, ShoppingBag, Truck } from "lucide-react";
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
@@ -149,10 +149,7 @@ export default function CheckoutPage() {
 
       <div className="checkoutLayout">
         <section className="checkoutForm">
-          <a className="backShopping" href="/"><ArrowLeft size={16} /> Continue shopping</a>
-          <p className="eyebrow">DELIVERY DETAILS</p>
-          <h1>Checkout</h1>
-          <p className="checkoutIntro">Complete the details below, choose your payment option, then send the payment screenshot on WhatsApp after placing the order.</p>
+          <h1 className="checkoutVisuallyHidden">Bustaniya checkout</h1>
           <form onSubmit={placeOrder}>
             <div className="checkoutSectionHeading"><span>01</span><div><b>Contact</b><small>We use these details only for order confirmation and delivery updates.</small></div></div>
             <label>Full name<input required name="fullName" value={form.fullName} onChange={updateField} placeholder="Your full name" /></label>
@@ -219,6 +216,7 @@ export default function CheckoutPage() {
             {error && <p className="checkoutError" role="alert">{error}</p>}
             <div className="checkoutSubmitBar"><div><span>Total</span><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div><button className="placeOrder" type="submit" disabled={!cart.length || submitting}>{submitting ? "Placing order..." : "Complete order"}</button></div>
             <p className="checkoutPrivacy"><Lock size={13} /> Your information is used only to process this order securely.</p>
+            <nav className="checkoutPolicyLinks" aria-label="Checkout policies"><a href="/exchange-return-policy">Refund policy</a><a href="/shipping-policy">Shipping</a><a href="/privacy-policy">Privacy policy</a><a href="/terms-and-conditions">Terms of service</a></nav>
           </form>
         </section>
 
