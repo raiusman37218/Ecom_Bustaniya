@@ -6103,22 +6103,40 @@ function SettingsPanel({ onOpen, signedInUser }) {
             <h3>COD risk rules</h3>
             <div className="settingsOption"><div><b>Phone verification</b><span>Staff should verify COD number before dispatch.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.codPhoneVerification !== false} onChange={(event) => updatePaymentSettings({ codPhoneVerification: event.target.checked })} /> Required</label></div>
             <div className="formRow"><label>Minimum COD order (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codMinOrderPkr ?? 0} onChange={(event) => updatePaymentSettings({ codMinOrderPkr: event.target.value })} /></label><label>Maximum COD order (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codMaxOrderPkr ?? 50000} onChange={(event) => updatePaymentSettings({ codMaxOrderPkr: event.target.value })} /></label><label>COD delivery charge (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codDeliveryChargePkr ?? 250} onChange={(event) => updatePaymentSettings({ codDeliveryChargePkr: event.target.value })} /></label></div>
-            <label>Customer note for COD<textarea rows="3" value={storeSettings.paymentSettings?.codInstructions || ""} onChange={(event) => updatePaymentSettings({ codInstructions: event.target.value })} placeholder="Pay the delivery charge now. Pay the complete product subtotal to the courier at delivery." /></label>
           </div>
+
+          <div className="paymentRulesCard">
+            <h3>Checkout Payment Instructions (COD & Full Advance)</h3>
+            <p className="settingsHint">Customize section headings and bullet points for both Cash on Delivery (COD) and Full Advance Payment instructions shown on the checkout page.</p>
+
+            <PaymentInstructionEditor
+              title="1. Cash on Delivery (COD) Instructions"
+              headingValue={storeSettings.paymentSettings?.codHeading}
+              headingPlaceholder="Cash on Delivery Instructions"
+              instructionsValue={storeSettings.paymentSettings?.codInstructions}
+              onUpdateHeading={(heading) => updatePaymentSettings({ codHeading: heading })}
+              onUpdateInstructions={(text) => updatePaymentSettings({ codInstructions: text })}
+            />
+
+            <PaymentInstructionEditor
+              title="2. Full Advance Payment Instructions"
+              headingValue={storeSettings.paymentSettings?.advanceHeading}
+              headingPlaceholder="Full Advance Payment Instructions"
+              instructionsValue={storeSettings.paymentSettings?.instructions}
+              onUpdateHeading={(heading) => updatePaymentSettings({ advanceHeading: heading })}
+              onUpdateInstructions={(text) => updatePaymentSettings({ instructions: text })}
+            />
+          </div>
+
           <div className="paymentRulesCard">
             <h3>Payment receiving details</h3>
             <p className="settingsHint">These details are shown after every COD delivery-charge payment and full advance order. Customers send a screenshot to WhatsApp for manual verification.</p>
             <div className="formRow"><label>Bank name<input value={storeSettings.paymentSettings?.bankName || ""} onChange={(event) => updatePaymentSettings({ bankName: event.target.value })} placeholder="e.g. Meezan Bank" /></label><label>Account title<input value={storeSettings.paymentSettings?.bankTitle || ""} onChange={(event) => updatePaymentSettings({ bankTitle: event.target.value })} placeholder="Account holder name" /></label></div>
             <div className="formRow"><label>Account number<input value={storeSettings.paymentSettings?.bankAccountNumber || ""} onChange={(event) => updatePaymentSettings({ bankAccountNumber: event.target.value })} placeholder="Bank account number" /></label><label>IBAN (optional)<input value={storeSettings.paymentSettings?.bankIban || ""} onChange={(event) => updatePaymentSettings({ bankIban: event.target.value })} placeholder="PK..." /></label></div>
-            <div className="formRow"><label>WhatsApp support & verification number<input type="tel" value={storeSettings.paymentSettings?.whatsappNumber || ""} onChange={(event) => updatePaymentSettings({ whatsappNumber: event.target.value })} placeholder="923001234567" /><small>This number powers the website chat button and checkout payment-screenshot button.</small></label><label>Customer instructions<textarea rows="3" value={storeSettings.paymentSettings?.instructions || ""} onChange={(event) => updatePaymentSettings({ instructions: event.target.value })} placeholder="Transfer the exact amount, then send your screenshot and order number on WhatsApp." /></label></div>
+            <div className="formRow"><label>WhatsApp support & verification number<input type="tel" value={storeSettings.paymentSettings?.whatsappNumber || ""} onChange={(event) => updatePaymentSettings({ whatsappNumber: event.target.value })} placeholder="923001234567" /><small>This number powers the website chat button and checkout payment-screenshot button.</small></label></div>
           </div>
           <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save payment settings"}</button>
         </form>}
-
-        {activeTab === "Shipping" && <div className="settingsStack">
-          <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}><h2>Shipping zones and rates</h2><p className="settingsHint">Add one or more zones below, then save them to use the same configuration after every refresh.</p><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Zone</th><th>Cities</th><th>Rate</th><th>Free above</th></tr></thead><tbody>{shippingZones.map((zone) => <tr key={zone.id || zone.zone}><td><b>{zone.zone}</b></td><td>{zone.cities}</td><td>Rs. {Number(zone.rate || 0).toLocaleString()}</td><td>{Number(zone.freeAbove || 0) ? `Rs. ${Number(zone.freeAbove).toLocaleString()}` : "—"}</td></tr>)}</tbody></table></div><button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save shipping zones"}</button></form>
-          <form className="adminCard settingsForm settingsWideForm" onSubmit={addShippingZone}><h2>Add shipping zone</h2><div className="formRow"><label>Zone name<input name="zone" required placeholder="Karachi express" /></label><label>Cities<input name="cities" required placeholder="Karachi, Hyderabad" /></label></div><div className="formRow"><label>Rate<input name="rate" type="number" min="0" defaultValue="200" /></label><label>Free delivery above<input name="freeAbove" type="number" min="0" defaultValue="5000" /></label></div><button>Add zone</button></form>
-        </div>}
 
         {activeTab === "Users" && <div className="settingsStack">
           {staffError && <div className="adminErrorBanner">{staffError}</div>}
@@ -6184,6 +6202,84 @@ function settingsTabHint(tab) {
     Checkout: "Customer flow",
     System: "Backend audit",
   }[tab];
+}
+
+function PaymentInstructionEditor({ title, headingValue, headingPlaceholder, instructionsValue, onUpdateHeading, onUpdateInstructions }) {
+  const bullets = useMemo(() => {
+    const raw = String(instructionsValue || "").replace(/\r\n?/g, "\n").trim();
+    if (!raw) return [""];
+    const points = raw.split(/(?<=\.)\s+|\n+/).map(p => p.trim()).filter(Boolean);
+    return points.length > 0 ? points : [""];
+  }, [instructionsValue]);
+
+  function updateBullet(index, val) {
+    const nextBullets = [...bullets];
+    nextBullets[index] = val;
+    onUpdateInstructions(nextBullets.filter(Boolean).join(". "));
+  }
+
+  function addBullet() {
+    const nextBullets = [...bullets, ""];
+    onUpdateInstructions(nextBullets.join(". "));
+  }
+
+  function removeBullet(index) {
+    const nextBullets = bullets.filter((_, i) => i !== index);
+    onUpdateInstructions(nextBullets.join(". "));
+  }
+
+  return (
+    <div className="paymentInstructionEditorCard">
+      <h4>{title}</h4>
+      <div className="formRow">
+        <label>
+          Section Heading / Title
+          <input
+            value={headingValue || ""}
+            onChange={(e) => onUpdateHeading(e.target.value)}
+            placeholder={headingPlaceholder}
+          />
+        </label>
+      </div>
+
+      <div className="instructionBulletsManager">
+        <label>Instruction Bullet Points</label>
+        {bullets.map((bullet, index) => (
+          <div className="instructionBulletRow" key={`${index}-${bullet.slice(0, 10)}`}>
+            <span className="bulletNumberBadge">•</span>
+            <input
+              value={bullet}
+              onChange={(e) => updateBullet(index, e.target.value)}
+              placeholder={`Bullet point ${index + 1}`}
+            />
+            {bullets.length > 1 && (
+              <button
+                type="button"
+                className="removeBulletBtn"
+                title="Remove bullet point"
+                onClick={() => removeBullet(index)}
+              >
+                &times;
+              </button>
+            )}
+          </div>
+        ))}
+        <button type="button" className="addBulletBtn" onClick={addBullet}>
+          + Add Bullet Point
+        </button>
+      </div>
+
+      <div className="instructionPreviewCard">
+        <span className="previewBadge">CUSTOMER CHECKOUT PREVIEW</span>
+        <b>{headingValue || headingPlaceholder}</b>
+        <ul className="previewBulletList">
+          {bullets.filter(Boolean).map((b, i) => (
+            <li key={i}>{b}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
 }
 
 function WorkspaceDrawer({ workspace, onClose, onSave, activity }) {

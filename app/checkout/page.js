@@ -528,7 +528,7 @@ export default function CheckoutPage() {
               </label>
             )}
             <div className="advancePaymentNote">
-              <b>{paymentAmounts.paymentLabel}</b>
+              <b>{paymentMethod === PAYMENT_METHODS.FULL_ADVANCE ? (paymentSettings.advanceHeading || "Full Advance Payment Instructions") : (paymentSettings.codHeading || "Cash on Delivery Instructions")}</b>
               {instructionPoints.length > 0 && <ul className="paymentInstructionList">{instructionPoints.map((point, index) => <li key={`${point}-${index}`}>{point}</li>)}</ul>}
               <div className="checkoutPaymentBreakdown"><span>Product subtotal <b>Rs. {paymentAmounts.productSubtotal.toLocaleString()}</b></span><span>Delivery charges <b>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</b></span><span>Total order value <b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></span><span>Pay now <b>Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</b></span><span>Pay on delivery <b>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</b></span></div>
               <div className="bankPaymentDetails">{paymentSettings.bankName && <span><b>Bank / Wallet</b><small>{paymentSettings.bankName}</small></span>}{paymentSettings.bankTitle && <span><b>Account Title</b><small>{paymentSettings.bankTitle}</small></span>}{paymentSettings.bankAccountNumber && <span><b>Account No.</b><small>{paymentSettings.bankAccountNumber}</small></span>}{paymentSettings.bankIban && <span><b>IBAN</b><small>{paymentSettings.bankIban}</small></span>}</div>

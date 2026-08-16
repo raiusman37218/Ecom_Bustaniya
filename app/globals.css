@@ -10782,4 +10782,106 @@ html, body {
   text-align: center;
 }
 
+/* --- Admin Payment Instruction Editors --------------------------- */
+.paymentInstructionEditorCard {
+  padding: 18px 20px;
+  background: #ffffff;
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 10px;
+}
+.paymentInstructionEditorCard h4 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #111827;
+}
+.instructionBulletsManager {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.instructionBulletRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bulletNumberBadge {
+  color: #166534;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+.instructionBulletRow input {
+  flex: 1;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13.5px;
+  background: #ffffff;
+}
+.removeBulletBtn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.removeBulletBtn:hover {
+  background: #fee2e2;
+}
+.addBulletBtn {
+  align-self: flex-start;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px dashed #166534;
+  border-radius: 6px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.addBulletBtn:hover {
+  background: #dcfce7;
+}
+.instructionPreviewCard {
+  margin-top: 6px;
+  padding: 14px 16px;
+  border: 1px solid #c8dcc8;
+  border-radius: 6px;
+  background: #f0f7f3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.previewBadge {
+  color: #166534;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+.instructionPreviewCard b {
+  color: #111827;
+  font-size: 13.5px;
+}
+.previewBulletList {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: #374151;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
 
