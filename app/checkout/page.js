@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, Lock, ShoppingBag, Truck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, Lock, ShoppingBag, Truck } from "lucide-react";
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
@@ -27,6 +27,7 @@ export default function CheckoutPage() {
   const [citiesError, setCitiesError] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [paymentSettings, setPaymentSettings] = useState(DEFAULT_STORE_SETTINGS.paymentSettings);
+  const [summaryOpen, setSummaryOpen] = useState(true);
 
   useEffect(() => {
     const saved = localStorage.getItem("bustaniya-cart");
@@ -153,10 +154,11 @@ export default function CheckoutPage() {
           <h1>Checkout</h1>
           <p className="checkoutIntro">Complete the details below, choose your payment option, then send the payment screenshot on WhatsApp after placing the order.</p>
           <form onSubmit={placeOrder}>
-            <div className="checkoutSectionHeading"><span>01</span><div><b>Contact information</b><small>We use this only for order confirmation and delivery updates.</small></div></div>
+            <div className="checkoutSectionHeading"><span>01</span><div><b>Contact</b><small>We use these details only for order confirmation and delivery updates.</small></div></div>
             <label>Full name<input required name="fullName" value={form.fullName} onChange={updateField} placeholder="Your full name" /></label>
             <label>Phone number<input required name="phone" value={form.phone} onChange={updateField} type="tel" inputMode="tel" placeholder="Phone / WhatsApp number" /></label>
             <label>Email address (optional)<input name="email" value={form.email} onChange={updateField} type="email" placeholder="you@example.com" /></label>
+            <div className="checkoutSectionHeading"><span>02</span><div><b>Delivery</b><small>Enter the address in separate parts so the courier can find you easily.</small></div></div>
             <fieldset className="checkoutAddressFields">
               <legend>Delivery address</legend>
               <p>Please enter each part separately so the courier can find your address easily.</p>
@@ -181,15 +183,18 @@ export default function CheckoutPage() {
               <label>Postal code (optional)<input name="postalCode" value={form.postalCode} onChange={updateField} placeholder="Postal code" /></label>
             </div>
 
-            <div className="checkoutSectionHeading"><span>02</span><div><b>Choose payment method</b><small>Select how you would like to pay. We will show the exact payment instructions before you place your order.</small></div></div>
+            <div className="checkoutSectionHeading"><span>03</span><div><b>Shipping method</b><small>Standard delivery is available for your selected city.</small></div></div>
+            <div className="shippingMethodBox"><span><b>Standard delivery</b><small>Delivered by our courier partner</small></span><b>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</b></div>
+
+            <div className="checkoutSectionHeading"><span>04</span><div><b>Payment</b><small>Select a payment option. We will show the exact transfer instructions before you place your order.</small></div></div>
             <label className={paymentMethod === PAYMENT_METHODS.COD_ADVANCE_DELIVERY ? "paymentBox" : "paymentBox paymentChoice"}>
               <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} disabled={paymentSettings.codEnabled === false} onChange={() => setPaymentMethod("cod")} />
               <div className="paymentMethodCopy">
                 <div className="paymentMethodTitle"><b>Cash on Delivery</b><span>Pay the delivery charges first. Your products are paid to the courier when delivered.</span></div>
-                <ul className="paymentOptionList">
+                {paymentMethod === PAYMENT_METHODS.COD_ADVANCE_DELIVERY && <ul className="paymentOptionList">
                   <li><span><strong>Pay now</strong><small>Advance delivery charges to confirm</small></span><b>Rs. {paymentAmounts.deliveryCharges.toLocaleString()}</b></li>
                   <li><span><strong>Pay on delivery</strong><small>Product amount payable to the courier</small></span><b>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</b></li>
-                </ul>
+                </ul>}
               </div>
             </label>
             {paymentSettings.manualTransferEnabled !== false && (
@@ -197,11 +202,11 @@ export default function CheckoutPage() {
                 <input type="radio" name="paymentMethod" value="full_advance" checked={paymentMethod === PAYMENT_METHODS.FULL_ADVANCE} onChange={() => setPaymentMethod(PAYMENT_METHODS.FULL_ADVANCE)} />
                 <div className="paymentMethodCopy">
                   <div className="paymentMethodTitle"><b>Full advance payment <em>Free delivery</em></b><span>Pay for the complete order now. There will be nothing left to pay on delivery.</span></div>
-                  <ul className="paymentOptionList">
+                  {paymentMethod === PAYMENT_METHODS.FULL_ADVANCE && <ul className="paymentOptionList">
                     <li><span><strong>Pay now</strong><small>Complete product payment</small></span><b>Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</b></li>
                     <li><span><strong>Delivery</strong><small>Included with your prepaid order</small></span><b>Free</b></li>
                     <li><span><strong>Pay on delivery</strong><small>No payment will be collected by the courier</small></span><b>Rs. 0</b></li>
-                  </ul>
+                  </ul>}
                 </div>
               </label>
             )}
@@ -212,14 +217,14 @@ export default function CheckoutPage() {
               <div className="bankPaymentDetails">{paymentSettings.bankName && <span><b>Bank / wallet</b>{paymentSettings.bankName}</span>}{paymentSettings.bankTitle && <span><b>Account title</b>{paymentSettings.bankTitle}</span>}{paymentSettings.bankAccountNumber && <span><b>Account no.</b>{paymentSettings.bankAccountNumber}</span>}{paymentSettings.bankIban && <span><b>IBAN</b>{paymentSettings.bankIban}</span>}</div>
             </div>
             {error && <p className="checkoutError" role="alert">{error}</p>}
-            <button className="placeOrder" type="submit" disabled={!cart.length || submitting}>
-              {submitting ? "Placing order..." : `Place order · Rs. ${paymentAmounts.totalOrderValue.toLocaleString()}`}
-            </button>
+            <div className="checkoutSubmitBar"><div><span>Total</span><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div><button className="placeOrder" type="submit" disabled={!cart.length || submitting}>{submitting ? "Placing order..." : "Complete order"}</button></div>
             <p className="checkoutPrivacy"><Lock size={13} /> Your information is used only to process this order securely.</p>
           </form>
         </section>
 
-        <aside className="orderSummary">
+        <aside className={`orderSummary ${summaryOpen ? "isOpen" : ""}`}>
+          <button className="orderSummaryToggle" type="button" onClick={() => setSummaryOpen((current) => !current)} aria-expanded={summaryOpen} aria-controls="checkout-order-summary"><span>Order summary <ChevronDown size={16} /></span><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></button>
+          <div id="checkout-order-summary" className="orderSummaryContent">
           <div className="orderSummaryHead"><p>ORDER SUMMARY</p><h2>Your order <span>({cart.reduce((n, item) => n + item.quantity, 0)})</span></h2></div>
           {!cart.length ? (
             <div className="checkoutEmpty"><ShoppingBag /><p>Your cart is empty.</p><a href="/">Shop collection</a></div>
@@ -236,6 +241,7 @@ export default function CheckoutPage() {
             <div><span>Pay now</span><span>Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</span></div>
             <div><span>Pay on delivery</span><span>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</span></div>
             <div className="totalLine"><b>Total order value</b><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div>
+          </div>
           </div>
         </aside>
       </div>
