@@ -9065,7 +9065,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     box-shadow:none;
     font-size:13px;
   }
-  .sizeOptions button.selected { background:#050505; color:#fff; box-shadow:none; }
+  .sizeOptions button.selected { background:#16452c; border-color:#16452c; color:#fff; box-shadow:none; }
   .purchaseControls {
     display:grid;
     grid-template-columns:106px minmax(0,1fr);
@@ -9201,6 +9201,13 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     padding:0;
     border:0;
     background:transparent;
+  }
+  .productDetailsTitle {
+    margin:0 0 10px;
+    color:#16452c;
+    font-size:14px;
+    font-weight:850;
+    letter-spacing:.01em;
   }
   .productDetailsAccordion .structuredProductDetails { gap:6px; }
   .productDetailsAccordion .structuredProductDetails h3 {
