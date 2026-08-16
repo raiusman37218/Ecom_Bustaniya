@@ -175,7 +175,6 @@ export default function CheckoutPage() {
             <div className="checkoutSectionHeading"><span>02</span><div><b>Delivery</b><small>Enter the address in separate parts so the courier can find you easily.</small></div></div>
             <fieldset className="checkoutAddressFields">
               <legend>Delivery address</legend>
-              <p>Please enter each part separately so the courier can find your address easily.</p>
               <div className="checkoutAddressGrid">
                 <label>House / Flat No.<input required name="houseNo" value={form.houseNo} onChange={updateField} autoComplete="address-line1" placeholder="e.g. House 24, Flat 3B" /></label>
                 <label>Street / Road<input required name="street" value={form.street} onChange={updateField} autoComplete="address-line2" placeholder="e.g. Street 8, Main Boulevard" /></label>
