@@ -8994,3 +8994,136 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .productCard:not(.productCard--connected) .saleBadge { padding:6px 7px; font-size:8px; }
   .khaadiTopPicks .productGrid { gap:10px; }
 }
+
+/* Mobile product purchase sheet: keep controls in one calm, full-width flow. */
+@media (max-width:600px) {
+  .productDetailLayout > .productPurchase {
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    margin:0;
+    padding:28px 20px 46px;
+    border:0;
+    border-radius:0;
+    background:#fffefb;
+    box-shadow:none;
+    overflow:visible;
+  }
+  .productPurchase .eyebrow { display:none; }
+  .productPurchase h1 {
+    margin:0 0 14px;
+    color:#3c0f24;
+    font-size:clamp(32px,10vw,38px);
+    line-height:1.02;
+    letter-spacing:-.02em;
+  }
+  .detailPrice {
+    margin:0;
+    color:#351b26;
+    font-size:16px;
+    font-weight:750;
+  }
+  .taxNote {
+    margin:7px 0 0;
+    color:#6d746d;
+    font-size:10px;
+    line-height:1.45;
+  }
+  .selectorHeading {
+    align-items:center;
+    margin:24px 0 14px;
+    padding-top:20px;
+    border-top:1px solid #e3e1dc;
+    color:#25382b;
+    font-size:11px;
+  }
+  .sizeGuidePillBtn {
+    gap:5px;
+    padding:0;
+    border:0;
+    border-bottom:1px solid currentColor;
+    border-radius:0;
+    background:transparent;
+    color:#25382b;
+    font-size:10px;
+    box-shadow:none;
+  }
+  .sizeGuidePillBtn:hover { background:transparent; color:#25382b; border-color:currentColor; }
+  .sizeOptions {
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(46px,1fr));
+    gap:8px;
+  }
+  .sizeOptions button {
+    width:100%;
+    min-width:0;
+    min-height:46px;
+    padding:0 8px;
+    border:1px solid #d7d8d2;
+    border-radius:9px;
+    box-shadow:none;
+    font-size:13px;
+  }
+  .sizeOptions button.selected { box-shadow:none; }
+  .purchaseControls {
+    display:grid;
+    grid-template-columns:106px minmax(0,1fr);
+    gap:8px;
+    align-items:end;
+    margin-top:24px;
+  }
+  .quantityControlGroup,.purchaseControls .productActions { min-width:0; }
+  .quantityHeading { display:none; }
+  .productQuantity {
+    width:100%;
+    min-height:52px;
+    margin:0;
+    border-color:#d7d8d2;
+    border-radius:9px;
+  }
+  .productQuantity button { width:33%; }
+  .purchaseControls .productActions {
+    display:block;
+    margin:0;
+  }
+  .purchaseControls .addBagButton {
+    width:100%;
+    min-height:52px;
+    height:52px;
+    border-radius:9px;
+    box-shadow:none;
+    font-size:10px;
+  }
+  .purchaseControls .addBagButton svg,.purchaseControls .wishButton { display:none; }
+  .buyNowButton {
+    min-height:52px;
+    margin-top:8px;
+    border:0;
+    border-radius:9px;
+    background:#1d1d1b;
+    color:#fff;
+    box-shadow:none;
+    font-size:10px;
+  }
+  .disabledBuy { border:0; background:#dedfdb; color:#697067; }
+  .productPromises {
+    gap:14px;
+    margin:26px 0 0;
+    padding:20px 0;
+  }
+  .productPurchase details {
+    padding:16px 0;
+    font-size:12px;
+  }
+  .productPurchase details summary {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    min-height:24px;
+    color:#25382b;
+    font-size:10px;
+  }
+  .productPurchase details summary::after { content:"+"; font-size:18px; font-weight:400; line-height:1; }
+  .productPurchase details[open] summary::after { content:"−"; }
+  .productPurchase details#size-guide { display:none; }
+}

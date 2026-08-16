@@ -246,7 +246,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           <p className="detailPrice">Rs. {product.price.toLocaleString()}</p>
           <p className="taxNote">Tax included. Delivery calculated at checkout.</p>
           <div className="selectorHeading">
-            <b>{size ? "Select size" : "Select your size to continue"}</b>
+            <b>Select size</b>
             <button type="button" className="sizeGuidePillBtn" onClick={() => setSizeChartOpen(true)}>
               <Ruler size={14} /> View Size Chart
             </button>
@@ -255,16 +255,20 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             {sizes.map((item) => <button key={item} className={size === item ? "selected" : ""} onClick={() => setSize(item)}>{item}</button>)}
           </div>
 
-          <div className="quantityHeading"><b>Quantity</b></div>
-          <div className="quantity productQuantity">
-            <button onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={14} /></button>
-            {quantity}
-            <button disabled={outOfStock || quantity >= availableStock} onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}><Plus size={14} /></button>
-          </div>
+          <div className="purchaseControls">
+            <div className="quantityControlGroup">
+              <div className="quantityHeading"><b>Quantity</b></div>
+              <div className="quantity productQuantity">
+                <button aria-label="Decrease quantity" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={14} /></button>
+                {quantity}
+                <button aria-label="Increase quantity" disabled={outOfStock || quantity >= availableStock} onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}><Plus size={14} /></button>
+              </div>
+            </div>
 
-          <div className="productActions">
-            <button className="addBagButton" disabled={outOfStock || !size} onClick={addToBag}>{outOfStock ? "Out of stock" : added ? <><Check /> Added to bag</> : !size ? "Select a size" : <><ShoppingBag /> Add to bag</>}</button>
-            <button className="wishButton" aria-label="Add to wishlist"><Heart /></button>
+            <div className="productActions">
+              <button className="addBagButton" disabled={outOfStock || !size} onClick={addToBag}>{outOfStock ? "Out of stock" : added ? <><Check /> Added to bag</> : !size ? "Select a size" : <><ShoppingBag /> Add to bag</>}</button>
+              <button className="wishButton" aria-label="Add to wishlist"><Heart /></button>
+            </div>
           </div>
           {outOfStock ? <span className="buyNowButton disabledBuy">Unavailable</span> : !size ? <span className="buyNowButton disabledBuy">Select a size first</span> : <a className="buyNowButton" href="/checkout" onClick={() => addToBag({ openDrawer: false })}>Buy it now</a>}
 
@@ -272,12 +276,12 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             <div><Truck /><span><b>Delivery</b>Calculated at checkout</span></div>
             <div><ShieldCheck /><span><b>Exchange support</b>7-day easy exchange</span></div>
           </div>
-          <details open>
+          <details>
             <summary>Product details</summary>
             <StructuredProductDetails value={productDetails} />
             <small className="productDetailsNote">Colours may vary slightly due to camera lighting and screen settings.</small>
           </details>
-          <details id="size-guide" open>
+          <details id="size-guide">
             <summary>Size guide &amp; measurements</summary>
             <p style={{ marginBottom: "10px" }}>Standard ready-to-wear stitched garment measurements in inches:</p>
             <SizeTable />
