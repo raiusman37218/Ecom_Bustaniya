@@ -48,21 +48,43 @@ async function ensureOrderItems(orderId, items) {
     `order_items?select=id&order_id=eq.${encodeURIComponent(orderId)}&limit=1`
   );
   if (existing?.length) return;
-  await supabaseAdminRequest("order_items", {
-    method: "POST",
-    prefer: "return=minimal",
-    body: items.map((item) => ({
+
+  // Older Bustaniya databases use price_pkr while newer ones use
+  // unit_price_pkr/line_total_pkr. Keep checkout compatible with both instead
+  // of letting an optional reporting field reject the entire customer order.
+  let rows = items.map((item) => {
+    const unitPrice = Number(item.price || 0);
+    const quantity = Number(item.quantity || 1);
+    return {
       order_id: orderId,
       product_id: item.id,
       title: item.name,
-      unit_price_pkr: Number(item.price || 0),
-      quantity: Number(item.quantity || 1),
-      line_total_pkr: Number(item.price || 0) * Number(item.quantity || 1),
+      price_pkr: unitPrice,
+      unit_price_pkr: unitPrice,
+      quantity,
+      line_total_pkr: unitPrice * quantity,
       size: item.size || null,
       color: item.color || null,
       image_url: item.image || null,
-    })),
+    };
   });
+
+  for (let attempt = 0; attempt < 12 && rows[0] && Object.keys(rows[0]).length; attempt += 1) {
+    try {
+      await supabaseAdminRequest("order_items", {
+        method: "POST",
+        prefer: "return=minimal",
+        body: rows,
+      });
+      return;
+    } catch (error) {
+      const column = removableColumnFromError(error);
+      if (!column || !(column in rows[0])) throw error;
+      rows = rows.map(({ [column]: _unsupported, ...supportedRow }) => supportedRow);
+    }
+  }
+
+  throw new Error("Unable to save order items with the available order item schema.");
 }
 
 function normalizePhone(value = "") {
@@ -164,8 +186,10 @@ async function createCheckoutOrderDirect({ customer, items, paymentAmounts, paym
   let body = {
     order_number: makeCheckoutOrderNumber(),
     checkout_token: randomUUID(),
-    status: "Unbooked",
-    courier_status: "Unbooked",
+    // `pending` is supported by the original Bustaniya order enum. Newer
+    // payment/fulfilment fields below add the more precise waiting state.
+    status: "pending",
+    courier_status: "pending",
     payment_method: paymentAmounts.paymentMethod,
     payment_status: "Awaiting Payment",
     payment_proof_status: "Awaiting Payment",
@@ -185,8 +209,14 @@ async function createCheckoutOrderDirect({ customer, items, paymentAmounts, paym
     payment_details_snapshot: paymentDetails,
     shipping_full_name: customer.fullName,
     shipping_phone: customer.phone,
+    // These are the established live-order fields. Keep shipping_address too
+    // for newer projects; the compatibility loop below removes it when absent.
+    shipping_line1: customer.address,
+    shipping_line2: customer.landmark || "",
     shipping_address: customer.address,
     shipping_city: customer.city,
+    shipping_region: "",
+    shipping_country: "Pakistan",
     shipping_postal_code: customer.postalCode || "",
     guest_name: customer.fullName,
     guest_phone: customer.phone,
@@ -200,6 +230,14 @@ async function createCheckoutOrderDirect({ customer, items, paymentAmounts, paym
       size: item.size || null,
       color: item.color || null,
     })),
+    notes: [
+      "Checkout payment verification pending.",
+      `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment" : "COD delivery charges in advance"}.`,
+      `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
+      `Delivery charges: Rs. ${paymentAmounts.deliveryCharges}.`,
+      `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
+      `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
+    ].join(" "),
     internal_notes: [
       "Checkout payment verification pending.",
       `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment" : "COD delivery charges in advance"}.`,
@@ -453,8 +491,8 @@ export async function POST(request) {
         amount_payable_on_delivery_pkr: paymentAmounts.amountPayableOnDelivery,
         payment_details_snapshot: paymentDetails,
         fulfillment_status: "On hold",
-        status: "Unbooked",
-        courier_status: "Unbooked",
+        status: "pending",
+        courier_status: "pending",
         // Older Bustaniya schemas already have internal notes. Retain the
         // payment snapshot there too when the newer dedicated columns are not
         // installed, so the admin still has a complete verification record.
