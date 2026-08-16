@@ -153,15 +153,23 @@ function CityCombobox({ value, onChange, cities, loading, disabled }) {
 }
 
 function paymentInstructionPoints(value) {
-  const normalized = String(value || "")
-    .replace(/\r\n?/g, "\n")
-    .replace(/\s+(?=(?:Please|Kindly|Separately|After|Then|Send|Screenshot|Details|Note|Payment)\b)/gi, "\n");
+  if (!value) return [];
 
-  return normalized
+  const raw = String(value || "").replace(/\r\n?/g, "\n").trim();
+  if (!raw) return [];
+
+  return raw
     .split(/\n+|[•●]/)
     .flatMap((line) => line.split(/\.\s+(?=[A-Z])/))
     .map((line) => line.trim().replace(/^[\-–—]\s*/, ""))
-    .filter(Boolean)
+    .filter((line) => {
+      if (!line) return false;
+      const cleanText = line.replace(/[^\w\s]/gi, "").trim();
+      if (/^(kindly|please|note|details|separately|after|then|payment)$/i.test(cleanText)) {
+        return false;
+      }
+      return cleanText.length > 3;
+    })
     .slice(0, 8);
 }
 
