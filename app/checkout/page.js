@@ -159,18 +159,10 @@ function paymentInstructionPoints(value) {
   if (!raw) return [];
 
   return raw
-    .split(/\n+|[•●]/)
-    .flatMap((line) => line.split(/\.\s+(?=[A-Z])/))
+    .split(/(?<=\.)\s+|\n+|[•●]/)
     .map((line) => line.trim().replace(/^[\-–—]\s*/, ""))
-    .filter((line) => {
-      if (!line) return false;
-      const cleanText = line.replace(/[^\w\s]/gi, "").trim();
-      if (/^(kindly|please|note|details|separately|after|then|payment)$/i.test(cleanText)) {
-        return false;
-      }
-      return cleanText.length > 3;
-    })
-    .slice(0, 8);
+    .filter((line) => line.length > 5)
+    .slice(0, 5);
 }
 
 export default function CheckoutPage() {
@@ -192,15 +184,23 @@ export default function CheckoutPage() {
   const [cities, setCities] = useState([]);
   const [citiesLoading, setCitiesLoading] = useState(true);
   const [citiesError, setCitiesError] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("cod");
   const [paymentSettings, setPaymentSettings] = useState(DEFAULT_STORE_SETTINGS.paymentSettings);
-  const [summaryOpen, setSummaryOpen] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("bustaniya-cart");
-    if (saved) {
+    try {
+      const stored = localStorage.getItem("bustaniya_cart");
+      if (stored) setCart(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    const raw = localStorage.getItem("bustaniya_last_checkout_fields");
+    if (raw) {
       try {
-        setCart(JSON.parse(saved));
+        const saved = JSON.parse(raw);
+        setForm((current) => ({ ...current, ...saved }));
       } catch {}
     }
   }, []);
@@ -281,34 +281,53 @@ export default function CheckoutPage() {
           })),
         }),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Unable to place order.");
 
-      setOrder({
-        ...result,
-        customer,
-        items: [...cart],
-        subtotal: Number(result.productSubtotal ?? paymentAmounts.productSubtotal),
-        delivery: Number(result.deliveryCharges ?? paymentAmounts.deliveryCharges),
-        total: Number(result.totalOrderValue ?? paymentAmounts.totalOrderValue),
-        advanceAmount: Number(result.amountPayableInAdvance ?? paymentAmounts.amountPayableInAdvance),
-        payableOnDelivery: Number(result.amountPayableOnDelivery ?? paymentAmounts.amountPayableOnDelivery),
-        paymentMethod: normalizePaymentMethod(result.paymentMethod || paymentMethod),
-        paymentDetails: result.paymentDetails || paymentSettings,
-        paymentStatus: result.paymentStatus || "Awaiting Payment",
-      });
-      setCart([]);
-      localStorage.removeItem("bustaniya-cart");
-    } catch (requestError) {
-      setError(requestError.message);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to place order.");
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          "bustaniya_last_checkout_fields",
+          JSON.stringify({
+            fullName: form.fullName,
+            phone: form.phone,
+            email: form.email,
+            houseNo: form.houseNo,
+            street: form.street,
+            block: form.block,
+            landmark: form.landmark,
+            city: form.city,
+            postalCode: form.postalCode,
+          })
+        );
+        localStorage.removeItem("bustaniya_cart");
+        window.dispatchEvent(new Event("cartUpdated"));
+      }
+      setOrder(result.order);
+    } catch (err) {
+      setError(err.message || "An error occurred while placing your order.");
     } finally {
       setSubmitting(false);
     }
   }
 
   if (order) {
-    const confirmedItems = order.items || [];
-    return <OrderConfirmation order={order} items={confirmedItems} />;
+    return <OrderConfirmation order={order} items={cart} />;
+  }
+
+  if (!cart.length) {
+    return (
+      <main className="checkoutPage">
+        <header className="checkoutHeader">
+          <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
+          <span><Lock size={14} /> Checkout</span>
+        </header>
+        <div className="checkoutEmpty">
+          <ShoppingBag size={48} />
+          <p>Your cart is empty.</p>
+          <a href="/">Shop collection</a>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -384,7 +403,7 @@ export default function CheckoutPage() {
               <b>{paymentAmounts.paymentLabel}</b>
               {instructionPoints.length > 0 && <ul className="paymentInstructionList">{instructionPoints.map((point, index) => <li key={`${point}-${index}`}>{point}</li>)}</ul>}
               <div className="checkoutPaymentBreakdown"><span>Product subtotal <b>Rs. {paymentAmounts.productSubtotal.toLocaleString()}</b></span><span>Delivery charges <b>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</b></span><span>Total order value <b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></span><span>Pay now <b>Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</b></span><span>Pay on delivery <b>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</b></span></div>
-              <div className="bankPaymentDetails">{paymentSettings.bankName && <span><b>Bank / wallet</b>{paymentSettings.bankName}</span>}{paymentSettings.bankTitle && <span><b>Account title</b>{paymentSettings.bankTitle}</span>}{paymentSettings.bankAccountNumber && <span><b>Account no.</b>{paymentSettings.bankAccountNumber}</span>}{paymentSettings.bankIban && <span><b>IBAN</b>{paymentSettings.bankIban}</span>}</div>
+              <div className="bankPaymentDetails">{paymentSettings.bankName && <span><b>Bank / Wallet</b><small>{paymentSettings.bankName}</small></span>}{paymentSettings.bankTitle && <span><b>Account Title</b><small>{paymentSettings.bankTitle}</small></span>}{paymentSettings.bankAccountNumber && <span><b>Account No.</b><small>{paymentSettings.bankAccountNumber}</small></span>}{paymentSettings.bankIban && <span><b>IBAN</b><small>{paymentSettings.bankIban}</small></span>}</div>
             </div>
             {error && <p className="checkoutError" role="alert">{error}</p>}
             <div className="checkoutSubmitBar"><div><span>Total</span><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div><button className="placeOrder" type="submit" disabled={!cart.length || submitting}>{submitting ? "Placing order..." : "Complete order"}</button></div>
@@ -396,23 +415,23 @@ export default function CheckoutPage() {
         <aside className={`orderSummary ${summaryOpen ? "isOpen" : ""}`}>
           <button className="orderSummaryToggle" type="button" onClick={() => setSummaryOpen((current) => !current)} aria-expanded={summaryOpen} aria-controls="checkout-order-summary"><span>Order summary <ChevronDown size={16} /></span><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></button>
           <div id="checkout-order-summary" className="orderSummaryContent">
-          <div className="orderSummaryHead"><p>ORDER SUMMARY</p><h2>Your order <span>({cart.reduce((n, item) => n + item.quantity, 0)})</span></h2></div>
-          {!cart.length ? (
-            <div className="checkoutEmpty"><ShoppingBag /><p>Your cart is empty.</p><a href="/">Shop collection</a></div>
-          ) : cart.map((item) => (
-            <div className="summaryItem" key={item.id}>
-              <div className="summaryImage" style={{ backgroundImage: `url(${item.image})` }}><span>{item.quantity}</span></div>
-              <div><b>{item.name}</b><small>{[item.category, item.size && `Size ${item.size}`, item.color].filter(Boolean).join(" · ")}</small></div>
-              <p>Rs. {(item.price * item.quantity).toLocaleString()}</p>
+            <div className="orderSummaryHead">
+              <p>SUMMARY</p>
+              <h2>Your order <span>({cart.reduce((n, item) => n + item.quantity, 0)})</span></h2>
             </div>
-          ))}
-          <div className="summaryTotals">
-            <div><span>Product subtotal</span><span>Rs. {paymentAmounts.productSubtotal.toLocaleString()}</span></div>
-            <div><span>Delivery charges</span><span>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</span></div>
-            <div><span>Pay now</span><span>Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</span></div>
-            <div><span>Pay on delivery</span><span>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</span></div>
-            <div className="totalLine"><b>Total order value</b><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div>
-          </div>
+            {cart.map((item) => (
+              <div className="summaryItem" key={`${item.id}-${item.size || "cart"}`}>
+                <div className="summaryImage" style={{ backgroundImage: `url(${item.image})` }}><span>{item.quantity}</span></div>
+                <div><b>{item.name}</b><small>{[item.category, item.size && `Size ${item.size}`, item.color].filter(Boolean).join(" · ")}</small></div>
+                <p>Rs. {(item.price * item.quantity).toLocaleString()}</p>
+              </div>
+            ))}
+            <div className="summaryTotals">
+              <div><span>Subtotal</span><span>Rs. {subtotal.toLocaleString()}</span></div>
+              <div><span>Delivery</span><span>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</span></div>
+              {paymentMethod === PAYMENT_METHODS.FULL_ADVANCE && <div><span>Prepaid discount</span><span>- Rs. {DEFAULT_STORE_SETTINGS.paymentSettings.codDeliveryChargePkr} (Free Delivery)</span></div>}
+              <div className="totalLine"><b>Total</b><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div>
+            </div>
           </div>
         </aside>
       </div>
@@ -427,12 +446,10 @@ function OrderConfirmation({ order, items }) {
   const payableOnDelivery = Number(order.payableOnDelivery || 0);
   const whatsappNumber = String(paymentDetails.whatsappNumber || "923053530008").replace(/\D/g, "");
 
-  // Short items summary for WhatsApp message
   const itemsText = items
     .map((item) => `• ${item.name}${item.size ? ` (Size: ${item.size})` : ""} x${item.quantity}`)
     .join("\n");
 
-  // Pre-filled WhatsApp message asking customer to attach payment screenshot
   const whatsappMessage = `Assalam-o-Alaikum Bustaniya! 🌸\nI have transferred Rs. ${paymentAmount.toLocaleString()} for Order #${order.orderRef}.\n\n📋 *Order Summary:*\n- Customer: ${order.customer?.fullName || ""}\n- City: ${order.customer?.city || ""}\n- Method: ${isFullAdvance ? "Full Advance Payment" : "COD (Rs. 250 Delivery Advance)"}\n- Amount Transferred: Rs. ${paymentAmount.toLocaleString()}\n\n📦 *Items:*\n${itemsText}\n\n📎 *Payment Screenshot Attached Below:*`;
 
   const whatsappHref = whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}` : "";
@@ -447,7 +464,6 @@ function OrderConfirmation({ order, items }) {
       </header>
       <section className="orderSuccess shopifySuccess">
         <div className="confirmationPanel">
-          {/* --- Hero --- */}
           <div className="confirmationHero">
             <span className="successMark"><CheckCircle2 size={22} /></span>
             <div>
@@ -457,7 +473,6 @@ function OrderConfirmation({ order, items }) {
             </div>
           </div>
 
-          {/* --- Step 1: Bank Payment Details Card --- */}
           <div className="confirmationCard paymentVerificationCard">
             <div className="stepHeader">
               <span className="stepNumber">1</span>
@@ -475,7 +490,6 @@ function OrderConfirmation({ order, items }) {
             </div>
           </div>
 
-          {/* --- Step 2: Main WhatsApp Screenshot Submission Card --- */}
           {whatsappHref && (
             <div className="confirmationCard whatsappConfirmMainCard">
               <div className="whatsappConfirmHeader">
@@ -491,46 +505,31 @@ function OrderConfirmation({ order, items }) {
             </div>
           )}
 
-          {/* --- Customer Info Bullet List --- */}
-          <div className="confirmationCard confirmationInfoCard">
-            <ul className="confirmationBulletList">
-              <li>
-                <span className="bulletDot">•</span>
-                <div className="bulletContent">
-                  <strong>Contact:</strong> <span>{order.customer?.phone || "—"}{order.customer?.email ? ` · ${order.customer.email}` : ""}</span>
-                </div>
-              </li>
-              <li>
-                <span className="bulletDot">•</span>
-                <div className="bulletContent">
-                  <strong>Ship to:</strong> <span>{fullAddress || "—"}</span>
-                </div>
-              </li>
-              <li className="bulletTwoColRow">
-                <div className="bulletCol">
-                  <span className="bulletDot">•</span>
-                  <div className="bulletContent">
-                    <strong>Method:</strong> <span>{isFullAdvance ? "Full Advance — Free Delivery" : "COD — Rs. 250 Advance"}</span>
-                  </div>
-                </div>
-                <div className="bulletCol">
-                  <span className="bulletDot">•</span>
-                  <div className="bulletContent">
-                    <strong>Pay on delivery:</strong> <span>Rs. {payableOnDelivery.toLocaleString()}</span>
-                  </div>
-                </div>
-              </li>
-            </ul>
+          <div className="confirmationCard confirmationRecapCard">
+            <div className="confirmationRecapRow">
+              <span className="recapLabel">Contact</span>
+              <span className="recapValue">{order.customer?.phone || "—"}{order.customer?.email ? ` · ${order.customer.email}` : ""}</span>
+            </div>
+            <div className="confirmationRecapRow">
+              <span className="recapLabel">Ship to</span>
+              <span className="recapValue">{fullAddress || "—"}</span>
+            </div>
+            <div className="confirmationRecapRow">
+              <span className="recapLabel">Method</span>
+              <span className="recapValue">{isFullAdvance ? "Full Advance Payment (Free Delivery)" : "Cash on Delivery (Rs. 250 Advance)"}</span>
+            </div>
+            <div className="confirmationRecapRow">
+              <span className="recapLabel">Pay on delivery</span>
+              <span className="recapValue">Rs. {payableOnDelivery.toLocaleString()}</span>
+            </div>
           </div>
 
-          {/* --- Actions --- */}
           <div className="confirmationActions">
             <a className="primaryButton" href="/">Continue shopping</a>
             {whatsappHref && <a className="secondaryButton" href={whatsappHref} target="_blank" rel="noreferrer">WhatsApp Support</a>}
           </div>
         </div>
 
-        {/* --- Sidebar summary --- */}
         <aside className="orderSummary confirmedSummary">
           <h2>Order summary <span>({items.reduce((n, item) => n + item.quantity, 0)})</span></h2>
           {items.map((item) => (

@@ -10251,6 +10251,52 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 .secondaryButton { border: 1px solid var(--ck-accent); color: var(--ck-accent); background: transparent; }
 .secondaryButton:hover { background: var(--ck-accent-light); }
 
+.confirmationRecapCard {
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+}
+.confirmationRecapRow {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.recapLabel {
+  color: #6b7280;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.recapValue {
+  color: #111827;
+  font-weight: 500;
+  word-break: break-word;
+}
+@media (max-width: 640px) {
+  .confirmationRecapCard {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+  .confirmationRecapRow {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .recapLabel {
+    font-size: 10.5px;
+  }
+  .recapValue {
+    font-size: 13px;
+  }
+}
+
 .confirmedSummary {
   padding: 44px clamp(24px, 4vw, 52px) 60px;
   background: var(--ck-panel);
@@ -10273,8 +10319,8 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
     border-bottom: 1px solid var(--ck-border);
   }
   .shopifySuccess { grid-template-columns: 1fr; }
-  .confirmationPanel { order: 2; }
-  .confirmedSummary { order: 1; border-left: 0; border-bottom: 1px solid var(--ck-border); }
+  .confirmationPanel { order: 1; }
+  .confirmedSummary { order: 2; border-left: 0; border-top: 1px solid var(--ck-border); }
   .confirmationGrid { grid-template-columns: 1fr; }
 }
 
