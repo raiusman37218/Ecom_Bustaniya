@@ -9335,7 +9335,12 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   flex-direction:column;
   gap:8px;
 }
-.paymentMethodCopy>b {
+.paymentMethodTitle {
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.paymentMethodTitle>b {
   display:flex;
   align-items:center;
   gap:8px;
@@ -9343,7 +9348,12 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   font-size:14px;
   font-weight:750;
 }
-.paymentMethodCopy>b em {
+.paymentMethodTitle>span {
+  color:#6d7175;
+  font-size:12px;
+  line-height:1.45;
+}
+.paymentMethodTitle>b em {
   padding:3px 7px;
   border-radius:999px;
   background:#eaf5ea;
@@ -9354,17 +9364,27 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   letter-spacing:.05em;
   text-transform:uppercase;
 }
-.paymentMethodCopy ul {
+.paymentOptionList {
   display:grid;
-  gap:5px;
+  gap:0;
   margin:0;
-  padding-left:17px;
-  color:#6d7175;
-  font-size:12px;
-  line-height:1.45;
+  padding:0;
+  list-style:none;
+  border-top:1px solid #e1e3e5;
 }
-.paymentMethodCopy li::marker { color:#16452c; }
-.paymentMethodCopy strong { color:#202223; font-weight:700; }
+.paymentOptionList li {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:9px 0;
+  border-bottom:1px solid #e1e3e5;
+}
+.paymentOptionList li:last-child { border-bottom:0; padding-bottom:0; }
+.paymentOptionList li>span { display:grid; gap:1px; }
+.paymentOptionList strong { color:#202223; font-size:12px; font-weight:700; }
+.paymentOptionList small { color:#6d7175; font-size:11px; line-height:1.35; }
+.paymentOptionList li>b { flex:0 0 auto; color:#202223; font-size:12px; font-weight:750; white-space:nowrap; }
 .advancePaymentNote {
   padding:18px;
   border-color:#d9ddda;
@@ -9383,6 +9403,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .checkoutAddressGrid input { min-height:30px; font-size:16px; }
   .orderSummary { background:#fafafa; }
   .checkoutForm .paymentBox { padding:16px; }
-  .paymentMethodCopy>b { font-size:13px; }
-  .paymentMethodCopy ul { font-size:12px; }
+  .paymentMethodTitle>b { font-size:13px; }
+  .paymentOptionList li { gap:10px; }
+  .paymentOptionList small { font-size:10px; }
 }

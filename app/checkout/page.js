@@ -185,11 +185,10 @@ export default function CheckoutPage() {
             <label className={paymentMethod === PAYMENT_METHODS.COD_ADVANCE_DELIVERY ? "paymentBox" : "paymentBox paymentChoice"}>
               <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} disabled={paymentSettings.codEnabled === false} onChange={() => setPaymentMethod("cod")} />
               <div className="paymentMethodCopy">
-                <b>Cash on Delivery</b>
-                <ul>
-                  <li><strong>Pay now:</strong> Rs. {paymentAmounts.deliveryCharges.toLocaleString()} delivery charges</li>
-                  <li><strong>Pay on delivery:</strong> Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()} to the courier</li>
-                  <li>Your order is confirmed after payment verification.</li>
+                <div className="paymentMethodTitle"><b>Cash on Delivery</b><span>Pay the delivery charges first. Your products are paid to the courier when delivered.</span></div>
+                <ul className="paymentOptionList">
+                  <li><span><strong>Pay now</strong><small>Advance delivery charges to confirm</small></span><b>Rs. {paymentAmounts.deliveryCharges.toLocaleString()}</b></li>
+                  <li><span><strong>Pay on delivery</strong><small>Product amount payable to the courier</small></span><b>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</b></li>
                 </ul>
               </div>
             </label>
@@ -197,11 +196,11 @@ export default function CheckoutPage() {
               <label className={paymentMethod === PAYMENT_METHODS.FULL_ADVANCE ? "paymentBox" : "paymentBox paymentChoice"}>
                 <input type="radio" name="paymentMethod" value="full_advance" checked={paymentMethod === PAYMENT_METHODS.FULL_ADVANCE} onChange={() => setPaymentMethod(PAYMENT_METHODS.FULL_ADVANCE)} />
                 <div className="paymentMethodCopy">
-                  <b>Full advance payment <em>Free delivery</em></b>
-                  <ul>
-                    <li><strong>Pay now:</strong> Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</li>
-                    <li><strong>Pay on delivery:</strong> Nothing</li>
-                    <li>Your order is confirmed after payment verification.</li>
+                  <div className="paymentMethodTitle"><b>Full advance payment <em>Free delivery</em></b><span>Pay for the complete order now. There will be nothing left to pay on delivery.</span></div>
+                  <ul className="paymentOptionList">
+                    <li><span><strong>Pay now</strong><small>Complete product payment</small></span><b>Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</b></li>
+                    <li><span><strong>Delivery</strong><small>Included with your prepaid order</small></span><b>Free</b></li>
+                    <li><span><strong>Pay on delivery</strong><small>No payment will be collected by the courier</small></span><b>Rs. 0</b></li>
                   </ul>
                 </div>
               </label>
