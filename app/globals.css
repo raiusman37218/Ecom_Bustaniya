@@ -9664,7 +9664,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .checkoutForm .bankPaymentDetails span,
 .paymentVerificationCard .bankPaymentDetails span {
   display: grid;
-  grid-template-columns: 140px minmax(0, 1fr);
+  grid-template-columns: 150px minmax(0, 1fr) !important;
   gap: 8px;
   align-items: baseline;
   padding: 0;
@@ -9674,12 +9674,12 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 }
 .checkoutForm .bankPaymentDetails b,
 .paymentVerificationCard .bankPaymentDetails b {
-  color: #6b7280;
-  font-weight: 600;
-  font-size: 12px;
+  color: #4b5563;
+  font-weight: 700;
+  font-size: 13px;
   text-transform: none;
   letter-spacing: 0;
-  white-space: nowrap;
+  white-space: nowrap !important;
 }
 .checkoutForm .bankPaymentDetails small,
 .paymentVerificationCard .bankPaymentDetails small {
@@ -10071,13 +10071,14 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .stepHeader {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 12px;
 }
 .stepHeader h2 {
   margin: 0 0 2px !important;
   font-size: 16px !important;
   font-weight: 800 !important;
+  color: #111827 !important;
 }
 .stepHeader p {
   margin: 0;
@@ -10086,18 +10087,20 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   line-height: 1.45;
 }
 .stepNumber {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
   border-radius: 50%;
   background: var(--ck-accent);
-  color: #ffffff;
-  font-size: 12px;
+  color: #ffffff !important;
+  font-size: 13px;
   font-weight: 800;
+  line-height: 1;
   flex: 0 0 auto;
+  margin-top: 1px;
 }
 .step2Number {
   background: #16a34a !important;
@@ -10117,7 +10120,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .whatsappConfirmHeader {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
 }
 .whatsappBadgeIcon {
   font-size: 24px;
@@ -10160,57 +10163,61 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   transform: translateY(-1px);
 }
 
-/* Compact info card — clean grid with proper cell containment */
+/* Bullet List Customer Info Card */
 .confirmationInfoCard {
-  padding: 0 !important;
+  padding: 18px 20px !important;
   border: 1px solid #e5e7eb !important;
   border-radius: 8px !important;
   background: #ffffff !important;
-  overflow: hidden;
 }
-.confirmationInfoGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
-}
-.confirmationInfoGrid > span {
-  min-width: 0; /* CRITICAL FIX: prevents text overflow across columns */
-  padding: 14px 16px;
-  border-bottom: 1px solid #f3f4f6;
-  border-right: 1px solid #f3f4f6;
+.confirmationBulletList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  overflow: hidden;
+  gap: 12px;
 }
-.confirmationInfoGrid > span:nth-child(even) {
-  border-right: 0;
-}
-.confirmationInfoGrid > span:nth-last-child(-n+2) {
-  border-bottom: 0;
-}
-.confirmationInfoGrid > span b {
-  color: #6b7280;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  margin-bottom: 2px;
-}
-.confirmationInfoGrid > span small {
+.confirmationBulletList li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   color: #111827;
-  font-size: 13px;
-  font-weight: 500;
-  text-transform: none;
-  letter-spacing: 0;
-  line-height: 1.45;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.bulletDot {
+  color: #16a34a;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 800;
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+.bulletContent {
+  min-width: 0;
   word-break: break-word;
   overflow-wrap: anywhere;
 }
-.confirmationInfoGrid .emailValue {
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 400;
+.bulletContent strong {
+  color: #4b5563;
+  font-weight: 700;
+  margin-right: 5px;
+}
+.bulletContent span {
+  color: #111827;
+  font-weight: 500;
+}
+.bulletTwoColRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.bulletCol {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
 }
 
 

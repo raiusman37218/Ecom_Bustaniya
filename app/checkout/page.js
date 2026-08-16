@@ -280,6 +280,8 @@ function OrderConfirmation({ order, items }) {
 
   const whatsappHref = whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}` : "";
 
+  const fullAddress = [order.customer?.houseNo, order.customer?.street, order.customer?.block, order.customer?.landmark, order.customer?.city].filter(Boolean).join(", ");
+
   return (
     <main className="checkoutPage">
       <header className="checkoutHeader">
@@ -290,7 +292,7 @@ function OrderConfirmation({ order, items }) {
         <div className="confirmationPanel">
           {/* --- Hero --- */}
           <div className="confirmationHero">
-            <span className="successMark"><CheckCircle2 size={24} /></span>
+            <span className="successMark"><CheckCircle2 size={22} /></span>
             <div>
               <p className="eyebrow">ORDER #{order.orderRef}</p>
               <h1>Thank you, {order.customer?.fullName || "there"}!</h1>
@@ -332,27 +334,36 @@ function OrderConfirmation({ order, items }) {
             </div>
           )}
 
-          {/* --- Compact info --- */}
+          {/* --- Customer Info Bullet List --- */}
           <div className="confirmationCard confirmationInfoCard">
-            <div className="confirmationInfoGrid">
-              <span>
-                <b>Contact</b>
-                <small>{order.customer?.phone || "—"}</small>
-                {order.customer?.email && <small className="emailValue">{order.customer.email}</small>}
-              </span>
-              <span>
-                <b>Ship to</b>
-                <small className="addressValue">{[order.customer?.houseNo, order.customer?.street, order.customer?.block, order.customer?.landmark, order.customer?.city].filter(Boolean).join(", ")}</small>
-              </span>
-              <span>
-                <b>Payment Method</b>
-                <small>{isFullAdvance ? "Full Advance — Free Delivery" : "COD — Rs. 250 Advance"}</small>
-              </span>
-              <span>
-                <b>Pay on Delivery</b>
-                <small>Rs. {payableOnDelivery.toLocaleString()}</small>
-              </span>
-            </div>
+            <ul className="confirmationBulletList">
+              <li>
+                <span className="bulletDot">•</span>
+                <div className="bulletContent">
+                  <strong>Contact:</strong> <span>{order.customer?.phone || "—"}{order.customer?.email ? ` · ${order.customer.email}` : ""}</span>
+                </div>
+              </li>
+              <li>
+                <span className="bulletDot">•</span>
+                <div className="bulletContent">
+                  <strong>Ship to:</strong> <span>{fullAddress || "—"}</span>
+                </div>
+              </li>
+              <li className="bulletTwoColRow">
+                <div className="bulletCol">
+                  <span className="bulletDot">•</span>
+                  <div className="bulletContent">
+                    <strong>Method:</strong> <span>{isFullAdvance ? "Full Advance — Free Delivery" : "COD — Rs. 250 Advance"}</span>
+                  </div>
+                </div>
+                <div className="bulletCol">
+                  <span className="bulletDot">•</span>
+                  <div className="bulletContent">
+                    <strong>Pay on delivery:</strong> <span>Rs. {payableOnDelivery.toLocaleString()}</span>
+                  </div>
+                </div>
+              </li>
+            </ul>
           </div>
 
           {/* --- Actions --- */}
