@@ -312,7 +312,7 @@ export default function Home({
                         />
                         <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
                         {product.badge && <span className="badge">{product.badge}</span>}
-                        {salePercent(product) > 0 && <span className="saleBadge">-{salePercent(product)}%</span>}
+                        {salePercent(product) > 0 && <span className="saleBadge">{salePercent(product)}% OFF</span>}
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
                       </div>
                       <div className="productInfo">

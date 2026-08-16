@@ -2665,6 +2665,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .footerBrand p { margin:0 0 8px; font-family:var(--font-display); color:#ffffff; font-size:21px; font-weight:600; line-height:1.1; }
 .footerBrand>span { display:block; max-width:330px; color:rgba(255,255,255,0.78); font-size:11px; line-height:1.6; }
 .footerTrustCopy { display:block; max-width:210px; color:rgba(255,255,255,.75); font-size:11px; line-height:1.55; }
+
 .copyright { position:relative; z-index:1; grid-column:1/-1; border-top:1px solid rgba(255,255,255,0.15); padding-top:15px; margin-top:16px; color:rgba(255,255,255,0.7); font-size:9px; text-transform:uppercase; letter-spacing:.09em; display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:20px; }
 .copyright p { margin:0; color:rgba(255,255,255,0.7); }
 .copyright>div { display:flex; gap:24px; }
@@ -8892,4 +8893,96 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .mariabGallery .mariabPhotoGrid {
     display:none;
   }
+}
+
+/* Sale-card layout: product photo and sale information deliberately sit on
+   separate surfaces, keeping the information as easy to scan as a catalogue. */
+.productCard:not(.productCard--connected) {
+  border:0;
+  border-radius:0;
+  overflow:visible;
+  background:transparent;
+  box-shadow:none;
+}
+.productCard:not(.productCard--connected):hover {
+  transform:none;
+  border-color:transparent;
+  box-shadow:none;
+}
+.productCard:not(.productCard--connected) .productImage {
+  aspect-ratio:.76;
+  border-radius:0;
+  background:#f4f1ea;
+}
+.productCard:not(.productCard--connected) .productImage img {
+  object-fit:cover;
+  object-position:center top;
+}
+.productCard:not(.productCard--connected) .badge {
+  display:none;
+}
+.productCard:not(.productCard--connected) .saleBadge {
+  top:0;
+  right:0;
+  left:auto;
+  z-index:5;
+  border:0;
+  border-radius:0;
+  padding:8px 9px;
+  background:#d71d29;
+  color:#fff;
+  box-shadow:none;
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.05em;
+}
+.productCard:not(.productCard--connected) .quickViewButton {
+  display:none;
+}
+.productCard:not(.productCard--connected) .productInfo {
+  min-height:104px;
+  margin-top:8px;
+  padding:13px 13px 14px;
+  gap:8px;
+  border:1px solid #ece8df;
+  border-radius:0;
+  background:#fff;
+  box-shadow:none;
+}
+.productCard:not(.productCard--connected) .productInfo p,
+.productCard:not(.productCard--connected) .colorSwatches {
+  display:none;
+}
+.productCard:not(.productCard--connected) .productInfo h3 {
+  min-height:0;
+  color:#1d2921;
+  font-family:var(--font-sans);
+  font-size:13px;
+  font-weight:600;
+  line-height:1.35;
+}
+.productCard:not(.productCard--connected) .productPrice {
+  margin-top:auto;
+  gap:8px;
+  min-height:18px;
+}
+.productCard:not(.productCard--connected) .productPrice span {
+  color:#c51a27;
+  font-size:12px;
+  font-weight:750;
+  letter-spacing:0;
+}
+.productCard:not(.productCard--connected) .productPrice del {
+  order:2;
+  color:#77736d;
+  font-size:10px;
+  font-weight:500;
+}
+@media (max-width:600px) {
+  .productCard:not(.productCard--connected) .productImage { aspect-ratio:.77; }
+  .productCard:not(.productCard--connected) .productInfo { min-height:98px; margin-top:6px; padding:10px 10px 11px; }
+  .productCard:not(.productCard--connected) .productInfo h3 { font-size:12px; }
+  .productCard:not(.productCard--connected) .productPrice span { font-size:11px; }
+  .productCard:not(.productCard--connected) .productPrice del { font-size:9px; }
+  .productCard:not(.productCard--connected) .saleBadge { padding:6px 7px; font-size:8px; }
 }
