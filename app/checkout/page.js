@@ -267,14 +267,24 @@ function OrderConfirmation({ order, items }) {
   const paymentDetails = order.paymentDetails || {};
   const isFullAdvance = normalizePaymentMethod(order.paymentMethod) === PAYMENT_METHODS.FULL_ADVANCE;
   const paymentAmount = Number(order.advanceAmount || 0);
-  const whatsappNumber = String(paymentDetails.whatsappNumber || "").replace(/\D/g, "");
-  const whatsappMessage = `Assalam-o-Alaikum, I have placed Order #${order.orderRef}. I selected ${isFullAdvance ? "Full Advance Payment" : "Cash on Delivery"} and transferred Rs. ${paymentAmount.toLocaleString()}. I am sending the payment screenshot for verification.`;
+  const payableOnDelivery = Number(order.payableOnDelivery || 0);
+  const whatsappNumber = String(paymentDetails.whatsappNumber || "923053530008").replace(/\D/g, "");
+
+  // Formatted items summary for WhatsApp message
+  const itemsText = items
+    .map((item) => `• ${item.name}${item.size ? ` (Size: ${item.size})` : ""}${item.color ? ` (${item.color})` : ""} x${item.quantity} — Rs. ${(item.price * item.quantity).toLocaleString()}`)
+    .join("\n");
+
+  // Complete pre-filled WhatsApp message with full order summary
+  const whatsappMessage = `Assalam-o-Alaikum Bustaniya! 🌸\nI want to confirm my Order #${order.orderRef}.\n\n👤 *Customer Details:*\n- Name: ${order.customer?.fullName || "Valued Customer"}\n- Phone: ${order.customer?.phone || ""}\n- Address: ${order.customer?.address || ""}, ${order.customer?.city || ""}\n\n📦 *Order Summary:*\n${itemsText}\n\n💰 *Payment Details:*\n- Method: ${isFullAdvance ? "Full Advance Payment (Free Delivery)" : "COD (Delivery charges advance)"}\n- Total Order Value: Rs. ${Number(order.total || 0).toLocaleString()}\n- Advance Amount Required: Rs. ${paymentAmount.toLocaleString()}\n- Pay on Delivery: Rs. ${payableOnDelivery.toLocaleString()}\n\nPlease confirm my order and prepare for dispatch!`;
+
   const whatsappHref = whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}` : "";
+
   return (
     <main className="checkoutPage">
       <header className="checkoutHeader">
         <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
-        <span><Lock size={14} /> Order confirmed</span>
+        <span><Lock size={14} /> Order Submitted</span>
       </header>
       <section className="orderSuccess shopifySuccess">
         <div className="confirmationPanel">
@@ -282,17 +292,39 @@ function OrderConfirmation({ order, items }) {
           <div className="confirmationHero">
             <span className="successMark"><CheckCircle2 /></span>
             <div>
-              <p className="eyebrow">ORDER {order.orderRef}</p>
+              <p className="eyebrow">ORDER #{order.orderRef}</p>
               <h1>Thank you, {order.customer?.fullName || "there"}!</h1>
-              <p>Your order is saved. Transfer <b>Rs.&nbsp;{paymentAmount.toLocaleString()}</b> and send the screenshot on WhatsApp to confirm.</p>
+              <p>Your order is placed. Tap the button below to send your order summary to our WhatsApp team for instant confirmation.</p>
             </div>
           </div>
 
+          {/* --- Main WhatsApp Confirmation Card --- */}
+          {whatsappHref && (
+            <div className="confirmationCard whatsappConfirmMainCard">
+              <div className="whatsappConfirmHeader">
+                <span className="whatsappBadgeIcon">💬</span>
+                <div>
+                  <h2>Confirm Order via WhatsApp</h2>
+                  <p>Send your order summary with 1-click to confirm your booking and get dispatch updates.</p>
+                </div>
+              </div>
+              <a className="whatsappPrimaryConfirmBtn" href={whatsappHref} target="_blank" rel="noreferrer">
+                📲 Send Order Summary on WhatsApp
+              </a>
+            </div>
+          )}
+
           {/* --- Payment transfer card --- */}
           <div className="confirmationCard paymentVerificationCard">
-            <h2>{isFullAdvance ? "Transfer full payment" : "Transfer delivery charges"}</h2>
-            <div className="bankPaymentDetails">{paymentDetails.bankName && <span><b>Bank / wallet</b>{paymentDetails.bankName}</span>}{paymentDetails.bankTitle && <span><b>Account title</b>{paymentDetails.bankTitle}</span>}{paymentDetails.bankAccountNumber && <span><b>Account no.</b>{paymentDetails.bankAccountNumber}</span>}{paymentDetails.bankIban && <span><b>IBAN</b>{paymentDetails.bankIban}</span>}<span><b>Amount</b>Rs. {paymentAmount.toLocaleString()}</span></div>
-            {whatsappHref && <a className="whatsappPaymentButton" href={whatsappHref} target="_blank" rel="noreferrer">Send Screenshot on WhatsApp</a>}
+            <h2>{isFullAdvance ? "Payment Transfer Details" : "Delivery Charges Transfer"}</h2>
+            <p>Please transfer <b>Rs. {paymentAmount.toLocaleString()}</b> to confirm your order:</p>
+            <div className="bankPaymentDetails">
+              {paymentDetails.bankName && <span><b>Bank / Wallet</b>{paymentDetails.bankName}</span>}
+              {paymentDetails.bankTitle && <span><b>Account Title</b>{paymentDetails.bankTitle}</span>}
+              {paymentDetails.bankAccountNumber && <span><b>Account No.</b>{paymentDetails.bankAccountNumber}</span>}
+              {paymentDetails.bankIban && <span><b>IBAN</b>{paymentDetails.bankIban}</span>}
+              <span><b>Required Advance</b>Rs. {paymentAmount.toLocaleString()}</span>
+            </div>
           </div>
 
           {/* --- Compact info --- */}
@@ -301,14 +333,14 @@ function OrderConfirmation({ order, items }) {
               <span><b>Contact</b>{order.customer?.phone}{order.customer?.email ? ` · ${order.customer.email}` : ""}</span>
               <span><b>Ship to</b>{order.customer?.address}, {order.customer?.city}</span>
               <span><b>Method</b>{isFullAdvance ? "Full Advance — Free Delivery" : "COD — advance delivery charges"}</span>
-              <span><b>Pay on delivery</b>Rs. {Number(order.payableOnDelivery || 0).toLocaleString()}</span>
+              <span><b>Pay on delivery</b>Rs. {payableOnDelivery.toLocaleString()}</span>
             </div>
           </div>
 
           {/* --- Actions --- */}
           <div className="confirmationActions">
             <a className="primaryButton" href="/">Continue shopping</a>
-            {whatsappHref && <a className="secondaryButton" href={whatsappHref} target="_blank" rel="noreferrer">WhatsApp payment proof</a>}
+            {whatsappHref && <a className="secondaryButton" href={whatsappHref} target="_blank" rel="noreferrer">WhatsApp Support</a>}
           </div>
         </div>
 

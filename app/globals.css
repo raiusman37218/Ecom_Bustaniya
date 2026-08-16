@@ -10082,6 +10082,57 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   transform: translateY(-1px);
 }
 
+/* --- WhatsApp Primary Confirmation Card --- */
+.whatsappConfirmMainCard {
+  border: 2px solid #25d366 !important;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%) !important;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.12) !important;
+}
+.whatsappConfirmHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.whatsappBadgeIcon {
+  font-size: 26px;
+  line-height: 1;
+}
+.whatsappConfirmHeader h2 {
+  margin: 0 0 4px !important;
+  color: #14532d !important;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+}
+.whatsappConfirmHeader p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.whatsappPrimaryConfirmBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 20px;
+  border-radius: var(--ck-radius);
+  background: #25d366;
+  color: #ffffff !important;
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.28);
+  transition: all 0.18s ease;
+}
+.whatsappPrimaryConfirmBtn:hover {
+  background: #1fba5a;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(37, 211, 102, 0.36);
+}
+
 .confirmationGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .confirmationCard h2 {
   margin: 0 0 14px;
