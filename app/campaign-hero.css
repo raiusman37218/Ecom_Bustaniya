@@ -105,8 +105,16 @@
 @media (max-width:767px) {
   /* Compact mobile banner: retain the campaign treatment in 75% of the prior vertical space. */
   .campaignHero { height:clamp(21.75rem,56svh,28.5rem); min-height:21.75rem; max-height:28.5rem; }
-  .campaignHeroMedia img { object-position:center center; }
-  .campaignHeroOverlay { opacity:max(.5,var(--campaign-overlay)); background:linear-gradient(180deg,transparent 20%,var(--campaign-overlay-color,#173d29) 100%); }
+  /* Mobile artwork must render exactly as uploaded, without a forced tint. */
+  .campaignHeroMedia img {
+    object-position:center center;
+    filter:none !important;
+  }
+  .campaignHeroOverlay {
+    display:none !important;
+    opacity:0 !important;
+    background:none !important;
+  }
   .campaignHeroDesktopOnly { display:none!important; }
   .campaignHeroMobileOnly { display:block!important; }
   .campaignHeroActions .campaignHeroMobileOnly { display:inline-flex!important; }
