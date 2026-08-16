@@ -9125,7 +9125,54 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   }
   .productPurchase details summary::after { content:"+"; font-size:18px; font-weight:400; line-height:1; }
   .productPurchase details[open] summary::after { content:"−"; }
-  .productPurchase details#size-guide { display:none; }
+  .productPurchase details#size-guide {
+    display:block;
+    margin-top:24px;
+    padding:0;
+    overflow:visible;
+    border:0;
+  }
+  .productPurchase details#size-guide summary {
+    min-height:52px;
+    padding:0 16px;
+    border-radius:9px;
+    background:#173d29;
+    color:#fff;
+    font-size:10px;
+  }
+  .productPurchase details#size-guide[open] summary { border-radius:9px 9px 0 0; }
+  .productPurchase details#size-guide[open] > p,
+  .productPurchase details#size-guide[open] > .sizeChartTableWrap {
+    margin:0;
+    padding:14px 16px;
+    background:#edf4e9;
+  }
+  .productPurchase details#size-guide[open] > p { padding-bottom:0; color:#4e6054; font-size:11px; }
+  .productPurchase details#size-guide[open] > .sizeChartTableWrap {
+    padding-top:12px;
+    border-radius:0 0 9px 9px;
+  }
+  .productPurchase .productDetailsAccordion {
+    margin-top:12px;
+    padding:0;
+    overflow:visible;
+    border:0;
+  }
+  .productPurchase .productDetailsAccordion summary {
+    min-height:52px;
+    padding:0 16px;
+    border:1px solid #dce4db;
+    border-radius:9px;
+    background:#fffefb;
+  }
+  .productPurchase .productDetailsAccordion[open] summary { border-radius:9px 9px 0 0; }
+  .productDetailsAccordionBody {
+    padding:16px;
+    border:1px solid #dce4db;
+    border-top:0;
+    border-radius:0 0 9px 9px;
+    background:#edf4e9;
+  }
   /* Related products stay two-up even on 320px screens. */
   .relatedProducts .productGrid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 10px; }
 }

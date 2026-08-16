@@ -276,15 +276,17 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             <div><Truck /><span><b>Delivery</b>Calculated at checkout</span></div>
             <div><ShieldCheck /><span><b>Exchange support</b>7-day easy exchange</span></div>
           </div>
-          <details>
-            <summary>Product details</summary>
-            <StructuredProductDetails value={productDetails} />
-            <small className="productDetailsNote">Colours may vary slightly due to camera lighting and screen settings.</small>
-          </details>
           <details id="size-guide">
             <summary>Size guide &amp; measurements</summary>
             <p style={{ marginBottom: "10px" }}>Standard ready-to-wear stitched garment measurements in inches:</p>
             <SizeTable />
+          </details>
+          <details className="productDetailsAccordion">
+            <summary>Product details</summary>
+            <div className="productDetailsAccordionBody">
+              <StructuredProductDetails value={productDetails} />
+              <small className="productDetailsNote">Colours may vary slightly due to camera lighting and screen settings.</small>
+            </div>
           </details>
         </section>
       </div>
