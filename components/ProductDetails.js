@@ -278,7 +278,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           </div>
           <details id="size-guide" open>
             <summary>Size guide &amp; measurements</summary>
-            <p style={{ marginBottom: "10px" }}>Standard ready-to-wear stitched garment measurements in inches:</p>
+            <p className="sizeChartInlineTitle">Size Chart (Inches)</p>
             <SizeTable />
           </details>
           <details className="productDetailsAccordion" open>

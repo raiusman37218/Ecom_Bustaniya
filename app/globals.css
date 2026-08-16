@@ -9012,7 +9012,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .productPurchase .eyebrow { display:none; }
   .productPurchase h1 {
     margin:0 0 14px;
-    color:#3c0f24;
+    color:#4b151d;
     font-size:clamp(32px,10vw,38px);
     line-height:1.02;
     letter-spacing:-.02em;
@@ -9024,20 +9024,20 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     font-weight:750;
   }
   .taxNote {
-    margin:7px 0 0;
-    color:#6d746d;
-    font-size:10px;
-    line-height:1.45;
+    display:none;
   }
   .selectorHeading {
     align-items:center;
     margin:24px 0 14px;
     padding-top:20px;
     border-top:1px solid #e3e1dc;
-    color:#25382b;
-    font-size:11px;
+    color:#34151a;
+    font-size:12px;
+    letter-spacing:0;
+    text-transform:none;
   }
   .sizeGuidePillBtn {
+    display:none;
     gap:5px;
     padding:0;
     border:0;
@@ -9059,12 +9059,13 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     min-width:0;
     min-height:46px;
     padding:0 8px;
-    border:1px solid #d7d8d2;
-    border-radius:9px;
+    border:0;
+    border-radius:12px;
+    background:#fff;
     box-shadow:none;
     font-size:13px;
   }
-  .sizeOptions button.selected { box-shadow:none; }
+  .sizeOptions button.selected { background:#050505; color:#fff; box-shadow:none; }
   .purchaseControls {
     display:grid;
     grid-template-columns:106px minmax(0,1fr);
@@ -9078,8 +9079,8 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     width:100%;
     min-height:52px;
     margin:0;
-    border-color:#d7d8d2;
-    border-radius:9px;
+    border-color:#1d1d1b;
+    border-radius:12px;
   }
   .productQuantity button { width:33%; }
   .purchaseControls .productActions {
@@ -9090,7 +9091,8 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     width:100%;
     min-height:52px;
     height:52px;
-    border-radius:9px;
+    border-radius:12px;
+    background:#050505;
     box-shadow:none;
     font-size:10px;
   }
@@ -9099,18 +9101,14 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     min-height:52px;
     margin-top:8px;
     border:0;
-    border-radius:9px;
-    background:#1d1d1b;
+    border-radius:12px;
+    background:#050505;
     color:#fff;
     box-shadow:none;
     font-size:10px;
   }
   .disabledBuy { border:0; background:#dedfdb; color:#697067; }
-  .productPromises {
-    gap:14px;
-    margin:26px 0 0;
-    padding:20px 0;
-  }
+  .productPromises { display:none; }
   .productPurchase details {
     padding:16px 0;
     font-size:12px;
@@ -9127,7 +9125,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .productPurchase details[open] summary::after { content:"−"; }
   .productPurchase details#size-guide {
     display:block;
-    margin-top:24px;
+    margin-top:22px;
     padding:0;
     overflow:visible;
     border:0;
@@ -9142,7 +9140,15 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     padding:0;
     background:#edf4e9;
   }
-  .productPurchase details#size-guide > p { display:none; }
+  .productPurchase details#size-guide > .sizeChartInlineTitle {
+    display:block;
+    padding:14px 14px 8px;
+    background:#050505;
+    color:#fff;
+    font-size:11px;
+    font-weight:800;
+    line-height:1.2;
+  }
   .productPurchase details#size-guide > .sizeChartTableWrap {
     overflow:hidden;
     border:0;
@@ -9153,19 +9159,19 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     width:100%;
     min-width:0;
     table-layout:fixed;
-    font-size:7px;
+    font-size:8px;
     background:#111;
   }
   .productPurchase details#size-guide .sizeChartTable th,
   .productPurchase details#size-guide .sizeChartTable td {
-    padding:7px 2px;
+    padding:8px 3px;
     border:0;
     background:#111;
     color:#fff;
     white-space:normal;
     line-height:1.25;
   }
-  .productPurchase details#size-guide .sizeChartTable th { font-size:6px; font-weight:800; }
+  .productPurchase details#size-guide .sizeChartTable th { font-size:7px; font-weight:800; }
   .productPurchase details#size-guide .sizeChartTable th:nth-child(5),
   .productPurchase details#size-guide .sizeChartTable td:nth-child(5),
   .productPurchase details#size-guide .sizeChartTable th:nth-child(7),
@@ -9176,11 +9182,11 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     border-radius:0;
     background:transparent;
     color:#fff;
-    font-size:7px;
+    font-size:8px;
   }
   .productPurchase .productDetailsAccordion {
     margin:0;
-    padding:14px 12px 18px;
+    padding:20px 12px 8px;
     overflow:visible;
     border:0;
     background:#edf4e9;
@@ -9193,6 +9199,20 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     border:0;
     background:transparent;
   }
+  .productDetailsAccordion .structuredProductDetails { gap:6px; }
+  .productDetailsAccordion .structuredProductDetails h3 {
+    margin:0 0 4px;
+    color:#4b151d;
+    font-size:13px;
+  }
+  .productDetailsAccordion .structuredProductDetails p,
+  .productDetailsAccordion .structuredProductDetails ul {
+    color:#3a2425;
+    font-size:11px;
+    line-height:1.55;
+  }
+  .productDetailsAccordion .structuredProductDetails ul { gap:3px; }
+  .productDetailsAccordion .productDetailsNote { display:none; }
   /* Related products stay two-up even on 320px screens. */
   .relatedProducts .productGrid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 10px; }
 }
