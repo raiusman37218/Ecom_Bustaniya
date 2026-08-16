@@ -8942,12 +8942,13 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .productCard:not(.productCard--connected) .productInfo {
   min-height:104px;
   margin-top:8px;
-  padding:13px 13px 14px;
+  padding:4px 1px 10px;
   gap:8px;
-  border:1px solid #ece8df;
+  border:0;
   border-radius:0;
-  background:#fff;
+  background:transparent;
   box-shadow:none;
+  text-align:left;
 }
 .productCard:not(.productCard--connected) .productInfo p,
 .productCard:not(.productCard--connected) .colorSwatches {
@@ -8963,8 +8964,14 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 }
 .productCard:not(.productCard--connected) .productPrice {
   margin-top:auto;
+  display:flex;
+  flex-direction:row;
+  flex-wrap:wrap;
+  align-items:baseline;
+  justify-content:flex-start;
   gap:8px;
   min-height:18px;
+  text-align:left;
 }
 .productCard:not(.productCard--connected) .productPrice span {
   color:#c51a27;
@@ -8980,7 +8987,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 }
 @media (max-width:600px) {
   .productCard:not(.productCard--connected) .productImage { aspect-ratio:.77; }
-  .productCard:not(.productCard--connected) .productInfo { min-height:98px; margin-top:6px; padding:10px 10px 11px; }
+  .productCard:not(.productCard--connected) .productInfo { min-height:78px; margin-top:7px; padding:3px 1px 9px; }
   .productCard:not(.productCard--connected) .productInfo h3 { font-size:12px; }
   .productCard:not(.productCard--connected) .productPrice span { font-size:11px; }
   .productCard:not(.productCard--connected) .productPrice del { font-size:9px; }
