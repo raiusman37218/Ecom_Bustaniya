@@ -584,7 +584,7 @@ export default function Home({
           <button className="shopMoreButton" onClick={() => setCartOpen(false)}>Shop more</button>
         </div>}
       </aside>
-      <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} />
+      <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} chartData={quickViewProduct?.sizeChart || storeSettings?.sizeChartSettings} />
     </>
   );
 }

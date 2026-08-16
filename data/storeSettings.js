@@ -185,6 +185,17 @@ export const DEFAULT_STORE_SETTINGS = {
     fulfillmentUpdateEnabled: true,
     codVerificationReminderEnabled: true,
   },
+  shippingZones: [
+    { id: "pakistan-standard", zone: "Pakistan - Standard", cities: "All PostEx service cities", rate: 200, freeAbove: 5000 },
+    { id: "lahore-same-day", zone: "Lahore same-day", cities: "Lahore", rate: 250, freeAbove: 8000 },
+  ],
+  notificationSettings: {
+    orderConfirmationEnabled: true,
+    orderConfirmationSubject: "Your Bustaniya order is confirmed",
+    orderConfirmationTemplate: "Hi {{customer_name}},\n\nYour order {{order_number}} has been confirmed. Tracking: {{tracking_number}}.\n\nThank you,\nBustaniya",
+    fulfillmentUpdateEnabled: true,
+    codVerificationReminderEnabled: true,
+  },
   domainSettings: {
     primaryDomain: "bustaniya.com",
     wwwRedirect: true,
@@ -197,6 +208,18 @@ export const DEFAULT_STORE_SETTINGS = {
     defaultPayment: "cod",
     addressMode: "detailed",
     checkoutNote: "COD orders may receive a confirmation call before dispatch.",
+  },
+  sizeChartSettings: {
+    title: "Bustaniya Size Guide",
+    subtitle: "Standard Ready-to-Wear Measurements (Inches)",
+    advice: "💡 Fit Advice: Measurements shown are for ready stitched garments in inches. For a loose/relaxed fit or if you are between two sizes, we recommend selecting the larger size.",
+    columns: ["Size", "Chest", "Shoulder", "Waist", "Hips", "Shirt Length", "Trouser"],
+    rows: [
+      { size: "Small (S)", chest: '19"', shoulder: '14"', waist: '18"', hips: '20"', length: '38" – 40"', trouser: '37"' },
+      { size: "Medium (M)", chest: '20.5"', shoulder: '14.5"', waist: '19.5"', hips: '21.5"', length: '39" – 41"', trouser: '38"' },
+      { size: "Large (L)", chest: '22"', shoulder: '15"', waist: '21"', hips: '23"', length: '40" – 42"', trouser: '39"' },
+      { size: "X-Large (XL)", chest: '24"', shoulder: '16"', waist: '23"', hips: '25"', length: '41" – 43"', trouser: '40"' }
+    ]
   },
   homepageSections: DEFAULT_HOMEPAGE_SECTIONS,
 };

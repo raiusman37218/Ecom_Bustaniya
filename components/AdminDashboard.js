@@ -5567,10 +5567,10 @@ function SettingsPanel({ onOpen, signedInUser }) {
     { zone: "Lahore same-day", cities: "Lahore", rate: "Rs. 250", freeAbove: "Rs. 8,000" },
   ]);
   const canManageUsers = canUseAdminArea(signedInUser, "users");
-  const tabs = ["Store", "Sections", "Theme", "Payments", "Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications", "Domains", "Checkout", "System"];
+  const tabs = ["Store", "Sections", "SizeChart", "Payments", "Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications", "Domains", "Checkout", "System"];
 
   useEffect(() => {
-    if (["Store", "Sections", "Theme", "Payments", "Shipping", "Notifications", "Domains", "Checkout"].includes(activeTab)) {
+    if (["Store", "Sections", "SizeChart", "Payments", "Shipping", "Notifications", "Domains", "Checkout"].includes(activeTab)) {
       loadStoreSettings();
     }
     if (activeTab === "Users") loadAdminUsers();
@@ -6175,6 +6175,194 @@ function SettingsPanel({ onOpen, signedInUser }) {
           <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save domain settings"}</button>
         </form>}
 
+        {activeTab === "SizeChart" && (
+          <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
+            <h2>Size chart settings</h2>
+            <p style={{ color: "#6b7280", fontSize: "13px", margin: "0 0 20px" }}>
+              Customize the size guide modal title, fit advice and measurement values shown across product pages and quick view.
+            </p>
+
+            {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
+
+            <div className="formRow">
+              <label>
+                Size guide title
+                <input
+                  value={storeSettings.sizeChartSettings?.title || "Bustaniya Size Guide"}
+                  onChange={(event) => updateSettingsGroup("sizeChartSettings", { title: event.target.value })}
+                  placeholder="e.g. Bustaniya Size Guide"
+                />
+              </label>
+              <label>
+                Subtitle note
+                <input
+                  value={storeSettings.sizeChartSettings?.subtitle || "Standard Ready-to-Wear Measurements (Inches)"}
+                  onChange={(event) => updateSettingsGroup("sizeChartSettings", { subtitle: event.target.value })}
+                  placeholder="e.g. Standard Ready-to-Wear Measurements (Inches)"
+                />
+              </label>
+            </div>
+
+            <label>
+              Fit advice text
+              <textarea
+                rows="2"
+                value={storeSettings.sizeChartSettings?.advice || ""}
+                onChange={(event) => updateSettingsGroup("sizeChartSettings", { advice: event.target.value })}
+                placeholder="Fit advice text shown under measurement table..."
+              />
+            </label>
+
+            <div className="sizeChartManager" style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
+              <div className="inventoryListHead" style={{ marginBottom: "16px" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>Size Measurement Rows</h3>
+                  <span style={{ fontSize: "12px", color: "#6b7280" }}>
+                    Add, edit or remove sizes and measurements in inches
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentRows = storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows;
+                    const nextRows = [
+                      ...currentRows,
+                      { size: "Custom Size", chest: '20"', shoulder: '14.5"', waist: '19"', hips: '21"', length: '39"', trouser: '38"' },
+                    ];
+                    updateSettingsGroup("sizeChartSettings", { rows: nextRows });
+                  }}
+                >
+                  <Plus size={14} /> Add size row
+                </button>
+              </div>
+
+              <div className="adminTableWrap" style={{ overflowX: "auto" }}>
+                <table className="adminTable" style={{ width: "100%", fontSize: "13px" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", padding: "10px" }}>Size Tag</th>
+                      <th style={{ textAlign: "left", padding: "10px" }}>Chest</th>
+                      <th style={{ textAlign: "left", padding: "10px" }}>Shoulder</th>
+                      <th style={{ textAlign: "left", padding: "10px" }}>Waist</th>
+                      <th style={{ textAlign: "left", padding: "10px" }}>Hips</th>
+                      <th style={{ textAlign: "left", padding: "10px" }}>Shirt Length</th>
+                      <th style={{ textAlign: "left", padding: "10px" }}>Trouser</th>
+                      <th style={{ textAlign: "center", padding: "10px", width: "50px" }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows).map((row, rIdx) => (
+                      <tr key={rIdx} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                        <td style={{ padding: "8px" }}>
+                          <input
+                            style={{ width: "120px", fontWeight: 700, padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
+                            value={row.size || ""}
+                            onChange={(event) => {
+                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
+                              rows[rIdx] = { ...rows[rIdx], size: event.target.value };
+                              updateSettingsGroup("sizeChartSettings", { rows });
+                            }}
+                            placeholder="Small (S)"
+                          />
+                        </td>
+                        <td style={{ padding: "8px" }}>
+                          <input
+                            style={{ width: "70px", padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
+                            value={row.chest || ""}
+                            onChange={(event) => {
+                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
+                              rows[rIdx] = { ...rows[rIdx], chest: event.target.value };
+                              updateSettingsGroup("sizeChartSettings", { rows });
+                            }}
+                            placeholder='19"'
+                          />
+                        </td>
+                        <td style={{ padding: "8px" }}>
+                          <input
+                            style={{ width: "70px", padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
+                            value={row.shoulder || ""}
+                            onChange={(event) => {
+                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
+                              rows[rIdx] = { ...rows[rIdx], shoulder: event.target.value };
+                              updateSettingsGroup("sizeChartSettings", { rows });
+                            }}
+                            placeholder='14"'
+                          />
+                        </td>
+                        <td style={{ padding: "8px" }}>
+                          <input
+                            style={{ width: "70px", padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
+                            value={row.waist || ""}
+                            onChange={(event) => {
+                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
+                              rows[rIdx] = { ...rows[rIdx], waist: event.target.value };
+                              updateSettingsGroup("sizeChartSettings", { rows });
+                            }}
+                            placeholder='18"'
+                          />
+                        </td>
+                        <td style={{ padding: "8px" }}>
+                          <input
+                            style={{ width: "70px", padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
+                            value={row.hips || ""}
+                            onChange={(event) => {
+                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
+                              rows[rIdx] = { ...rows[rIdx], hips: event.target.value };
+                              updateSettingsGroup("sizeChartSettings", { rows });
+                            }}
+                            placeholder='20"'
+                          />
+                        </td>
+                        <td style={{ padding: "8px" }}>
+                          <input
+                            style={{ width: "95px", padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
+                            value={row.length || ""}
+                            onChange={(event) => {
+                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
+                              rows[rIdx] = { ...rows[rIdx], length: event.target.value };
+                              updateSettingsGroup("sizeChartSettings", { rows });
+                            }}
+                            placeholder='38" – 40"'
+                          />
+                        </td>
+                        <td style={{ padding: "8px" }}>
+                          <input
+                            style={{ width: "70px", padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
+                            value={row.trouser || ""}
+                            onChange={(event) => {
+                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
+                              rows[rIdx] = { ...rows[rIdx], trouser: event.target.value };
+                              updateSettingsGroup("sizeChartSettings", { rows });
+                            }}
+                            placeholder='37"'
+                          />
+                        </td>
+                        <td style={{ padding: "8px", textAlign: "center" }}>
+                          <button
+                            type="button"
+                            className="sectionRemoveBtn"
+                            title="Remove row"
+                            onClick={() => {
+                              const rows = (storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows).filter((_, i) => i !== rIdx);
+                              updateSettingsGroup("sizeChartSettings", { rows });
+                            }}
+                          >
+                            <X size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <button disabled={storeSettingsLoading} style={{ marginTop: "20px" }}>
+              {storeSettingsLoading ? "Saving..." : "Save size chart settings"}
+            </button>
+          </form>
+        )}
+
         {activeTab === "Checkout" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
           <h2>Checkout settings</h2>
           <div className="settingsOption"><div><b>Guest checkout</b><span>Let Instagram and walk-in customers order without accounts.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.checkoutSettings?.guestCheckoutEnabled !== false} onChange={(event) => updateSettingsGroup("checkoutSettings", { guestCheckoutEnabled: event.target.checked })} /> Enabled</label></div>
@@ -6194,6 +6382,7 @@ function settingsTabHint(tab) {
   return {
     Store: "Details",
     Sections: "Page builder",
+    SizeChart: "Measurements",
     Payments: "COD, bank",
     Shipping: "Zones, rates",
     Users: "Staff access",
