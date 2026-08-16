@@ -9664,20 +9664,33 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .checkoutForm .bankPaymentDetails span,
 .paymentVerificationCard .bankPaymentDetails span {
   display: grid;
-  grid-template-columns: 110px 1fr;
+  grid-template-columns: 140px minmax(0, 1fr);
   gap: 8px;
+  align-items: baseline;
   padding: 0;
   border: 0;
-  color: #555;
+  color: #374151;
   font-size: 13px;
 }
 .checkoutForm .bankPaymentDetails b,
 .paymentVerificationCard .bankPaymentDetails b {
-  color: var(--ck-text);
-  font-weight: 700;
-  font-size: 13px;
+  color: #6b7280;
+  font-weight: 600;
+  font-size: 12px;
   text-transform: none;
   letter-spacing: 0;
+  white-space: nowrap;
+}
+.checkoutForm .bankPaymentDetails small,
+.paymentVerificationCard .bankPaymentDetails small {
+  color: #111827;
+  font-weight: 600;
+  font-size: 13px;
+  word-break: break-word;
+}
+.paymentVerificationCard .requiredTransferRow small {
+  color: #166534;
+  font-weight: 700;
 }
 
 /* --- Payment breakdown grid --------------------------------------- */
@@ -9967,22 +9980,28 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   align-items: start;
 }
 .successMark {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
   margin: 0;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .confirmationHero .successMark {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
   margin: 0;
   background: var(--ck-accent-light);
   color: var(--ck-accent);
-  border: 2px solid #c8dcc8;
+  border: 1px solid #c8dcc8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.confirmationHero .successMark svg { width: 24px; height: 24px; }
+.confirmationHero .successMark svg { width: 22px; height: 22px; }
 .eyebrow,
 .confirmationHero .eyebrow {
   margin: 0;
@@ -9995,8 +10014,8 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .confirmationHero h1 {
   margin: 4px 0 8px;
   font-family: var(--font-sans);
-  font-size: clamp(26px, 3.5vw, 38px);
-  line-height: 1.1;
+  font-size: clamp(24px, 3.2vw, 36px);
+  line-height: 1.15;
   font-weight: 800;
   letter-spacing: -.025em;
   color: var(--ck-text);
@@ -10010,9 +10029,9 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 }
 
 .confirmationCard {
-  border: 1px solid #e0e0e0;
-  border-radius: 10px;
-  padding: 22px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0,0,0,.03);
 }
@@ -10043,55 +10062,21 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .paymentVerificationCard h2 {
   margin: 0 0 12px;
   font-family: var(--font-sans);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 800;
   color: var(--ck-text);
-}
-.paymentVerificationWorkspace { border-color: #c8decf; background: linear-gradient(145deg,#fffefa,#f7fcf7); }
-.paymentVerificationWorkspace .orderActionRow .dangerButton { background: #b52b4b; }
-
-.paymentScreenshotSteps {
-  margin: 14px 0;
-  padding: 14px 14px 14px 28px;
-  border-left: 3px solid var(--ck-accent);
-  border-radius: 0 6px 6px 0;
-  background: #f5f8f5;
-  color: #444;
-  font-size: 13px;
-  line-height: 1.7;
-}
-.paymentScreenshotSteps li + li { margin-top: 4px; }
-
-.whatsappPaymentButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  margin-top: 14px;
-  padding: 0 22px;
-  border-radius: var(--ck-radius);
-  background: #25d366;
-  color: #fff !important;
-  font-size: 13px;
-  font-weight: 700;
-  text-decoration: none;
-  transition: background .18s ease, transform .12s ease;
-}
-.whatsappPaymentButton:hover {
-  background: #1fba5a;
-  transform: translateY(-1px);
 }
 
 /* Step badges for confirmation cards */
 .stepHeader {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 12px;
 }
 .stepHeader h2 {
-  margin: 0 0 4px !important;
-  font-size: 17px !important;
+  margin: 0 0 2px !important;
+  font-size: 16px !important;
   font-weight: 800 !important;
 }
 .stepHeader p {
@@ -10104,124 +10089,128 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
   border-radius: 50%;
   background: var(--ck-accent);
   color: #ffffff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   flex: 0 0 auto;
 }
 .step2Number {
-  background: #25d366 !important;
+  background: #16a34a !important;
 }
 
 /* --- WhatsApp Primary Confirmation Card --- */
 .whatsappConfirmMainCard {
-  border: 2px solid #25d366 !important;
-  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%) !important;
+  border: 1px solid #bbf7d0 !important;
+  background: #f0fdf4 !important;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.12) !important;
+  gap: 14px;
+  box-shadow: none !important;
+  border-radius: 8px !important;
+  padding: 18px !important;
 }
 .whatsappConfirmHeader {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
 }
 .whatsappBadgeIcon {
-  font-size: 26px;
+  font-size: 24px;
   line-height: 1;
 }
 .whatsappConfirmHeader h2 {
-  margin: 0 0 4px !important;
+  margin: 0 0 3px !important;
   color: #14532d !important;
-  font-size: 17px !important;
+  font-size: 16px !important;
   font-weight: 800 !important;
 }
 .whatsappConfirmHeader p {
   margin: 0;
-  color: #4b5563;
+  color: #374151;
   font-size: 13px;
   line-height: 1.45;
 }
 .whatsappPrimaryConfirmBtn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 52px;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 42px;
   padding: 0 20px;
-  border-radius: var(--ck-radius);
-  background: #25d366;
+  border-radius: 6px;
+  background: #16a34a;
   color: #ffffff !important;
-  font-size: 15px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
   text-decoration: none;
-  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.28);
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.2);
   transition: all 0.18s ease;
 }
 .whatsappPrimaryConfirmBtn:hover {
-  background: #1fba5a;
+  background: #15803d;
+  box-shadow: 0 4px 10px rgba(22, 163, 74, 0.3);
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(37, 211, 102, 0.36);
 }
 
-.confirmationGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.confirmationCard h2 {
-  margin: 0 0 14px;
-  font-family: var(--font-sans);
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--ck-text);
+/* Compact info card — clean grid with proper cell containment */
+.confirmationInfoCard {
+  padding: 0 !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  overflow: hidden;
 }
-.confirmationCard span {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--ck-border-light);
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  color: #666;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.confirmationCard span:last-child { border-bottom: 0; padding-bottom: 0; }
-.confirmationCard span b {
-  color: var(--ck-muted);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .07em;
-}
-
-/* Compact info card — replaces old two-card confirmationGrid */
-.confirmationInfoCard { padding: 0; }
 .confirmationInfoGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0;
 }
 .confirmationInfoGrid > span {
+  min-width: 0; /* CRITICAL FIX: prevents text overflow across columns */
   padding: 14px 16px;
-  border-bottom: 1px solid var(--ck-border-light);
-  border-right: 1px solid var(--ck-border-light);
+  border-bottom: 1px solid #f3f4f6;
+  border-right: 1px solid #f3f4f6;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  color: #555;
-  font-size: 13px;
-  line-height: 1.45;
+  overflow: hidden;
 }
-.confirmationInfoGrid > span:nth-child(even) { border-right: 0; }
-.confirmationInfoGrid > span:nth-last-child(-n+2) { border-bottom: 0; }
+.confirmationInfoGrid > span:nth-child(even) {
+  border-right: 0;
+}
+.confirmationInfoGrid > span:nth-last-child(-n+2) {
+  border-bottom: 0;
+}
 .confirmationInfoGrid > span b {
-  color: var(--ck-muted);
-  font-size: 10px;
+  color: #6b7280;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .06em;
+  letter-spacing: .05em;
+  margin-bottom: 2px;
+}
+.confirmationInfoGrid > span small {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.45;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.confirmationInfoGrid .emailValue {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 400;
 }
 
 
