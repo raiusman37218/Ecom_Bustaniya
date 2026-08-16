@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CheckCircle2, ChevronDown, Lock, Search, ShoppingBag, Truck } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, Lock, MessageCircle, Search, ShoppingBag, Truck } from "lucide-react";
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
@@ -422,6 +422,7 @@ export default function CheckoutPage() {
             {error && <p className="checkoutError" role="alert">{error}</p>}
             <div className="checkoutSubmitBar"><div><span>Total</span><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div><button className="placeOrder" type="submit" disabled={!cart.length || submitting}>{submitting ? "Placing order..." : "Complete order"}</button></div>
             <p className="checkoutPrivacy"><Lock size={13} /> Your information is used only to process this order securely.</p>
+            <p className="checkoutInlineHelp">Need help? <a href={`https://wa.me/923053530008?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need help with my checkout.")}`} target="_blank" rel="noreferrer"><MessageCircle size={13} /> Chat on WhatsApp</a></p>
             <nav className="checkoutPolicyLinks" aria-label="Checkout policies"><a href="/exchange-return-policy">Refund policy</a><a href="/shipping-policy">Shipping</a><a href="/privacy-policy">Privacy policy</a><a href="/terms-and-conditions">Terms of service</a></nav>
           </form>
         </section>
