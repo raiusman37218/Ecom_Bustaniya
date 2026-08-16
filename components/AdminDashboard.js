@@ -4958,6 +4958,8 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
       window.alert("Verify the required payment before booking this order with the courier.");
       return;
     }
+    if (saving) return;
+    setSaving(true);
     try {
       const response = await fetch("/api/admin/postex-custom", {
         method: "POST",
@@ -4965,6 +4967,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          orderId: order.id,
           orderRef: order.id,
           total: order.total,
           paymentStatus,
@@ -4990,6 +4993,8 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
       await saveChanges({ tracking: result.trackingNumber, status: result.courierStatus || "Booked", postexStatus: result.courierStatus || "Booked", fulfillmentStatus: "Booked with PostEx" });
     } catch (error) {
       window.alert(error.message || "Unable to create PostEx booking.");
+    } finally {
+      setSaving(false);
     }
   }
 

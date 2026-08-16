@@ -224,7 +224,23 @@ export async function POST(request) {
       throw validationError("Please enter a valid Pakistani mobile number, for example 03XXXXXXXXX.");
     }
 
-    if (allItemsInCatalog) {
+    const existingOrderId = body?.orderId || body?.orderRef;
+    let existingOrder = null;
+
+    if (existingOrderId) {
+      try {
+        const rows = await supabaseAdminRequest(`orders?select=*&id=eq.${encodeURIComponent(existingOrderId)}&limit=1`);
+        if (rows?.[0]) existingOrder = rows[0];
+        else {
+          const rowsByNumber = await supabaseAdminRequest(`orders?select=*&order_number=eq.${encodeURIComponent(existingOrderId)}&limit=1`);
+          if (rowsByNumber?.[0]) existingOrder = rowsByNumber[0];
+        }
+      } catch {}
+    }
+
+    if (existingOrder) {
+      completedOrder = existingOrder;
+    } else if (allItemsInCatalog) {
       const [firstName, ...lastNameParts] = customer.name.trim().split(/\s+/);
       reservedOrder = await supabaseAdminRpc("create_checkout_order", {
         p_customer: {
