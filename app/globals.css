@@ -10414,3 +10414,190 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   .checkoutPolicyLinks { justify-content: flex-start; gap: 8px 12px; }
 }
 
+/* --- Searchable City Combobox ------------------------------------- */
+.cityFormLabel {
+  position: relative;
+}
+.cityComboboxContainer {
+  position: relative;
+  width: 100%;
+  margin-top: 4px;
+}
+.cityHiddenInput {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  bottom: 0;
+  left: 50%;
+}
+.cityDisplayBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 4px 8px;
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.cityDisplayBox.isOpen,
+.cityDisplayBox:focus-within {
+  border-color: var(--ck-accent);
+  box-shadow: 0 0 0 1px var(--ck-accent);
+}
+.citySearchIcon {
+  color: #888888;
+  flex: 0 0 auto;
+}
+.citySearchInput {
+  flex: 1;
+  min-width: 0;
+  min-height: 28px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: var(--ck-text);
+  font-size: 14px;
+  font-weight: 500;
+}
+.citySearchInput::placeholder {
+  color: #999999;
+  font-weight: 400;
+}
+.cityClearBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.cityClearBtn:hover {
+  background: #d1d5db;
+  color: #111827;
+}
+.cityArrowIcon {
+  color: #888888;
+  flex: 0 0 auto;
+  transition: transform 0.18s ease;
+}
+.cityArrowIcon.isOpen {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Menu */
+.cityDropdownMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 200;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  background: #ffffff;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.14);
+  display: flex;
+  flex-direction: column;
+}
+
+.cityPopularSection {
+  padding: 10px 12px;
+  background: #f9fafb;
+  border-bottom: 1px solid #f3f4f6;
+}
+.cityPopularLabel {
+  display: block;
+  margin-bottom: 6px;
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.cityPopularChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cityChip {
+  padding: 4px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.cityChip:hover {
+  border-color: var(--ck-accent);
+  color: var(--ck-accent);
+  background: var(--ck-accent-light);
+}
+.cityChip.isSelected {
+  border-color: var(--ck-accent);
+  background: var(--ck-accent);
+  color: #ffffff;
+}
+
+.cityListOptions {
+  padding: 4px 0;
+}
+.cityListHeader {
+  display: block;
+  padding: 6px 14px 4px;
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.cityOptionItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 14px;
+  border: 0;
+  background: transparent;
+  color: #111827;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.cityOptionItem:hover {
+  background: #f3f4f6;
+  color: var(--ck-accent);
+}
+.cityOptionItem.isSelected {
+  background: var(--ck-accent-light);
+  color: var(--ck-accent);
+  font-weight: 700;
+}
+.cityCheckIcon {
+  color: var(--ck-accent);
+}
+.cityNoResult {
+  padding: 16px;
+  color: #6b7280;
+  font-size: 13px;
+  text-align: center;
+}
+
+

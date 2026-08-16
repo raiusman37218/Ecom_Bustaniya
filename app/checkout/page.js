@@ -1,10 +1,156 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, Lock, ShoppingBag, Truck } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, CheckCircle2, ChevronDown, Lock, Search, ShoppingBag, Truck } from "lucide-react";
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
+
+const MAJOR_CITIES = [
+  "Lahore",
+  "Karachi",
+  "Islamabad",
+  "Rawalpindi",
+  "Faisalabad",
+  "Multan",
+  "Peshawar",
+  "Quetta",
+  "Gujranwala",
+  "Sialkot",
+  "Hyderabad",
+  "Bahawalpur",
+  "Sargodha",
+  "Sukkur",
+  "Abbottabad",
+];
+
+function CityCombobox({ value, onChange, cities, loading, disabled }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredCities = useMemo(() => {
+    if (!search.trim()) return cities;
+    const query = search.toLowerCase().trim();
+    return cities.filter((city) => city.toLowerCase().includes(query));
+  }, [cities, search]);
+
+  const popularCitiesFiltered = useMemo(() => {
+    if (search.trim()) return [];
+    return MAJOR_CITIES.filter((major) =>
+      cities.some((c) => c.toLowerCase() === major.toLowerCase())
+    );
+  }, [cities, search]);
+
+  function handleSelect(city) {
+    onChange({ target: { name: "city", value: city } });
+    setSearch("");
+    setIsOpen(false);
+  }
+
+  return (
+    <div className="cityComboboxContainer" ref={containerRef}>
+      <input
+        tabIndex={-1}
+        required
+        name="city"
+        value={value}
+        onChange={() => {}}
+        onFocus={() => containerRef.current?.querySelector(".citySearchInput")?.focus()}
+        className="cityHiddenInput"
+      />
+
+      <div
+        className={`cityDisplayBox ${isOpen ? "isOpen" : ""}`}
+        onClick={() => {
+          if (!disabled && !loading) setIsOpen(true);
+        }}
+      >
+        <Search size={15} className="citySearchIcon" />
+        <input
+          type="text"
+          className="citySearchInput"
+          placeholder={loading ? "Loading delivery cities..." : "Search or select delivery city..."}
+          value={isOpen ? search : value || search}
+          disabled={disabled || loading}
+          onFocus={() => setIsOpen(true)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            if (!isOpen) setIsOpen(true);
+          }}
+        />
+        {value && !isOpen && (
+          <button
+            type="button"
+            className="cityClearBtn"
+            title="Clear city selection"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange({ target: { name: "city", value: "" } });
+              setSearch("");
+            }}
+          >
+            &times;
+          </button>
+        )}
+        <ChevronDown size={15} className={`cityArrowIcon ${isOpen ? "isOpen" : ""}`} />
+      </div>
+
+      {isOpen && (
+        <div className="cityDropdownMenu">
+          {popularCitiesFiltered.length > 0 && (
+            <div className="cityPopularSection">
+              <span className="cityPopularLabel">POPULAR CITIES</span>
+              <div className="cityPopularChips">
+                {popularCitiesFiltered.map((city) => (
+                  <button
+                    key={city}
+                    type="button"
+                    className={`cityChip ${value === city ? "isSelected" : ""}`}
+                    onClick={() => handleSelect(city)}
+                  >
+                    {city}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="cityListOptions">
+            <span className="cityListHeader">
+              {search.trim() ? `SEARCH RESULTS (${filteredCities.length})` : "ALL CITIES"}
+            </span>
+            {filteredCities.length === 0 ? (
+              <div className="cityNoResult">No city matching &quot;{search}&quot; found</div>
+            ) : (
+              filteredCities.map((city) => (
+                <button
+                  key={city}
+                  type="button"
+                  className={`cityOptionItem ${value === city ? "isSelected" : ""}`}
+                  onClick={() => handleSelect(city)}
+                >
+                  <span>{city}</span>
+                  {value === city && <Check size={14} className="cityCheckIcon" />}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function paymentInstructionPoints(value) {
   const normalized = String(value || "")
@@ -183,14 +329,17 @@ export default function CheckoutPage() {
               </div>
             </fieldset>
             <div className="formRow">
-              <label>City
+              <label className="cityFormLabel">City
                 {citiesError ? (
                   <input required name="city" value={form.city} onChange={updateField} placeholder="Enter delivery city" />
                 ) : (
-                  <select required name="city" value={form.city} onChange={updateField} disabled={citiesLoading}>
-                    <option value="">{citiesLoading ? "Loading delivery cities..." : "Select delivery city"}</option>
-                    {cities.map((city) => <option value={city} key={city}>{city}</option>)}
-                  </select>
+                  <CityCombobox
+                    value={form.city}
+                    onChange={updateField}
+                    cities={cities}
+                    loading={citiesLoading}
+                    disabled={citiesLoading}
+                  />
                 )}
               </label>
               <label>Postal code (optional)<input name="postalCode" value={form.postalCode} onChange={updateField} placeholder="Postal code" /></label>
