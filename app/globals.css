@@ -10288,7 +10288,7 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 }
 
 .confirmationRecapCard {
-  padding: 18px 22px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -10297,39 +10297,38 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   border-radius: var(--ck-radius);
 }
 .confirmationRecapRow {
-  display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  gap: 12px;
-  align-items: baseline;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   font-size: 13.5px;
   line-height: 1.5;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.confirmationRecapRow:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 .recapLabel {
   color: #6b7280;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 .recapValue {
   color: #111827;
-  font-weight: 500;
+  font-weight: 600;
   word-break: break-word;
 }
 @media (max-width: 640px) {
   .confirmationRecapCard {
-    padding: 14px 16px;
+    padding: 16px;
     gap: 10px;
   }
   .confirmationRecapRow {
-    grid-template-columns: 1fr;
-    gap: 2px;
-  }
-  .recapLabel {
-    font-size: 10.5px;
-  }
-  .recapValue {
-    font-size: 13px;
+    padding-bottom: 8px;
+    gap: 3px;
   }
 }
 

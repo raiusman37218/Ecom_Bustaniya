@@ -546,11 +546,11 @@ function OrderConfirmation({ order, items }) {
         <div className="confirmationCard confirmationRecapCard">
           <div className="confirmationRecapRow">
             <span className="recapLabel">Contact</span>
-            <span className="recapValue">{order.customer?.phone || "—"}{order.customer?.email ? ` · ${order.customer.email}` : ""}</span>
+            <span className="recapValue">{order.customer?.phone || "Not provided"}{order.customer?.email ? ` · ${order.customer.email}` : ""}</span>
           </div>
           <div className="confirmationRecapRow">
             <span className="recapLabel">Ship to</span>
-            <span className="recapValue">{fullAddress || "—"}</span>
+            <span className="recapValue">{fullAddress || "Not provided"}</span>
           </div>
           <div className="confirmationRecapRow">
             <span className="recapLabel">Method</span>
