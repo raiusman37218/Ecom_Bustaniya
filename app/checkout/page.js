@@ -274,69 +274,58 @@ function OrderConfirmation({ order, items }) {
     <main className="checkoutPage">
       <header className="checkoutHeader">
         <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
-        <span><Lock size={14} /> Payment verification required</span>
+        <span><Lock size={14} /> Order confirmed</span>
       </header>
       <section className="orderSuccess shopifySuccess">
         <div className="confirmationPanel">
+          {/* --- Hero --- */}
           <div className="confirmationHero">
             <span className="successMark"><CheckCircle2 /></span>
             <div>
               <p className="eyebrow">ORDER {order.orderRef}</p>
               <h1>Thank you, {order.customer?.fullName || "there"}!</h1>
-            <p>Your order is saved. Transfer the required amount, then send its screenshot on WhatsApp; we will confirm it before dispatch.</p>
+              <p>Your order is saved. Transfer <b>Rs.&nbsp;{paymentAmount.toLocaleString()}</b> and send the screenshot on WhatsApp to confirm.</p>
             </div>
           </div>
 
-          <div className="confirmationCard deliveryCard">
-            <div><Truck /><span><b>Payment verification pending</b>We&apos;ve saved your order. We will confirm and prepare it after the required payment is verified.</span></div>
-            <small>Payment status: <b>{order.paymentStatus || "Awaiting Payment"}</b></small>
-          </div>
+          {/* --- Payment transfer card --- */}
           <div className="confirmationCard paymentVerificationCard">
-            <h2>{isFullAdvance ? "Full advance payment" : "COD delivery charges"}</h2>
-            <p>Transfer <b>Rs. {paymentAmount.toLocaleString()}</b> using the details below, then send the payment screenshot on WhatsApp. No transaction/reference ID is required.</p>
-            <div className="bankPaymentDetails">{paymentDetails.bankName && <span><b>Bank / wallet</b>{paymentDetails.bankName}</span>}{paymentDetails.bankTitle && <span><b>Account title</b>{paymentDetails.bankTitle}</span>}{paymentDetails.bankAccountNumber && <span><b>Account no.</b>{paymentDetails.bankAccountNumber}</span>}{paymentDetails.bankIban && <span><b>IBAN</b>{paymentDetails.bankIban}</span>}</div>
-            {paymentDetails.instructions && <p>{paymentDetails.instructions}</p>}
-            <ol className="paymentScreenshotSteps"><li>Transfer the exact amount shown above.</li><li>Take a screenshot of the successful payment.</li><li>Tap WhatsApp below and attach the screenshot.</li></ol>
-            {whatsappHref && <a className="whatsappPaymentButton" href={whatsappHref} target="_blank" rel="noreferrer">Send Payment Screenshot on WhatsApp</a>}
+            <h2>{isFullAdvance ? "Transfer full payment" : "Transfer delivery charges"}</h2>
+            <div className="bankPaymentDetails">{paymentDetails.bankName && <span><b>Bank / wallet</b>{paymentDetails.bankName}</span>}{paymentDetails.bankTitle && <span><b>Account title</b>{paymentDetails.bankTitle}</span>}{paymentDetails.bankAccountNumber && <span><b>Account no.</b>{paymentDetails.bankAccountNumber}</span>}{paymentDetails.bankIban && <span><b>IBAN</b>{paymentDetails.bankIban}</span>}<span><b>Amount</b>Rs. {paymentAmount.toLocaleString()}</span></div>
+            {whatsappHref && <a className="whatsappPaymentButton" href={whatsappHref} target="_blank" rel="noreferrer">Send Screenshot on WhatsApp</a>}
           </div>
 
-          <div className="confirmationGrid">
-            <div className="confirmationCard">
-              <h2>Customer information</h2>
-              <span><b>Contact</b>{order.customer?.email || order.customer?.phone}</span>
+          {/* --- Compact info --- */}
+          <div className="confirmationCard confirmationInfoCard">
+            <div className="confirmationInfoGrid">
+              <span><b>Contact</b>{order.customer?.phone}{order.customer?.email ? ` · ${order.customer.email}` : ""}</span>
               <span><b>Ship to</b>{order.customer?.address}, {order.customer?.city}</span>
-              <span><b>Payment</b>{isFullAdvance ? "Full Advance Payment — Free Delivery" : "COD — delivery charges paid in advance"}</span>
-            </div>
-            <div className="confirmationCard">
-              <h2>Order details</h2>
-              <span><b>Order number</b>{order.orderRef}</span>
-              <span><b>Confirmation</b>Pending payment verification</span>
-              <span><b>Pay now</b>Rs. {paymentAmount.toLocaleString()}</span>
+              <span><b>Method</b>{isFullAdvance ? "Full Advance — Free Delivery" : "COD — advance delivery charges"}</span>
               <span><b>Pay on delivery</b>Rs. {Number(order.payableOnDelivery || 0).toLocaleString()}</span>
             </div>
           </div>
 
+          {/* --- Actions --- */}
           <div className="confirmationActions">
             <a className="primaryButton" href="/">Continue shopping</a>
             {whatsappHref && <a className="secondaryButton" href={whatsappHref} target="_blank" rel="noreferrer">WhatsApp payment proof</a>}
           </div>
         </div>
 
+        {/* --- Sidebar summary --- */}
         <aside className="orderSummary confirmedSummary">
           <h2>Order summary <span>({items.reduce((n, item) => n + item.quantity, 0)})</span></h2>
           {items.map((item) => (
             <div className="summaryItem" key={`${item.id}-${item.size || "confirmed"}`}>
               <div className="summaryImage" style={{ backgroundImage: `url(${item.image})` }}><span>{item.quantity}</span></div>
-              <div><b>{item.name}</b><small>{[item.category, item.size && `Size ${item.size}`, item.color].filter(Boolean).join(" · ")}</small></div>
+              <div><b>{item.name}</b><small>{[item.size && `Size ${item.size}`, item.color].filter(Boolean).join(" · ")}</small></div>
               <p>Rs. {(item.price * item.quantity).toLocaleString()}</p>
             </div>
           ))}
           <div className="summaryTotals">
-            <div><span>Product subtotal</span><span>Rs. {Number(order.subtotal || 0).toLocaleString()}</span></div>
-            <div><span>Delivery charges</span><span>{Number(order.delivery || 0) ? `Rs. ${Number(order.delivery).toLocaleString()}` : "Free"}</span></div>
-            <div><span>Pay now</span><span>Rs. {paymentAmount.toLocaleString()}</span></div>
-            <div><span>Pay on delivery</span><span>Rs. {Number(order.payableOnDelivery || 0).toLocaleString()}</span></div>
-            <div className="totalLine"><b>Total order value</b><b>Rs. {Number(order.total).toLocaleString()}</b></div>
+            <div><span>Subtotal</span><span>Rs. {Number(order.subtotal || 0).toLocaleString()}</span></div>
+            <div><span>Delivery</span><span>{Number(order.delivery || 0) ? `Rs. ${Number(order.delivery).toLocaleString()}` : "Free"}</span></div>
+            <div className="totalLine"><b>Total</b><b>Rs. {Number(order.total).toLocaleString()}</b></div>
           </div>
         </aside>
       </section>

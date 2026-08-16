@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600;700&display=swap');
 
 :root { --ink:#183d29; --cream:#fcfaf5; --sage:#edf3e7; --orange:#bd194b; --line:#dce2d9; --berry:#bd194b; --forest:#16452c; --forest-dark:#0e2f1d; --lime:#eaf4d8; --muted:#6f7d73; --font-display:"Cormorant Garamond",Georgia,serif; --font-sans:"Manrope",Arial,sans-serif; }
 * { box-sizing:border-box; }
@@ -10109,6 +10109,35 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   letter-spacing: .07em;
 }
 
+/* Compact info card — replaces old two-card confirmationGrid */
+.confirmationInfoCard { padding: 0; }
+.confirmationInfoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.confirmationInfoGrid > span {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--ck-border-light);
+  border-right: 1px solid var(--ck-border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: #555;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.confirmationInfoGrid > span:nth-child(even) { border-right: 0; }
+.confirmationInfoGrid > span:nth-last-child(-n+2) { border-bottom: 0; }
+.confirmationInfoGrid > span b {
+  color: var(--ck-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+
 .confirmationActions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
 .confirmationActions .primaryButton,
 .confirmationActions .secondaryButton {
@@ -10249,6 +10278,9 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .confirmationCard h2 { font-size: 15px; }
   .deliveryCard { flex-direction: column; align-items: flex-start; }
   .deliveryCard small { text-align: left; }
+  .confirmationInfoGrid { grid-template-columns: 1fr; }
+  .confirmationInfoGrid > span { border-right: 0 !important; border-bottom: 1px solid var(--ck-border-light) !important; padding: 12px 14px; }
+  .confirmationInfoGrid > span:last-child { border-bottom: 0 !important; }
   .confirmationActions { flex-direction: column; align-items: stretch; }
   .confirmationActions .primaryButton,
   .confirmationActions .secondaryButton { width: 100%; }
