@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { getCatalogProducts } from "../../../../lib/catalog";
 import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabaseRest";
@@ -155,6 +156,91 @@ async function patchOrderWithAvailableColumns(orderId, updates) {
   }
 }
 
+function makeCheckoutOrderNumber() {
+  return `BST-${Date.now().toString().slice(-6)}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
+
+async function createCheckoutOrderDirect({ customer, items, paymentAmounts, paymentDetails }) {
+  let body = {
+    order_number: makeCheckoutOrderNumber(),
+    checkout_token: randomUUID(),
+    status: "Unbooked",
+    courier_status: "Unbooked",
+    payment_method: paymentAmounts.paymentMethod,
+    payment_status: "Awaiting Payment",
+    payment_proof_status: "Awaiting Payment",
+    order_confirmation_status: "Awaiting payment verification",
+    fulfillment_status: "On hold",
+    subtotal: paymentAmounts.productSubtotal,
+    subtotal_pkr: paymentAmounts.productSubtotal,
+    shipping_fee_pkr: paymentAmounts.deliveryCharges,
+    delivery_pkr: paymentAmounts.deliveryCharges,
+    total: paymentAmounts.totalOrderValue,
+    total_pkr: paymentAmounts.totalOrderValue,
+    product_subtotal_pkr: paymentAmounts.productSubtotal,
+    delivery_charges_pkr: paymentAmounts.deliveryCharges,
+    total_order_value_pkr: paymentAmounts.totalOrderValue,
+    amount_payable_in_advance_pkr: paymentAmounts.amountPayableInAdvance,
+    amount_payable_on_delivery_pkr: paymentAmounts.amountPayableOnDelivery,
+    payment_details_snapshot: paymentDetails,
+    shipping_full_name: customer.fullName,
+    shipping_phone: customer.phone,
+    shipping_address: customer.address,
+    shipping_city: customer.city,
+    shipping_postal_code: customer.postalCode || "",
+    guest_name: customer.fullName,
+    guest_phone: customer.phone,
+    customer_email: customer.email || "",
+    guest_email: customer.email || "",
+    items: items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      price: Number(item.price || 0),
+      size: item.size || null,
+      color: item.color || null,
+    })),
+    internal_notes: [
+      "Checkout payment verification pending.",
+      `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment" : "COD delivery charges in advance"}.`,
+      `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
+      `Delivery charges: Rs. ${paymentAmounts.deliveryCharges}.`,
+      `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
+      `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
+    ].join(" "),
+  };
+
+  // Bustaniya has evolved through several order schemas. This inserts all
+  // current checkout data, then gracefully removes only fields not yet present
+  // in an older live database instead of abandoning the customer order.
+  for (let attempt = 0; attempt < 35; attempt += 1) {
+    try {
+      const rows = await supabaseAdminRequest("orders?select=*", {
+        method: "POST",
+        prefer: "return=representation",
+        body,
+      });
+      const order = rows?.[0];
+      if (!order?.id) throw new Error("Order was not saved.");
+      return {
+        order_id: order.id,
+        order_number: order.order_number || body.order_number,
+        checkout_token: order.checkout_token || body.checkout_token,
+        total: Number(order.total_pkr ?? order.total ?? paymentAmounts.totalOrderValue),
+        items,
+        direct: true,
+      };
+    } catch (error) {
+      const column = removableColumnFromError(error);
+      if (!column || !(column in body)) throw error;
+      const { [column]: _unsupported, ...supportedBody } = body;
+      body = supportedBody;
+    }
+  }
+
+  throw new Error("Unable to save checkout order with the available order schema.");
+}
+
 async function completeManualCourierOrder(reservedOrder, reason) {
   const manualTrackingNumber = `MANUAL-${reservedOrder.order_number}`;
   const completedOrder = await supabaseAdminRpc("complete_postex_booking", {
@@ -298,6 +384,7 @@ export async function POST(request) {
       paymentMethod,
       paymentSettings,
     });
+    const paymentDetails = paymentSnapshot(paymentSettings);
     if (paymentMethod === "cod") {
       const minOrder = Number(paymentSettings.codMinOrderPkr || 0);
       const maxOrder = Number(paymentSettings.codMaxOrderPkr || 0);
@@ -327,21 +414,33 @@ export async function POST(request) {
     }
     activeCheckoutFingerprints.set(duplicateKey, { expiresAt: Date.now() + DUPLICATE_ORDER_WINDOW_MS });
 
-    reservedOrder = await supabaseAdminRpc("create_checkout_order", {
-      p_customer: normalizedCustomer,
-      p_items: verifiedItems.map((item) => ({
-        article_number: item.articleNumber,
-        quantity: item.quantity,
-        size: item.size,
-        color: item.color,
-      })),
-    });
+    try {
+      reservedOrder = await supabaseAdminRpc("create_checkout_order", {
+        p_customer: normalizedCustomer,
+        p_items: verifiedItems.map((item) => ({
+          article_number: item.articleNumber,
+          quantity: item.quantity,
+          size: item.size,
+          color: item.color,
+        })),
+      });
+    } catch (rpcError) {
+      console.error("Checkout reservation RPC unavailable; using direct order fallback", {
+        message: rpcError?.message,
+        status: rpcError?.status,
+      });
+      reservedOrder = await createCheckoutOrderDirect({
+        customer: normalizedCustomer,
+        items: verifiedItems,
+        paymentAmounts,
+        paymentDetails,
+      });
+    }
     await ensureOrderItems(reservedOrder.order_id, verifiedItems);
 
     // Keep every amount as an immutable order snapshot. The browser never
     // supplies these values; they are calculated only from verified catalog
     // prices and the active payment settings on the server.
-    const paymentDetails = paymentSnapshot(paymentSettings);
     await patchOrderWithAvailableColumns(reservedOrder.order_id, {
         payment_method: paymentAmounts.paymentMethod,
         payment_status: "Awaiting Payment",
