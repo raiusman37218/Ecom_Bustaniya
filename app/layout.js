@@ -3,6 +3,8 @@ import "./campaign-hero.css";
 import Script from "next/script";
 import { buildMetadata, siteConfig } from "../lib/seo";
 import MetaPixel from "../components/MetaPixel";
+import WhatsAppSupportButton from "../components/WhatsAppSupportButton";
+import { getStoreSettings } from "../lib/storeSettings";
 
 export const metadata = {
   ...buildMetadata(),
@@ -50,10 +52,12 @@ export const viewport = {
   themeColor: "#16452c",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
   const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
   const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID || "5621950704696012";
+  const storeSettings = await getStoreSettings();
+  const whatsappNumber = storeSettings?.paymentSettings?.whatsappNumber;
 
   return (
     <html lang="en-PK">
@@ -71,6 +75,7 @@ export default function RootLayout({ children }) {
           </noscript>
         )}
         {children}
+        <WhatsAppSupportButton phoneNumber={whatsappNumber} storeName={siteConfig.name} />
         {gaId && (
           <>
             <Script src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} strategy="afterInteractive" />

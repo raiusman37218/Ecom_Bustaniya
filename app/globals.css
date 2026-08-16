@@ -3427,6 +3427,30 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .paymentVerificationCard { border-color:#bad6c0; background:linear-gradient(135deg,#f7fcf7,#fffdfa); }
 .paymentVerificationCard>p { color:#506557; line-height:1.6; }
 .whatsappPaymentButton { display:inline-flex; align-items:center; justify-content:center; min-height:44px; margin-top:16px; padding:0 16px; border-radius:5px; background:#1d6840; color:#fff!important; font-size:12px; font-weight:800; text-decoration:none; }
+.whatsappSupportButton {
+  position:fixed;
+  right:22px;
+  bottom:22px;
+  z-index:120;
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  min-height:52px;
+  padding:0 18px;
+  border:1px solid rgba(255,255,255,.55);
+  border-radius:999px;
+  background:#25d366;
+  box-shadow:0 12px 28px rgba(20,75,44,.28);
+  color:#fff;
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:.01em;
+  text-decoration:none;
+  transition:transform .2s ease,box-shadow .2s ease,background .2s ease;
+}
+.whatsappSupportButton:hover { background:#1fbd5a; color:#fff; transform:translateY(-2px); box-shadow:0 16px 32px rgba(20,75,44,.34); }
+.whatsappSupportButton:focus-visible { outline:3px solid #16452c; outline-offset:3px; }
+.whatsappSupportButton svg { flex:0 0 auto; }
 .paymentVerificationWorkspace { border-color:#c8decf; background:linear-gradient(145deg,#fffefa,#f7fcf7); }
 .paymentVerificationWorkspace .orderActionRow .dangerButton { background:#b52b4b; }
 .placeOrder { min-height:54px; padding:17px; border:0; border-radius:6px; background:var(--berry); color:#fff; text-transform:uppercase; letter-spacing:.09em; font-size:11px; display:flex; align-items:center; justify-content:center; transition:background .2s ease,transform .2s ease,box-shadow .2s ease; }
@@ -9532,4 +9556,6 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .orderSummary .summaryItem>p { font-size:12px; }
   .summaryTotals { margin-top:6px; }
   .checkoutPolicyLinks { justify-content:flex-start; gap:10px 14px; }
+  .whatsappSupportButton { right:16px; bottom:max(16px,env(safe-area-inset-bottom)); width:54px; min-width:54px; height:54px; min-height:54px; justify-content:center; padding:0; }
+  .whatsappSupportButton span { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 }
