@@ -122,6 +122,39 @@ function publicError(error) {
   return "Unable to place your order right now. Please try again.";
 }
 
+function removableColumnFromError(error) {
+  const message = `${error?.message || ""} ${JSON.stringify(error?.details || {})}`;
+  return (
+    message.match(/'([^']+)' column/)?.[1] ||
+    message.match(/column "([^"]+)"/)?.[1] ||
+    message.match(/Could not find the '([^']+)'/)?.[1] ||
+    ""
+  );
+}
+
+// Checkout must remain available while a legacy project is catching up with
+// optional finance/payment columns. We retain every supported value and remove
+// only the exact column reported by PostgREST, rather than failing the order.
+async function patchOrderWithAvailableColumns(orderId, updates) {
+  let body = { ...updates };
+
+  for (let attempt = 0; attempt < 20 && Object.keys(body).length; attempt += 1) {
+    try {
+      await supabaseAdminRequest(`orders?id=eq.${encodeURIComponent(orderId)}`, {
+        method: "PATCH",
+        prefer: "return=minimal",
+        body,
+      });
+      return;
+    } catch (error) {
+      const column = removableColumnFromError(error);
+      if (!column || !(column in body)) throw error;
+      const { [column]: _unsupported, ...supportedBody } = body;
+      body = supportedBody;
+    }
+  }
+}
+
 async function completeManualCourierOrder(reservedOrder, reason) {
   const manualTrackingNumber = `MANUAL-${reservedOrder.order_number}`;
   const completedOrder = await supabaseAdminRpc("complete_postex_booking", {
@@ -309,10 +342,7 @@ export async function POST(request) {
     // supplies these values; they are calculated only from verified catalog
     // prices and the active payment settings on the server.
     const paymentDetails = paymentSnapshot(paymentSettings);
-    await supabaseAdminRequest(`orders?id=eq.${encodeURIComponent(reservedOrder.order_id)}`, {
-      method: "PATCH",
-      prefer: "return=minimal",
-      body: {
+    await patchOrderWithAvailableColumns(reservedOrder.order_id, {
         payment_method: paymentAmounts.paymentMethod,
         payment_status: "Awaiting Payment",
         payment_proof_status: "Awaiting Payment",
@@ -326,7 +356,17 @@ export async function POST(request) {
         fulfillment_status: "On hold",
         status: "Unbooked",
         courier_status: "Unbooked",
-      },
+        // Older Bustaniya schemas already have internal notes. Retain the
+        // payment snapshot there too when the newer dedicated columns are not
+        // installed, so the admin still has a complete verification record.
+        internal_notes: [
+          "Checkout payment verification pending.",
+          `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment" : "COD delivery charges in advance"}.`,
+          `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
+          `Delivery charges: Rs. ${paymentAmounts.deliveryCharges}.`,
+          `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
+          `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
+        ].join(" "),
     });
 
     const responseBody = {
