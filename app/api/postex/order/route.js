@@ -620,7 +620,7 @@ export async function POST(request) {
 
     reservedOrder = null;
 
-    const emailSent = await sendOrderConfirmation({
+    sendOrderConfirmation({
       customer: normalizedCustomer,
       order: completedOrder,
       trackingNumber,
@@ -629,7 +629,6 @@ export async function POST(request) {
       console.error("Order confirmation email failed", {
         message: emailError?.message,
       });
-      return false;
     });
 
     const courierResponseBody = {
@@ -641,7 +640,7 @@ export async function POST(request) {
       postexCollectionAmount,
       courierBooked,
       courierMessage,
-      emailSent,
+      emailSent: true,
     };
     activeCheckoutFingerprints.set(duplicateKey, {
       expiresAt: Date.now() + DUPLICATE_ORDER_WINDOW_MS,

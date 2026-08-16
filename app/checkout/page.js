@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Check, CheckCircle2, ChevronDown, Lock, MessageCircle, Search, ShoppingBag, Truck } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, ChevronDown, Loader2, Lock, MessageCircle, Search, ShoppingBag, Truck } from "lucide-react";
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
@@ -205,6 +205,7 @@ function paymentInstructionPoints(value) {
 
 export default function CheckoutPage() {
   const [cart, setCart] = useState([]);
+  const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [form, setForm] = useState({
     fullName: "",
     phone: "",
@@ -233,6 +234,7 @@ export default function CheckoutPage() {
       const stored = localStorage.getItem("bustaniya-cart") || localStorage.getItem("bustaniya_cart");
       if (stored) setCart(JSON.parse(stored));
     } catch {}
+    setIsCartLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -413,6 +415,23 @@ export default function CheckoutPage() {
     return <OrderConfirmation order={order} items={cart} />;
   }
 
+  if (!isCartLoaded) {
+    return (
+      <main className="checkoutPage">
+        <header className="checkoutHeader">
+          <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
+          <span><Lock size={14} /> Secure checkout</span>
+        </header>
+        <div style={{ minHeight: "50vh", display: "grid", placeItems: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", color: "#6b7280" }}>
+            <Loader2 className="animate-spin" size={24} style={{ color: "#16452c" }} />
+            <span style={{ fontSize: "13px", fontWeight: 500 }}>Loading checkout...</span>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   if (!cart.length) {
     return (
       <main className="checkoutPage">
@@ -534,7 +553,18 @@ export default function CheckoutPage() {
               <div className="bankPaymentDetails">{paymentSettings.bankName && <span><b>Bank / Wallet</b><small>{paymentSettings.bankName}</small></span>}{paymentSettings.bankTitle && <span><b>Account Title</b><small>{paymentSettings.bankTitle}</small></span>}{paymentSettings.bankAccountNumber && <span><b>Account No.</b><small>{paymentSettings.bankAccountNumber}</small></span>}{paymentSettings.bankIban && <span><b>IBAN</b><small>{paymentSettings.bankIban}</small></span>}</div>
             </div>
             {error && <p className="checkoutError" role="alert">{error}</p>}
-            <div className="checkoutSubmitBar"><div><span>Total</span><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div><button className="placeOrder" type="submit" disabled={!cart.length || submitting}>{submitting ? "Placing order..." : "Complete order"}</button></div>
+            <div className="checkoutSubmitBar">
+              <div><span>Total</span><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div>
+              <button className="placeOrder" type="submit" disabled={!cart.length || submitting}>
+                {submitting ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                    <Loader2 className="animate-spin" size={16} /> Placing order...
+                  </span>
+                ) : (
+                  "Complete order"
+                )}
+              </button>
+            </div>
             <p className="checkoutPrivacy"><Lock size={13} /> Your information is used only to process this order securely.</p>
             <p className="checkoutInlineHelp">Need help? <a href={`https://wa.me/923053530008?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need help with my checkout.")}`} target="_blank" rel="noreferrer"><MessageCircle size={13} /> Chat on WhatsApp</a></p>
             <nav className="checkoutPolicyLinks" aria-label="Checkout policies"><a href="/exchange-return-policy">Refund policy</a><a href="/shipping-policy">Shipping</a><a href="/privacy-policy">Privacy policy</a><a href="/terms-and-conditions">Terms of service</a></nav>
