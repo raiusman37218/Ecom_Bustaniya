@@ -9216,3 +9216,16 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   /* Related products stay two-up even on 320px screens. */
   .relatedProducts .productGrid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 10px; }
 }
+
+/* Uploaded mobile hero artwork must remain completely un-tinted. */
+@media (max-width:600px) {
+  .heroImage,
+  .heroImage img {
+    filter:none !important;
+  }
+  .heroImage::before,
+  .heroImage::after {
+    display:none !important;
+    background:none !important;
+  }
+}
