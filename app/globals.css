@@ -2671,8 +2671,9 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .copyright>div { display:flex; gap:24px; }
 .copyright a { color:rgba(255,255,255,0.7); }
 .copyright a:hover { color:#ffffff; }
-.overlay { position:fixed; inset:0; background:#08110d90; z-index:40; }
-.cartDrawer { position:fixed; right:0; top:0; bottom:0; width:min(440px,100%); background:#fafaf7; z-index:50; transform:translateX(100%); transition:.3s; display:flex; flex-direction:column; }
+.overlay { position:fixed; inset:0; background:#08110d90; z-index:290; }
+.cartDrawer { position:fixed; right:0; top:0; bottom:0; width:min(440px,100%); background:#fafaf7; z-index:300; transform:translateX(100%); transition:.3s; display:flex; flex-direction:column; }
+body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-events:none !important; visibility:hidden !important; }
 .cartDrawer.cartOpen { transform:translateX(0); }
 .cartHeader { padding:25px 28px; display:flex; justify-content:space-between; border-bottom:1px solid var(--line); }
 .cartHeader h2 { margin:0; font-size:22px; }
@@ -3397,24 +3398,33 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   position:fixed;
   right:22px;
   bottom:22px;
-  z-index:120;
+  z-index:80;
   display:inline-flex;
   align-items:center;
   gap:9px;
-  min-height:52px;
+  min-height:48px;
   padding:0 18px;
   border:1px solid rgba(255,255,255,.55);
   border-radius:999px;
   background:#25d366;
-  box-shadow:0 12px 28px rgba(20,75,44,.28);
+  box-shadow:0 10px 24px rgba(20,75,44,.24);
   color:#fff;
   font-size:13px;
   font-weight:800;
   letter-spacing:.01em;
   text-decoration:none;
-  transition:transform .2s ease,box-shadow .2s ease,background .2s ease;
+  transition:all .2s ease;
 }
-.whatsappSupportButton:hover { background:#1fbd5a; color:#fff; transform:translateY(-2px); box-shadow:0 16px 32px rgba(20,75,44,.34); }
+.whatsappSupportButton.isCheckoutPage {
+  bottom:110px !important;
+  right:24px !important;
+}
+@media (max-width:768px) {
+  .whatsappSupportButton.isCheckoutPage {
+    display:none !important;
+  }
+}
+.whatsappSupportButton:hover { background:#1fbd5a; color:#fff; transform:translateY(-2px); box-shadow:0 14px 28px rgba(20,75,44,.32); }
 .whatsappSupportButton:focus-visible { outline:3px solid #16452c; outline-offset:3px; }
 .whatsappSupportButton svg { flex:0 0 auto; }
 .paymentVerificationWorkspace { border-color:#c8decf; background:linear-gradient(145deg,#fffefa,#f7fcf7); }
@@ -10353,21 +10363,53 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .summaryTotals { margin-top: 4px; }
 
   /* Confirmation mobile */
-  .confirmationPanel { padding: 24px 16px 44px; gap: 16px; }
-  .confirmationHero { grid-template-columns: 1fr; }
-  .confirmationHero .successMark { width: 42px; height: 42px; }
-  .confirmationHero h1 { font-size: 26px; }
-  .confirmationCard { padding: 16px; }
+  .confirmationPanel { padding: 20px 16px 40px; gap: 14px; }
+  .confirmationHero { grid-template-columns: 1fr; gap: 10px; }
+  .confirmationHero .successMark { width: 38px; height: 38px; min-width: 38px; }
+  .confirmationHero .successMark svg { width: 20px; height: 20px; }
+  .confirmationHero h1 { font-size: 24px; }
+  .confirmationCard { padding: 14px 16px; }
   .confirmationCard h2 { font-size: 15px; }
-  .deliveryCard { flex-direction: column; align-items: flex-start; }
-  .deliveryCard small { text-align: left; }
-  .confirmationInfoGrid { grid-template-columns: 1fr; }
-  .confirmationInfoGrid > span { border-right: 0 !important; border-bottom: 1px solid var(--ck-border-light) !important; padding: 12px 14px; }
-  .confirmationInfoGrid > span:last-child { border-bottom: 0 !important; }
+  
+  .stepHeader { gap: 10px; margin-bottom: 10px; }
+  .stepNumber { width: 24px; height: 24px; min-width: 24px; font-size: 12px; }
+
+  .checkoutForm .bankPaymentDetails span,
+  .paymentVerificationCard .bankPaymentDetails span {
+    grid-template-columns: 130px minmax(0, 1fr) !important;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .checkoutForm .bankPaymentDetails b,
+  .paymentVerificationCard .bankPaymentDetails b {
+    font-size: 12px;
+  }
+  .checkoutForm .bankPaymentDetails small,
+  .paymentVerificationCard .bankPaymentDetails small {
+    font-size: 12px;
+  }
+
+  .whatsappConfirmMainCard { padding: 14px 16px !important; }
+  .whatsappPrimaryConfirmBtn { width: 100%; min-height: 44px; justify-content: center; font-size: 13.5px; }
+
+  /* Info Bullet List Mobile Stacking */
+  .confirmationInfoCard { padding: 14px 16px !important; }
+  .confirmationBulletList { gap: 10px; }
+  .confirmationBulletList li { font-size: 13px; }
+  .bulletTwoColRow { grid-template-columns: 1fr; gap: 10px; }
+
   .confirmationActions { flex-direction: column; align-items: stretch; }
   .confirmationActions .primaryButton,
-  .confirmationActions .secondaryButton { width: 100%; }
-  .confirmedSummary { padding: 20px 16px 44px; }
+  .confirmationActions .secondaryButton { width: 100%; min-height: 44px; }
+  
+  .confirmedSummary { padding: 18px 16px 28px; background: #f7f7f8; }
+  .confirmedSummary h2 { font-size: 16px; margin-bottom: 14px; }
+  .confirmedSummary .summaryItem { padding: 10px 0; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 10px; }
+  .confirmedSummary .summaryImage { width: 48px; height: 60px; border-radius: 6px; }
+  .confirmedSummary .summaryItem b { font-size: 13px; }
+  .confirmedSummary .summaryItem small { font-size: 11px; }
+  .confirmedSummary .summaryItem > p { font-size: 13px; font-weight: 700; }
+  .confirmedSummary .summaryTotals { font-size: 13px; gap: 8px; padding-top: 14px; }
 
   .checkoutPolicyLinks { justify-content: flex-start; gap: 8px 12px; }
 }

@@ -1,3 +1,6 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 
 function normaliseWhatsAppNumber(value) {
@@ -5,15 +8,17 @@ function normaliseWhatsAppNumber(value) {
 }
 
 export default function WhatsAppSupportButton({ phoneNumber, storeName = "Bustaniya" }) {
+  const pathname = usePathname();
   const number = normaliseWhatsAppNumber(phoneNumber);
   if (!number) return null;
 
+  const isCheckout = pathname === "/checkout" || pathname?.startsWith("/checkout");
   const message = `Assalam-o-Alaikum, I need help with ${storeName}.`;
   const href = `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 
   return (
     <a
-      className="whatsappSupportButton"
+      className={`whatsappSupportButton ${isCheckout ? "isCheckoutPage" : ""}`}
       href={href}
       target="_blank"
       rel="noreferrer"
@@ -25,3 +30,4 @@ export default function WhatsAppSupportButton({ phoneNumber, storeName = "Bustan
     </a>
   );
 }
+
