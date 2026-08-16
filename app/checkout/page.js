@@ -181,15 +181,29 @@ export default function CheckoutPage() {
               <label>Postal code (optional)<input name="postalCode" value={form.postalCode} onChange={updateField} placeholder="Postal code" /></label>
             </div>
 
-            <div className="checkoutSectionHeading"><span>02</span><div><b>Choose payment method</b><small>After placing the order, transfer the required amount and send its screenshot on WhatsApp for verification.</small></div></div>
+            <div className="checkoutSectionHeading"><span>02</span><div><b>Choose payment method</b><small>Select how you would like to pay. We will show the exact payment instructions before you place your order.</small></div></div>
             <label className={paymentMethod === PAYMENT_METHODS.COD_ADVANCE_DELIVERY ? "paymentBox" : "paymentBox paymentChoice"}>
               <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} disabled={paymentSettings.codEnabled === false} onChange={() => setPaymentMethod("cod")} />
-              <div><b>Cash on Delivery — delivery charges paid in advance</b><span>Pay Rs. {paymentAmounts.deliveryCharges.toLocaleString()} now to confirm. Pay the complete product subtotal to the courier on delivery.</span></div>
+              <div className="paymentMethodCopy">
+                <b>Cash on Delivery</b>
+                <ul>
+                  <li><strong>Pay now:</strong> Rs. {paymentAmounts.deliveryCharges.toLocaleString()} delivery charges</li>
+                  <li><strong>Pay on delivery:</strong> Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()} to the courier</li>
+                  <li>Your order is confirmed after payment verification.</li>
+                </ul>
+              </div>
             </label>
             {paymentSettings.manualTransferEnabled !== false && (
               <label className={paymentMethod === PAYMENT_METHODS.FULL_ADVANCE ? "paymentBox" : "paymentBox paymentChoice"}>
                 <input type="radio" name="paymentMethod" value="full_advance" checked={paymentMethod === PAYMENT_METHODS.FULL_ADVANCE} onChange={() => setPaymentMethod(PAYMENT_METHODS.FULL_ADVANCE)} />
-                <div><b>Full advance payment — free delivery</b><span>Pay the complete product subtotal now. Delivery is free and nothing is due on delivery.</span></div>
+                <div className="paymentMethodCopy">
+                  <b>Full advance payment <em>Free delivery</em></b>
+                  <ul>
+                    <li><strong>Pay now:</strong> Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</li>
+                    <li><strong>Pay on delivery:</strong> Nothing</li>
+                    <li>Your order is confirmed after payment verification.</li>
+                  </ul>
+                </div>
               </label>
             )}
             <div className="advancePaymentNote">

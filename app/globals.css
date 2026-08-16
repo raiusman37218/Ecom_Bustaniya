@@ -9316,6 +9316,64 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 .orderSummaryHead>p { color:#16452c; }
 .summaryItem,.totalLine { border-color:#e1e3e5; }
 
+/* Payment choices use a compact Shopify-style checklist: the selected option
+   makes the “pay now” and “pay on delivery” amounts easy to scan. */
+.checkoutForm .paymentBox {
+  align-items:flex-start;
+  padding:18px;
+}
+.checkoutForm .paymentBox input {
+  width:18px;
+  height:18px;
+  min-height:18px;
+  margin-top:2px;
+  accent-color:#16452c;
+}
+.paymentMethodCopy {
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.paymentMethodCopy>b {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:#202223;
+  font-size:14px;
+  font-weight:750;
+}
+.paymentMethodCopy>b em {
+  padding:3px 7px;
+  border-radius:999px;
+  background:#eaf5ea;
+  color:#16452c;
+  font-size:9px;
+  font-style:normal;
+  font-weight:800;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+.paymentMethodCopy ul {
+  display:grid;
+  gap:5px;
+  margin:0;
+  padding-left:17px;
+  color:#6d7175;
+  font-size:12px;
+  line-height:1.45;
+}
+.paymentMethodCopy li::marker { color:#16452c; }
+.paymentMethodCopy strong { color:#202223; font-weight:700; }
+.advancePaymentNote {
+  padding:18px;
+  border-color:#d9ddda;
+  border-radius:6px;
+  background:#f8fbf8;
+}
+.advancePaymentNote>b { color:#202223; font-size:13px; }
+.advancePaymentNote>span { color:#6d7175; }
+
 @media (max-width:700px) {
   .checkoutForm { padding:28px 16px 56px; }
   .checkoutForm h1 { font-size:31px; }
@@ -9324,4 +9382,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .checkoutAddressGrid label { min-height:68px; padding:10px 13px 9px; }
   .checkoutAddressGrid input { min-height:30px; font-size:16px; }
   .orderSummary { background:#fafafa; }
+  .checkoutForm .paymentBox { padding:16px; }
+  .paymentMethodCopy>b { font-size:13px; }
+  .paymentMethodCopy ul { font-size:12px; }
 }
