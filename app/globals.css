@@ -8987,9 +8987,10 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 }
 @media (max-width:600px) {
   .productCard:not(.productCard--connected) .productImage { aspect-ratio:.77; }
-  .productCard:not(.productCard--connected) .productInfo { min-height:78px; margin-top:7px; padding:3px 1px 9px; }
+  .productCard:not(.productCard--connected) .productInfo { min-height:60px; margin-top:6px; padding:3px 1px 4px; }
   .productCard:not(.productCard--connected) .productInfo h3 { font-size:12px; }
   .productCard:not(.productCard--connected) .productPrice span { font-size:11px; }
   .productCard:not(.productCard--connected) .productPrice del { font-size:9px; }
   .productCard:not(.productCard--connected) .saleBadge { padding:6px 7px; font-size:8px; }
+  .khaadiTopPicks .productGrid { gap:10px; }
 }
