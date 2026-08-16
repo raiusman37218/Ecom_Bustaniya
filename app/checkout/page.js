@@ -303,7 +303,20 @@ export default function CheckoutPage() {
         localStorage.removeItem("bustaniya_cart");
         window.dispatchEvent(new Event("cartUpdated"));
       }
-      setOrder(result.order);
+      const createdOrder = result.order || {
+        ...result,
+        customer,
+        items: [...cart],
+        subtotal: Number(result.productSubtotal ?? paymentAmounts.productSubtotal),
+        delivery: Number(result.deliveryCharges ?? paymentAmounts.deliveryCharges),
+        total: Number(result.totalOrderValue ?? paymentAmounts.totalOrderValue),
+        advanceAmount: Number(result.amountPayableInAdvance ?? paymentAmounts.amountPayableInAdvance),
+        payableOnDelivery: Number(result.amountPayableOnDelivery ?? paymentAmounts.amountPayableOnDelivery),
+        paymentMethod: normalizePaymentMethod(result.paymentMethod || paymentMethod),
+        paymentDetails: result.paymentDetails || paymentSettings,
+        paymentStatus: result.paymentStatus || "Awaiting Payment",
+      };
+      setOrder(createdOrder);
     } catch (err) {
       setError(err.message || "An error occurred while placing your order.");
     } finally {
