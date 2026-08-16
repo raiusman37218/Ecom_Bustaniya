@@ -9256,23 +9256,24 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 
 /* --- Page & Layout ------------------------------------------------ */
 .checkoutPage {
-  --ck-bg: #fff;
+  --ck-bg: #ffffff;
   --ck-panel: #f5f6f7;
   --ck-border: #d9d9d9;
-  --ck-border-light: #ebebeb;
+  --ck-border-light: #e5e5e5;
   --ck-accent: #16452c;
   --ck-accent-hover: #0f3720;
-  --ck-accent-light: #e8f0eb;
-  --ck-text: #1a1a1a;
-  --ck-muted: #707070;
-  --ck-radius: 8px;
-  --checkout-bg: #fff;
+  --ck-accent-light: #f0f7f3;
+  --ck-text: #111827;
+  --ck-muted: #6b7280;
+  --ck-radius: 6px;
+  --checkout-bg: #ffffff;
   min-height: 100vh;
   background: var(--ck-bg);
   color: var(--ck-text);
+  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
-/* --- Header ------------------------------------------------------- */
+/* --- Header (Tightened utility header) ---------------------------- */
 .checkoutHeader {
   position: sticky;
   top: 0;
@@ -9280,47 +9281,36 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 68px;
-  padding: 0 clamp(20px, 5vw, 48px);
+  height: 60px;
+  padding: 0 clamp(16px, 4vw, 48px);
   background: var(--ck-bg);
   border-bottom: 1px solid var(--ck-border);
-  box-shadow: 0 1px 0 rgba(0,0,0,.04);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  box-shadow: none;
 }
 .checkoutHeader .brand {
   display: flex;
   align-items: center;
-  width: clamp(110px, 10vw, 150px);
+  width: clamp(105px, 8vw, 135px);
 }
 .checkoutHeader .brand img {
   width: 100%;
   height: auto;
 }
-.checkoutHeader > div { align-items: center; }
 .checkoutHeader span {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: auto;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
   color: var(--ck-muted);
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: .01em;
-  text-transform: none;
 }
 .checkoutHeader svg { color: var(--ck-muted); }
 
 /* --- Two-column grid ---------------------------------------------- */
 .checkoutLayout {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(380px, .9fr);
-  min-height: calc(100vh - 68px);
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, .85fr);
+  min-height: calc(100vh - 60px);
   align-items: start;
   background: var(--ck-bg);
 }
@@ -9336,38 +9326,29 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   max-width: 580px;
   width: 100%;
   justify-self: end;
-  padding: 36px clamp(24px, 5vw, 72px) 72px;
+  padding: 32px clamp(20px, 4vw, 64px) 64px;
   background: var(--ck-bg);
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
 }
-.checkoutForm h1 {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 0;
-  line-height: 0;
+.checkoutForm h1,
+.checkoutForm h2,
+.checkoutForm h3,
+.orderSummary h2,
+.confirmationHero h1 {
+  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
-/* RESET — kill any card wrapper from earlier CSS layers */
 .checkoutForm form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-width: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  gap: 16px;
 }
 
-/* --- Section headings --------------------------------------------- */
+/* --- Section headings (8px scale spacing: 24/32px) ---------------- */
 .checkoutSectionHeading {
   display: flex;
   align-items: flex-start;
   gap: 0;
-  margin: 24px 0 2px;
+  margin: 24px 0 0;
   padding: 24px 0 0;
   border-top: 1px solid var(--ck-border-light);
 }
@@ -9380,48 +9361,47 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 .checkoutSectionHeading div { display: flex; flex-direction: column; gap: 4px; }
 .checkoutSectionHeading b {
   color: var(--ck-text);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -.015em;
-  text-transform: none;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -.01em;
 }
 .checkoutSectionHeading small {
   color: var(--ck-muted);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.45;
   font-weight: 400;
 }
 
-/* --- Floating-label form fields ----------------------------------- */
+/* --- Compact single-border form fields ---------------------------- */
 .checkoutForm label {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  font-size: 12px;
-  font-weight: 500;
+  gap: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
   color: var(--ck-muted);
-  letter-spacing: 0;
-  text-transform: none;
+  text-transform: uppercase;
+  letter-spacing: .03em;
 }
 
 .checkoutForm form > label:not(.paymentBox),
 .checkoutForm .formRow > label {
-  gap: 0;
-  padding: 10px 14px 8px;
+  gap: 2px;
+  padding: 8px 12px;
   border: 1px solid var(--ck-border);
   border-radius: var(--ck-radius);
-  background: #fff;
+  background: #ffffff;
   cursor: text;
-  transition: border-color .18s ease, box-shadow .18s ease;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
 .checkoutForm form > label:not(.paymentBox):hover,
 .checkoutForm .formRow > label:hover {
-  border-color: #aaa;
+  border-color: #9ca3af;
 }
 .checkoutForm form > label:not(.paymentBox):focus-within,
 .checkoutForm .formRow > label:focus-within {
-  border-color: var(--ck-accent);
-  box-shadow: 0 0 0 1px var(--ck-accent);
+  border-color: var(--ck-accent) !important;
+  box-shadow: 0 0 0 2px var(--ck-accent) !important;
 }
 
 .checkoutForm input,
@@ -9429,19 +9409,17 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 .checkoutForm select {
   width: 100%;
   min-width: 0;
-  min-height: 30px;
+  min-height: 28px;
   padding: 2px 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   outline: 0;
   color: var(--ck-text);
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
+  font-family: inherit;
   resize: vertical;
-  transition: none;
 }
 .checkoutForm input:focus,
 .checkoutForm textarea:focus,
@@ -9451,33 +9429,22 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   outline: 0;
 }
 .checkoutForm input::placeholder,
-.checkoutForm textarea::placeholder { color: #b5b5b5; font-weight: 400; }
-.checkoutForm select { appearance: auto; cursor: pointer; }
-.checkoutForm select:disabled { color: #999; background: transparent; }
+.checkoutForm textarea::placeholder { color: #9ca3af; font-weight: 400; }
 
 /* --- Address fieldset --------------------------------------------- */
 .checkoutAddressFields {
-  margin: 2px 0 0;
-  padding: 20px;
+  margin: 0;
+  padding: 16px;
   border: 1px solid var(--ck-border);
   border-radius: var(--ck-radius);
-  background: #fafbfc;
+  background: #fafafa;
 }
 .checkoutAddressFields legend {
   padding: 0 6px;
   color: var(--ck-text);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
+  font-size: 13.5px;
+  font-weight: 600;
 }
-.checkoutAddressFields > p {
-  margin: 4px 0 16px;
-  color: var(--ck-muted);
-  font-size: 12px;
-  line-height: 1.55;
-}
-.checkoutAddressFields .formRow + .formRow { margin-top: 12px; }
 
 .checkoutAddressGrid {
   display: grid;
@@ -9486,34 +9453,24 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 }
 .checkoutAddressGrid label {
   min-width: 0;
-  gap: 0;
-  padding: 10px 13px 8px;
+  gap: 2px;
+  padding: 8px 12px;
   border: 1px solid var(--ck-border);
-  border-radius: 6px;
-  background: #fff;
+  border-radius: var(--ck-radius);
+  background: #ffffff;
   color: var(--ck-muted);
-  transition: border-color .18s ease, box-shadow .18s ease;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
-.checkoutAddressGrid label:hover { border-color: #aaa; }
+.checkoutAddressGrid label:hover { border-color: #9ca3af; }
 .checkoutAddressGrid label:focus-within {
-  border-color: var(--ck-accent);
-  box-shadow: 0 0 0 1px var(--ck-accent);
+  border-color: var(--ck-accent) !important;
+  box-shadow: 0 0 0 2px var(--ck-accent) !important;
 }
 .checkoutAddressGrid label em {
   color: var(--ck-muted);
   font-size: 10px;
   font-style: normal;
   font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-}
-.checkoutAddressGrid input,
-.checkoutAddressGrid input:focus {
-  min-height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
 }
 
 /* --- Form row (city + postal) ------------------------------------- */
@@ -9523,81 +9480,131 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   gap: 12px;
 }
 
-/* --- Shipping method ---------------------------------------------- */
+/* --- Radio-style option cards (Shipping & Payment) ---------------- */
 .shippingMethodBox {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border: 2px solid var(--ck-accent);
   border-radius: var(--ck-radius);
   background: var(--ck-accent-light);
 }
-.shippingMethodBox > span { display: grid; gap: 3px; }
+.shippingMethodBox > span { display: grid; gap: 2px; }
 .shippingMethodBox > span > b,
-.shippingMethodBox > b { color: var(--ck-text); font-size: 14px; font-weight: 700; }
+.shippingMethodBox > b { color: var(--ck-text); font-size: 14px; font-weight: 600; }
 .shippingMethodBox small { color: var(--ck-muted); font-size: 12px; }
 
-/* --- Payment option cards ----------------------------------------- */
 .checkoutForm .paymentBox {
-  margin-top: 6px;
-  padding: 18px;
+  margin-top: 4px;
+  padding: 14px 16px;
   border: 2px solid var(--ck-accent);
   border-radius: var(--ck-radius);
   background: var(--ck-accent-light);
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  gap: 12px;
   cursor: pointer;
-  text-transform: none;
-  letter-spacing: 0;
-  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+  transition: border-color .15s ease, background .15s ease;
 }
-.checkoutForm .paymentBox:hover { transform: none; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
 .checkoutForm .paymentBox input[type="radio"] {
-  width: 20px;
-  height: 20px;
-  min-height: 20px !important;
+  width: 18px;
+  height: 18px;
+  min-height: 18px !important;
   flex: 0 0 auto;
-  margin-top: 1px;
-  padding: 0 !important;
-  border: 0 !important;
+  margin-top: 2px;
   accent-color: var(--ck-accent);
   cursor: pointer;
 }
-.paymentChoice { border-color: var(--ck-border) !important; background: #fff !important; }
-.paymentChoice:hover { border-color: #aaa !important; }
-.paymentUnavailable { border-color: var(--ck-border-light) !important; background: #f7f8f6 !important; opacity: .6; }
+.paymentChoice { border: 1px solid var(--ck-border) !important; background: #ffffff !important; }
+.paymentChoice:hover { border-color: #9ca3af !important; }
 
-.paymentMethodCopy { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-.paymentMethodTitle { display: flex; flex-direction: column; gap: 4px; }
+.paymentMethodCopy { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.paymentMethodTitle { display: flex; flex-direction: column; gap: 3px; }
 .paymentMethodTitle > b {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
   color: var(--ck-text);
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14.5px;
+  font-weight: 600;
 }
 .paymentMethodTitle > b em {
   display: inline-flex;
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 999px;
-  background: #d4edda;
-  color: var(--ck-accent);
+  background: #dcfce7;
+  color: #166534;
   font-size: 10px;
   font-style: normal;
-  font-weight: 800;
-  letter-spacing: .04em;
+  font-weight: 700;
   text-transform: uppercase;
-  white-space: nowrap;
 }
 .paymentMethodTitle > span {
   color: var(--ck-muted);
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.45;
+}
+
+.paymentOptionList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--ck-border-light);
+}
+.paymentOptionList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ck-border-light);
+}
+.paymentOptionList li:last-child { border-bottom: 0; padding-bottom: 0; }
+.paymentOptionList strong { color: var(--ck-text); font-size: 12.5px; font-weight: 600; }
+.paymentOptionList small { color: var(--ck-muted); font-size: 11px; }
+
+/* --- Buttons ------------------------------------------------------ */
+.placeOrder {
+  min-height: 52px;
+  padding: 14px 24px;
+  border: 0;
+  border-radius: var(--ck-radius);
+  background: var(--ck-accent);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background .15s ease;
+  box-shadow: none;
+}
+.placeOrder:not(:disabled):hover {
+  background: var(--ck-accent-hover);
+}
+.placeOrder:disabled { opacity: .45; cursor: not-allowed; }
+
+.secondaryButton {
+  border: 1px solid var(--ck-accent);
+  color: var(--ck-accent);
+  background: transparent;
+  border-radius: var(--ck-radius);
+  font-weight: 700;
+  min-height: 44px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s ease;
+}
+.secondaryButton:hover {
+  background: var(--ck-accent-light);
 }
 .paymentChoice .paymentMethodTitle > span { display: none; }
 .paymentBox b, .paymentBox span { overflow-wrap: anywhere; }
@@ -9991,6 +9998,29 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   font-weight: 800 !important;
 }
 .totalLine b { color: var(--ck-text) !important; font-size: 18px !important; font-weight: 800 !important; }
+
+/* Inline Field Validation Errors */
+.fieldInputIsError,
+input.fieldInputIsError,
+.cityDisplayBox.fieldInputIsError {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
+}
+.inlineFieldError {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  color: #dc2626;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.inlineFieldError svg {
+  flex: 0 0 auto;
+  color: #dc2626;
+}
 
 .checkoutEmpty { text-align: center; padding: 50px 0; }
 .checkoutEmpty svg { color: #ccc; }

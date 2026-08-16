@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CheckCircle2, ChevronDown, Lock, MessageCircle, Search, ShoppingBag, Truck } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, ChevronDown, Lock, MessageCircle, Search, ShoppingBag, Truck } from "lucide-react";
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
@@ -24,7 +24,41 @@ const MAJOR_CITIES = [
   "Abbottabad",
 ];
 
-function CityCombobox({ value, onChange, cities, loading, disabled }) {
+function isValidPakistanMobile(value = "") {
+  const digits = value.replace(/\D/g, "");
+  const normalized = digits.startsWith("92") && digits.length === 12 ? `0${digits.slice(2)}` : digits;
+  return /^03\d{9}$/.test(normalized);
+}
+
+function validateCheckoutForm(form) {
+  const errors = {};
+  if (!form.fullName?.trim()) {
+    errors.fullName = "Full name is required";
+  }
+  if (!form.phone?.trim()) {
+    errors.phone = "Phone number is required";
+  } else if (!isValidPakistanMobile(form.phone)) {
+    errors.phone = "Please enter a valid Pakistani mobile number (e.g. 03001234567)";
+  }
+  if (form.email?.trim() && !/\S+@\S+\.\S+/.test(form.email.trim())) {
+    errors.email = "Please enter a valid email address";
+  }
+  if (!form.houseNo?.trim()) {
+    errors.houseNo = "House / Flat number is required";
+  }
+  if (!form.street?.trim()) {
+    errors.street = "Street / Road name is required";
+  }
+  if (!form.block?.trim()) {
+    errors.block = "Block / Area is required";
+  }
+  if (!form.city?.trim()) {
+    errors.city = "Delivery city is required";
+  }
+  return errors;
+}
+
+function CityCombobox({ value, onChange, cities, loading, disabled, error }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const containerRef = useRef(null);
@@ -71,7 +105,7 @@ function CityCombobox({ value, onChange, cities, loading, disabled }) {
       />
 
       <div
-        className={`cityDisplayBox ${isOpen ? "isOpen" : ""}`}
+        className={`cityDisplayBox ${isOpen ? "isOpen" : ""} ${error ? "fieldInputIsError" : ""}`}
         onClick={() => {
           if (!disabled && !loading) setIsOpen(true);
         }}
@@ -105,6 +139,7 @@ function CityCombobox({ value, onChange, cities, loading, disabled }) {
         )}
         <ChevronDown size={15} className={`cityArrowIcon ${isOpen ? "isOpen" : ""}`} />
       </div>
+      {error && <small className="inlineFieldError"><AlertCircle size={12} /> {error}</small>}
 
       {isOpen && (
         <div className="cityDropdownMenu">
@@ -188,6 +223,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [discountCode, setDiscountCode] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     try {
@@ -247,12 +283,47 @@ export default function CheckoutPage() {
   const instructionPoints = useMemo(() => paymentInstructionPoints(selectedInstructions), [selectedInstructions]);
 
   function updateField(event) {
-    setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+    const { name, value } = event.target;
+    let nextValue = value;
+
+    if (name === "phone") {
+      // Live input filtering: restrict to digits and optional leading +
+      nextValue = value.replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
+    }
+
+    setForm((current) => ({ ...current, [name]: nextValue }));
+
+    if (fieldErrors[name]) {
+      setFieldErrors((current) => ({ ...current, [name]: "" }));
+    }
   }
 
   async function placeOrder(event) {
     event.preventDefault();
     if (submitting || !cart.length) return;
+
+    const validationErrors = validateCheckoutForm(form);
+    setFieldErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      const firstErrorField = Object.keys(validationErrors)[0];
+      let errorElem = document.querySelector(`[name="${firstErrorField}"]`);
+
+      if (!errorElem && firstErrorField === "city") {
+        errorElem = document.querySelector(`.citySearchInput`) || document.querySelector(`.cityDisplayBox`);
+      }
+
+      if (errorElem) {
+        errorElem.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => {
+          if (typeof errorElem.focus === "function") {
+            errorElem.focus();
+          }
+        }, 150);
+      }
+      return;
+    }
+
     setSubmitting(true);
     setError("");
     const completeAddress = buildShippingAddress(form);
@@ -319,7 +390,17 @@ export default function CheckoutPage() {
       };
       setOrder(createdOrder);
     } catch (err) {
-      setError(err.message || "An error occurred while placing your order.");
+      const errorMsg = err.message || "An error occurred while placing your order.";
+      setError(errorMsg);
+
+      if (errorMsg.toLowerCase().includes("phone") || errorMsg.toLowerCase().includes("pakistani mobile")) {
+        setFieldErrors((prev) => ({ ...prev, phone: errorMsg }));
+        const phoneElem = document.querySelector('[name="phone"]');
+        if (phoneElem) {
+          phoneElem.scrollIntoView({ behavior: "smooth", block: "center" });
+          phoneElem.focus();
+        }
+      }
     } finally {
       setSubmitting(false);
     }
@@ -355,25 +436,52 @@ export default function CheckoutPage() {
       <div className="checkoutLayout">
         <section className="checkoutForm">
           <h1 className="checkoutVisuallyHidden">Bustaniya checkout</h1>
-          <form onSubmit={placeOrder}>
+          <form onSubmit={placeOrder} noValidate>
             <div className="checkoutSectionHeading"><span>01</span><div><b>Contact</b><small>We use these details only for order confirmation and delivery updates.</small></div></div>
-            <label>Full name<input required name="fullName" value={form.fullName} onChange={updateField} placeholder="Your full name" /></label>
-            <label>Phone number<input required name="phone" value={form.phone} onChange={updateField} type="tel" inputMode="tel" placeholder="Phone / WhatsApp number" /></label>
-            <label>Email address (optional)<input name="email" value={form.email} onChange={updateField} type="email" placeholder="you@example.com" /></label>
+            <label>
+              Full name
+              <input name="fullName" value={form.fullName} onChange={updateField} placeholder="Your full name" className={fieldErrors.fullName ? "fieldInputIsError" : ""} />
+              {fieldErrors.fullName && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.fullName}</small>}
+            </label>
+            <label>
+              Phone number
+              <input name="phone" value={form.phone} onChange={updateField} type="tel" inputMode="tel" placeholder="Phone / WhatsApp number (e.g. 03001234567)" className={fieldErrors.phone ? "fieldInputIsError" : ""} />
+              {fieldErrors.phone && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.phone}</small>}
+            </label>
+            <label>
+              Email address (optional)
+              <input name="email" value={form.email} onChange={updateField} type="email" placeholder="you@example.com" className={fieldErrors.email ? "fieldInputIsError" : ""} />
+              {fieldErrors.email && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.email}</small>}
+            </label>
             <div className="checkoutSectionHeading"><span>02</span><div><b>Delivery</b><small>Enter the address in separate parts so the courier can find you easily.</small></div></div>
             <fieldset className="checkoutAddressFields">
               <legend>Delivery address</legend>
               <div className="checkoutAddressGrid">
-                <label>House / Flat No.<input required name="houseNo" value={form.houseNo} onChange={updateField} autoComplete="address-line1" placeholder="e.g. House 24, Flat 3B" /></label>
-                <label>Street / Road<input required name="street" value={form.street} onChange={updateField} autoComplete="address-line2" placeholder="e.g. Street 8, Main Boulevard" /></label>
-                <label>Block / Area<input required name="block" value={form.block} onChange={updateField} placeholder="e.g. Block C, Gulberg III" /></label>
+                <label>
+                  House / Flat No.
+                  <input name="houseNo" value={form.houseNo} onChange={updateField} autoComplete="address-line1" placeholder="e.g. House 24, Flat 3B" className={fieldErrors.houseNo ? "fieldInputIsError" : ""} />
+                  {fieldErrors.houseNo && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.houseNo}</small>}
+                </label>
+                <label>
+                  Street / Road
+                  <input name="street" value={form.street} onChange={updateField} autoComplete="address-line2" placeholder="e.g. Street 8, Main Boulevard" className={fieldErrors.street ? "fieldInputIsError" : ""} />
+                  {fieldErrors.street && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.street}</small>}
+                </label>
+                <label>
+                  Block / Area
+                  <input name="block" value={form.block} onChange={updateField} placeholder="e.g. Block C, Gulberg III" className={fieldErrors.block ? "fieldInputIsError" : ""} />
+                  {fieldErrors.block && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.block}</small>}
+                </label>
                 <label>Nearby landmark <em>(optional)</em><input name="landmark" value={form.landmark} onChange={updateField} placeholder="e.g. Near Central Mosque" /></label>
               </div>
             </fieldset>
             <div className="formRow">
               <label className="cityFormLabel">City
                 {citiesError ? (
-                  <input required name="city" value={form.city} onChange={updateField} placeholder="Enter delivery city" />
+                  <>
+                    <input name="city" value={form.city} onChange={updateField} placeholder="Enter delivery city" className={fieldErrors.city ? "fieldInputIsError" : ""} />
+                    {fieldErrors.city && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.city}</small>}
+                  </>
                 ) : (
                   <CityCombobox
                     value={form.city}
@@ -381,6 +489,7 @@ export default function CheckoutPage() {
                     cities={cities}
                     loading={citiesLoading}
                     disabled={citiesLoading}
+                    error={fieldErrors.city}
                   />
                 )}
               </label>
