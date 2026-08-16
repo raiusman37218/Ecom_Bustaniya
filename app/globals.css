@@ -10450,12 +10450,15 @@ input.fieldInputIsError,
   .checkoutForm .formRow > label { min-height: 58px; padding: 10px 14px 8px; }
   .checkoutForm form > label:not(.paymentBox) input,
   .checkoutForm .formRow > label input,
-  .checkoutForm .formRow > label select { min-height: 26px; font-size: 16px; }
+  .checkoutForm .formRow > label select,
+  .citySearchInput { min-height: 26px; font-size: 16px !important; }
+  .cityDisplayBox { min-height: 44px !important; padding: 6px 12px !important; }
+  .cityDropdownMenu { max-height: 220px !important; z-index: 999 !important; box-shadow: 0 12px 32px rgba(0,0,0,.2) !important; }
 
   .checkoutAddressFields { padding: 14px; }
   .checkoutAddressGrid { grid-template-columns: 1fr; gap: 8px; }
   .checkoutAddressGrid label { min-height: 58px; }
-  .checkoutAddressGrid input { font-size: 16px; }
+  .checkoutAddressGrid input { font-size: 16px !important; }
 
   .checkoutForm .formRow { grid-template-columns: 1fr; }
 
@@ -10569,14 +10572,38 @@ input.fieldInputIsError,
   .checkoutPolicyLinks { justify-content: flex-start; gap: 8px 12px; }
 }
 
-/* --- Searchable City Combobox ------------------------------------- */
-.cityFormLabel {
-  position: relative;
+/* --- Searchable City Combobox & Viewport Stability ---------------- */
+html, body {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
 }
+
+.checkoutPage,
+.checkoutLayout,
+.checkoutForm {
+  overflow-x: hidden !important;
+  max-width: 100% !important;
+}
+
+.cityFormGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+}
+.cityFormLabelText {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ck-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .cityComboboxContainer {
   position: relative;
   width: 100%;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 .cityHiddenInput {
   position: absolute;

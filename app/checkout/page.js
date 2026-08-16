@@ -90,17 +90,20 @@ function CityCombobox({ value, onChange, cities, loading, disabled, error }) {
     onChange({ target: { name: "city", value: city } });
     setSearch("");
     setIsOpen(false);
+    if (containerRef.current) {
+      const searchInput = containerRef.current.querySelector(".citySearchInput");
+      if (searchInput) searchInput.blur();
+    }
   }
 
   return (
     <div className="cityComboboxContainer" ref={containerRef}>
       <input
         tabIndex={-1}
-        required
+        readOnly
+        aria-hidden="true"
         name="city"
         value={value}
-        onChange={() => {}}
-        onFocus={() => containerRef.current?.querySelector(".citySearchInput")?.focus()}
         className="cityHiddenInput"
       />
 
@@ -476,7 +479,8 @@ export default function CheckoutPage() {
               </div>
             </fieldset>
             <div className="formRow">
-              <label className="cityFormLabel">City
+              <div className="cityFormGroup">
+                <span className="cityFormLabelText">City</span>
                 {citiesError ? (
                   <>
                     <input name="city" value={form.city} onChange={updateField} placeholder="Enter delivery city" className={fieldErrors.city ? "fieldInputIsError" : ""} />
@@ -492,7 +496,7 @@ export default function CheckoutPage() {
                     error={fieldErrors.city}
                   />
                 )}
-              </label>
+              </div>
               <label>Postal code (optional)<input name="postalCode" value={form.postalCode} onChange={updateField} placeholder="Postal code" /></label>
             </div>
 
