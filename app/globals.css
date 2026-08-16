@@ -10082,6 +10082,42 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   transform: translateY(-1px);
 }
 
+/* Step badges for confirmation cards */
+.stepHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.stepHeader h2 {
+  margin: 0 0 4px !important;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+}
+.stepHeader p {
+  margin: 0;
+  color: var(--ck-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.stepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  background: var(--ck-accent);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+.step2Number {
+  background: #25d366 !important;
+}
+
 /* --- WhatsApp Primary Confirmation Card --- */
 .whatsappConfirmMainCard {
   border: 2px solid #25d366 !important;
