@@ -10254,6 +10254,39 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 .secondaryButton { border: 1px solid var(--ck-accent); color: var(--ck-accent); background: transparent; }
 .secondaryButton:hover { background: var(--ck-accent-light); }
 
+.confirmationContainer {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.confirmedSummaryCard {
+  padding: 20px 24px;
+  background: #ffffff;
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+}
+.confirmedSummaryCard h2 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 14px;
+  color: var(--ck-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.confirmedSummaryCard h2 span {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #6b7280;
+}
+.summaryItemsList {
+  border-top: 1px solid #f3f4f6;
+  border-bottom: 1px solid #f3f4f6;
+}
+
 .confirmationRecapCard {
   padding: 18px 22px;
   display: flex;
