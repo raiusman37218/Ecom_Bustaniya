@@ -9243,3 +9243,85 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     background:none !important;
   }
 }
+
+/* Shopify-inspired checkout: calm white surfaces, clear form hierarchy and
+   grouped address fields while keeping Bustaniya's forest-green action colour. */
+.checkoutPage { --checkout-bg:#fff; background:#fff; }
+.checkoutHeader { background:#fff; border-bottom-color:#e1e3e5; box-shadow:none; }
+.checkoutLayout { background:#fff; }
+.checkoutForm { background:#fff; }
+.checkoutForm h1 {
+  margin:4px 0 18px;
+  color:#202223;
+  font-family:var(--font-sans);
+  font-size:clamp(30px,3.2vw,40px);
+  font-weight:700;
+  line-height:1.15;
+  letter-spacing:-.025em;
+}
+.checkoutIntro { margin:0 0 28px; color:#6d7175; font-size:14px; }
+.checkoutSectionHeading { margin:20px 0 2px; padding-top:24px; border-top-color:#e1e3e5; }
+.checkoutSectionHeading>span { background:#edf6ee; color:#16452c; }
+.checkoutSectionHeading b { color:#202223; }
+.checkoutSectionHeading small { color:#6d7175; }
+.checkoutForm label { color:#202223; font-size:11px; font-weight:750; }
+.checkoutForm input,.checkoutForm textarea,.checkoutForm select {
+  min-height:52px;
+  border-color:#c9cccf;
+  border-radius:6px;
+  background:#fff;
+  color:#202223;
+}
+.checkoutForm input::placeholder,.checkoutForm textarea::placeholder { color:#8c9196; }
+.checkoutForm input:focus,.checkoutForm textarea:focus,.checkoutForm select:focus {
+  border-color:#16452c;
+  box-shadow:0 0 0 1px #16452c;
+}
+.checkoutAddressFields {
+  margin-top:5px;
+  padding:20px;
+  border-color:#e1e3e5;
+  border-radius:8px;
+  background:#fff;
+}
+.checkoutAddressFields legend { padding:0; color:#202223; font-size:15px; font-weight:750; letter-spacing:0; text-transform:none; }
+.checkoutAddressFields>p { margin:6px 0 18px; color:#6d7175; font-size:12px; line-height:1.55; }
+.checkoutAddressGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.checkoutAddressGrid label {
+  min-width:0;
+  gap:4px;
+  padding:9px 12px 8px;
+  border:1px solid #c9cccf;
+  border-radius:6px;
+  background:#fff;
+  color:#202223;
+  transition:border-color .18s ease,box-shadow .18s ease;
+}
+.checkoutAddressGrid label:focus-within { border-color:#16452c; box-shadow:0 0 0 1px #16452c; }
+.checkoutAddressGrid label em { color:#6d7175; font-size:10px; font-style:normal; font-weight:500; text-transform:none; letter-spacing:0; }
+.checkoutAddressGrid input,
+.checkoutAddressGrid input:focus {
+  min-height:28px;
+  padding:0;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+}
+.paymentBox,.advancePaymentNote { border-color:#d9ddda; border-radius:6px; background:#fff; }
+.paymentBox:not(.paymentChoice) { border-color:#16452c; background:#f5faf4; }
+.placeOrder { border-radius:6px; background:#16452c; }
+.placeOrder:not(:disabled):hover { background:#0f3924; }
+.orderSummary { background:#fafafa; border-left-color:#e1e3e5; }
+.orderSummaryHead { border-bottom-color:#e1e3e5; }
+.orderSummaryHead>p { color:#16452c; }
+.summaryItem,.totalLine { border-color:#e1e3e5; }
+
+@media (max-width:700px) {
+  .checkoutForm { padding:28px 16px 56px; }
+  .checkoutForm h1 { font-size:31px; }
+  .checkoutAddressFields { padding:16px; }
+  .checkoutAddressGrid { grid-template-columns:1fr; gap:10px; }
+  .checkoutAddressGrid label { min-height:68px; padding:10px 13px 9px; }
+  .checkoutAddressGrid input { min-height:30px; font-size:16px; }
+  .orderSummary { background:#fafafa; }
+}

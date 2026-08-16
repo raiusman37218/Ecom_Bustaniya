@@ -160,13 +160,11 @@ export default function CheckoutPage() {
             <fieldset className="checkoutAddressFields">
               <legend>Delivery address</legend>
               <p>Please enter each part separately so the courier can find your address easily.</p>
-              <div className="formRow">
+              <div className="checkoutAddressGrid">
                 <label>House / Flat No.<input required name="houseNo" value={form.houseNo} onChange={updateField} autoComplete="address-line1" placeholder="e.g. House 24, Flat 3B" /></label>
                 <label>Street / Road<input required name="street" value={form.street} onChange={updateField} autoComplete="address-line2" placeholder="e.g. Street 8, Main Boulevard" /></label>
-              </div>
-              <div className="formRow">
                 <label>Block / Area<input required name="block" value={form.block} onChange={updateField} placeholder="e.g. Block C, Gulberg III" /></label>
-                <label>Nearby landmark (optional)<input name="landmark" value={form.landmark} onChange={updateField} placeholder="e.g. Near Central Mosque" /></label>
+                <label>Nearby landmark <em>(optional)</em><input name="landmark" value={form.landmark} onChange={updateField} placeholder="e.g. Near Central Mosque" /></label>
               </div>
             </fieldset>
             <div className="formRow">
