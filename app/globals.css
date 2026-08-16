@@ -9420,6 +9420,30 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
 }
 .advancePaymentNote>b { color:#202223; font-size:13px; }
 .advancePaymentNote>span { color:#6d7175; }
+.paymentInstructionList {
+  display:grid;
+  gap:7px;
+  margin:11px 0 14px;
+  padding:0;
+  list-style:none;
+  color:#56645b;
+  font-size:12px;
+  line-height:1.5;
+}
+.paymentInstructionList li {
+  position:relative;
+  padding-left:17px;
+}
+.paymentInstructionList li::before {
+  position:absolute;
+  top:.48em;
+  left:0;
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#16452c;
+  content:"";
+}
 .shippingMethodBox {
   display:flex;
   align-items:center;

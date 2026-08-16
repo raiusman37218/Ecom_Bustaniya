@@ -6,6 +6,19 @@ import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
 
+function paymentInstructionPoints(value) {
+  const normalized = String(value || "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\s+(?=(?:Please|Kindly|Separately|After|Then|Send|Screenshot|Details|Note|Payment)\b)/gi, "\n");
+
+  return normalized
+    .split(/\n+|[•●]/)
+    .flatMap((line) => line.split(/\.\s+(?=[A-Z])/))
+    .map((line) => line.trim().replace(/^[\-–—]\s*/, ""))
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
 export default function CheckoutPage() {
   const [cart, setCart] = useState([]);
   const [form, setForm] = useState({
@@ -73,6 +86,10 @@ export default function CheckoutPage() {
     () => calculatePaymentAmounts({ subtotal, paymentMethod, paymentSettings }),
     [subtotal, paymentMethod, paymentSettings]
   );
+  const selectedInstructions = paymentMethod === PAYMENT_METHODS.FULL_ADVANCE
+    ? paymentSettings.instructions
+    : paymentSettings.codInstructions;
+  const instructionPoints = useMemo(() => paymentInstructionPoints(selectedInstructions), [selectedInstructions]);
 
   function updateField(event) {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
@@ -209,7 +226,7 @@ export default function CheckoutPage() {
             )}
             <div className="advancePaymentNote">
               <b>{paymentAmounts.paymentLabel}</b>
-              <span>{paymentMethod === PAYMENT_METHODS.FULL_ADVANCE ? paymentSettings.instructions : paymentSettings.codInstructions}</span>
+              {instructionPoints.length > 0 && <ul className="paymentInstructionList">{instructionPoints.map((point, index) => <li key={`${point}-${index}`}>{point}</li>)}</ul>}
               <div className="checkoutPaymentBreakdown"><span>Product subtotal <b>Rs. {paymentAmounts.productSubtotal.toLocaleString()}</b></span><span>Delivery charges <b>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</b></span><span>Total order value <b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></span><span>Pay now <b>Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</b></span><span>Pay on delivery <b>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</b></span></div>
               <div className="bankPaymentDetails">{paymentSettings.bankName && <span><b>Bank / wallet</b>{paymentSettings.bankName}</span>}{paymentSettings.bankTitle && <span><b>Account title</b>{paymentSettings.bankTitle}</span>}{paymentSettings.bankAccountNumber && <span><b>Account no.</b>{paymentSettings.bankAccountNumber}</span>}{paymentSettings.bankIban && <span><b>IBAN</b>{paymentSettings.bankIban}</span>}</div>
             </div>
