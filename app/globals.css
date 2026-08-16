@@ -9143,7 +9143,7 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .productPurchase details#size-guide > .sizeChartInlineTitle {
     display:block;
     padding:14px 14px 8px;
-    background:#050505;
+    background:#16452c;
     color:#fff;
     font-size:11px;
     font-weight:800;
@@ -9160,13 +9160,13 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
     min-width:0;
     table-layout:fixed;
     font-size:8px;
-    background:#111;
+    background:#16452c;
   }
   .productPurchase details#size-guide .sizeChartTable th,
   .productPurchase details#size-guide .sizeChartTable td {
     padding:8px 3px;
     border:0;
-    background:#111;
+    background:#16452c;
     color:#fff;
     white-space:normal;
     line-height:1.25;
@@ -9186,10 +9186,10 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   }
   .productPurchase .productDetailsAccordion {
     margin:0;
-    padding:20px 12px 8px;
+    padding:20px 14px 14px;
     overflow:visible;
     border:0;
-    background:#edf4e9;
+    background:#f5f9f2;
   }
   .productPurchase .productDetailsAccordion summary {
     display:none;
@@ -9202,16 +9202,20 @@ footer>div:not(.footerBrand):not(.copyright) a:hover::after { right:0; }
   .productDetailsAccordion .structuredProductDetails { gap:6px; }
   .productDetailsAccordion .structuredProductDetails h3 {
     margin:0 0 4px;
-    color:#4b151d;
+    color:#16452c;
     font-size:13px;
   }
   .productDetailsAccordion .structuredProductDetails p,
   .productDetailsAccordion .structuredProductDetails ul {
-    color:#3a2425;
+    color:#16452c;
     font-size:11px;
-    line-height:1.55;
+    line-height:1.6;
   }
-  .productDetailsAccordion .structuredProductDetails ul { gap:3px; }
+  .productDetailsAccordion .structuredProductDetails ul {
+    gap:4px;
+    padding-left:18px;
+  }
+  .productDetailsAccordion .structuredProductDetails li::marker { color:#16452c; }
   .productDetailsAccordion .productDetailsNote { display:none; }
   /* Related products stay two-up even on 320px screens. */
   .relatedProducts .productGrid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 10px; }
