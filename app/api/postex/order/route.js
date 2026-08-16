@@ -481,6 +481,12 @@ export async function POST(request) {
     // prices and the active payment settings on the server.
     await patchOrderWithAvailableColumns(reservedOrder.order_id, {
         payment_method: paymentAmounts.paymentMethod,
+        // The established Bustaniya schema uses these three columns for its
+        // finance totals. Update them explicitly so the immutable checkout
+        // snapshot never falls back to the historic Rs. 200 delivery rule.
+        subtotal_pkr: paymentAmounts.productSubtotal,
+        shipping_fee_pkr: paymentAmounts.deliveryCharges,
+        total_pkr: paymentAmounts.totalOrderValue,
         payment_status: "Awaiting Payment",
         payment_proof_status: "Awaiting Payment",
         order_confirmation_status: "Awaiting payment verification",
@@ -497,6 +503,14 @@ export async function POST(request) {
         // payment snapshot there too when the newer dedicated columns are not
         // installed, so the admin still has a complete verification record.
         internal_notes: [
+          "Checkout payment verification pending.",
+          `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment" : "COD delivery charges in advance"}.`,
+          `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
+          `Delivery charges: Rs. ${paymentAmounts.deliveryCharges}.`,
+          `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
+          `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
+        ].join(" "),
+        notes: [
           "Checkout payment verification pending.",
           `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment" : "COD delivery charges in advance"}.`,
           `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
