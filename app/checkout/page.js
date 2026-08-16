@@ -190,7 +190,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("bustaniya_cart");
+      const stored = localStorage.getItem("bustaniya-cart") || localStorage.getItem("bustaniya_cart");
       if (stored) setCart(JSON.parse(stored));
     } catch {}
   }, []);
@@ -299,6 +299,7 @@ export default function CheckoutPage() {
             postalCode: form.postalCode,
           })
         );
+        localStorage.removeItem("bustaniya-cart");
         localStorage.removeItem("bustaniya_cart");
         window.dispatchEvent(new Event("cartUpdated"));
       }
