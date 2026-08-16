@@ -9939,14 +9939,58 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   background: var(--ck-accent-light);
   color: var(--ck-text);
 }
+/* Discount code box */
+.discountCodeBox {
+  display: flex;
+  gap: 8px;
+  margin: 18px 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--ck-border-light);
+}
+.discountCodeBox input {
+  flex: 1;
+  min-height: 42px !important;
+  padding: 0 12px !important;
+  border: 1px solid var(--ck-border) !important;
+  border-radius: var(--ck-radius) !important;
+  font-size: 13.5px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+.discountCodeBox input:focus {
+  border-color: var(--ck-accent) !important;
+  box-shadow: 0 0 0 1px var(--ck-accent) !important;
+}
+.discountApplyBtn {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--ck-radius);
+  background: var(--ck-accent);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.discountApplyBtn:hover:not(:disabled) {
+  background: var(--ck-accent-hover);
+}
+.discountApplyBtn:disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
 .totalLine {
   border-top: 1px solid var(--ck-border);
   border-color: var(--ck-border);
   padding-top: 16px;
   margin-top: 6px;
-  font-size: 16px !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
 }
-.totalLine b { color: var(--ck-text) !important; }
+.totalLine b { color: var(--ck-text) !important; font-size: 18px !important; font-weight: 800 !important; }
 
 .checkoutEmpty { text-align: center; padding: 50px 0; }
 .checkoutEmpty svg { color: #ccc; }

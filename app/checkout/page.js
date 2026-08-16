@@ -187,6 +187,7 @@ export default function CheckoutPage() {
   const [paymentSettings, setPaymentSettings] = useState(DEFAULT_STORE_SETTINGS.paymentSettings);
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [discountCode, setDiscountCode] = useState("");
 
   useEffect(() => {
     try {
@@ -428,7 +429,10 @@ export default function CheckoutPage() {
         </section>
 
         <aside className={`orderSummary ${summaryOpen ? "isOpen" : ""}`}>
-          <button className="orderSummaryToggle" type="button" onClick={() => setSummaryOpen((current) => !current)} aria-expanded={summaryOpen} aria-controls="checkout-order-summary"><span>Order summary <ChevronDown size={16} /></span><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></button>
+          <button className="orderSummaryToggle" type="button" onClick={() => setSummaryOpen((current) => !current)} aria-expanded={summaryOpen} aria-controls="checkout-order-summary">
+            <span><ShoppingBag size={16} /> {summaryOpen ? "Hide order summary" : "Show order summary"} <ChevronDown size={14} className="toggleChevron" /></span>
+            <b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b>
+          </button>
           <div id="checkout-order-summary" className="orderSummaryContent">
             <div className="orderSummaryHead">
               <p>SUMMARY</p>
@@ -441,6 +445,20 @@ export default function CheckoutPage() {
                 <p>Rs. {(item.price * item.quantity).toLocaleString()}</p>
               </div>
             ))}
+
+            <div className="discountCodeBox">
+              <input
+                type="text"
+                placeholder="Discount code or gift card"
+                value={discountCode}
+                onChange={(e) => setDiscountCode(e.target.value)}
+                aria-label="Discount code or gift card"
+              />
+              <button type="button" className="discountApplyBtn" disabled={!discountCode.trim()}>
+                Apply
+              </button>
+            </div>
+
             <div className="summaryTotals">
               <div><span>Subtotal</span><span>Rs. {subtotal.toLocaleString()}</span></div>
               <div><span>Delivery</span><span>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</span></div>
