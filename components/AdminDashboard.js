@@ -4901,6 +4901,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
   const [refundAmount, setRefundAmount] = useState(order.operation?.refundAmount || 0);
   const [refundMethod, setRefundMethod] = useState(order.operation?.refundMethod || "");
   const [saving, setSaving] = useState(false);
+  const [bookingPostex, setBookingPostex] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const items = normalizeOrderItems(order);
@@ -4954,12 +4955,11 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
   }
 
   async function bookWithPostex() {
-    if (paymentStatus !== "Payment Verified") {
-      window.alert("Verify the required payment before booking this order with the courier.");
-      return;
-    }
-    if (saving) return;
+    if (bookingPostex || saving) return;
+    setBookingPostex(true);
     setSaving(true);
+    setSaveError("");
+    setSaveMessage("");
     try {
       const response = await fetch("/api/admin/postex-custom", {
         method: "POST",
@@ -4986,14 +4986,22 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to book PostEx order.");
-      setTracking(result.trackingNumber);
-      setOrderStage(result.courierStatus || "Booked");
+      const trackingNumber = result.trackingNumber || result.tracking;
+      setTracking(trackingNumber);
+      setOrderStage(result.courierStatus || "booked");
       setFulfillmentStatus("Booked with PostEx");
       setDeliveryMethod("PostEx");
-      await saveChanges({ tracking: result.trackingNumber, status: result.courierStatus || "Booked", postexStatus: result.courierStatus || "Booked", fulfillmentStatus: "Booked with PostEx" });
+      await saveChanges({
+        tracking: trackingNumber,
+        status: result.courierStatus || "booked",
+        postexStatus: result.courierStatus || "booked",
+        fulfillmentStatus: "Booked with PostEx"
+      });
+      setSaveMessage(`Successfully booked with PostEx! Tracking: ${trackingNumber}`);
     } catch (error) {
-      window.alert(error.message || "Unable to create PostEx booking.");
+      setSaveError(error.message || "Unable to create PostEx booking.");
     } finally {
+      setBookingPostex(false);
       setSaving(false);
     }
   }
@@ -5082,7 +5090,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
       <section className="adminCard orderOpsCard">
         <h3>Fulfill order</h3>
         <div className="formRow"><label>Tracking number<input value={tracking} onChange={(event) => setTracking(event.target.value)} placeholder="PostEx tracking number" /></label></div>
-        <div className="orderActionRow"><button onClick={printInvoice}>Print invoice</button><button onClick={printPackingSlip}>Print packing slip</button>{!order.postexBooked && !order.tracking && <button onClick={bookWithPostex} disabled={saving}>Book with PostEx</button>}<button onClick={() => saveChanges({ fulfillmentStatus: "Booked with PostEx" })} disabled={saving}>{saving ? "Saving..." : "Save tracking"}</button></div>
+        <div className="orderActionRow"><button type="button" onClick={printInvoice}>Print invoice</button><button type="button" onClick={printPackingSlip}>Print packing slip</button>{!order.postexBooked && !tracking && <button type="button" className="editProductButton" onClick={bookWithPostex} disabled={saving || bookingPostex}>{bookingPostex ? "Booking with PostEx..." : "⚡ Book with PostEx"}</button>}{tracking && <button type="button" onClick={() => saveChanges({ fulfillmentStatus: "Booked with PostEx" })} disabled={saving}>{saving ? "Saving..." : "Save tracking"}</button>}</div>
       </section>
 
       <section className="adminCard orderOpsCard">
