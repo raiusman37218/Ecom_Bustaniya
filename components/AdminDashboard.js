@@ -5548,6 +5548,29 @@ function EventsStreamPanel({ onNavigateToSettings }) {
     }
   }
 
+  async function seedFullFunnel() {
+    setActionLoading(true);
+    setActionMessage("");
+    try {
+      const response = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "seed" }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setActionMessage("⚡ Re-seeded full multi-stage funnel with PageView, ViewContent, AddToCart, InitiateCheckout & Purchase!");
+        if (result.events) setEvents(result.events);
+        if (result.stats) setStats(result.stats);
+      }
+    } catch (err) {
+      setActionMessage(`❌ Error: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+      setTimeout(() => setActionMessage(""), 5000);
+    }
+  }
+
   async function clearEvents() {
     if (!window.confirm("Are you sure you want to clear the live event stream?")) return;
     try {
@@ -5639,6 +5662,15 @@ function EventsStreamPanel({ onNavigateToSettings }) {
           </button>
           <button type="button" onClick={() => triggerTestEvent("AddToCart")} disabled={actionLoading} style={{ background: "#166534", color: "#fff", borderColor: "#14532d" }}>
             ⚡ Test Cart
+          </button>
+          <button type="button" onClick={() => triggerTestEvent("ViewContent")} disabled={actionLoading} style={{ background: "#0369a1", color: "#fff", borderColor: "#075985" }}>
+            ⚡ Test View
+          </button>
+          <button type="button" onClick={() => triggerTestEvent("PageView")} disabled={actionLoading} style={{ background: "#475569", color: "#fff", borderColor: "#334155" }}>
+            ⚡ Test PageView
+          </button>
+          <button type="button" onClick={seedFullFunnel} disabled={actionLoading} style={{ background: "#f8fafc", color: "#1e293b", border: "1px solid #cbd5e1", fontWeight: 600 }}>
+            🎯 Reset Funnel Stream
           </button>
           <button type="button" onClick={() => loadEvents()} disabled={loading}>
             🔄 Refresh

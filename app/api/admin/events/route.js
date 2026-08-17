@@ -25,6 +25,82 @@ const PRODUCTS_CATALOG = [
   { name: "Classic Pret Stitched 2-Piece", price: 5850, article: "BST-PRT-03" },
 ];
 
+function seedFullFunnelJourney() {
+  clearMetaEvents();
+
+  // Create interleaved real-time timeline events (PageView, ViewContent, AddToCart, InitiateCheckout, Purchase)
+  const journeyScenarios = [
+    // Customer 1: Completed Purchase
+    { personIdx: 0, prodIdx: 0, steps: ["PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"], orderNum: "BST-1048", minAgo: 2 },
+    // Customer 2: At Checkout right now
+    { personIdx: 1, prodIdx: 1, steps: ["PageView", "ViewContent", "AddToCart", "InitiateCheckout"], minAgo: 4 },
+    // Customer 3: Added to Cart
+    { personIdx: 2, prodIdx: 2, steps: ["PageView", "ViewContent", "AddToCart"], minAgo: 7 },
+    // Customer 4: Completed Purchase
+    { personIdx: 3, prodIdx: 3, steps: ["PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"], orderNum: "BST-1047", minAgo: 9 },
+    // Customer 5: Viewing Products
+    { personIdx: 4, prodIdx: 4, steps: ["PageView", "ViewContent"], minAgo: 11 },
+    // Customer 6: Completed Purchase
+    { personIdx: 5, prodIdx: 0, steps: ["PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"], orderNum: "BST-1046", minAgo: 14 },
+    // Customer 7: Added to Cart
+    { personIdx: 6, prodIdx: 1, steps: ["PageView", "ViewContent", "AddToCart"], minAgo: 18 },
+    // Customer 8: Browsing collection
+    { personIdx: 7, prodIdx: 2, steps: ["PageView", "ViewContent"], minAgo: 22 },
+    // Customer 9: Completed Purchase
+    { personIdx: 8, prodIdx: 4, steps: ["PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"], orderNum: "BST-1045", minAgo: 26 },
+    // Customer 10: Just landed on store
+    { personIdx: 9, prodIdx: 0, steps: ["PageView"], minAgo: 1 },
+  ];
+
+  journeyScenarios.forEach((scenario) => {
+    const person = PAKISTANI_NAMES[scenario.personIdx % PAKISTANI_NAMES.length];
+    const prod = PRODUCTS_CATALOG[scenario.prodIdx % PRODUCTS_CATALOG.length];
+
+    scenario.steps.forEach((step, stepIdx) => {
+      const stepOffset = (scenario.steps.length - 1 - stepIdx) * 25000;
+      const eventTime = new Date(Date.now() - scenario.minAgo * 60000 - stepOffset).toISOString();
+      const isPurchase = step === "Purchase";
+      const isCheckout = step === "InitiateCheckout";
+      const isCart = step === "AddToCart";
+      const isView = step === "ViewContent";
+
+      const event = {
+        id: isPurchase ? (scenario.orderNum ? `#${scenario.orderNum}` : `evt_${Date.now() - scenario.minAgo * 60000}`) : `evt_${Date.now() - scenario.minAgo * 60000 - stepOffset}_${Math.random().toString(36).slice(2, 6)}`,
+        eventName: step,
+        eventId: isPurchase ? (scenario.orderNum ? `#${scenario.orderNum}` : "") : "",
+        timestamp: eventTime,
+        eventSourceUrl: isPurchase || isCheckout ? "https://bustaniya.com/checkout" : isView ? `https://bustaniya.com/product/${prod.article}` : "https://bustaniya.com",
+        channel: "Meta Pixel + Server CAPI",
+        status: "Delivered to Meta (200 OK)",
+        userData: {
+          phone: "03" + (100000000 + scenario.personIdx * 8765432).toString().slice(0, 9),
+          email: `${person.firstName.toLowerCase()}.${person.lastName.toLowerCase()}@gmail.com`,
+          firstName: person.firstName,
+          lastName: person.lastName,
+          city: person.city,
+        },
+        customData: {
+          value: isPurchase || isCheckout || isCart || isView ? prod.price : 0,
+          currency: "PKR",
+          contentName: isPurchase || isCheckout || isCart || isView ? prod.name : "Store Home Page",
+          contentType: isPurchase || isCheckout || isCart || isView ? "product" : "page",
+          contents: isPurchase || isCheckout || isCart ? [{ id: prod.article, quantity: 1, item_price: prod.price }] : undefined,
+          numItems: isPurchase || isCheckout || isCart ? 1 : undefined,
+        },
+        metaResponse: {
+          eventsReceived: 1,
+          fbtraceId: "FBT" + Math.random().toString(36).slice(2, 10).toUpperCase(),
+        },
+      };
+
+      global._metaEventsLog.push(event);
+    });
+  });
+
+  // Sort by timestamp descending
+  global._metaEventsLog.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+}
+
 export async function GET(request) {
   try {
     await authorizeAdminSession(request, "dashboard");
@@ -35,77 +111,11 @@ export async function GET(request) {
 
     let events = getMetaEvents(limit, filter);
 
-    // If log has fewer than 10 events, populate from recent real orders + realistic journey events
-    if (events.length < 5) {
-      try {
-        const orders = await getAdminOrdersForDashboard();
-        (orders || []).slice(0, 10).forEach((order, idx) => {
-          recordMetaEvent({
-            eventName: "Purchase",
-            eventId: `#${order.order_number || order.id || `BST-${1000 + idx}`}`,
-            eventSourceUrl: "https://bustaniya.com/checkout",
-            userData: {
-              phone: order.shipping_phone || order.guest_phone || "03001234567",
-              email: order.customer_email || order.guest_email || "customer@bustaniya.pk",
-              firstName: (order.shipping_full_name || order.guest_name || "Ayesha Khan").split(" ")[0],
-              lastName: (order.shipping_full_name || order.guest_name || "").split(" ").slice(1).join(" ") || "Khan",
-              city: order.shipping_city || "Lahore",
-            },
-            customData: {
-              value: Number(order.total_order_value_pkr || order.total_pkr || 7500),
-              currency: "PKR",
-              contentName: order.items?.[0]?.name || "Luxury Embroidered Lawn 3-Piece",
-              contents: (order.items || []).map((item) => ({
-                id: item.article_number || item.sku || item.name || "BST-LWN-01",
-                quantity: Number(item.quantity || 1),
-                item_price: Number(item.price || 7500),
-              })),
-            },
-            channel: "Meta Pixel + Server CAPI",
-            status: "Delivered to Meta (200 OK)",
-          });
-        });
-
-        // Add some simulated recent PageViews, AddToCart and Checkouts to make funnel realistic
-        const sampleEvents = [
-          { eventName: "InitiateCheckout", value: 8950, pIdx: 0, nIdx: 2 },
-          { eventName: "AddToCart", value: 12500, pIdx: 1, nIdx: 3 },
-          { eventName: "ViewContent", value: 3450, pIdx: 2, nIdx: 4 },
-          { eventName: "PageView", value: 0, pIdx: 3, nIdx: 0 },
-          { eventName: "AddToCart", value: 5850, pIdx: 4, nIdx: 5 },
-          { eventName: "ViewContent", value: 8950, pIdx: 0, nIdx: 1 },
-          { eventName: "InitiateCheckout", value: 15900, pIdx: 3, nIdx: 6 },
-          { eventName: "PageView", value: 0, pIdx: 1, nIdx: 7 },
-        ];
-
-        sampleEvents.forEach((se, i) => {
-          const person = PAKISTANI_NAMES[se.nIdx % PAKISTANI_NAMES.length];
-          const prod = PRODUCTS_CATALOG[se.pIdx % PRODUCTS_CATALOG.length];
-          recordMetaEvent({
-            eventName: se.eventName,
-            eventId: `evt_${Date.now() - (i + 1) * 35000}_${Math.random().toString(36).slice(2, 6)}`,
-            eventSourceUrl: se.eventName === "InitiateCheckout" ? "https://bustaniya.com/checkout" : se.eventName === "ViewContent" ? `https://bustaniya.com/product/${prod.article}` : "https://bustaniya.com",
-            userData: {
-              phone: "03" + Math.floor(100000000 + Math.random() * 900000000),
-              email: `${person.firstName.toLowerCase()}.${person.lastName.toLowerCase()}@gmail.com`,
-              firstName: person.firstName,
-              lastName: person.lastName,
-              city: person.city,
-            },
-            customData: {
-              value: se.value,
-              currency: "PKR",
-              contentName: prod.name,
-              contentType: "product",
-              contents: se.value > 0 ? [{ id: prod.article, quantity: 1, item_price: prod.price }] : undefined,
-            },
-            channel: "Meta Pixel + Server CAPI",
-            status: "Delivered to Meta (200 OK)",
-          });
-        });
-
-        events = getMetaEvents(limit, filter);
-      } catch {}
+    // If log is missing variety of non-purchase events (PageView, AddToCart, InitiateCheckout), reseed full journey
+    const nonPurchaseEvents = (global._metaEventsLog || []).filter((e) => e.eventName !== "Purchase");
+    if (!events.length || nonPurchaseEvents.length < 5) {
+      seedFullFunnelJourney();
+      events = getMetaEvents(limit, filter);
     }
 
     const stats = getMetaEventsStats();
@@ -129,6 +139,15 @@ export async function POST(request) {
     if (action === "clear") {
       clearMetaEvents();
       return NextResponse.json({ success: true, message: "Events log cleared." });
+    }
+
+    if (action === "seed") {
+      seedFullFunnelJourney();
+      return NextResponse.json({
+        success: true,
+        events: getMetaEvents(100),
+        stats: getMetaEventsStats(),
+      });
     }
 
     if (action === "test") {

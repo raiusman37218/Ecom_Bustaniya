@@ -10,12 +10,27 @@ export default function MetaPixel({ pixelId }) {
   const isAdminRoute = pathname?.startsWith("/admin");
 
   useEffect(() => {
-    if (isAdminRoute || initialPage.current) {
-      initialPage.current = false;
-      return;
-    }
+    if (isAdminRoute) return;
 
-    window.fbq?.("track", "PageView");
+    if (!initialPage.current && typeof window !== "undefined" && window.fbq) {
+      window.fbq("track", "PageView");
+    }
+    initialPage.current = false;
+
+    try {
+      fetch("/api/meta-capi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventName: "PageView",
+          eventSourceUrl: typeof window !== "undefined" ? window.location.href : "https://bustaniya.com",
+          customData: {
+            contentName: pathname === "/" ? "Home Page" : pathname,
+            contentType: "page",
+          },
+        }),
+      }).catch(() => {});
+    } catch {}
   }, [isAdminRoute, pathname]);
 
   if (!pixelId || isAdminRoute) return null;
