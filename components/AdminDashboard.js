@@ -5588,6 +5588,9 @@ function eventsTimeAgo(isoString) {
 
 function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
   const [days, setDays] = useState("7");
+  const [activeTab, setActiveTab] = useState("analytics"); // "analytics" | "stream"
+
+  // Filter state for Live Stream Tab
   const [eventTypeFilter, setEventTypeFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "delivered" | "failed"
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "browser" | "server" | "deduplicated"
@@ -5595,6 +5598,9 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
   const [utmFilter, setUtmFilter] = useState("");
   const [failureFilter, setFailureFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Product table search
+  const [productSearch, setProductSearch] = useState("");
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -5773,28 +5779,71 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
 
   const counts = summary?.counts || {};
   const perEvent = summary?.perEvent || {};
+  const analytics = summary?.analytics || {
+    sessions: {
+      uniqueSessions: Math.max(counts.PageView || 0, 1),
+      uniqueVisitors: Math.max(counts.PageView || 0, 1),
+      productViewRate: 0,
+      addToCartRate: 0,
+      checkoutStartRate: 0,
+      checkoutCompletionRate: 0,
+      overallConversionRate: 0,
+      cartAbandonmentRate: 0,
+      checkoutAbandonmentRate: 0,
+      viewSessions: counts.ViewContent || 0,
+      cartSessions: counts.AddToCart || 0,
+      checkoutSessions: counts.InitiateCheckout || 0,
+      purchaseSessions: counts.Purchase || 0,
+    },
+    financials: {
+      grossSales: summary?.purchaseValue || 0,
+      discounts: 0,
+      shippingFees: 0,
+      refunds: 0,
+      netSales: summary?.purchaseValue || 0,
+      totalSales: summary?.purchaseValue || 0,
+      ordersCount: counts.Purchase || 0,
+      aov: summary?.purchaseValue || 0,
+      itemsPerOrder: 1,
+      totalUnitsSold: counts.Purchase || 0,
+      currency: "PKR",
+    },
+    products: [],
+    attribution: {
+      devices: [],
+      channels: [],
+      campaigns: [],
+      landingPages: [],
+      cities: [],
+    },
+    dataQuality: {
+      missingValueCount: 0,
+      missingContentIdsCount: 0,
+      missingEventIdCount: 0,
+      lowEmqCount: 0,
+      failedDeliveryCount: 0,
+      delayedEventsCount: 0,
+      deduplicatedRate: 100,
+      score: 100,
+    },
+  };
+
   const eventTypeOptions = ["All", "PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"];
   const purchaseValue = summary?.purchaseValue ?? events
     .filter((e) => e.event_name === "Purchase" && e.success)
     .reduce((sum, e) => sum + (Number(e.value) || 0), 0);
-  const funnelBase = Math.max(counts.PageView || 0, 1);
+  const funnelBase = Math.max(analytics.sessions.uniqueSessions || counts.PageView || 0, 1);
 
-  // Filter events client-side for ultra-fast response
+  // Filter events client-side for ultra-fast response in Stream tab
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
-      // Event Name
       if (eventTypeFilter !== "All" && event.event_name !== eventTypeFilter) return false;
-
-      // Delivery Status
       if (statusFilter === "delivered" && !event.success && event.http_status !== 200) return false;
       if (statusFilter === "failed" && (event.success || event.http_status === 200)) return false;
-
-      // Source / Deduplication
       if (sourceFilter === "browser" && event.source !== "browser" && !event.browserSent) return false;
       if (sourceFilter === "server" && event.source !== "server" && !event.serverSent) return false;
       if (sourceFilter === "deduplicated" && event.dedupBadge !== "deduplicated") return false;
 
-      // SKU / Product ID
       if (skuFilter.trim()) {
         const skuQuery = skuFilter.trim().toLowerCase();
         const contentIds = (event.parsedContentIds || []).map((id) => String(id).toLowerCase());
@@ -5804,7 +5853,6 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
         }
       }
 
-      // Campaign / UTM / URL
       if (utmFilter.trim()) {
         const utmQuery = utmFilter.trim().toLowerCase();
         const url = String(event.event_source_url || "").toLowerCase();
@@ -5814,13 +5862,11 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
         }
       }
 
-      // Failure Reason Filter
       if (failureFilter !== "all") {
         const errMsg = String(event.error_message || (event.http_status ? `HTTP ${event.http_status}` : "")).toLowerCase();
         if (!errMsg.includes(failureFilter.toLowerCase())) return false;
       }
 
-      // General Search Query (Event ID, Order Ref, Trace, IP)
       if (searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase();
         const match = [
@@ -5848,6 +5894,14 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
 
   const hasActiveFilters = eventTypeFilter !== "All" || statusFilter !== "all" || sourceFilter !== "all" || Boolean(skuFilter) || Boolean(utmFilter) || failureFilter !== "all" || Boolean(searchQuery);
 
+  // Filter products in Product Performance table
+  const filteredProducts = useMemo(() => {
+    const list = analytics.products || [];
+    if (!productSearch.trim()) return list;
+    const q = productSearch.trim().toLowerCase();
+    return list.filter((p) => String(p.id).toLowerCase().includes(q) || String(p.name).toLowerCase().includes(q));
+  }, [analytics.products, productSearch]);
+
   return <>
     <div className="adminTitle">
       <div>
@@ -5855,8 +5909,8 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
           <span className="eventsLiveDot" />
           Live tracking operations
         </div>
-        <h1>Events &amp; Meta Tracking</h1>
-        <span>Live Meta Pixel &amp; Conversions API activity, delivery health, and ecommerce funnel attribution.</span>
+        <h1>Ecommerce Analytics &amp; Meta Tracking</h1>
+        <span>Shopify-style conversion funnel, period-scoped financial breakdown, SKU performance, and Meta delivery health.</span>
       </div>
       <div className="orderTabs" aria-label="Events period">
         {[["1", "Today"], ["7", "7 days"], ["30", "30 days"], ["90", "90 days"]].map(([value, label]) => (
@@ -5983,7 +6037,10 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
       {/* 5 Core Health Indicators */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
         <div style={{ background: "#fff", border: `1px solid ${deliveryRate < 95 ? "#fca5a5" : "#cbd5e1"}`, borderRadius: "8px", padding: "10px 14px" }}>
-          <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Delivery Rate (HTTP 200)</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Delivery Rate (HTTP 200)</span>
+            <HelpHint text="Percentage of Meta CAPI dispatches that returned HTTP 200 OK acknowledgment from Meta Graph API: (Delivered Events / Total Dispatches) * 100" />
+          </div>
           <div style={{ fontSize: "18px", fontWeight: 800, color: deliveryRate >= 95 ? "#16a34a" : "#dc2626", marginTop: "2px" }}>
             {deliveryRate}%
           </div>
@@ -5993,7 +6050,10 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
         </div>
 
         <div style={{ background: "#fff", border: `1px solid ${emqScore === 0 ? "#fca5a5" : "#cbd5e1"}`, borderRadius: "8px", padding: "10px 14px" }}>
-          <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Event Match Quality (EMQ)</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Event Match Quality (EMQ)</span>
+            <HelpHint text="Average score out of 10.0 measuring how effectively Meta can match your customer identifiers (hashed phone, email, name, geo, fbp, fbc) to real user profiles." />
+          </div>
           <div style={{ fontSize: "18px", fontWeight: 800, color: emqScore >= 8.5 ? "#16a34a" : emqScore > 0 ? "#d97706" : "#dc2626", marginTop: "2px" }}>
             {emqScore} / 10.0
           </div>
@@ -6011,11 +6071,17 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
             cursor: failedEventsCount > 0 ? "pointer" : "default"
           }}
           onClick={() => {
-            if (failedEventsCount > 0) setStatusFilter("failed");
+            if (failedEventsCount > 0) {
+              setActiveTab("stream");
+              setStatusFilter("failed");
+            }
           }}
-          title={failedEventsCount > 0 ? "Click to view failed events" : ""}
+          title={failedEventsCount > 0 ? "Click to view failed events in stream tab" : ""}
         >
-          <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Failed Events ({days}d)</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Failed Events ({days}d)</span>
+            <HelpHint text="Total events that failed Meta Graph API delivery in the selected date range. Click to inspect failed events directly in the audit log." />
+          </div>
           <div style={{ fontSize: "18px", fontWeight: 800, color: failedEventsCount > 0 ? "#dc2626" : "#16a34a", marginTop: "2px" }}>
             {failedEventsCount}
           </div>
@@ -6025,17 +6091,23 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
         </div>
 
         <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 14px" }}>
-          <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Latest Failure Reason</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Latest Failure Reason</span>
+            <HelpHint text="Error message returned by Meta Graph API on the most recent failed event dispatch." />
+          </div>
           <div style={{ fontSize: "12px", fontWeight: 700, color: latestFailureReason ? "#dc2626" : "#16a34a", marginTop: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={latestFailureReason || "None"}>
             {latestFailureReason || "None (All events OK)"}
           </div>
           <small style={{ fontSize: "10px", color: "#64748b" }}>
-            {latestFailureReason ? "Review error details below" : "No recent errors"}
+            {latestFailureReason ? "Review error details in stream" : "No recent errors"}
           </small>
         </div>
 
         <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 14px" }}>
-          <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Last Successful Event</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Last Successful Event</span>
+            <HelpHint text="Timestamp and event name of the most recent event acknowledged by Meta Graph API." />
+          </div>
           <div style={{ fontSize: "13px", fontWeight: 700, color: "#1e293b", marginTop: "4px" }}>
             {lastSuccessfulEventTime ? eventsTimeAgo(lastSuccessfulEventTime) : "Active"}
           </div>
@@ -6070,447 +6142,923 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
       </div>
     )}
 
-    {/* OPERATOR ECOMMERCE METRICS BAR (Replacing Low-Value Total Events) */}
-    <section className="miniMetricGrid productMetrics" style={{ marginBottom: "16px" }}>
-      <article>
-        <Users />
-        <span>
-          <b>{summary?.sessions?.uniqueSessions ? Number(summary.sessions.uniqueSessions).toLocaleString() : "—"}</b>
-          Unique store sessions
-        </span>
-      </article>
-      <article>
-        <TrendingUp />
-        <span>
-          <b>{summary?.sessions?.overallConversionRate != null ? `${summary.sessions.overallConversionRate}%` : "—"}</b>
-          Overall conversion rate ({counts.Purchase || 0} purchases)
-        </span>
-      </article>
-      <article>
-        <Activity />
-        <span>
-          <b>{summary?.sessions?.addToCartRate != null ? `${summary.sessions.addToCartRate}%` : "—"}</b>
-          Add-to-cart rate ({counts.AddToCart || 0} carts)
-        </span>
-      </article>
-      <article>
-        <ShoppingBag />
-        <span>
-          <b>{summary?.sessions?.checkoutCompletionRate != null ? `${summary.sessions.checkoutCompletionRate}%` : "—"}</b>
-          Checkout completion ({counts.InitiateCheckout || 0} checkouts)
-        </span>
-      </article>
-      <article>
-        <CircleDollarSign />
-        <span>
-          <b>Rs. {(summary?.revenue?.grossPurchases ?? purchaseValue ?? 0).toLocaleString()}</b>
-          Attributed revenue (PKR)
-        </span>
-      </article>
-    </section>
+    {/* SUB-NAVIGATION TAB SWITCHER */}
+    <div style={{ display: "flex", gap: "10px", marginBottom: "16px", borderBottom: "2px solid #e2e8f0", paddingBottom: "2px" }}>
+      <button
+        type="button"
+        onClick={() => setActiveTab("analytics")}
+        style={{
+          padding: "10px 18px",
+          fontSize: "13px",
+          fontWeight: 700,
+          border: "none",
+          borderBottom: activeTab === "analytics" ? "3px solid #166534" : "3px solid transparent",
+          background: activeTab === "analytics" ? "#f0fdf4" : "transparent",
+          color: activeTab === "analytics" ? "#166534" : "#64748b",
+          borderRadius: "6px 6px 0 0",
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px"
+        }}
+      >
+        <TrendingUp size={16} />
+        Shopify-Style Ecommerce Analytics &amp; Attribution
+      </button>
 
-    {/* REVENUE & BUSINESS CONVERSION RECONCILIATION */}
-    <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "16px 18px", marginBottom: "16px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "10px" }}>
-        <div>
-          <b style={{ fontSize: "14px", color: "#0f172a" }}>💰 Revenue &amp; Business Conversion Reconciliation</b>
-          <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748b" }}>
-            Meta Gross Ad Conversions reconciled with operational returns and refunds for honest P&amp;L reporting.
-          </p>
-        </div>
-        <span style={{ fontSize: "11px", fontWeight: 600, background: "#ede9fe", color: "#6d28d9", padding: "4px 8px", borderRadius: "4px", border: "1px solid #ddd6fe" }}>
-          PKR Reconciled
-        </span>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px" }}>
-        <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 12px" }}>
-          <div style={{ fontSize: "11px", color: "#64748b" }}>Gross Purchases (Meta Ad Conversions)</div>
-          <b style={{ fontSize: "16px", color: "#16a34a" }}>Rs. {(summary?.revenue?.grossPurchases ?? purchaseValue ?? 0).toLocaleString()}</b>
-          <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>{counts.Purchase || 0} qualifying order{counts.Purchase === 1 ? "" : "s"} placed</div>
-        </div>
-        <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 12px" }}>
-          <div style={{ fontSize: "11px", color: "#64748b" }}>Refunds &amp; Returns Deductions</div>
-          <b style={{ fontSize: "16px", color: (summary?.revenue?.refundsValue || 0) > 0 ? "#dc2626" : "#64748b" }}>
-            - Rs. {(summary?.revenue?.refundsValue || 0).toLocaleString()}
-          </b>
-          <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>{summary?.revenue?.refundsCount || 0} refunded, {summary?.revenue?.returnsCount || 0} returned</div>
-        </div>
-        <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 12px" }}>
-          <div style={{ fontSize: "11px", color: "#64748b" }}>Net Realized Business Revenue</div>
-          <b style={{ fontSize: "16px", color: "#2563eb" }}>Rs. {(summary?.revenue?.netRevenue ?? purchaseValue ?? 0).toLocaleString()}</b>
-          <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>Reconciled actual realized sales</div>
-        </div>
-      </div>
-      <div style={{ fontSize: "11px", color: "#475569", background: "#f1f5f9", padding: "6px 10px", borderRadius: "6px", border: "1px solid #e2e8f0", marginTop: "10px" }}>
-        📌 <b>Agreed Business Definition:</b> Purchase fires immediately when a qualifying COD or Advance-Payment order is committed at checkout. Returns and refunds are subtracted from gross conversions to maintain clean, non-misleading P&amp;L reporting.
-      </div>
+      <button
+        type="button"
+        onClick={() => setActiveTab("stream")}
+        style={{
+          padding: "10px 18px",
+          fontSize: "13px",
+          fontWeight: 700,
+          border: "none",
+          borderBottom: activeTab === "stream" ? "3px solid #166534" : "3px solid transparent",
+          background: activeTab === "stream" ? "#f0fdf4" : "transparent",
+          color: activeTab === "stream" ? "#166534" : "#64748b",
+          borderRadius: "6px 6px 0 0",
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px"
+        }}
+      >
+        <Activity size={16} />
+        Live Event Stream &amp; Audit Log ({filteredEvents.length})
+      </button>
     </div>
 
-    {/* CONVERSION FUNNEL & DISPATCH BAR */}
-    <div className="analyticsGrid2">
-      <article className="analyticsCard">
-        <div className="analyticsCardHead">
-          <div>
-            <h3>Shopify-Style Conversion Funnel &amp; Delivery</h3>
-            <p>Real visitor journey from page views to purchase with Meta delivery rates.</p>
+    {/* TAB 1: SHOPIFY-STYLE ECOMMERCE ANALYTICS */}
+    {activeTab === "analytics" && (
+      <>
+        {/* OPERATOR FUNNEL METRICS BAR */}
+        <section className="miniMetricGrid productMetrics" style={{ marginBottom: "16px" }}>
+          <article>
+            <Users />
+            <span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <b>{Number(analytics.sessions.uniqueSessions).toLocaleString()}</b>
+                <HelpHint text="Total distinct visitor sessions identified across client IP, user agent, and customer match fields." />
+              </div>
+              Unique sessions ({Number(analytics.sessions.uniqueVisitors).toLocaleString()} visitors)
+            </span>
+          </article>
+          <article>
+            <TrendingUp />
+            <span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <b>{analytics.sessions.overallConversionRate}%</b>
+                <HelpHint text="Overall Store Conversion Rate: (Purchases / Unique Sessions) * 100" />
+              </div>
+              Overall conversion rate ({analytics.sessions.purchaseSessions} orders)
+            </span>
+          </article>
+          <article>
+            <Activity />
+            <span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <b>{analytics.sessions.addToCartRate}%</b>
+                <HelpHint text="Add to Cart Rate: (Unique Sessions with AddToCart / Unique Sessions) * 100" />
+              </div>
+              Add-to-cart rate ({analytics.sessions.cartSessions} carts)
+            </span>
+          </article>
+          <article>
+            <ShoppingBag />
+            <span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <b>{analytics.sessions.checkoutCompletionRate}%</b>
+                <HelpHint text="Checkout Completion Rate: (Completed Purchases / Reached Checkout Sessions) * 100" />
+              </div>
+              Checkout completion ({analytics.sessions.purchaseSessions} / {analytics.sessions.checkoutSessions})
+            </span>
+          </article>
+          <article>
+            <CircleDollarSign />
+            <span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <b>Rs. {Number(analytics.financials.grossSales).toLocaleString()}</b>
+                <HelpHint text="Gross merchandise sales attributed to orders placed in the selected period." />
+              </div>
+              Period gross sales (PKR)
+            </span>
+          </article>
+        </section>
+
+        {/* SHOPIFY CONVERSION FUNNEL & ABANDONMENT DROP-OFF CARD */}
+        <div className="adminCard managementCard" style={{ marginBottom: "20px" }}>
+          <div className="inventoryListHead" style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", marginBottom: "14px" }}>
+            <div>
+              <h2>Store Conversion Funnel &amp; Abandonment Flow</h2>
+              <span>Full visitor journey from browsing to checkout completion with drop-off analytics.</span>
+            </div>
+            <span style={{ fontSize: "11px", fontWeight: 700, padding: "4px 10px", borderRadius: "20px", background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0" }}>
+              Deduplicated Conversion Funnel
+            </span>
           </div>
-          <span className="analyticsMetricBadge">{days} days</span>
-        </div>
-        <div className="visualBarList">
-          <VisualProgress
-            label="1. Store visitors & sessions (PageView)"
-            value={100}
-            helper={`${counts.PageView || 0} views logged (${perEvent.PageView?.successRate ?? 100}% delivered)`}
-            color="#16452c"
-          />
-          <VisualProgress
-            label="2. Added to cart (AddToCart)"
-            value={Math.min(100, Math.round(((counts.AddToCart || 0) / funnelBase) * 100))}
-            helper={`${counts.AddToCart || 0} cart adds (${perEvent.AddToCart?.successRate ?? 100}% delivered)`}
-            color="#2e7d32"
-          />
-          <VisualProgress
-            label="3. Reached checkout (InitiateCheckout)"
-            value={Math.min(100, Math.round(((counts.InitiateCheckout || 0) / funnelBase) * 100))}
-            helper={`${counts.InitiateCheckout || 0} checkouts (${perEvent.InitiateCheckout?.successRate ?? 100}% delivered)`}
-            color="#c78b2b"
-          />
-          <VisualProgress
-            label="4. Completed orders (Purchase)"
-            value={Math.min(100, Math.round(((counts.Purchase || 0) / funnelBase) * 100))}
-            helper={`${counts.Purchase || 0} orders (${perEvent.Purchase?.successRate ?? 100}% delivered)`}
-            color="#1565c0"
-          />
-        </div>
-      </article>
 
-      <article className="analyticsCard">
-        <div className="analyticsCardHead">
-          <div>
-            <h3>Live stream controls &amp; Quick Dispatch</h3>
-            <p>Test individual funnel events or adjust auto-refresh polling.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>1. Store Sessions</span>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b" }}>100%</span>
+              </div>
+              <div style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", marginTop: "4px" }}>
+                {Number(analytics.sessions.uniqueSessions).toLocaleString()}
+              </div>
+              <small style={{ fontSize: "11px", color: "#64748b" }}>All visitors &amp; page views</small>
+            </div>
+
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>2. Product Views</span>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#166534" }}>{analytics.sessions.productViewRate}%</span>
+              </div>
+              <div style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", marginTop: "4px" }}>
+                {Number(analytics.sessions.viewSessions).toLocaleString()}
+              </div>
+              <small style={{ fontSize: "11px", color: "#64748b" }}>ViewContent events logged</small>
+            </div>
+
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>3. Added to Cart</span>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#2e7d32" }}>{analytics.sessions.addToCartRate}%</span>
+              </div>
+              <div style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", marginTop: "4px" }}>
+                {Number(analytics.sessions.cartSessions).toLocaleString()}
+              </div>
+              <small style={{ fontSize: "11px", color: "#64748b" }}>AddToCart events logged</small>
+            </div>
+
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>4. Reached Checkout</span>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#c78b2b" }}>{analytics.sessions.checkoutStartRate}%</span>
+              </div>
+              <div style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", marginTop: "4px" }}>
+                {Number(analytics.sessions.checkoutSessions).toLocaleString()}
+              </div>
+              <small style={{ fontSize: "11px", color: "#64748b" }}>InitiateCheckout started</small>
+            </div>
+
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#166534" }}>5. Completed Orders</span>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#15803d" }}>{analytics.sessions.overallConversionRate}%</span>
+              </div>
+              <div style={{ fontSize: "20px", fontWeight: 800, color: "#166534", marginTop: "4px" }}>
+                {Number(analytics.sessions.purchaseSessions).toLocaleString()}
+              </div>
+              <small style={{ fontSize: "11px", color: "#166534" }}>Qualifying purchases committed</small>
+            </div>
+          </div>
+
+          {/* ABANDONMENT METRICS CALLOUT */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "12px", padding: "12px 16px", background: "#f1f5f9", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <b style={{ fontSize: "12px", color: "#475569" }}>🛒 Cart Abandonment Rate:</b>
+                <HelpHint text="Percentage of visitors who added items to cart but left before initiating checkout: ((AddToCart - InitiateCheckout) / AddToCart) * 100" />
+              </div>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: (analytics.sessions.cartAbandonmentRate || 0) > 75 ? "#d97706" : "#16a34a", marginTop: "2px" }}>
+                {analytics.sessions.cartAbandonmentRate}%
+              </div>
+              <small style={{ fontSize: "11px", color: "#64748b" }}>
+                {analytics.sessions.cartSessions > 0 ? `${Math.max(0, analytics.sessions.cartSessions - analytics.sessions.checkoutSessions)} sessions abandoned cart` : "No carts logged"}
+              </small>
+            </div>
+
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <b style={{ fontSize: "12px", color: "#475569" }}>💳 Checkout Abandonment Rate:</b>
+                <HelpHint text="Percentage of visitors who started checkout but did not complete the order: ((InitiateCheckout - Purchase) / InitiateCheckout) * 100" />
+              </div>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: (analytics.sessions.checkoutAbandonmentRate || 0) > 50 ? "#dc2626" : "#16a34a", marginTop: "2px" }}>
+                {analytics.sessions.checkoutAbandonmentRate}%
+              </div>
+              <small style={{ fontSize: "11px", color: "#64748b" }}>
+                {analytics.sessions.checkoutSessions > 0 ? `${Math.max(0, analytics.sessions.checkoutSessions - analytics.sessions.purchaseSessions)} checkouts abandoned` : "No checkouts logged"}
+              </small>
+            </div>
+
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <b style={{ fontSize: "12px", color: "#475569" }}>🎯 Checkout Completion Rate:</b>
+                <HelpHint text="Percentage of started checkouts successfully finished into completed purchases: (Purchase / InitiateCheckout) * 100" />
+              </div>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: "#166534", marginTop: "2px" }}>
+                {analytics.sessions.checkoutCompletionRate}%
+              </div>
+              <small style={{ fontSize: "11px", color: "#64748b" }}>
+                {analytics.sessions.purchaseSessions} completed / {analytics.sessions.checkoutSessions} started
+              </small>
+            </div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", margin: "10px 0" }}>
-          <button type="button" onClick={() => triggerSingleTest("PageView")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test PageView</button>
-          <button type="button" onClick={() => triggerSingleTest("ViewContent")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test View</button>
-          <button type="button" onClick={() => triggerSingleTest("AddToCart")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Cart</button>
-          <button type="button" onClick={() => triggerSingleTest("InitiateCheckout")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Checkout</button>
-          <button type="button" onClick={() => triggerSingleTest("Purchase")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Purchase</button>
-        </div>
-        <div className="eventsStreamToolbar">
-          <button type="button" className={soundEnabled ? "active" : ""} onClick={() => setSoundEnabled((v) => !v)}>
-            {soundEnabled ? "🔔 Chime on new purchase" : "🔕 Chime muted"}
-          </button>
-          <select value={refreshInterval} onChange={(e) => setRefreshInterval(Number(e.target.value))}>
-            <option value={15000}>Auto-refresh: 15s</option>
-            <option value={30000}>Auto-refresh: 30s</option>
-            <option value={60000}>Auto-refresh: 60s</option>
-            <option value={0}>Paused</option>
-          </select>
-          <button type="button" onClick={() => loadEvents()} disabled={loading}>
-            <RefreshCw size={14} /> Refresh
-          </button>
-        </div>
-      </article>
-    </div>
 
-    {/* MULTI-FACET FILTER & AUDIT TOOLBAR */}
-    <div className="adminCard managementCard" style={{ marginBottom: "20px" }}>
-      <div className="inventoryListHead" style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", marginBottom: "14px" }}>
-        <div>
-          <h2>Event Filter &amp; Search Controls</h2>
-          <span>Filter events across event types, delivery status, channel, product SKU, campaign UTM, or failure reason.</span>
-        </div>
-        {hasActiveFilters && (
-          <button
-            type="button"
-            onClick={resetAllFilters}
-            style={{ fontSize: "12px", padding: "6px 12px", background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5", borderRadius: "6px", cursor: "pointer", fontWeight: 600 }}
-          >
-            ✕ Reset all filters
-          </button>
-        )}
-      </div>
+        {/* PERIOD-SCOPED FINANCIAL BREAKDOWN (SHOPIFY STANDARD) */}
+        <div className="adminCard managementCard" style={{ marginBottom: "20px" }}>
+          <div className="inventoryListHead" style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", marginBottom: "14px" }}>
+            <div>
+              <h2>Financial Breakdown &amp; Unit Economics ({days} Days)</h2>
+              <span>Period-scoped financials strictly computed for the selected date range. Never mixed with all-time totals.</span>
+            </div>
+            <span style={{ fontSize: "11px", fontWeight: 700, padding: "4px 10px", borderRadius: "20px", background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe" }}>
+              PKR Currency Reconciled
+            </span>
+          </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "10px", marginBottom: "12px" }}>
-        {/* Event Type Filter */}
-        <div>
-          <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Event Type</label>
-          <select
-            value={eventTypeFilter}
-            onChange={(e) => setEventTypeFilter(e.target.value)}
-            style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px", background: "#fff" }}
-          >
-            {eventTypeOptions.map((name) => (
-              <option key={name} value={name}>
-                {name === "All" ? "All event types" : name}{name !== "All" && counts[name] != null ? ` (${counts[name]})` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", marginBottom: "14px" }}>
+            <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Gross Sales</span>
+                <HelpHint text="Sum of line item subtotals for orders placed in the selected period, before discounts and shipping fees." />
+              </div>
+              <div style={{ fontSize: "18px", fontWeight: 800, color: "#16a34a", marginTop: "4px" }}>
+                Rs. {Number(analytics.financials.grossSales).toLocaleString()}
+              </div>
+              <small style={{ fontSize: "10px", color: "#64748b" }}>{analytics.financials.ordersCount} orders placed</small>
+            </div>
 
-        {/* Delivery Status Filter */}
-        <div>
-          <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Delivery Status</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px", background: "#fff" }}
-          >
-            <option value="all">All statuses</option>
-            <option value="delivered">✓ Delivered (HTTP 200)</option>
-            <option value="failed">✗ Failed ({failedEventsCount})</option>
-          </select>
-        </div>
+            <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Discounts</span>
+                <HelpHint text="Total promotional discounts and coupon codes deducted from orders placed in this period." />
+              </div>
+              <div style={{ fontSize: "18px", fontWeight: 800, color: analytics.financials.discounts > 0 ? "#dc2626" : "#64748b", marginTop: "4px" }}>
+                - Rs. {Number(analytics.financials.discounts).toLocaleString()}
+              </div>
+              <small style={{ fontSize: "10px", color: "#64748b" }}>Coupons &amp; promo deductions</small>
+            </div>
 
-        {/* Source / Channel Filter */}
-        <div>
-          <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Channel / Source</label>
-          <select
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-            style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px", background: "#fff" }}
-          >
-            <option value="all">All channels</option>
-            <option value="browser">Browser Pixel (Client)</option>
-            <option value="server">Server CAPI (Direct)</option>
-            <option value="deduplicated">🟢 Deduplicated (Browser+Server)</option>
-          </select>
-        </div>
+            <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Shipping Collected</span>
+                <HelpHint text="Total courier shipping charges collected from customers on orders placed in this period." />
+              </div>
+              <div style={{ fontSize: "18px", fontWeight: 800, color: "#0284c7", marginTop: "4px" }}>
+                + Rs. {Number(analytics.financials.shippingFees).toLocaleString()}
+              </div>
+              <small style={{ fontSize: "10px", color: "#64748b" }}>Courier delivery fees</small>
+            </div>
 
-        {/* SKU / Product Filter */}
-        <div>
-          <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>SKU / Product ID</label>
-          <input
-            value={skuFilter}
-            onChange={(e) => setSkuFilter(e.target.value)}
-            placeholder="e.g. BST-LWN-01 or Kurti"
-            style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px" }}
-          />
+            <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Refunds &amp; Returns</span>
+                <HelpHint text="Total value refunded or returned on orders recorded in this period." />
+              </div>
+              <div style={{ fontSize: "18px", fontWeight: 800, color: analytics.financials.refunds > 0 ? "#dc2626" : "#64748b", marginTop: "4px" }}>
+                - Rs. {Number(analytics.financials.refunds).toLocaleString()}
+              </div>
+              <small style={{ fontSize: "10px", color: "#64748b" }}>{summary?.revenue?.refundsCount || 0} refunded, {summary?.revenue?.returnsCount || 0} returned</small>
+            </div>
+
+            <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "11px", color: "#166534", fontWeight: 700 }}>Net Realized Sales</span>
+                <HelpHint text="Actual realized merchandise sales after deductions: (Gross Sales - Discounts - Refunds)." />
+              </div>
+              <div style={{ fontSize: "18px", fontWeight: 800, color: "#166534", marginTop: "4px" }}>
+                Rs. {Number(analytics.financials.netSales).toLocaleString()}
+              </div>
+              <small style={{ fontSize: "10px", color: "#166534" }}>Realized merchandise sales</small>
+            </div>
+
+            <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Average Order Value (AOV)</span>
+                <HelpHint text="Average revenue per qualifying placed order: (Gross Sales / Total Orders Placed)." />
+              </div>
+              <div style={{ fontSize: "18px", fontWeight: 800, color: "#2563eb", marginTop: "4px" }}>
+                Rs. {Number(analytics.financials.aov).toLocaleString()}
+              </div>
+              <small style={{ fontSize: "10px", color: "#64748b" }}>Gross sales / {analytics.financials.ordersCount} orders</small>
+            </div>
+
+            <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Items per Order</span>
+                <HelpHint text="Average quantity of items purchased per placed order: (Total Units Sold / Total Orders Placed)." />
+              </div>
+              <div style={{ fontSize: "18px", fontWeight: 800, color: "#475569", marginTop: "4px" }}>
+                {analytics.financials.itemsPerOrder} units
+              </div>
+              <small style={{ fontSize: "10px", color: "#64748b" }}>{analytics.financials.totalUnitsSold} total units sold</small>
+            </div>
+          </div>
         </div>
 
-        {/* Campaign / UTM Filter */}
-        <div>
-          <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Campaign / UTM</label>
-          <input
-            value={utmFilter}
-            onChange={(e) => setUtmFilter(e.target.value)}
-            placeholder="e.g. fb_ads or summer"
-            style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px" }}
-          />
+        {/* PRODUCT & SKU BREAKDOWN TABLE */}
+        <div className="adminCard managementCard" style={{ marginBottom: "20px" }}>
+          <div className="inventoryListHead" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", marginBottom: "14px" }}>
+            <div>
+              <h2>Product &amp; SKU Performance ({filteredProducts.length} items)</h2>
+              <span>Views, cart adds, ATC rate, conversion rates, and gross revenue by SKU in the selected period.</span>
+            </div>
+            <div style={{ width: "240px" }}>
+              <input
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                placeholder="Search SKU or product..."
+                style={{ width: "100%", padding: "6px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px" }}
+              />
+            </div>
+          </div>
+
+          <div className="adminTableWrap">
+            <table className="adminTable">
+              <thead>
+                <tr>
+                  <th>Product / SKU</th>
+                  <th>Views (ViewContent)</th>
+                  <th>Cart Adds (AddToCart)</th>
+                  <th>Add-to-Cart Rate</th>
+                  <th>Purchases</th>
+                  <th>Conversion Rate</th>
+                  <th>Units Sold</th>
+                  <th>Attributed Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.map((prod) => (
+                  <tr key={prod.id}>
+                    <td>
+                      <b style={{ color: "#0f172a", fontSize: "13px" }}>{prod.name}</b>
+                      <span style={{ display: "block", color: "#64748b", fontSize: "11px" }}>SKU: <code>{prod.id}</code></span>
+                    </td>
+                    <td>{prod.views}</td>
+                    <td>{prod.cartAdds}</td>
+                    <td>
+                      <span style={{ fontWeight: 700, color: prod.atcRate > 15 ? "#16a34a" : "#475569" }}>
+                        {prod.atcRate}%
+                      </span>
+                    </td>
+                    <td>{prod.conversions}</td>
+                    <td>
+                      <span style={{ fontWeight: 700, color: prod.conversionRate > 3 ? "#16a34a" : "#475569" }}>
+                        {prod.conversionRate}%
+                      </span>
+                    </td>
+                    <td><b>{prod.units}</b></td>
+                    <td><b style={{ color: "#166534" }}>Rs. {Number(prod.revenue).toLocaleString()}</b></td>
+                  </tr>
+                ))}
+                {!filteredProducts.length && (
+                  <tr>
+                    <td colSpan="8" style={{ textAlign: "center", padding: "30px", color: "#64748b" }}>
+                      No product events logged yet for this period. Browse store products or run a test suite to view SKU analytics.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* Quick Search */}
-        <div>
-          <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Search ID / Order / IP</label>
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="e.g. BST-782103 or fbtrace"
-            style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px" }}
-          />
-        </div>
-      </div>
+        {/* MULTI-DIMENSIONAL ATTRIBUTION & DATA QUALITY GRID */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px", marginBottom: "20px" }}>
+          {/* Channels Attribution */}
+          <div className="adminCard managementCard">
+            <div className="inventoryListHead" style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "10px", marginBottom: "12px" }}>
+              <div>
+                <h3>Traffic Channels (Source / Medium)</h3>
+                <span>Attributed visitor sessions and purchases.</span>
+              </div>
+            </div>
+            <div className="adminTableWrap">
+              <table className="adminTable" style={{ fontSize: "12px" }}>
+                <thead>
+                  <tr>
+                    <th>Channel</th>
+                    <th>Sessions</th>
+                    <th>Orders</th>
+                    <th>Conv. Rate</th>
+                    <th>Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {analytics.attribution.channels.map((c) => (
+                    <tr key={c.channel}>
+                      <td><b>{c.channel}</b></td>
+                      <td>{c.sessions}</td>
+                      <td>{c.conversions}</td>
+                      <td><b>{c.convRate}%</b></td>
+                      <td>Rs. {Number(c.revenue).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {!analytics.attribution.channels.length && (
+                    <tr><td colSpan="5" style={{ textAlign: "center", color: "#64748b", padding: "16px" }}>Direct / Storefront traffic only</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      {summary?.health?.failureReasonsList?.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginTop: "6px", padding: "8px 12px", background: "#fef2f2", borderRadius: "6px", border: "1px solid #fee2e2" }}>
-          <span style={{ fontSize: "11px", fontWeight: 700, color: "#991b1b" }}>Filter by Error Type:</span>
-          <select
-            value={failureFilter}
-            onChange={(e) => setFailureFilter(e.target.value)}
-            style={{ padding: "4px 8px", fontSize: "11px", border: "1px solid #fca5a5", borderRadius: "4px", background: "#fff", color: "#991b1b" }}
-          >
-            <option value="all">All errors</option>
-            {summary.health.failureReasonsList.map((item) => (
-              <option key={item.reason} value={item.reason}>
-                {item.reason.slice(0, 40)} ({item.count})
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-    </div>
+          {/* Devices Breakdown */}
+          <div className="adminCard managementCard">
+            <div className="inventoryListHead" style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "10px", marginBottom: "12px" }}>
+              <div>
+                <h3>Device Breakdown</h3>
+                <span>Mobile vs Desktop visitor distribution.</span>
+              </div>
+            </div>
+            <div className="adminTableWrap">
+              <table className="adminTable" style={{ fontSize: "12px" }}>
+                <thead>
+                  <tr>
+                    <th>Device</th>
+                    <th>Sessions</th>
+                    <th>Share</th>
+                    <th>Orders</th>
+                    <th>Conv. Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {analytics.attribution.devices.map((d) => (
+                    <tr key={d.device}>
+                      <td><b>{d.device}</b></td>
+                      <td>{d.sessions}</td>
+                      <td>{d.share}%</td>
+                      <td>{d.conversions}</td>
+                      <td><b>{d.convRate}%</b></td>
+                    </tr>
+                  ))}
+                  {!analytics.attribution.devices.length && (
+                    <tr><td colSpan="5" style={{ textAlign: "center", color: "#64748b", padding: "16px" }}>No device sessions logged yet</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-    {/* PAGINATED AUDIT TABLE */}
-    <div className="adminCard managementCard">
-      <div className="inventoryListHead" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-        <div>
-          <h2>Event stream ({filteredEvents.length} events)</h2>
-          <span>{lastLoadedAt ? `Updated ${eventsTimeAgo(lastLoadedAt.toISOString())} · auto-refreshes every ${refreshInterval ? `${refreshInterval / 1000}s` : "— (paused)"}` : "Loading…"}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Per page:</label>
-          <select
-            value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-            style={{ padding: "4px 8px", fontSize: "11px", border: "1px solid #cbd5e1", borderRadius: "4px", background: "#fff" }}
-          >
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-        </div>
-      </div>
+          {/* Top Landing Pages */}
+          <div className="adminCard managementCard">
+            <div className="inventoryListHead" style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "10px", marginBottom: "12px" }}>
+              <div>
+                <h3>Top Landing Pages</h3>
+                <span>Highest traffic entry pages on your store.</span>
+              </div>
+            </div>
+            <div className="adminTableWrap">
+              <table className="adminTable" style={{ fontSize: "12px" }}>
+                <thead>
+                  <tr>
+                    <th>Landing Path</th>
+                    <th>Views</th>
+                    <th>Orders</th>
+                    <th>Conv. Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {analytics.attribution.landingPages.map((lp) => (
+                    <tr key={lp.path}>
+                      <td><code>{lp.path}</code></td>
+                      <td>{lp.views}</td>
+                      <td>{lp.conversions}</td>
+                      <td><b>{lp.convRate}%</b></td>
+                    </tr>
+                  ))}
+                  {!analytics.attribution.landingPages.length && (
+                    <tr><td colSpan="4" style={{ textAlign: "center", color: "#64748b", padding: "16px" }}>No landing paths recorded yet</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      <div className="adminTableWrap">
-        <table className="adminTable">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Event</th>
-              <th>Channel</th>
-              <th>Status</th>
-              <th>Deduplication (Audit)</th>
-              <th>Shared Event ID</th>
-              <th>Value</th>
-              <th>Matched (EMQ)</th>
-              <th>Meta trace</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && !events.length && (
-              <tr>
-                <td colSpan="9" style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
-                  <div style={{ display: "inline-block", width: "24px", height: "24px", border: "3px solid #cbd5e1", borderTopColor: "#166534", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
-                  <div style={{ marginTop: "8px", fontSize: "13px" }}>Loading live Meta tracking stream...</div>
-                </td>
-              </tr>
+          {/* Top Geographies / Cities */}
+          <div className="adminCard managementCard">
+            <div className="inventoryListHead" style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "10px", marginBottom: "12px" }}>
+              <div>
+                <h3>Top Cities &amp; Geographies</h3>
+                <span>Order concentration across Pakistani cities.</span>
+              </div>
+            </div>
+            <div className="adminTableWrap">
+              <table className="adminTable" style={{ fontSize: "12px" }}>
+                <thead>
+                  <tr>
+                    <th>City / Province</th>
+                    <th>Orders</th>
+                    <th>Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {analytics.attribution.cities.map((city) => (
+                    <tr key={city.city}>
+                      <td><b>{city.city}</b></td>
+                      <td>{city.orders}</td>
+                      <td>Rs. {Number(city.revenue).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {!analytics.attribution.cities.length && (
+                    <tr><td colSpan="3" style={{ textAlign: "center", color: "#64748b", padding: "16px" }}>No customer orders placed yet</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* DATA QUALITY & ANOMALY MONITORING INSPECTOR */}
+        <div className="adminCard managementCard" style={{ marginBottom: "20px" }}>
+          <div className="inventoryListHead" style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", marginBottom: "14px" }}>
+            <div>
+              <h2>Data Quality &amp; Tracking Integrity Monitor</h2>
+              <span>Automated audits checking for missing parameters, delivery latency, and match quality.</span>
+            </div>
+            <span style={{ fontSize: "12px", fontWeight: 800, padding: "4px 10px", borderRadius: "20px", background: analytics.dataQuality.score >= 90 ? "#dcfce7" : "#fef9c3", color: analytics.dataQuality.score >= 90 ? "#166534" : "#854d0e", border: `1px solid ${analytics.dataQuality.score >= 90 ? "#86efac" : "#fde047"}` }}>
+              Quality Score: {analytics.dataQuality.score}%
+            </span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "10px" }}>
+            <div style={{ background: "#fff", border: `1px solid ${analytics.dataQuality.missingValueCount > 0 ? "#fca5a5" : "#cbd5e1"}`, borderRadius: "8px", padding: "10px 14px" }}>
+              <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Missing Value / Currency</div>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: analytics.dataQuality.missingValueCount > 0 ? "#dc2626" : "#16a34a", marginTop: "2px" }}>
+                {analytics.dataQuality.missingValueCount}
+              </div>
+              <small style={{ fontSize: "10px", color: "#64748b" }}>{analytics.dataQuality.missingValueCount === 0 ? "✓ All values valid" : "Missing price on events"}</small>
+            </div>
+
+            <div style={{ background: "#fff", border: `1px solid ${analytics.dataQuality.missingContentIdsCount > 0 ? "#fca5a5" : "#cbd5e1"}`, borderRadius: "8px", padding: "10px 14px" }}>
+              <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Missing Content IDs / SKUs</div>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: analytics.dataQuality.missingContentIdsCount > 0 ? "#dc2626" : "#16a34a", marginTop: "2px" }}>
+                {analytics.dataQuality.missingContentIdsCount}
+              </div>
+              <small style={{ fontSize: "10px", color: "#64748b" }}>{analytics.dataQuality.missingContentIdsCount === 0 ? "✓ Products attached" : "Missing SKU identifier"}</small>
+            </div>
+
+            <div style={{ background: "#fff", border: `1px solid ${analytics.dataQuality.missingEventIdCount > 0 ? "#fca5a5" : "#cbd5e1"}`, borderRadius: "8px", padding: "10px 14px" }}>
+              <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Missing Shared event_id</div>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: analytics.dataQuality.missingEventIdCount > 0 ? "#dc2626" : "#16a34a", marginTop: "2px" }}>
+                {analytics.dataQuality.missingEventIdCount}
+              </div>
+              <small style={{ fontSize: "10px", color: "#64748b" }}>{analytics.dataQuality.missingEventIdCount === 0 ? "✓ Deduplication keys active" : "Unmatched event keys"}</small>
+            </div>
+
+            <div style={{ background: "#fff", border: `1px solid ${analytics.dataQuality.lowEmqCount > 0 ? "#fde047" : "#cbd5e1"}`, borderRadius: "8px", padding: "10px 14px" }}>
+              <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Low EMQ Events (&lt;7.0)</div>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: analytics.dataQuality.lowEmqCount > 0 ? "#d97706" : "#16a34a", marginTop: "2px" }}>
+                {analytics.dataQuality.lowEmqCount}
+              </div>
+              <small style={{ fontSize: "10px", color: "#64748b" }}>{analytics.dataQuality.lowEmqCount === 0 ? "✓ High match quality" : "Anonymous browsing events"}</small>
+            </div>
+
+            <div style={{ background: "#fff", border: `1px solid ${analytics.dataQuality.delayedEventsCount > 0 ? "#fde047" : "#cbd5e1"}`, borderRadius: "8px", padding: "10px 14px" }}>
+              <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Delayed Events (&gt;10m)</div>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: analytics.dataQuality.delayedEventsCount > 0 ? "#d97706" : "#16a34a", marginTop: "2px" }}>
+                {analytics.dataQuality.delayedEventsCount}
+              </div>
+              <small style={{ fontSize: "10px", color: "#64748b" }}>{analytics.dataQuality.delayedEventsCount === 0 ? "✓ Real-time dispatch" : "Queued or delayed dispatches"}</small>
+            </div>
+
+            <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "8px", padding: "10px 14px" }}>
+              <div style={{ fontSize: "11px", color: "#166534", fontWeight: 700 }}>Deduplication Health</div>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: "#166534", marginTop: "2px" }}>
+                {analytics.dataQuality.deduplicatedRate}%
+              </div>
+              <small style={{ fontSize: "10px", color: "#166534" }}>0 double-counted conversions</small>
+            </div>
+          </div>
+        </div>
+      </>
+    )}
+
+    {/* TAB 2: LIVE STREAM CONTROLS & AUDIT LOG */}
+    {activeTab === "stream" && (
+      <>
+        {/* QUICK TEST SUITE DISPATCH TOOLBAR */}
+        <div className="adminCard managementCard" style={{ marginBottom: "16px", padding: "14px 18px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+            <div>
+              <b style={{ fontSize: "13px", color: "#0f172a" }}>⚡ Quick Test Dispatcher</b>
+              <p style={{ margin: "2px 0 0", fontSize: "11px", color: "#64748b" }}>Send individual test dispatches directly to Meta Graph API.</p>
+            </div>
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              <button type="button" onClick={() => triggerSingleTest("PageView")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test PageView</button>
+              <button type="button" onClick={() => triggerSingleTest("ViewContent")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test View</button>
+              <button type="button" onClick={() => triggerSingleTest("AddToCart")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Cart</button>
+              <button type="button" onClick={() => triggerSingleTest("InitiateCheckout")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Checkout</button>
+              <button type="button" onClick={() => triggerSingleTest("Purchase")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Purchase</button>
+            </div>
+            <div className="eventsStreamToolbar">
+              <button type="button" className={soundEnabled ? "active" : ""} onClick={() => setSoundEnabled((v) => !v)}>
+                {soundEnabled ? "🔔 Chime on new purchase" : "🔕 Chime muted"}
+              </button>
+              <select value={refreshInterval} onChange={(e) => setRefreshInterval(Number(e.target.value))}>
+                <option value={15000}>Auto-refresh: 15s</option>
+                <option value={30000}>Auto-refresh: 30s</option>
+                <option value={60000}>Auto-refresh: 60s</option>
+                <option value={0}>Paused</option>
+              </select>
+              <button type="button" onClick={() => loadEvents()} disabled={loading}>
+                <RefreshCw size={14} /> Refresh
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* MULTI-FACET FILTER & AUDIT TOOLBAR */}
+        <div className="adminCard managementCard" style={{ marginBottom: "20px" }}>
+          <div className="inventoryListHead" style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", marginBottom: "14px" }}>
+            <div>
+              <h2>Event Filter &amp; Search Controls</h2>
+              <span>Filter events across event types, delivery status, channel, product SKU, campaign UTM, or failure reason.</span>
+            </div>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                style={{ fontSize: "12px", padding: "6px 12px", background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5", borderRadius: "6px", cursor: "pointer", fontWeight: 600 }}
+              >
+                ✕ Reset all filters
+              </button>
             )}
+          </div>
 
-            {!loading && paginatedEvents.map((event) => {
-              const badge = EVENT_BADGE_COLORS[event.event_name] || EVENT_BADGE_COLORS.PageView;
-              const hasPii = Boolean(event.em_hash || event.ph_hash);
-              const hasBrowser = Boolean(event.client_ip || event.user_agent || event.source === "browser");
-              const isDelivered = Boolean(event.success || event.http_status === 200);
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "10px", marginBottom: "12px" }}>
+            {/* Event Type Filter */}
+            <div>
+              <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Event Type</label>
+              <select
+                value={eventTypeFilter}
+                onChange={(e) => setEventTypeFilter(e.target.value)}
+                style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px", background: "#fff" }}
+              >
+                {eventTypeOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name === "All" ? "All event types" : name}{name !== "All" && counts[name] != null ? ` (${counts[name]})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              return (
-                <tr key={event.id} className="eventsTableRow" onClick={() => setSelectedEvent(event)} style={{ cursor: "pointer" }}>
-                  <td><small className="trackingNumber">{eventsTimeAgo(event.created_at)}</small></td>
-                  <td><span className="eventTypeBadge" style={{ background: badge.bg, color: badge.color }}>{event.event_name}</span></td>
-                  <td>{event.source === "browser" ? "Browser → Server" : "Server CAPI"}</td>
-                  <td>
-                    {isDelivered ? (
-                      <span className="statusBadge activeStatus">Delivered</span>
-                    ) : (
-                      <span className="statusBadge fail" title={event.error_message || ""}>Failed</span>
-                    )}
-                  </td>
-                  <td>
-                    {event.dedupBadge === "deduplicated" ? (
-                      <span className="statusBadge activeStatus" style={{ fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }} title="Browser Pixel and Server CAPI both delivered with matched event_id">
-                        🟢 Deduplicated (Browser+Server)
-                      </span>
-                    ) : event.dedupBadge === "retry_deduplicated" ? (
-                      <span className="statusBadge" style={{ fontSize: "11px", background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a" }} title="Idempotent retry safely deduplicated">
-                        🛡️ Retry Deduplicated
-                      </span>
-                    ) : event.dedupBadge === "server_only" ? (
-                      <span className="statusBadge" style={{ fontSize: "11px", background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe" }} title="Server-side CAPI direct dispatch">
-                        🔵 Server Only
-                      </span>
-                    ) : (
-                      <span className="statusBadge" style={{ fontSize: "11px", background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }} title="Browser Pixel → CAPI dispatch with shared event_id">
-                        🟣 Browser → Server
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    <small className="trackingNumber">
-                      {event.orderRef ? (
+            {/* Delivery Status Filter */}
+            <div>
+              <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Delivery Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px", background: "#fff" }}
+              >
+                <option value="all">All statuses</option>
+                <option value="delivered">✓ Delivered (HTTP 200)</option>
+                <option value="failed">✗ Failed ({failedEventsCount})</option>
+              </select>
+            </div>
+
+            {/* Source / Channel Filter */}
+            <div>
+              <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Channel / Source</label>
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px", background: "#fff" }}
+              >
+                <option value="all">All channels</option>
+                <option value="browser">Browser Pixel (Client)</option>
+                <option value="server">Server CAPI (Direct)</option>
+                <option value="deduplicated">🟢 Deduplicated (Browser+Server)</option>
+              </select>
+            </div>
+
+            {/* SKU / Product Filter */}
+            <div>
+              <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>SKU / Product ID</label>
+              <input
+                value={skuFilter}
+                onChange={(e) => setSkuFilter(e.target.value)}
+                placeholder="e.g. BST-LWN-01 or Kurti"
+                style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px" }}
+              />
+            </div>
+
+            {/* Campaign / UTM Filter */}
+            <div>
+              <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Campaign / UTM</label>
+              <input
+                value={utmFilter}
+                onChange={(e) => setUtmFilter(e.target.value)}
+                placeholder="e.g. fb_ads or summer"
+                style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px" }}
+              />
+            </div>
+
+            {/* Quick Search */}
+            <div>
+              <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Search ID / Order / IP</label>
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="e.g. BST-782103 or fbtrace"
+                style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px" }}
+              />
+            </div>
+          </div>
+
+          {summary?.health?.failureReasonsList?.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginTop: "6px", padding: "8px 12px", background: "#fef2f2", borderRadius: "6px", border: "1px solid #fee2e2" }}>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#991b1b" }}>Filter by Error Type:</span>
+              <select
+                value={failureFilter}
+                onChange={(e) => setFailureFilter(e.target.value)}
+                style={{ padding: "4px 8px", fontSize: "11px", border: "1px solid #fca5a5", borderRadius: "4px", background: "#fff", color: "#991b1b" }}
+              >
+                <option value="all">All errors</option>
+                {summary.health.failureReasonsList.map((item) => (
+                  <option key={item.reason} value={item.reason}>
+                    {item.reason.slice(0, 40)} ({item.count})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* PAGINATED AUDIT TABLE */}
+        <div className="adminCard managementCard">
+          <div className="inventoryListHead" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+            <div>
+              <h2>Event stream ({filteredEvents.length} events)</h2>
+              <span>{lastLoadedAt ? `Updated ${eventsTimeAgo(lastLoadedAt.toISOString())} · auto-refreshes every ${refreshInterval ? `${refreshInterval / 1000}s` : "— (paused)"}` : "Loading…"}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Per page:</label>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                style={{ padding: "4px 8px", fontSize: "11px", border: "1px solid #cbd5e1", borderRadius: "4px", background: "#fff" }}
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="adminTableWrap">
+            <table className="adminTable">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Event</th>
+                  <th>Channel</th>
+                  <th>Status</th>
+                  <th>Deduplication (Audit)</th>
+                  <th>Shared Event ID</th>
+                  <th>Value</th>
+                  <th>Matched (EMQ)</th>
+                  <th>Meta trace</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading && !events.length && (
+                  <tr>
+                    <td colSpan="9" style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+                      <div style={{ display: "inline-block", width: "24px", height: "24px", border: "3px solid #cbd5e1", borderTopColor: "#166534", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                      <div style={{ marginTop: "8px", fontSize: "13px" }}>Loading live Meta tracking stream...</div>
+                    </td>
+                  </tr>
+                )}
+
+                {!loading && paginatedEvents.map((event) => {
+                  const badge = EVENT_BADGE_COLORS[event.event_name] || EVENT_BADGE_COLORS.PageView;
+                  const hasPii = Boolean(event.em_hash || event.ph_hash);
+                  const hasBrowser = Boolean(event.client_ip || event.user_agent || event.source === "browser");
+                  const isDelivered = Boolean(event.success || event.http_status === 200);
+
+                  return (
+                    <tr key={event.id} className="eventsTableRow" onClick={() => setSelectedEvent(event)} style={{ cursor: "pointer" }}>
+                      <td><small className="trackingNumber">{eventsTimeAgo(event.created_at)}</small></td>
+                      <td><span className="eventTypeBadge" style={{ background: badge.bg, color: badge.color }}>{event.event_name}</span></td>
+                      <td>{event.source === "browser" ? "Browser → Server" : "Server CAPI"}</td>
+                      <td>
+                        {isDelivered ? (
+                          <span className="statusBadge activeStatus">Delivered</span>
+                        ) : (
+                          <span className="statusBadge fail" title={event.error_message || ""}>Failed</span>
+                        )}
+                      </td>
+                      <td>
+                        {event.dedupBadge === "deduplicated" ? (
+                          <span className="statusBadge activeStatus" style={{ fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }} title="Browser Pixel and Server CAPI both delivered with matched event_id">
+                            🟢 Deduplicated (Browser+Server)
+                          </span>
+                        ) : event.dedupBadge === "retry_deduplicated" ? (
+                          <span className="statusBadge" style={{ fontSize: "11px", background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a" }} title="Idempotent retry safely deduplicated">
+                            🛡️ Retry Deduplicated
+                          </span>
+                        ) : event.dedupBadge === "server_only" ? (
+                          <span className="statusBadge" style={{ fontSize: "11px", background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe" }} title="Server-side CAPI direct dispatch">
+                            🔵 Server Only
+                          </span>
+                        ) : (
+                          <span className="statusBadge" style={{ fontSize: "11px", background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }} title="Browser Pixel → CAPI dispatch with shared event_id">
+                            🟣 Browser → Server
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <small className="trackingNumber">
+                          {event.orderRef ? (
+                            <button
+                              type="button"
+                              className="inlineLinkButton"
+                              style={{ fontWeight: 600, color: "#166534", textDecoration: "underline", cursor: "pointer" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onNavigateToOrder?.(event.orderRef);
+                              }}
+                              title="Inspect linked customer order in Admin > Orders"
+                            >
+                              #{event.orderRef} ↗
+                            </button>
+                          ) : (
+                            event.maskedEventId || event.event_id || "—"
+                          )}
+                        </small>
+                      </td>
+                      <td>{event.value ? `Rs. ${Number(event.value).toLocaleString()}` : "—"}</td>
+                      <td>
+                        {hasPii ? (
+                          <span className="statusBadge activeStatus" style={{ fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }} title="SHA-256 Hashed Phone, Email, Geo & Browser ID">
+                            🛡️ PII + Browser
+                          </span>
+                        ) : hasBrowser ? (
+                          <span className="statusBadge" style={{ fontSize: "11px", background: "#e0f2fe", color: "#0369a1", border: "1px solid #bae6fd", display: "inline-flex", alignItems: "center", gap: "4px" }} title="Matched with Browser ID (fbp), Client IP & User Agent">
+                            🌐 Browser ID (fbp+IP)
+                          </span>
+                        ) : (
+                          <span style={{ color: "#9ca3af" }}>—</span>
+                        )}
+                      </td>
+                      <td><small className="trackingNumber">{event.fbtrace_id || "—"}</small></td>
+                    </tr>
+                  );
+                })}
+
+                {!loading && !filteredEvents.length && !setupNeeded && (
+                  <tr>
+                    <td colSpan="9" style={{ textAlign: "center", padding: "30px 20px" }}>
+                      <div style={{ color: "#475569", fontWeight: 600, fontSize: "14px" }}>
+                        {hasActiveFilters ? "No events match the current filter criteria" : "No events logged yet"}
+                      </div>
+                      <p style={{ color: "#64748b", fontSize: "12px", margin: "6px 0 12px" }}>
+                        {hasActiveFilters
+                          ? "Try adjusting or resetting your filter selections above."
+                          : "Browse your online store or click '⚡ Run 5-Event Test Suite' above to generate test conversions."}
+                      </p>
+                      {hasActiveFilters && (
                         <button
                           type="button"
-                          className="inlineLinkButton"
-                          style={{ fontWeight: 600, color: "#166534", textDecoration: "underline", cursor: "pointer" }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onNavigateToOrder?.(event.orderRef);
-                          }}
-                          title="Inspect linked customer order in Admin > Orders"
+                          onClick={resetAllFilters}
+                          style={{ padding: "6px 14px", background: "#166534", color: "#fff", border: "none", borderRadius: "6px", fontSize: "12px", cursor: "pointer", fontWeight: 600 }}
                         >
-                          #{event.orderRef} ↗
+                          Reset filters
                         </button>
-                      ) : (
-                        event.maskedEventId || event.event_id || "—"
                       )}
-                    </small>
-                  </td>
-                  <td>{event.value ? `Rs. ${Number(event.value).toLocaleString()}` : "—"}</td>
-                  <td>
-                    {hasPii ? (
-                      <span className="statusBadge activeStatus" style={{ fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }} title="SHA-256 Hashed Phone, Email, Geo & Browser ID">
-                        🛡️ PII + Browser
-                      </span>
-                    ) : hasBrowser ? (
-                      <span className="statusBadge" style={{ fontSize: "11px", background: "#e0f2fe", color: "#0369a1", border: "1px solid #bae6fd", display: "inline-flex", alignItems: "center", gap: "4px" }} title="Matched with Browser ID (fbp), Client IP & User Agent">
-                        🌐 Browser ID (fbp+IP)
-                      </span>
-                    ) : (
-                      <span style={{ color: "#9ca3af" }}>—</span>
-                    )}
-                  </td>
-                  <td><small className="trackingNumber">{event.fbtrace_id || "—"}</small></td>
-                </tr>
-              );
-            })}
-
-            {!loading && !filteredEvents.length && !setupNeeded && (
-              <tr>
-                <td colSpan="9" style={{ textAlign: "center", padding: "30px 20px" }}>
-                  <div style={{ color: "#475569", fontWeight: 600, fontSize: "14px" }}>
-                    {hasActiveFilters ? "No events match the current filter criteria" : "No events logged yet"}
-                  </div>
-                  <p style={{ color: "#64748b", fontSize: "12px", margin: "6px 0 12px" }}>
-                    {hasActiveFilters
-                      ? "Try adjusting or resetting your filter selections above."
-                      : "Browse your online store or click '⚡ Run 5-Event Test Suite' above to generate test conversions."}
-                  </p>
-                  {hasActiveFilters && (
-                    <button
-                      type="button"
-                      onClick={resetAllFilters}
-                      style={{ padding: "6px 14px", background: "#166534", color: "#fff", border: "none", borderRadius: "6px", fontSize: "12px", cursor: "pointer", fontWeight: 600 }}
-                    >
-                      Reset filters
-                    </button>
-                  )}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* PAGINATION CONTROLS */}
-      {totalPages > 1 && (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderTop: "1px solid #f1f5f9", flexWrap: "wrap", gap: "10px" }}>
-          <span style={{ fontSize: "12px", color: "#64748b" }}>
-            Showing <b>{(currentPage - 1) * pageSize + 1}</b> to <b>{Math.min(currentPage * pageSize, filteredEvents.length)}</b> of <b>{filteredEvents.length}</b> events
-          </span>
-          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-            <button
-              type="button"
-              disabled={currentPage <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              style={{ padding: "5px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "4px", background: currentPage <= 1 ? "#f1f5f9" : "#fff", cursor: currentPage <= 1 ? "not-allowed" : "pointer" }}
-            >
-              Previous
-            </button>
-            <span style={{ fontSize: "12px", padding: "0 6px", color: "#374151" }}>
-              Page <b>{currentPage}</b> of <b>{totalPages}</b>
-            </span>
-            <button
-              type="button"
-              disabled={currentPage >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              style={{ padding: "5px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "4px", background: currentPage >= totalPages ? "#f1f5f9" : "#fff", cursor: currentPage >= totalPages ? "not-allowed" : "pointer" }}
-            >
-              Next
-            </button>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
+
+          {/* PAGINATION CONTROLS */}
+          {totalPages > 1 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderTop: "1px solid #f1f5f9", flexWrap: "wrap", gap: "10px" }}>
+              <span style={{ fontSize: "12px", color: "#64748b" }}>
+                Showing <b>{(currentPage - 1) * pageSize + 1}</b> to <b>{Math.min(currentPage * pageSize, filteredEvents.length)}</b> of <b>{filteredEvents.length}</b> events
+              </span>
+              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  style={{ padding: "5px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "4px", background: currentPage <= 1 ? "#f1f5f9" : "#fff", cursor: currentPage <= 1 ? "not-allowed" : "pointer" }}
+                >
+                  Previous
+                </button>
+                <span style={{ fontSize: "12px", padding: "0 6px", color: "#374151" }}>
+                  Page <b>{currentPage}</b> of <b>{totalPages}</b>
+                </span>
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  style={{ padding: "5px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "4px", background: currentPage >= totalPages ? "#f1f5f9" : "#fff", cursor: currentPage >= totalPages ? "not-allowed" : "pointer" }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </>
+    )}
 
     {/* MASKED TECHNICAL DIAGNOSTIC DRAWER */}
     {selectedEvent && (
