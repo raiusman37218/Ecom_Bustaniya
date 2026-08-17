@@ -34,6 +34,6 @@ export async function PATCH(request) {
     }
     const status = [400, 404, 413, 422].includes(error?.status) ? error.status : 500;
     if (status === 500) console.error("Admin order update failed", { message: error?.message, status: error?.status });
-    return NextResponse.json({ success: false, error: { code: status === 404 ? "ORDER_NOT_FOUND" : "ORDER_UPDATE_FAILED", message: status === 500 ? "Order changes could not be saved." : error.message } }, { status });
+    return NextResponse.json({ success: false, error: { code: status === 404 ? "ORDER_NOT_FOUND" : "ORDER_UPDATE_FAILED", message: error?.message || "Order changes could not be saved." } }, { status });
   }
 }
