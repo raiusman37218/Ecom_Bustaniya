@@ -73,6 +73,18 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   }, []);
 
   useEffect(() => {
+    if (product && typeof window !== "undefined" && window.fbq) {
+      window.fbq("track", "ViewContent", {
+        content_name: product.name,
+        content_ids: [String(product.article_number || product.articleNumber || product.id || "")],
+        content_type: "product",
+        value: Number(product.price || 0),
+        currency: "PKR",
+      });
+    }
+  }, [product?.id]);
+
+  useEffect(() => {
     if (cartReady) localStorage.setItem("bustaniya-cart", JSON.stringify(cart));
   }, [cart, cartReady]);
 
@@ -86,6 +98,15 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
   function addToBag({ openDrawer = true } = {}) {
     if (outOfStock) return;
+    if (typeof window !== "undefined" && window.fbq) {
+      window.fbq("track", "AddToCart", {
+        content_name: product.name,
+        content_ids: [String(product.article_number || product.articleNumber || product.id || "")],
+        content_type: "product",
+        value: Number(product.price || 0) * quantity,
+        currency: "PKR",
+      });
+    }
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id && item.size === size);
       if (existing) {

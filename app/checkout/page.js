@@ -274,6 +274,47 @@ export default function CheckoutPage() {
       .catch(() => {});
   }, []);
 
+  const hasTrackedCheckout = useRef(false);
+  useEffect(() => {
+    if (isCartLoaded && cart.length > 0 && !hasTrackedCheckout.current) {
+      hasTrackedCheckout.current = true;
+      const totalVal = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+      const contentIds = cart.map((item) => String(item.articleNumber || item.article_number || item.id || ""));
+      const contents = cart.map((item) => ({
+        id: String(item.articleNumber || item.article_number || item.id || ""),
+        quantity: Number(item.quantity || 1),
+        item_price: Number(item.price || 0),
+      }));
+      const numItems = cart.reduce((sum, item) => sum + Number(item.quantity || 1), 0);
+
+      if (typeof window !== "undefined" && window.fbq) {
+        window.fbq("track", "InitiateCheckout", {
+          content_ids: contentIds,
+          contents: contents,
+          num_items: numItems,
+          value: totalVal,
+          currency: "PKR",
+        });
+      }
+
+      fetch("/api/meta-capi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventName: "InitiateCheckout",
+          eventSourceUrl: typeof window !== "undefined" ? window.location.href : "https://bustaniya.com/checkout",
+          customData: {
+            contentIds,
+            contents,
+            numItems,
+            value: totalVal,
+            currency: "PKR",
+          },
+        }),
+      }).catch(() => {});
+    }
+  }, [isCartLoaded, cart]);
+
   const subtotal = useMemo(
     () => cart.reduce((total, item) => total + item.price * item.quantity, 0),
     [cart]
@@ -393,6 +434,32 @@ export default function CheckoutPage() {
         paymentDetails: result.paymentDetails || paymentSettings,
         paymentStatus: result.paymentStatus || "Awaiting Payment",
       };
+
+      const orderEventId = createdOrder.order_number || createdOrder.id || `order-${Date.now()}`;
+      const totalOrderVal = Number(createdOrder.total || paymentAmounts.totalOrderValue || 0);
+      const orderContentIds = (createdOrder.items || cart).map((item) => String(item.article_number || item.articleNumber || item.productId || item.id || ""));
+      const orderContents = (createdOrder.items || cart).map((item) => ({
+        id: String(item.article_number || item.articleNumber || item.productId || item.id || ""),
+        quantity: Number(item.quantity || 1),
+        item_price: Number(item.price || 0),
+      }));
+      const orderNumItems = (createdOrder.items || cart).reduce((sum, item) => sum + Number(item.quantity || 1), 0);
+
+      if (typeof window !== "undefined" && window.fbq) {
+        window.fbq(
+          "track",
+          "Purchase",
+          {
+            content_ids: orderContentIds,
+            contents: orderContents,
+            num_items: orderNumItems,
+            value: totalOrderVal,
+            currency: "PKR",
+          },
+          { eventID: orderEventId }
+        );
+      }
+
       setOrder(createdOrder);
     } catch (err) {
       const errorMsg = err.message || "An error occurred while placing your order.";
