@@ -1618,7 +1618,7 @@ export default function AdminDashboard() {
           {ordersError && active !== "Orders" && <div className="adminErrorBanner">{ordersError}</div>}
           {!canAccessActive && <div className="adminErrorBanner">You do not have access to this admin area.</div>}
           {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} ordersError={ordersLoadError} currentAdminUser={currentAdminUser} onRefresh={() => loadOrders()} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.order_number || order.id); navigateAdminSection("Orders"); }} />}
-          {canAccessActive && active === "Events" && <EventsStreamPanel onNavigateToSettings={() => navigateAdminSection("Settings")} onNavigateToOrder={(orderId) => { setRequestedOrderId(orderId); navigateAdminSection("Orders"); }} />}
+          {canAccessActive && active === "Events" && <EventsStreamPanel onNavigateToSettings={() => navigateAdminSection("Settings", { focus: "Tracking" })} onNavigateToOrder={(orderId) => { setRequestedOrderId(orderId); navigateAdminSection("Orders"); }} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} onNavigateToEvents={() => navigateAdminSection("Events")} />}
@@ -1627,7 +1627,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Courier Ops" && <CourierOperationsPanel />}
           {canAccessActive && active === "Couriers" && <CouriersPanel />}
-          {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} />}
+          {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Settings" ? requestedAdminFocus.focus : ""} />}
         </div>
       </section>
 
@@ -7414,8 +7414,8 @@ function BackendHealthPanel() {
   </div>;
 }
 
-function SettingsPanel({ onOpen, signedInUser }) {
-  const [activeTab, setActiveTab] = useState("Store");
+function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
+  const [activeTab, setActiveTab] = useState(initialTab || "Store");
   const [savedAt, setSavedAt] = useState("");
   const [storeSettings, setStoreSettings] = useState(DEFAULT_STORE_SETTINGS);
   const [storeSettingsLoading, setStoreSettingsLoading] = useState(false);

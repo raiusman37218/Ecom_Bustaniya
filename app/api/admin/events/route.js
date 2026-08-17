@@ -21,6 +21,69 @@ const TEST_PRODUCT = {
   price: 8950,
 };
 
+const VALID_TEST_EVENT_NAMES = ["PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"];
+
+function buildTestEventConfig(eventName, testRunId) {
+  const contentsPayload = [{ id: TEST_PRODUCT.id, quantity: 1, item_price: TEST_PRODUCT.price }];
+  switch (eventName) {
+    case "PageView":
+      return {
+        eventId: `test_pv_${testRunId}`,
+        eventSourceUrl: "https://bustaniya.com",
+        customData: { contentName: "Home Page", contentType: "page" },
+      };
+    case "ViewContent":
+      return {
+        eventId: `test_vc_${testRunId}`,
+        eventSourceUrl: `https://bustaniya.com/product/${TEST_PRODUCT.id}`,
+        customData: {
+          contentName: TEST_PRODUCT.name,
+          contentIds: [TEST_PRODUCT.id],
+          contentType: "product",
+          value: TEST_PRODUCT.price,
+          currency: "PKR",
+        },
+      };
+    case "AddToCart":
+      return {
+        eventId: `test_atc_${testRunId}`,
+        eventSourceUrl: `https://bustaniya.com/product/${TEST_PRODUCT.id}`,
+        customData: {
+          contentName: TEST_PRODUCT.name,
+          contents: contentsPayload,
+          numItems: 1,
+          value: TEST_PRODUCT.price,
+          currency: "PKR",
+        },
+      };
+    case "InitiateCheckout":
+      return {
+        eventId: `test_ic_${testRunId}`,
+        eventSourceUrl: "https://bustaniya.com/checkout",
+        customData: {
+          contentIds: [TEST_PRODUCT.id],
+          contents: contentsPayload,
+          numItems: 1,
+          value: TEST_PRODUCT.price,
+          currency: "PKR",
+        },
+      };
+    case "Purchase":
+    default:
+      return {
+        eventId: `test_pur_${testRunId}`,
+        eventSourceUrl: "https://bustaniya.com/checkout",
+        customData: {
+          contentName: TEST_PRODUCT.name,
+          contents: contentsPayload,
+          numItems: 1,
+          value: TEST_PRODUCT.price,
+          currency: "PKR",
+        },
+      };
+  }
+}
+
 export async function GET(request) {
   try {
     await authorizeAdminSession(request, "dashboard");
@@ -55,84 +118,54 @@ export async function POST(request) {
     const days = Number(body.days) || 7;
     const eventName = body.eventName || "";
 
+    // Action: Dispatch a single test event of the given name (used by the
+    // per-event "Test PageView / Test Cart / ..." buttons in Admin > Events).
+    if (action === "test_event") {
+      if (!VALID_TEST_EVENT_NAMES.includes(eventName)) {
+        return NextResponse.json({ error: `Invalid eventName. Must be one of: ${VALID_TEST_EVENT_NAMES.join(", ")}` }, { status: 400 });
+      }
+
+      const testRunId = Date.now();
+      const { eventId, eventSourceUrl, customData } = buildTestEventConfig(eventName, testRunId);
+
+      const result = await sendMetaCapiEvent({
+        eventName,
+        eventId,
+        eventSourceUrl,
+        userData: TEST_CUSTOMER,
+        customData,
+        triggeredBy: "server",
+      });
+
+      const [events, summary] = await Promise.all([
+        getRecentPixelEvents({ limit: body.limit || 150, eventName: "" }),
+        getPixelFunnelSummary({ days }),
+      ]);
+
+      return NextResponse.json({
+        success: result?.success === true,
+        result,
+        events,
+        summary,
+      });
+    }
+
     // Action: 1-Click Full Funnel Test Suite
     if (action === "test_suite") {
       const suiteResults = {};
       const testRunId = Date.now();
 
-      // 1. PageView
-      suiteResults.PageView = await sendMetaCapiEvent({
-        eventName: "PageView",
-        eventId: `test_pv_${testRunId}`,
-        eventSourceUrl: "https://bustaniya.com",
-        userData: TEST_CUSTOMER,
-        customData: { contentName: "Home Page", contentType: "page" },
-        triggeredBy: "server",
-      });
-
-      // 2. ViewContent
-      suiteResults.ViewContent = await sendMetaCapiEvent({
-        eventName: "ViewContent",
-        eventId: `test_vc_${testRunId}`,
-        eventSourceUrl: `https://bustaniya.com/product/${TEST_PRODUCT.id}`,
-        userData: TEST_CUSTOMER,
-        customData: {
-          contentName: TEST_PRODUCT.name,
-          contentIds: [TEST_PRODUCT.id],
-          contentType: "product",
-          value: TEST_PRODUCT.price,
-          currency: "PKR",
-        },
-        triggeredBy: "server",
-      });
-
-      // 3. AddToCart
-      suiteResults.AddToCart = await sendMetaCapiEvent({
-        eventName: "AddToCart",
-        eventId: `test_atc_${testRunId}`,
-        eventSourceUrl: `https://bustaniya.com/product/${TEST_PRODUCT.id}`,
-        userData: TEST_CUSTOMER,
-        customData: {
-          contentName: TEST_PRODUCT.name,
-          contents: [{ id: TEST_PRODUCT.id, quantity: 1, item_price: TEST_PRODUCT.price }],
-          numItems: 1,
-          value: TEST_PRODUCT.price,
-          currency: "PKR",
-        },
-        triggeredBy: "server",
-      });
-
-      // 4. InitiateCheckout
-      suiteResults.InitiateCheckout = await sendMetaCapiEvent({
-        eventName: "InitiateCheckout",
-        eventId: `test_ic_${testRunId}`,
-        eventSourceUrl: "https://bustaniya.com/checkout",
-        userData: TEST_CUSTOMER,
-        customData: {
-          contentIds: [TEST_PRODUCT.id],
-          contents: [{ id: TEST_PRODUCT.id, quantity: 1, item_price: TEST_PRODUCT.price }],
-          numItems: 1,
-          value: TEST_PRODUCT.price,
-          currency: "PKR",
-        },
-        triggeredBy: "server",
-      });
-
-      // 5. Purchase
-      suiteResults.Purchase = await sendMetaCapiEvent({
-        eventName: "Purchase",
-        eventId: `test_pur_${testRunId}`,
-        eventSourceUrl: "https://bustaniya.com/checkout",
-        userData: TEST_CUSTOMER,
-        customData: {
-          contentName: TEST_PRODUCT.name,
-          contents: [{ id: TEST_PRODUCT.id, quantity: 1, item_price: TEST_PRODUCT.price }],
-          numItems: 1,
-          value: TEST_PRODUCT.price,
-          currency: "PKR",
-        },
-        triggeredBy: "server",
-      });
+      for (const name of VALID_TEST_EVENT_NAMES) {
+        const { eventId, eventSourceUrl, customData } = buildTestEventConfig(name, testRunId);
+        suiteResults[name] = await sendMetaCapiEvent({
+          eventName: name,
+          eventId,
+          eventSourceUrl,
+          userData: TEST_CUSTOMER,
+          customData,
+          triggeredBy: "server",
+        });
+      }
 
       const allSuccess = Object.values(suiteResults).every((r) => r?.success);
 
