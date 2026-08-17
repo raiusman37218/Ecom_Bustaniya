@@ -5,6 +5,7 @@ import { AlertCircle, Check, CheckCircle2, ChevronDown, Loader2, Lock, MessageCi
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
+import { trackEvent } from "../../lib/trackEvent";
 
 const MAJOR_CITIES = [
   "Lahore",
@@ -287,31 +288,14 @@ export default function CheckoutPage() {
       }));
       const numItems = cart.reduce((sum, item) => sum + Number(item.quantity || 1), 0);
 
-      if (typeof window !== "undefined" && window.fbq) {
-        window.fbq("track", "InitiateCheckout", {
-          content_ids: contentIds,
-          contents: contents,
-          num_items: numItems,
+      trackEvent("InitiateCheckout", {
+        customData: {
           value: totalVal,
-          currency: "PKR",
-        });
-      }
-
-      fetch("/api/meta-capi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventName: "InitiateCheckout",
-          eventSourceUrl: typeof window !== "undefined" ? window.location.href : "https://bustaniya.com/checkout",
-          customData: {
-            contentIds,
-            contents,
-            numItems,
-            value: totalVal,
-            currency: "PKR",
-          },
-        }),
-      }).catch(() => {});
+          contentIds,
+          contents,
+          numItems,
+        },
+      });
     }
   }, [isCartLoaded, cart]);
 

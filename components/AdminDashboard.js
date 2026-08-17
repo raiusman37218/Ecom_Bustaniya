@@ -415,6 +415,8 @@ function ExecutiveAnalyticsSuite({
   dashboardNetProfit = 0,
   liveOrders = [],
   products = [],
+  pixelFunnel = null,
+  setActive = () => {},
 }) {
   const maxDailySales = Math.max(...salesByDay.map((day) => day.sales), 1);
   const peakDay = salesByDay.reduce((best, current) => (current.sales > best.sales ? current : best), { label: "—", sales: 0 });
@@ -620,7 +622,9 @@ function ExecutiveAnalyticsSuite({
         </article>
       </div>
 
-      {/* Shopify-Style Funnel & Meta CAPI Realtime Audit */}
+      {/* Shopify-Style Funnel & Meta CAPI Realtime Audit — driven by real
+          events logged in pixel_events (see lib/pixelEvents.js), not
+          estimates, so this matches Admin > Events exactly. */}
       <div className="analyticsGrid2" style={{ marginTop: "18px" }}>
         <article className="analyticsCard">
           <div className="analyticsCardHead">
@@ -631,75 +635,94 @@ function ExecutiveAnalyticsSuite({
             <span className="analyticsMetricBadge" style={{ background: "#edf5ee", color: "#173d29" }}>Conversion Funnel</span>
           </div>
 
-          <div className="visualBarList" style={{ marginTop: "12px" }}>
-            <VisualProgress
-              label="1. Store Visitors & Sessions (PageViews)"
-              value={100}
-              helper={`${Math.max(liveOrders.length * 28, 140)} estimated unique store visitors`}
-              color="#16452c"
-            />
-            <VisualProgress
-              label="2. Added to Cart (AddToCart)"
-              value={Math.min(100, Math.round(((liveOrders.length * 3.8) / Math.max(liveOrders.length * 28, 140)) * 100))}
-              helper={`${Math.round(liveOrders.length * 3.8)} product add-to-cart actions`}
-              color="#2e7d32"
-            />
-            <VisualProgress
-              label="3. Reached Checkout (InitiateCheckout)"
-              value={Math.min(100, Math.round(((liveOrders.length * 1.7) / Math.max(liveOrders.length * 28, 140)) * 100))}
-              helper={`${Math.round(liveOrders.length * 1.7)} checkout sessions initiated`}
-              color="#c78b2b"
-            />
-            <VisualProgress
-              label="4. Completed Orders (Purchase Conversion)"
-              value={Math.min(100, Math.round((liveOrders.length / Math.max(liveOrders.length * 28, 140)) * 100))}
-              helper={`${liveOrders.length} confirmed orders (${(liveOrders.length / Math.max(liveOrders.length * 28, 140) * 100).toFixed(1)}% conversion rate)`}
-              color="#1565c0"
-            />
-          </div>
+          {pixelFunnel ? (() => {
+            const c = pixelFunnel.counts || {};
+            const base = Math.max(c.PageView || 0, 1);
+            return (
+              <div className="visualBarList" style={{ marginTop: "12px" }}>
+                <VisualProgress
+                  label="1. Store Visitors & Sessions (PageViews)"
+                  value={100}
+                  helper={`${c.PageView || 0} page views logged`}
+                  color="#16452c"
+                />
+                <VisualProgress
+                  label="2. Added to Cart (AddToCart)"
+                  value={Math.min(100, Math.round(((c.AddToCart || 0) / base) * 100))}
+                  helper={`${c.AddToCart || 0} product add-to-cart actions`}
+                  color="#2e7d32"
+                />
+                <VisualProgress
+                  label="3. Reached Checkout (InitiateCheckout)"
+                  value={Math.min(100, Math.round(((c.InitiateCheckout || 0) / base) * 100))}
+                  helper={`${c.InitiateCheckout || 0} checkout sessions initiated`}
+                  color="#c78b2b"
+                />
+                <VisualProgress
+                  label="4. Completed Orders (Purchase Conversion)"
+                  value={Math.min(100, Math.round(((c.Purchase || 0) / base) * 100))}
+                  helper={`${c.Purchase || 0} confirmed orders (${((c.Purchase || 0) / base * 100).toFixed(1)}% conversion rate)`}
+                  color="#1565c0"
+                />
+              </div>
+            );
+          })() : (
+            <p className="visualEmpty" style={{ marginTop: "12px" }}>Loading real funnel data from pixel_events…</p>
+          )}
         </article>
 
         <article className="analyticsCard">
           <div className="analyticsCardHead">
             <div>
               <h3>Meta Pixel &amp; Conversions API (CAPI) Status</h3>
-              <p>Real-time server event tracking &amp; EMQ match status.</p>
+              <p>Real-time server event tracking &amp; EMQ match status (last 7 days).</p>
             </div>
-            <span className="analyticsMetricBadge" style={{ background: "#e8f5e9", color: "#2e7d32" }}>🟢 CAPI Active</span>
+            <span className="analyticsMetricBadge" style={{ background: "#e8f5e9", color: "#2e7d32" }}>Browser + Server</span>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
             <div style={{ padding: "10px 14px", borderRadius: "8px", background: "#f8faf9", border: "1px solid #e0e8e3", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <b style={{ color: "#173d29", fontSize: "13px" }}>Meta Pixel ID</b>
-                <div style={{ fontSize: "12px", color: "#6b7280", fontFamily: "monospace" }}>5621950704696012</div>
+                <b style={{ color: "#173d29", fontSize: "13px" }}>Events sent</b>
+                <div style={{ fontSize: "12px", color: "#6b7280" }}>{pixelFunnel ? pixelFunnel.total : "…"} total pixel/CAPI events logged</div>
               </div>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#2e7d32", padding: "3px 8px", background: "#e8f5e9", borderRadius: "12px" }}>Browser Pixel Connected</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#2e7d32", padding: "3px 8px", background: "#e8f5e9", borderRadius: "12px" }}>Live</span>
             </div>
 
             <div style={{ padding: "10px 14px", borderRadius: "8px", background: "#f8faf9", border: "1px solid #e0e8e3", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <b style={{ color: "#173d29", fontSize: "13px" }}>Conversions API (CAPI Token)</b>
-                <div style={{ fontSize: "12px", color: "#6b7280" }}>SHA-256 EMQ User Matching Active</div>
+                <b style={{ color: "#173d29", fontSize: "13px" }}>Meta delivery success rate</b>
+                <div style={{ fontSize: "12px", color: "#6b7280" }}>Share of events Meta's Graph API accepted (HTTP 200)</div>
               </div>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#2e7d32", padding: "3px 8px", background: "#e8f5e9", borderRadius: "12px" }}>Server CAPI Active</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: pixelFunnel?.successRate >= 90 || pixelFunnel?.successRate == null ? "#2e7d32" : "#c0392b", padding: "3px 8px", background: pixelFunnel?.successRate >= 90 || pixelFunnel?.successRate == null ? "#e8f5e9" : "#fdecea", borderRadius: "12px" }}>
+                {pixelFunnel?.successRate == null ? "—" : `${pixelFunnel.successRate}%`}
+              </span>
             </div>
 
             <div style={{ padding: "10px 14px", borderRadius: "8px", background: "#f8faf9", border: "1px solid #e0e8e3", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <b style={{ color: "#173d29", fontSize: "13px" }}>Tracked CAPI Events</b>
-                <div style={{ fontSize: "12px", color: "#6b7280" }}>PageView, ViewContent, AddToCart, InitiateCheckout, Purchase</div>
+                <b style={{ color: "#173d29", fontSize: "13px" }}>SHA-256 EMQ match rate</b>
+                <div style={{ fontSize: "12px", color: "#6b7280" }}>Events sent with hashed email/phone for Meta match quality</div>
               </div>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#1565c0", padding: "3px 8px", background: "#e3f2fd", borderRadius: "12px" }}>Deduplication ON</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#1565c0", padding: "3px 8px", background: "#e3f2fd", borderRadius: "12px" }}>
+                {pixelFunnel?.matchRate == null ? "—" : `${pixelFunnel.matchRate}%`}
+              </span>
             </div>
 
+            <button
+              type="button"
+              onClick={() => setActive("Events")}
+              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "10px", borderRadius: "8px", background: "#16452c", color: "#fff", fontWeight: 700, fontSize: "13px", border: "none", cursor: "pointer", marginTop: "4px" }}
+            >
+              View Live Events in Admin →
+            </button>
             <a
               href="https://eventsmanager.facebook.com"
               target="_blank"
               rel="noreferrer"
-              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "10px", borderRadius: "8px", background: "#16452c", color: "#fff", fontWeight: 700, fontSize: "13px", textDecoration: "none", marginTop: "4px" }}
+              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px", padding: "6px", fontSize: "12px", color: "#6b7280", textDecoration: "none" }}
             >
-              View Live Events in Meta Events Manager ↗
+              Open Meta Events Manager instead ↗
             </a>
           </div>
         </article>
@@ -1845,6 +1868,19 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const [dashboardUpdatedAt, setDashboardUpdatedAt] = useState(null);
   const [dashboardRefreshing, setDashboardRefreshing] = useState(false);
   const [financeSnapshotStatus, setFinanceSnapshotStatus] = useState("loading");
+  const [pixelFunnel, setPixelFunnel] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ days: Number(dashboardPeriod) || 7, limit: 1 }),
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result) => { if (!cancelled && result?.summary) setPixelFunnel(result.summary); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [dashboardPeriod]);
   const isOwnerDashboard = !currentAdminUser || currentAdminUser.role === "Owner";
   useEffect(() => { setDashboardNow(new Date()); }, []);
   async function refreshDashboardFinance() {
@@ -2139,6 +2175,8 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
       dashboardNetProfit={dashboardNetProfit}
       liveOrders={liveOrders}
       products={products}
+      pixelFunnel={pixelFunnel}
+      setActive={setActive}
     />
 
     {/* Collapsible Cash explainer (Closed by default) */}
@@ -5463,514 +5501,265 @@ function playChimeSound() {
   } catch {}
 }
 
+const EVENT_BADGE_COLORS = {
+  PageView: { bg: "#eef2ff", color: "#3730a3" },
+  ViewContent: { bg: "#f0f9ff", color: "#075985" },
+  AddToCart: { bg: "#ecfdf5", color: "#065f46" },
+  InitiateCheckout: { bg: "#fffbeb", color: "#92400e" },
+  Purchase: { bg: "#f3e8ff", color: "#6b21a8" },
+};
+
+function eventsTimeAgo(isoString) {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 function EventsStreamPanel({ onNavigateToSettings }) {
+  const [days, setDays] = useState("7");
+  const [eventName, setEventName] = useState("");
   const [events, setEvents] = useState([]);
-  const [stats, setStats] = useState({
-    total: 0,
-    purchases: 0,
-    checkouts: 0,
-    cartAdds: 0,
-    pageViews: 0,
-    productViews: 0,
-    totalSessions: 0,
-    purchaseValue: 0,
-    funnel: { totalSessions: 0, cartAdds: 0, cartRate: "0.0", checkouts: 0, checkoutRate: "0.0", purchases: 0, purchaseRate: "0.0" },
-    topCities: [],
-    topProducts: [],
-    activeVisitorsNow: 8,
-  });
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("All");
+  const [error, setError] = useState("");
+  const [setupNeeded, setSetupNeeded] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionMessage, setActionMessage] = useState("");
-  const [refreshInterval, setRefreshInterval] = useState(4000); // 4 seconds
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const prevPurchasesRef = useRef(0);
+  const [refreshInterval, setRefreshInterval] = useState(15000);
+  const [lastLoadedAt, setLastLoadedAt] = useState(null);
+  const prevPurchasesRef = useRef(null);
 
   async function loadEvents(silent = false) {
     if (!silent) setLoading(true);
+    setError("");
     try {
-      const response = await fetch(`/api/admin/events?filter=${encodeURIComponent(filter)}&limit=100`, { cache: "no-store" });
+      const response = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: Number(days) || 7, eventName, limit: 150 }),
+      });
       const result = await response.json();
-      if (response.ok) {
-        setEvents(result.events || []);
-        if (result.stats) {
-          if (soundEnabled && result.stats.purchases > prevPurchasesRef.current && prevPurchasesRef.current > 0) {
-            playChimeSound();
-          }
-          prevPurchasesRef.current = result.stats.purchases;
-          setStats(result.stats);
-        }
+      if (!response.ok) {
+        if (/pixel_events/.test(result.error || "") || response.status === 500) setSetupNeeded(true);
+        throw new Error(result.error || "Unable to load events.");
       }
-    } catch (e) {
-      console.error("Events fetch error", e);
+      setSetupNeeded(false);
+      setEvents(result.events || []);
+      if (result.summary) {
+        const purchases = result.summary.counts?.Purchase || 0;
+        if (soundEnabled && prevPurchasesRef.current !== null && purchases > prevPurchasesRef.current) {
+          playChimeSound();
+        }
+        prevPurchasesRef.current = purchases;
+        setSummary(result.summary);
+      }
+      setLastLoadedAt(new Date());
+    } catch (loadError) {
+      setError(loadError.message);
     } finally {
       if (!silent) setLoading(false);
     }
   }
 
-  useEffect(() => {
-    loadEvents();
-  }, [filter]);
-
+  useEffect(() => { loadEvents(); }, [days, eventName]);
   useEffect(() => {
     if (!refreshInterval) return;
-    const timer = setInterval(() => {
-      loadEvents(true);
-    }, refreshInterval);
+    const timer = setInterval(() => loadEvents(true), refreshInterval);
     return () => clearInterval(timer);
-  }, [refreshInterval, filter, soundEnabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshInterval, days, eventName, soundEnabled]);
 
-  async function triggerTestEvent(eventName = "Purchase") {
-    setActionLoading(true);
-    setActionMessage("");
-    try {
-      const response = await fetch("/api/admin/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "test", eventName }),
-      });
-      const result = await response.json();
-      if (result.success) {
-        if (soundEnabled && eventName === "Purchase") playChimeSound();
-        setActionMessage(`⚡ Live ${eventName} event dispatched to Meta CAPI & Pixel stream!`);
-        if (result.events) setEvents(result.events);
-        if (result.stats) setStats(result.stats);
-      } else {
-        setActionMessage(`❌ Test failed: ${result.error || result.result?.error?.message || "Meta API error"}`);
-      }
-    } catch (err) {
-      setActionMessage(`❌ Error: ${err.message}`);
-    } finally {
-      setActionLoading(false);
-      setTimeout(() => setActionMessage(""), 5000);
-    }
-  }
+  const counts = summary?.counts || {};
+  const eventTypeOptions = ["", "PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"];
+  const purchaseValue = events
+    .filter((e) => e.event_name === "Purchase" && e.success)
+    .reduce((sum, e) => sum + (Number(e.value) || 0), 0);
 
-  async function seedFullFunnel() {
-    setActionLoading(true);
-    setActionMessage("");
-    try {
-      const response = await fetch("/api/admin/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "seed" }),
-      });
-      const result = await response.json();
-      if (result.success) {
-        setActionMessage("⚡ Re-seeded full multi-stage funnel with PageView, ViewContent, AddToCart, InitiateCheckout & Purchase!");
-        if (result.events) setEvents(result.events);
-        if (result.stats) setStats(result.stats);
-      }
-    } catch (err) {
-      setActionMessage(`❌ Error: ${err.message}`);
-    } finally {
-      setActionLoading(false);
-      setTimeout(() => setActionMessage(""), 5000);
-    }
-  }
+  return <>
+    <div className="adminTitle" style={{ marginBottom: "16px" }}>
+      <div>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "4px 10px", borderRadius: "16px", marginBottom: "6px" }}>
+          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#16a34a", boxShadow: "0 0 0 4px rgba(34, 197, 94, 0.25)", display: "inline-block" }} />
+          <b style={{ color: "#166534", fontSize: "11px", letterSpacing: "0.05em", textTransform: "uppercase" }}>LIVE EVENT LOG</b>
+        </div>
+        <h1>Live Events</h1>
+        <span>Real Meta Pixel &amp; Conversions API activity logged straight from this store — no need to open Meta Events Manager.</span>
+      </div>
+      <div className="orderTabs" aria-label="Events period">
+        {[["7", "7 days"], ["30", "30 days"], ["90", "90 days"]].map(([value, label]) => (
+          <button type="button" key={value} className={days === value ? "active" : ""} aria-pressed={days === value} onClick={() => setDays(value)}>{label}</button>
+        ))}
+      </div>
+    </div>
 
-  async function clearEvents() {
-    if (!window.confirm("Are you sure you want to clear the live event stream?")) return;
-    try {
-      await fetch("/api/admin/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "clear" }),
-      });
-      setEvents([]);
-      setStats({
-        total: 0,
-        purchases: 0,
-        checkouts: 0,
-        cartAdds: 0,
-        pageViews: 0,
-        productViews: 0,
-        totalSessions: 0,
-        purchaseValue: 0,
-        funnel: { totalSessions: 0, cartAdds: 0, cartRate: "0.0", checkouts: 0, checkoutRate: "0.0", purchases: 0, purchaseRate: "0.0" },
-        topCities: [],
-        topProducts: [],
-        activeVisitorsNow: 1,
-      });
-    } catch {}
-  }
-
-  const eventBadgeStyle = (name) => {
-    switch (name) {
-      case "Purchase":
-        return { background: "#f3e8ff", color: "#6b21a8", border: "1px solid #d8b4fe" };
-      case "InitiateCheckout":
-        return { background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" };
-      case "AddToCart":
-        return { background: "#dcfce7", color: "#166534", border: "1px solid #86efac" };
-      case "ViewContent":
-        return { background: "#e0f2fe", color: "#075985", border: "1px solid #7dd3fc" };
-      default:
-        return { background: "#f3f4f6", color: "#374151", border: "1px solid #e5e7eb" };
-    }
-  };
-
-  const funnel = stats.funnel || {
-    totalSessions: stats.total || 1,
-    cartAdds: stats.cartAdds || 0,
-    cartRate: "0.0",
-    checkouts: stats.checkouts || 0,
-    checkoutRate: "0.0",
-    purchases: stats.purchases || 0,
-    purchaseRate: "0.0",
-  };
-
-  return (
-    <>
-      {/* Live Header */}
-      <div className="adminTitle" style={{ marginBottom: "16px" }}>
+    {error && !setupNeeded && <div className="adminErrorBanner">{error}</div>}
+    {setupNeeded && (
+      <div className="inventoryAlert materialAlert">
+        <Activity />
         <div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "4px 10px", borderRadius: "16px", marginBottom: "6px" }}>
-            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#16a34a", boxShadow: "0 0 0 4px rgba(34, 197, 94, 0.25)", display: "inline-block" }} />
-            <b style={{ color: "#166534", fontSize: "11px", letterSpacing: "0.05em", textTransform: "uppercase" }}>SHOPIFY-GRADE LIVE TRACKER</b>
-            <span style={{ color: "#15803d", fontSize: "11px", fontWeight: 700 }}>• {stats.activeVisitorsNow || 8} Active Shoppers</span>
-          </div>
-          <h1>Live Store Activity &amp; Meta Events</h1>
-          <span>Real-time customer conversion tracking, regional Pakistani cities, and Meta CAPI deduplication.</span>
-        </div>
-
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-          <button
-            type="button"
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: soundEnabled ? "#f0fdf4" : "#f3f4f6", color: soundEnabled ? "#166534" : "#6b7280", border: `1px solid ${soundEnabled ? "#bbf7d0" : "#d1d5db"}` }}
-          >
-            {soundEnabled ? "🔔 Chime ON" : "🔕 Chime Muted"}
-          </button>
-          <select
-            value={refreshInterval}
-            onChange={(e) => setRefreshInterval(Number(e.target.value))}
-            style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #d1d5db", fontSize: "13px", fontWeight: 500, background: "#fff" }}
-          >
-            <option value={3000}>Auto-refresh: 3s (Live)</option>
-            <option value={6000}>Auto-refresh: 6s</option>
-            <option value={12000}>Auto-refresh: 12s</option>
-            <option value={0}>Paused</option>
-          </select>
-          <button type="button" onClick={() => triggerTestEvent("Purchase")} disabled={actionLoading} style={{ background: "#6b21a8", color: "#fff", borderColor: "#581c87" }}>
-            ⚡ Test Purchase
-          </button>
-          <button type="button" onClick={() => triggerTestEvent("InitiateCheckout")} disabled={actionLoading} style={{ background: "#92400e", color: "#fff", borderColor: "#78350f" }}>
-            ⚡ Test Checkout
-          </button>
-          <button type="button" onClick={() => triggerTestEvent("AddToCart")} disabled={actionLoading} style={{ background: "#166534", color: "#fff", borderColor: "#14532d" }}>
-            ⚡ Test Cart
-          </button>
-          <button type="button" onClick={() => triggerTestEvent("ViewContent")} disabled={actionLoading} style={{ background: "#0369a1", color: "#fff", borderColor: "#075985" }}>
-            ⚡ Test View
-          </button>
-          <button type="button" onClick={() => triggerTestEvent("PageView")} disabled={actionLoading} style={{ background: "#475569", color: "#fff", borderColor: "#334155" }}>
-            ⚡ Test PageView
-          </button>
-          <button type="button" onClick={seedFullFunnel} disabled={actionLoading} style={{ background: "#f8fafc", color: "#1e293b", border: "1px solid #cbd5e1", fontWeight: 600 }}>
-            🎯 Reset Funnel Stream
-          </button>
-          <button type="button" onClick={() => loadEvents()} disabled={loading}>
-            🔄 Refresh
-          </button>
-          <button type="button" onClick={clearEvents} style={{ color: "#dc2626" }}>
-            Clear Log
-          </button>
+          <b>Events database setup required</b>
+          <span>Run <code>scripts/supabase-pixel-events.sql</code> in Supabase, then refresh this page.</span>
         </div>
       </div>
-
-      {actionMessage && (
-        <div style={{ padding: "12px 16px", borderRadius: "8px", background: actionMessage.startsWith("⚡") ? "#f0fdf4" : "#fef2f2", border: `1px solid ${actionMessage.startsWith("⚡") ? "#bbf7d0" : "#fecaca"}`, color: actionMessage.startsWith("⚡") ? "#166534" : "#991b1b", marginBottom: "16px", fontWeight: 600, fontSize: "13px" }}>
-          {actionMessage}
+    )}
+    {summary && !summary.total && !loading && (
+      <div className="inventoryAlert">
+        <Activity />
+        <div>
+          <b>No events logged yet</b>
+          <span>Browse the storefront (view a product, add to cart, start checkout) to generate real events, or make sure your Pixel ID / CAPI token are set under <button type="button" onClick={onNavigateToSettings} style={{ border: 0, background: "none", padding: 0, color: "#8a5910", textDecoration: "underline", cursor: "pointer", font: "inherit" }}>Settings &gt; Tracking</button>.</span>
         </div>
-      )}
-
-      {/* Top 5 Key Metric Cards */}
-      <div className="miniMetricGrid productMetrics" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginBottom: "16px" }}>
-        <article style={{ borderLeft: "4px solid #16a34a" }}>
-          <Activity style={{ color: "#16a34a" }} />
-          <span><b>{stats.total || events.length}</b>Total Events</span>
-        </article>
-        <article style={{ borderLeft: "4px solid #7c3aed" }}>
-          <CircleDollarSign style={{ color: "#7c3aed" }} />
-          <span><b>{stats.purchases} (Rs. {Number(stats.purchaseValue || 0).toLocaleString()})</b>Purchases &amp; Value</span>
-        </article>
-        <article style={{ borderLeft: "4px solid #d97706" }}>
-          <ShoppingBag style={{ color: "#d97706" }} />
-          <span><b>{stats.checkouts} ({funnel.checkoutRate}%)</b>Reached Checkout</span>
-        </article>
-        <article style={{ borderLeft: "4px solid #059669" }}>
-          <Plus style={{ color: "#059669" }} />
-          <span><b>{stats.cartAdds} ({funnel.cartRate}%)</b>Added to Cart</span>
-        </article>
-        <article style={{ borderLeft: "4px solid #2563eb" }}>
-          <Users style={{ color: "#2563eb" }} />
-          <span><b>{stats.activeVisitorsNow || 8} Active</b>Live Shoppers</span>
-        </article>
       </div>
+    )}
 
-      {/* Shopify 4-Stage Conversion Funnel Visual Pipeline */}
-      <section className="adminCard" style={{ marginBottom: "16px", padding: "18px 20px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: "15px", color: "#111827", fontWeight: 700 }}>Shopify-Style Conversion Funnel (Realtime)</h3>
-            <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#6b7280" }}>Visitor journey progression from store visit to final purchase.</p>
-          </div>
-          <span style={{ fontSize: "12px", fontWeight: 700, color: "#166534", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "4px 10px", borderRadius: "12px" }}>
-            Overall Conversion: {funnel.purchaseRate}%
-          </span>
+    <section className="financeMetricGrid" style={{ marginBottom: "12px" }}>
+      <article><Activity /><span><b>{summary ? summary.total : "—"}</b>Total events ({days} days)</span></article>
+      <article><CircleDollarSign /><span><b>{counts.Purchase || 0} (Rs. {purchaseValue.toLocaleString()})</b>Purchases logged</span></article>
+      <article><TrendingUp /><span><b>{summary?.successRate == null ? "—" : `${summary.successRate}%`}</b>Meta delivery success</span></article>
+      <article><Users /><span><b>{summary?.matchRate == null ? "—" : `${summary.matchRate}%`}</b>SHA-256 match rate (EMQ)</span></article>
+    </section>
+
+    <section className="adminCard" style={{ marginBottom: "16px", padding: "18px 20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "8px" }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: "15px", color: "#111827", fontWeight: 700 }}>Shopify-Style Conversion Funnel</h3>
+          <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#6b7280" }}>Real visitor journey from page views to purchase, for the selected period.</p>
         </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
-          <div style={{ padding: "12px 14px", borderRadius: "8px", background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: "#475569" }}>1. Total Sessions</span>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#0f172a", background: "#e2e8f0", padding: "2px 6px", borderRadius: "4px" }}>100%</span>
-            </div>
-            <b style={{ fontSize: "18px", color: "#0f172a" }}>{funnel.totalSessions}</b>
-            <div style={{ height: "4px", background: "#e2e8f0", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
-              <div style={{ width: "100%", height: "100%", background: "#64748b" }} />
-            </div>
-          </div>
-
-          <div style={{ padding: "12px 14px", borderRadius: "8px", background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: "#166534" }}>2. Added to Cart</span>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#166534", background: "#dcfce7", padding: "2px 6px", borderRadius: "4px" }}>{funnel.cartRate}%</span>
-            </div>
-            <b style={{ fontSize: "18px", color: "#166534" }}>{funnel.cartAdds}</b>
-            <div style={{ height: "4px", background: "#dcfce7", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
-              <div style={{ width: `${Math.min(100, Math.max(8, Number(funnel.cartRate) || 0))}%`, height: "100%", background: "#16a34a" }} />
-            </div>
-          </div>
-
-          <div style={{ padding: "12px 14px", borderRadius: "8px", background: "#fffbeb", border: "1px solid #fde68a" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: "#92400e" }}>3. Reached Checkout</span>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#92400e", background: "#fef3c7", padding: "2px 6px", borderRadius: "4px" }}>{funnel.checkoutRate}%</span>
-            </div>
-            <b style={{ fontSize: "18px", color: "#92400e" }}>{funnel.checkouts}</b>
-            <div style={{ height: "4px", background: "#fef3c7", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
-              <div style={{ width: `${Math.min(100, Math.max(8, Number(funnel.checkoutRate) || 0))}%`, height: "100%", background: "#d97706" }} />
-            </div>
-          </div>
-
-          <div style={{ padding: "12px 14px", borderRadius: "8px", background: "#faf5ff", border: "1px solid #e9d5ff" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: "#6b21a8" }}>4. Converted (Purchase)</span>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#6b21a8", background: "#f3e8ff", padding: "2px 6px", borderRadius: "4px" }}>{funnel.purchaseRate}%</span>
-            </div>
-            <b style={{ fontSize: "18px", color: "#6b21a8" }}>{funnel.purchases}</b>
-            <div style={{ height: "4px", background: "#f3e8ff", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
-              <div style={{ width: `${Math.min(100, Math.max(8, Number(funnel.purchaseRate) || 0))}%`, height: "100%", background: "#7c3aed" }} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Regional Activity & Popular Products Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px", marginBottom: "16px" }}>
-        {/* Top Cities in Pakistan */}
-        <section className="adminCard" style={{ padding: "16px 18px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: "14px", fontWeight: 700 }}>🇵🇰 Top Pakistani Cities (Live)</h3>
-              <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#6b7280" }}>Active shoppers &amp; orders by delivery city.</p>
-            </div>
-            <span style={{ fontSize: "11px", fontWeight: 600, color: "#166534" }}>{(stats.topCities || []).length} active regions</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {(stats.topCities || []).slice(0, 5).map((city) => (
-              <div key={city.city} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: "#f9fafb", borderRadius: "6px", border: "1px solid #f3f4f6" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#16a34a" }} />
-                  <b style={{ fontSize: "13px", color: "#1f2937" }}>{city.city}</b>
+      </div>
+      {(() => {
+        const base = Math.max(counts.PageView || 0, 1);
+        const stages = [
+          { label: "1. Page Views", value: counts.PageView || 0, pct: 100, bg: "#f8fafc", border: "#e2e8f0", fg: "#0f172a", bar: "#64748b" },
+          { label: "2. Added to Cart", value: counts.AddToCart || 0, pct: Math.min(100, Math.round(((counts.AddToCart || 0) / base) * 100)), bg: "#f0fdf4", border: "#bbf7d0", fg: "#166534", bar: "#16a34a" },
+          { label: "3. Reached Checkout", value: counts.InitiateCheckout || 0, pct: Math.min(100, Math.round(((counts.InitiateCheckout || 0) / base) * 100)), bg: "#fffbeb", border: "#fde68a", fg: "#92400e", bar: "#d97706" },
+          { label: "4. Purchased", value: counts.Purchase || 0, pct: Math.min(100, Math.round(((counts.Purchase || 0) / base) * 100)), bg: "#faf5ff", border: "#e9d5ff", fg: "#6b21a8", bar: "#7c3aed" },
+        ];
+        return (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
+            {stages.map((stage) => (
+              <div key={stage.label} style={{ padding: "12px 14px", borderRadius: "8px", background: stage.bg, border: `1px solid ${stage.border}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 600, color: stage.fg }}>{stage.label}</span>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: stage.fg, background: "#ffffffa0", padding: "2px 6px", borderRadius: "4px" }}>{stage.pct}%</span>
                 </div>
-                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                  <span style={{ fontSize: "12px", color: "#6b7280" }}>{city.count} events</span>
-                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#6b21a8", background: "#f3e8ff", padding: "2px 6px", borderRadius: "4px" }}>
-                    {city.purchases} order{city.purchases === 1 ? "" : "s"}
-                  </span>
+                <b style={{ fontSize: "18px", color: stage.fg }}>{stage.value}</b>
+                <div style={{ height: "4px", background: "#ffffffa0", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
+                  <div style={{ width: `${Math.max(4, stage.pct)}%`, height: "100%", background: stage.bar }} />
                 </div>
               </div>
             ))}
-            {!(stats.topCities || []).length && <p style={{ fontSize: "12px", color: "#9ca3af", margin: "10px 0" }}>Collecting regional data…</p>}
           </div>
-        </section>
+        );
+      })()}
+    </section>
 
-        {/* Top Active Products */}
-        <section className="adminCard" style={{ padding: "16px 18px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: "14px", fontWeight: 700 }}>🔥 Top Products In Demand</h3>
-              <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#6b7280" }}>Most viewed, carted, and ordered live products.</p>
-            </div>
-            <span style={{ fontSize: "11px", fontWeight: 600, color: "#6b21a8" }}>Trending Now</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {(stats.topProducts || []).slice(0, 5).map((prod) => (
-              <div key={prod.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: "#f9fafb", borderRadius: "6px", border: "1px solid #f3f4f6" }}>
-                <b style={{ fontSize: "12px", color: "#1f2937", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {prod.name}
-                </b>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                  <span style={{ fontSize: "11px", color: "#059669", background: "#dcfce7", padding: "2px 6px", borderRadius: "4px", fontWeight: 600 }}>
-                    {prod.adds} Carted
-                  </span>
-                  <span style={{ fontSize: "11px", color: "#6b21a8", background: "#f3e8ff", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>
-                    {prod.orders} Sold
-                  </span>
-                </div>
-              </div>
-            ))}
-            {!(stats.topProducts || []).length && <p style={{ fontSize: "12px", color: "#9ca3af", margin: "10px 0" }}>Collecting product demand data…</p>}
-          </div>
-        </section>
-      </div>
+    <div className="orderTabs" aria-label="Filter by event type" style={{ marginBottom: "12px", flexWrap: "wrap", display: "flex", alignItems: "center", gap: "6px" }}>
+      {eventTypeOptions.map((name) => (
+        <button type="button" key={name || "all"} className={eventName === name ? "active" : ""} aria-pressed={eventName === name} onClick={() => setEventName(name)}>
+          {name || "All events"}{name ? ` (${counts[name] || 0})` : ""}
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={() => setSoundEnabled((v) => !v)}
+        style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: "6px" }}
+      >
+        {soundEnabled ? "🔔 Chime ON" : "🔕 Chime Muted"}
+      </button>
+      <select
+        value={refreshInterval}
+        onChange={(e) => setRefreshInterval(Number(e.target.value))}
+        style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #d1d5db", fontSize: "12px", fontWeight: 500, background: "#fff" }}
+      >
+        <option value={15000}>Auto-refresh: 15s</option>
+        <option value={30000}>Auto-refresh: 30s</option>
+        <option value={60000}>Auto-refresh: 60s</option>
+        <option value={0}>Paused</option>
+      </select>
+      <button type="button" onClick={() => loadEvents()} disabled={loading} style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+        <RefreshCw size={14} /> Refresh
+      </button>
+    </div>
 
-      {/* Real-time Events Stream Table */}
-      <section className="adminCard managementCard">
-        <div className="catalogToolbar">
-          <div className="orderTabs">
-            {["All", "Purchase", "InitiateCheckout", "AddToCart", "ViewContent", "PageView"].map((t) => (
-              <button key={t} className={filter === t ? "active" : ""} onClick={() => setFilter(t)}>
-                {t} {t !== "All" && `(${events.filter((e) => t === "All" || e.eventName === t).length})`}
-              </button>
-            ))}
-          </div>
-          <div className="catalogActions">
-            <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: 500 }}>
-              Showing {events.length} tracked events
-            </span>
-          </div>
+    <div className="adminCard managementCard">
+      <div className="inventoryListHead">
+        <div>
+          <h2>Recent events</h2>
+          <span>{lastLoadedAt ? `Updated ${eventsTimeAgo(lastLoadedAt.toISOString())} · auto-refreshes every ${refreshInterval ? `${refreshInterval / 1000}s` : "— (paused)"}` : "Loading…"}</span>
         </div>
-
-        <div className="adminTableWrap">
-          <table className="adminTable">
-            <thead>
-              <tr>
-                <th>Event Type</th>
-                <th>Event ID / Ref</th>
-                <th>Customer / Location</th>
-                <th>Value</th>
-                <th>Content / Items</th>
-                <th>Tracking Channel</th>
-                <th>Meta Delivery</th>
-                <th>Time</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((evt) => (
-                <tr key={evt.id}>
-                  <td>
-                    <span style={{ display: "inline-block", padding: "4px 9px", borderRadius: "12px", fontSize: "11px", fontWeight: 700, ...eventBadgeStyle(evt.eventName) }}>
-                      {evt.eventName}
-                    </span>
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Event</th>
+              <th>Source</th>
+              <th>Status</th>
+              <th>Value</th>
+              <th>Content ID(s)</th>
+              <th>Matched (EMQ)</th>
+              <th>Meta trace</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.map((event) => {
+              const badge = EVENT_BADGE_COLORS[event.event_name] || { bg: "#f3f4f6", color: "#374151" };
+              return (
+                <tr key={event.id} onClick={() => setSelectedEvent(event)} style={{ cursor: "pointer" }}>
+                  <td><small className="trackingNumber">{eventsTimeAgo(event.created_at)}</small></td>
+                  <td><span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", borderRadius: "12px", background: badge.bg, color: badge.color }}>{event.event_name}</span></td>
+                  <td>{event.source === "browser" ? "Browser → Server" : "Server"}</td>
+                  <td>{event.success
+                    ? <span style={{ fontSize: "11px", fontWeight: 700, color: "#2e7d32", padding: "3px 8px", background: "#e8f5e9", borderRadius: "12px" }}>Delivered</span>
+                    : <span style={{ fontSize: "11px", fontWeight: 700, color: "#c0392b", padding: "3px 8px", background: "#fdecea", borderRadius: "12px" }} title={event.error_message || ""}>Failed</span>}
                   </td>
-                  <td>
-                    <b>{evt.eventId || evt.id.slice(0, 14)}</b>
-                  </td>
-                  <td>
-                    <div>
-                      <b>{evt.userData?.firstName ? `${evt.userData.firstName} ${evt.userData.lastName || ""}` : "Online Shopper"}</b>
-                      <small className="trackingNumber"><br />📍 {evt.userData?.city || "Pakistan"} {evt.userData?.phone ? `• ${evt.userData.phone}` : ""}</small>
-                    </div>
-                  </td>
-                  <td>
-                    <b>{Number(evt.customData?.value) ? `Rs. ${Number(evt.customData.value).toLocaleString()}` : "—"}</b>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: "12px", color: "#374151" }}>
-                      {evt.customData?.contents?.length ? `${evt.customData.contents.length} item(s)` : evt.customData?.contentName || "Store Page"}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: "11px", color: "#166534", background: "#f0fdf4", padding: "3px 7px", borderRadius: "4px", border: "1px solid #bbf7d0", fontWeight: 600 }}>
-                      ⚡ Pixel + Server CAPI
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: "11px", color: evt.status?.includes("200") || evt.status?.includes("Delivered") ? "#166534" : "#991b1b", fontWeight: 600 }}>
-                      {evt.status || "Delivered (200 OK)"}
-                    </span>
-                  </td>
-                  <td>
-                    <small className="trackingNumber">{new Date(evt.timestamp).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit", second: "2-digit" })}</small>
-                  </td>
-                  <td>
-                    <button type="button" className="editProductButton" onClick={() => setSelectedEvent(evt)}>
-                      Inspect
-                    </button>
-                  </td>
+                  <td>{event.value ? `Rs. ${Number(event.value).toLocaleString()}` : "—"}</td>
+                  <td><small className="trackingNumber">{Array.isArray(event.content_ids) && event.content_ids.length ? event.content_ids.join(", ") : "—"}</small></td>
+                  <td>{event.em_hash || event.ph_hash ? "Yes" : "—"}</td>
+                  <td><small className="trackingNumber">{event.fbtrace_id || "—"}</small></td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {!events.length && (
-            <div className="inventoryEmpty" style={{ padding: "40px 20px" }}>
-              {loading ? "Loading live event stream..." : "No events recorded in this filter yet. Trigger a test event or place an order to see live tracking!"}
-            </div>
-          )}
-        </div>
-      </section>
+              );
+            })}
+            {!loading && !events.length && !setupNeeded && (
+              <tr><td colSpan="8" className="emptyFinanceCell">No events logged yet for this filter — browse the storefront (view a product, add to cart, start checkout) to generate some.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-      {/* Inspect Event Payload Drawer */}
-      {selectedEvent && (
-        <>
-          <div className="adminOverlay" onClick={() => setSelectedEvent(null)} />
-          <aside className="orderDetailDrawer">
-            <header>
-              <div>
-                <p>META EVENT INSPECTOR</p>
-                <h2>{selectedEvent.eventName}</h2>
-                <span>ID: {selectedEvent.id}</span>
+    {selectedEvent && (
+      <>
+        <div className="adminOverlay" onClick={() => setSelectedEvent(null)} />
+        <aside className="workspaceDrawer">
+          <header><div><p>Meta Pixel / CAPI</p><h2>{selectedEvent.event_name} event</h2></div><button onClick={() => setSelectedEvent(null)}><X /></button></header>
+          <div className="workspaceBody" style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+            <section className="adminCard orderItemsCard">
+              <h3>Delivery status</h3>
+              <div style={{ fontSize: "13px", lineHeight: 1.8, color: "#374151" }}>
+                <div><b>Status:</b> {selectedEvent.success ? "Delivered to Meta" : `Failed — ${selectedEvent.error_message || "unknown error"}`}</div>
+                <div><b>HTTP status:</b> {selectedEvent.http_status || "—"}</div>
+                <div><b>fbtrace_id:</b> {selectedEvent.fbtrace_id || "—"}</div>
+                <div><b>Event ID:</b> {selectedEvent.event_id || "—"}</div>
+                <div><b>Source URL:</b> {selectedEvent.event_source_url || "—"}</div>
               </div>
-              <button onClick={() => setSelectedEvent(null)}><X /></button>
-            </header>
-            <div className="orderDetailBody">
-              <section className="orderDetailGrid">
-                <article className="adminCard orderDetailCard">
-                  <h3>Event Name</h3>
-                  <b style={{ color: "#6b21a8" }}>{selectedEvent.eventName}</b>
-                  <p>{new Date(selectedEvent.timestamp).toLocaleString("en-PK")}</p>
-                </article>
-                <article className="adminCard orderDetailCard">
-                  <h3>Value &amp; Currency</h3>
-                  <b>{Number(selectedEvent.customData?.value) ? `Rs. ${Number(selectedEvent.customData.value).toLocaleString()}` : "0"}</b>
-                  <span>PKR</span>
-                </article>
-                <article className="adminCard orderDetailCard">
-                  <h3>Delivery Status</h3>
-                  <b style={{ color: "#166534" }}>{selectedEvent.status}</b>
-                  <span>Meta Graph API v19.0</span>
-                </article>
-              </section>
-
-              <section className="adminCard orderOpsCard">
-                <h3>Matched User Data (EMQ)</h3>
-                <div style={{ fontSize: "13px", lineHeight: 1.8, color: "#374151" }}>
-                  <div><b>Customer Name:</b> {selectedEvent.userData?.firstName || "—"} {selectedEvent.userData?.lastName || ""}</div>
-                  <div><b>Masked Phone:</b> {selectedEvent.userData?.phone || "—"}</div>
-                  <div><b>Masked Email:</b> {selectedEvent.userData?.email || "—"}</div>
-                  <div><b>City:</b> {selectedEvent.userData?.city || "—"}</div>
-                </div>
-              </section>
-
-              <section className="adminCard orderItemsCard">
-                <h3>Raw JSON Payload</h3>
-                <pre style={{ background: "#1f2937", color: "#f9fafb", padding: "16px", borderRadius: "8px", fontSize: "11px", overflowX: "auto", fontFamily: "monospace" }}>
-                  {JSON.stringify(selectedEvent, null, 2)}
-                </pre>
-              </section>
-            </div>
-          </aside>
-        </>
-      )}
-    </>
-  );
+            </section>
+            <section className="adminCard orderItemsCard">
+              <h3>Raw JSON payload</h3>
+              <pre style={{ background: "#1f2937", color: "#f9fafb", padding: "16px", borderRadius: "8px", fontSize: "11px", overflowX: "auto", fontFamily: "monospace" }}>
+                {JSON.stringify(selectedEvent, null, 2)}
+              </pre>
+            </section>
+          </div>
+        </aside>
+      </>
+    )}
+  </>;
 }
 
 function BackendHealthPanel() {

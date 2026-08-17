@@ -56,7 +56,7 @@ export default async function RootLayout({ children }) {
   const storeSettings = await getStoreSettings();
   const gaId = storeSettings?.domainSettings?.analyticsMeasurementId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
-  const metaPixelId = storeSettings?.domainSettings?.metaPixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || "5621950704696012";
+  const metaPixelId = storeSettings?.domainSettings?.metaPixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || process.env.META_PIXEL_ID || "";
   const whatsappNumber = storeSettings?.paymentSettings?.whatsappNumber;
 
   return (

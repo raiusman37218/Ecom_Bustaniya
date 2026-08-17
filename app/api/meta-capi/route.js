@@ -21,6 +21,7 @@ export async function POST(req) {
       customData,
       clientIp,
       userAgent,
+      triggeredBy: "browser",
     });
 
     return NextResponse.json(result);

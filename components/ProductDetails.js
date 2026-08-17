@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Heart, Maximiz
 import { productDescription } from "../lib/seo";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
+import { trackEvent } from "../lib/trackEvent";
 import SizeChartModal, { SizeTable } from "./SizeChartModal";
 import SiteHeader from "./SiteHeader";
 
@@ -73,32 +74,16 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   }, []);
 
   useEffect(() => {
-    if (product && typeof window !== "undefined") {
-      if (window.fbq) {
-        window.fbq("track", "ViewContent", {
-          content_name: product.name,
-          content_ids: [String(product.article_number || product.articleNumber || product.id || "")],
-          content_type: "product",
-          value: Number(product.price || 0),
-          currency: "PKR",
-        });
-      }
-      fetch("/api/meta-capi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventName: "ViewContent",
-          eventSourceUrl: window.location.href,
-          customData: {
-            contentName: product.name,
-            contentIds: [String(product.article_number || product.articleNumber || product.id || "")],
-            contentType: "product",
-            value: Number(product.price || 0),
-            currency: "PKR",
-          },
-        }),
-      }).catch(() => {});
-    }
+    if (!product) return;
+    trackEvent("ViewContent", {
+      customData: {
+        value: Number(product.price || 0),
+        contentName: product.name,
+        contentIds: [String(product.article_number || product.articleNumber || product.id || "")],
+      },
+    });
+    // Only fire once per product page load, not on every re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id]);
 
   useEffect(() => {
@@ -115,32 +100,15 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
   function addToBag({ openDrawer = true } = {}) {
     if (outOfStock) return;
-    if (typeof window !== "undefined") {
-      if (window.fbq) {
-        window.fbq("track", "AddToCart", {
-          content_name: product.name,
-          content_ids: [String(product.article_number || product.articleNumber || product.id || "")],
-          content_type: "product",
-          value: Number(product.price || 0) * quantity,
-          currency: "PKR",
-        });
-      }
-      fetch("/api/meta-capi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventName: "AddToCart",
-          eventSourceUrl: window.location.href,
-          customData: {
-            contentName: product.name,
-            contents: [{ id: String(product.article_number || product.articleNumber || product.id || ""), quantity, item_price: Number(product.price || 0) }],
-            numItems: quantity,
-            value: Number(product.price || 0) * quantity,
-            currency: "PKR",
-          },
-        }),
-      }).catch(() => {});
-    }
+    trackEvent("AddToCart", {
+      customData: {
+        value: Number(product.price || 0) * quantity,
+        contentName: product.name,
+        contentIds: [String(product.article_number || product.articleNumber || product.id || "")],
+        contents: [{ id: String(product.article_number || product.articleNumber || product.id || ""), quantity }],
+        numItems: quantity,
+      },
+    });
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id && item.size === size);
       if (existing) {
