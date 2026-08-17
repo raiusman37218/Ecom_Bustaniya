@@ -2625,12 +2625,25 @@ footer {
   color: #cbd5e1;
 }
 .measurementName {
+  position: sticky;
+  left: 0;
+  z-index: 5;
   text-align: left !important;
   font-weight: 700 !important;
   color: #173d29 !important;
-  background: #f9faf7;
-  padding-left: 14px !important;
+  background: #f4faf5 !important;
+  padding-left: 12px !important;
   white-space: nowrap;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.06);
+}
+.sizeChartTable th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+  background: #e8f3ea !important;
+  text-align: left !important;
+  padding-left: 12px !important;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.06);
 }
 .sizeBadge {
   display:inline-block;
@@ -9195,42 +9208,67 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
     line-height:1.2;
   }
   .productPurchase details#size-guide > .sizeChartTableWrap {
-    overflow:hidden;
-    border:0;
-    border-radius:0;
-    box-shadow:none;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0 4px 12px;
   }
   .productPurchase details#size-guide .sizeChartTable {
-    width:100%;
-    min-width:0;
-    table-layout:fixed;
-    font-size:11px;
-    background:#16452c;
+    width: 100%;
+    min-width: 480px;
+    table-layout: auto;
+    font-size: 11px;
+    background: #16452c;
   }
   .productPurchase details#size-guide .sizeChartTable th,
   .productPurchase details#size-guide .sizeChartTable td {
-    padding:11px 4px;
-    border:0;
-    border-bottom:1px solid rgba(255,255,255,.12);
-    background:#16452c;
-    color:#fff;
-    white-space:normal;
-    line-height:1.3;
+    padding: 10px 8px;
+    border: 0;
+    border-bottom: 1px solid rgba(255,255,255,.15);
+    background: #16452c;
+    color: #fff;
+    white-space: nowrap;
+    text-align: center;
   }
-  .productPurchase details#size-guide .sizeChartTable th { font-size:10px; font-weight:800; }
-  .productPurchase details#size-guide .sizeChartTable tbody tr:last-child td { border-bottom:0; }
-  .productPurchase details#size-guide .sizeChartTable th:nth-child(5),
-  .productPurchase details#size-guide .sizeChartTable td:nth-child(5),
-  .productPurchase details#size-guide .sizeChartTable th:nth-child(7),
-  .productPurchase details#size-guide .sizeChartTable td:nth-child(7) { display:none; }
+  .productPurchase details#size-guide .sizeChartTable th {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    background: #123824;
+  }
+  .productPurchase details#size-guide .sizeChartTable td.measurementName {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background: #123824 !important;
+    color: #fff !important;
+    font-weight: 700;
+    text-align: left !important;
+    padding-left: 10px;
+    box-shadow: 2px 0 6px rgba(0,0,0,0.25);
+  }
+  .productPurchase details#size-guide .sizeChartTable th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 6;
+    background: #0e2d1d !important;
+    text-align: left !important;
+    padding-left: 10px;
+    box-shadow: 2px 0 6px rgba(0,0,0,0.25);
+  }
+  .productPurchase details#size-guide .sizeChartTable tbody tr:last-child td {
+    border-bottom: 0;
+  }
   .productPurchase details#size-guide .sizeBadge {
-    padding:0;
-    border:0;
-    border-radius:0;
-    background:transparent;
-    color:#fff;
-    font-size:11px;
-    font-weight:700;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
   }
   .productPurchase .productDetailsAccordion {
     margin:0;
