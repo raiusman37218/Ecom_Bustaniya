@@ -7371,6 +7371,78 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   background:#fef3f2;
   color:#9c2531;
 }
+.eventsLiveBadge {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:5px 12px;
+  border-radius:100px;
+  background:#eaf4d8;
+  color:#16452c;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  margin-bottom:8px;
+}
+.eventsLiveDot {
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#2e7d32;
+  box-shadow:0 0 0 4px rgba(46,125,50,.18);
+  animation:eventsLivePulse 2s ease-in-out infinite;
+}
+@keyframes eventsLivePulse {
+  0%, 100% { opacity:1; }
+  50% { opacity:.4; }
+}
+.inlineLinkButton {
+  border:0;
+  background:none;
+  padding:0;
+  margin:0;
+  color:inherit;
+  text-decoration:underline;
+  cursor:pointer;
+  font:inherit;
+}
+.eventsStreamToolbar {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:14px;
+}
+.eventsStreamToolbar button.active {
+  background:#eaf4d8;
+  border-color:#c9dfb8;
+  color:#16452c;
+}
+.eventsStreamToolbar select {
+  min-height:34px;
+  padding:0 10px;
+  border-radius:7px;
+  border:1px solid #dce3dc;
+  font-size:10px;
+  font-weight:700;
+  background:#fff;
+  color:#344b3b;
+}
+.eventTypeBadge {
+  font-size:10px;
+  font-weight:800;
+  padding:3px 9px;
+  border-radius:100px;
+  letter-spacing:.01em;
+  white-space:nowrap;
+}
+.eventsTableRow {
+  cursor:pointer;
+}
+.eventsTableRow:hover td {
+  background:#f4f8f4;
+}
 .analyticsTrendHeader {
   display:flex;
   align-items:center;

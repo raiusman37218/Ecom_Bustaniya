@@ -5502,11 +5502,11 @@ function playChimeSound() {
 }
 
 const EVENT_BADGE_COLORS = {
-  PageView: { bg: "#eef2ff", color: "#3730a3" },
-  ViewContent: { bg: "#f0f9ff", color: "#075985" },
-  AddToCart: { bg: "#ecfdf5", color: "#065f46" },
-  InitiateCheckout: { bg: "#fffbeb", color: "#92400e" },
-  Purchase: { bg: "#f3e8ff", color: "#6b21a8" },
+  PageView: { bg: "#eef1ee", color: "#4a5a4e" },
+  ViewContent: { bg: "#e3f2fd", color: "#1565c0" },
+  AddToCart: { bg: "#eaf4d8", color: "#3f6b2c" },
+  InitiateCheckout: { bg: "#fdf3e2", color: "#a7660c" },
+  Purchase: { bg: "#e8f5e9", color: "#16452c" },
 };
 
 function eventsTimeAgo(isoString) {
@@ -5578,15 +5578,16 @@ function EventsStreamPanel({ onNavigateToSettings }) {
   const purchaseValue = events
     .filter((e) => e.event_name === "Purchase" && e.success)
     .reduce((sum, e) => sum + (Number(e.value) || 0), 0);
+  const funnelBase = Math.max(counts.PageView || 0, 1);
 
   return <>
-    <div className="adminTitle" style={{ marginBottom: "16px" }}>
+    <div className="adminTitle">
       <div>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "4px 10px", borderRadius: "16px", marginBottom: "6px" }}>
-          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#16a34a", boxShadow: "0 0 0 4px rgba(34, 197, 94, 0.25)", display: "inline-block" }} />
-          <b style={{ color: "#166534", fontSize: "11px", letterSpacing: "0.05em", textTransform: "uppercase" }}>LIVE EVENT LOG</b>
+        <div className="eventsLiveBadge">
+          <span className="eventsLiveDot" />
+          Live event log
         </div>
-        <h1>Live Events</h1>
+        <h1>Events</h1>
         <span>Real Meta Pixel &amp; Conversions API activity logged straight from this store — no need to open Meta Events Manager.</span>
       </div>
       <div className="orderTabs" aria-label="Events period">
@@ -5606,83 +5607,89 @@ function EventsStreamPanel({ onNavigateToSettings }) {
         </div>
       </div>
     )}
-    {summary && !summary.total && !loading && (
+    {summary && !summary.total && !loading && !setupNeeded && (
       <div className="inventoryAlert">
         <Activity />
         <div>
           <b>No events logged yet</b>
-          <span>Browse the storefront (view a product, add to cart, start checkout) to generate real events, or make sure your Pixel ID / CAPI token are set under <button type="button" onClick={onNavigateToSettings} style={{ border: 0, background: "none", padding: 0, color: "#8a5910", textDecoration: "underline", cursor: "pointer", font: "inherit" }}>Settings &gt; Tracking</button>.</span>
+          <span>Browse the storefront (view a product, add to cart, start checkout) to generate real events, or make sure your Pixel ID / CAPI token are set under <button type="button" className="inlineLinkButton" onClick={onNavigateToSettings}>Settings &gt; Tracking</button>.</span>
         </div>
       </div>
     )}
 
-    <section className="financeMetricGrid" style={{ marginBottom: "12px" }}>
+    <section className="miniMetricGrid productMetrics">
       <article><Activity /><span><b>{summary ? summary.total : "—"}</b>Total events ({days} days)</span></article>
-      <article><CircleDollarSign /><span><b>{counts.Purchase || 0} (Rs. {purchaseValue.toLocaleString()})</b>Purchases logged</span></article>
-      <article><TrendingUp /><span><b>{summary?.successRate == null ? "—" : `${summary.successRate}%`}</b>Meta delivery success</span></article>
+      <article><CircleDollarSign /><span><b>{counts.Purchase || 0}</b>Purchases (Rs. {purchaseValue.toLocaleString()})</span></article>
+      <article className={summary?.successRate != null && summary.successRate < 90 ? "alertMetric" : ""}><TrendingUp /><span><b>{summary?.successRate == null ? "—" : `${summary.successRate}%`}</b>Meta delivery success</span></article>
       <article><Users /><span><b>{summary?.matchRate == null ? "—" : `${summary.matchRate}%`}</b>SHA-256 match rate (EMQ)</span></article>
     </section>
 
-    <section className="adminCard" style={{ marginBottom: "16px", padding: "18px 20px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "8px" }}>
-        <div>
-          <h3 style={{ margin: 0, fontSize: "15px", color: "#111827", fontWeight: 700 }}>Shopify-Style Conversion Funnel</h3>
-          <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#6b7280" }}>Real visitor journey from page views to purchase, for the selected period.</p>
-        </div>
-      </div>
-      {(() => {
-        const base = Math.max(counts.PageView || 0, 1);
-        const stages = [
-          { label: "1. Page Views", value: counts.PageView || 0, pct: 100, bg: "#f8fafc", border: "#e2e8f0", fg: "#0f172a", bar: "#64748b" },
-          { label: "2. Added to Cart", value: counts.AddToCart || 0, pct: Math.min(100, Math.round(((counts.AddToCart || 0) / base) * 100)), bg: "#f0fdf4", border: "#bbf7d0", fg: "#166534", bar: "#16a34a" },
-          { label: "3. Reached Checkout", value: counts.InitiateCheckout || 0, pct: Math.min(100, Math.round(((counts.InitiateCheckout || 0) / base) * 100)), bg: "#fffbeb", border: "#fde68a", fg: "#92400e", bar: "#d97706" },
-          { label: "4. Purchased", value: counts.Purchase || 0, pct: Math.min(100, Math.round(((counts.Purchase || 0) / base) * 100)), bg: "#faf5ff", border: "#e9d5ff", fg: "#6b21a8", bar: "#7c3aed" },
-        ];
-        return (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
-            {stages.map((stage) => (
-              <div key={stage.label} style={{ padding: "12px 14px", borderRadius: "8px", background: stage.bg, border: `1px solid ${stage.border}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 600, color: stage.fg }}>{stage.label}</span>
-                  <span style={{ fontSize: "11px", fontWeight: 700, color: stage.fg, background: "#ffffffa0", padding: "2px 6px", borderRadius: "4px" }}>{stage.pct}%</span>
-                </div>
-                <b style={{ fontSize: "18px", color: stage.fg }}>{stage.value}</b>
-                <div style={{ height: "4px", background: "#ffffffa0", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
-                  <div style={{ width: `${Math.max(4, stage.pct)}%`, height: "100%", background: stage.bar }} />
-                </div>
-              </div>
-            ))}
+    <div className="analyticsGrid2">
+      <article className="analyticsCard">
+        <div className="analyticsCardHead">
+          <div>
+            <h3>Shopify-Style Conversion Funnel</h3>
+            <p>Real visitor journey from page views to purchase, for the selected period.</p>
           </div>
-        );
-      })()}
-    </section>
+          <span className="analyticsMetricBadge">{days} days</span>
+        </div>
+        <div className="visualBarList">
+          <VisualProgress
+            label="1. Store visitors & sessions (PageView)"
+            value={100}
+            helper={`${counts.PageView || 0} page views logged`}
+            color="#16452c"
+          />
+          <VisualProgress
+            label="2. Added to cart (AddToCart)"
+            value={Math.min(100, Math.round(((counts.AddToCart || 0) / funnelBase) * 100))}
+            helper={`${counts.AddToCart || 0} product add-to-cart actions`}
+            color="#2e7d32"
+          />
+          <VisualProgress
+            label="3. Reached checkout (InitiateCheckout)"
+            value={Math.min(100, Math.round(((counts.InitiateCheckout || 0) / funnelBase) * 100))}
+            helper={`${counts.InitiateCheckout || 0} checkout sessions initiated`}
+            color="#c78b2b"
+          />
+          <VisualProgress
+            label="4. Completed orders (Purchase)"
+            value={Math.min(100, Math.round(((counts.Purchase || 0) / funnelBase) * 100))}
+            helper={`${counts.Purchase || 0} confirmed orders (${((counts.Purchase || 0) / funnelBase * 100).toFixed(1)}% conversion rate)`}
+            color="#1565c0"
+          />
+        </div>
+      </article>
 
-    <div className="orderTabs" aria-label="Filter by event type" style={{ marginBottom: "12px", flexWrap: "wrap", display: "flex", alignItems: "center", gap: "6px" }}>
-      {eventTypeOptions.map((name) => (
-        <button type="button" key={name || "all"} className={eventName === name ? "active" : ""} aria-pressed={eventName === name} onClick={() => setEventName(name)}>
-          {name || "All events"}{name ? ` (${counts[name] || 0})` : ""}
-        </button>
-      ))}
-      <button
-        type="button"
-        onClick={() => setSoundEnabled((v) => !v)}
-        style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: "6px" }}
-      >
-        {soundEnabled ? "🔔 Chime ON" : "🔕 Chime Muted"}
-      </button>
-      <select
-        value={refreshInterval}
-        onChange={(e) => setRefreshInterval(Number(e.target.value))}
-        style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #d1d5db", fontSize: "12px", fontWeight: 500, background: "#fff" }}
-      >
-        <option value={15000}>Auto-refresh: 15s</option>
-        <option value={30000}>Auto-refresh: 30s</option>
-        <option value={60000}>Auto-refresh: 60s</option>
-        <option value={0}>Paused</option>
-      </select>
-      <button type="button" onClick={() => loadEvents()} disabled={loading} style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-        <RefreshCw size={14} /> Refresh
-      </button>
+      <article className="analyticsCard">
+        <div className="analyticsCardHead">
+          <div>
+            <h3>Live stream controls</h3>
+            <p>Filter the log below and tune how this page updates itself.</p>
+          </div>
+        </div>
+        <div className="orderTabs eventsFilterTabs" aria-label="Filter by event type">
+          {eventTypeOptions.map((name) => (
+            <button type="button" key={name || "all"} className={eventName === name ? "active" : ""} aria-pressed={eventName === name} onClick={() => setEventName(name)}>
+              {name || "All events"}{name ? ` (${counts[name] || 0})` : ""}
+            </button>
+          ))}
+        </div>
+        <div className="eventsStreamToolbar">
+          <button type="button" className={soundEnabled ? "active" : ""} onClick={() => setSoundEnabled((v) => !v)}>
+            {soundEnabled ? "🔔 Chime on new purchase" : "🔕 Chime muted"}
+          </button>
+          <select value={refreshInterval} onChange={(e) => setRefreshInterval(Number(e.target.value))}>
+            <option value={15000}>Auto-refresh: 15s</option>
+            <option value={30000}>Auto-refresh: 30s</option>
+            <option value={60000}>Auto-refresh: 60s</option>
+            <option value={0}>Paused</option>
+          </select>
+          <button type="button" onClick={() => loadEvents()} disabled={loading}>
+            <RefreshCw size={14} /> Refresh
+          </button>
+        </div>
+      </article>
     </div>
 
     <div className="adminCard managementCard">
@@ -5708,15 +5715,15 @@ function EventsStreamPanel({ onNavigateToSettings }) {
           </thead>
           <tbody>
             {events.map((event) => {
-              const badge = EVENT_BADGE_COLORS[event.event_name] || { bg: "#f3f4f6", color: "#374151" };
+              const badge = EVENT_BADGE_COLORS[event.event_name] || EVENT_BADGE_COLORS.PageView;
               return (
-                <tr key={event.id} onClick={() => setSelectedEvent(event)} style={{ cursor: "pointer" }}>
+                <tr key={event.id} className="eventsTableRow" onClick={() => setSelectedEvent(event)}>
                   <td><small className="trackingNumber">{eventsTimeAgo(event.created_at)}</small></td>
-                  <td><span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", borderRadius: "12px", background: badge.bg, color: badge.color }}>{event.event_name}</span></td>
+                  <td><span className="eventTypeBadge" style={{ background: badge.bg, color: badge.color }}>{event.event_name}</span></td>
                   <td>{event.source === "browser" ? "Browser → Server" : "Server"}</td>
                   <td>{event.success
-                    ? <span style={{ fontSize: "11px", fontWeight: 700, color: "#2e7d32", padding: "3px 8px", background: "#e8f5e9", borderRadius: "12px" }}>Delivered</span>
-                    : <span style={{ fontSize: "11px", fontWeight: 700, color: "#c0392b", padding: "3px 8px", background: "#fdecea", borderRadius: "12px" }} title={event.error_message || ""}>Failed</span>}
+                    ? <span className="statusBadge activeStatus">Delivered</span>
+                    : <span className="statusBadge fail" title={event.error_message || ""}>Failed</span>}
                   </td>
                   <td>{event.value ? `Rs. ${Number(event.value).toLocaleString()}` : "—"}</td>
                   <td><small className="trackingNumber">{Array.isArray(event.content_ids) && event.content_ids.length ? event.content_ids.join(", ") : "—"}</small></td>
