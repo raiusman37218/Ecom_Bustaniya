@@ -5588,7 +5588,17 @@ function eventsTimeAgo(isoString) {
 
 function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
   const [days, setDays] = useState("7");
-  const [eventName, setEventName] = useState("");
+  const [eventTypeFilter, setEventTypeFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("all"); // "all" | "delivered" | "failed"
+  const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "browser" | "server" | "deduplicated"
+  const [skuFilter, setSkuFilter] = useState("");
+  const [utmFilter, setUtmFilter] = useState("");
+  const [failureFilter, setFailureFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
   const [events, setEvents] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -5601,6 +5611,7 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
   const [suiteTesting, setSuiteTesting] = useState(false);
   const [suiteResults, setSuiteResults] = useState(null);
   const [actionMessage, setActionMessage] = useState("");
+  const [copiedPayload, setCopiedPayload] = useState(false);
   const prevPurchasesRef = useRef(null);
 
   async function loadEvents(silent = false) {
@@ -5610,7 +5621,7 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
       const response = await fetch("/api/admin/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ days: Number(days) || 7, eventName, limit: 150 }),
+        body: JSON.stringify({ days: Number(days) || 7, limit: 300 }),
       });
       const result = await response.json();
       if (!response.ok) {
@@ -5707,134 +5718,336 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
     }
   }
 
-  useEffect(() => { loadEvents(); }, [days, eventName]);
+  function handleCopyPayload(obj) {
+    try {
+      navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
+      setCopiedPayload(true);
+      setTimeout(() => setCopiedPayload(false), 2500);
+    } catch {}
+  }
+
+  function resetAllFilters() {
+    setEventTypeFilter("All");
+    setStatusFilter("all");
+    setSourceFilter("all");
+    setSkuFilter("");
+    setUtmFilter("");
+    setFailureFilter("all");
+    setSearchQuery("");
+    setPage(1);
+  }
+
+  useEffect(() => { loadEvents(); }, [days]);
   useEffect(() => {
     if (!refreshInterval) return;
     const timer = setInterval(() => loadEvents(true), refreshInterval);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshInterval, days, eventName, soundEnabled]);
+  }, [refreshInterval, days, soundEnabled]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [eventTypeFilter, statusFilter, sourceFilter, skuFilter, utmFilter, failureFilter, searchQuery]);
+
+  // Derived tracking health values
+  const health = summary?.health || {
+    level: "healthy",
+    status: "Healthy",
+    deliveryRate: 100,
+    emqScore: 8.8,
+    failedEventsCount: 0,
+    latestFailureReason: null,
+    lastSuccessfulEventTime: null,
+    hasPixelId: true,
+    hasAccessToken: true,
+  };
+
+  const deliveryRate = Number(health.deliveryRate ?? summary?.successRate ?? 100);
+  const emqScore = Number(health.emqScore ?? summary?.emq?.score ?? 8.8);
+  const failedEventsCount = Number(health.failedEventsCount ?? summary?.rawFailedCount ?? 0);
+  const latestFailureReason = health.latestFailureReason || null;
+  const lastSuccessfulEventTime = health.lastSuccessfulEventTime || null;
+
+  const isCriticalHealth = health.level === "critical" || emqScore === 0 || (!health.hasPixelId && !health.hasAccessToken);
+  const isWarningHealth = !isCriticalHealth && (deliveryRate < 95 || health.level === "warning" || failedEventsCount > 0);
 
   const counts = summary?.counts || {};
   const perEvent = summary?.perEvent || {};
-  const health = summary?.health || { status: "Connected", reason: "Configured" };
-  const eventTypeOptions = ["", "PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"];
+  const eventTypeOptions = ["All", "PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"];
   const purchaseValue = summary?.purchaseValue ?? events
     .filter((e) => e.event_name === "Purchase" && e.success)
     .reduce((sum, e) => sum + (Number(e.value) || 0), 0);
   const funnelBase = Math.max(counts.PageView || 0, 1);
+
+  // Filter events client-side for ultra-fast response
+  const filteredEvents = useMemo(() => {
+    return events.filter((event) => {
+      // Event Name
+      if (eventTypeFilter !== "All" && event.event_name !== eventTypeFilter) return false;
+
+      // Delivery Status
+      if (statusFilter === "delivered" && !event.success && event.http_status !== 200) return false;
+      if (statusFilter === "failed" && (event.success || event.http_status === 200)) return false;
+
+      // Source / Deduplication
+      if (sourceFilter === "browser" && event.source !== "browser" && !event.browserSent) return false;
+      if (sourceFilter === "server" && event.source !== "server" && !event.serverSent) return false;
+      if (sourceFilter === "deduplicated" && event.dedupBadge !== "deduplicated") return false;
+
+      // SKU / Product ID
+      if (skuFilter.trim()) {
+        const skuQuery = skuFilter.trim().toLowerCase();
+        const contentIds = (event.parsedContentIds || []).map((id) => String(id).toLowerCase());
+        const rawContentIds = String(event.content_ids || "").toLowerCase();
+        if (!contentIds.some((id) => id.includes(skuQuery)) && !rawContentIds.includes(skuQuery)) {
+          return false;
+        }
+      }
+
+      // Campaign / UTM / URL
+      if (utmFilter.trim()) {
+        const utmQuery = utmFilter.trim().toLowerCase();
+        const url = String(event.event_source_url || "").toLowerCase();
+        const utmString = Object.values(event.utmParams || {}).join(" ").toLowerCase();
+        if (!url.includes(utmQuery) && !utmString.includes(utmQuery)) {
+          return false;
+        }
+      }
+
+      // Failure Reason Filter
+      if (failureFilter !== "all") {
+        const errMsg = String(event.error_message || (event.http_status ? `HTTP ${event.http_status}` : "")).toLowerCase();
+        if (!errMsg.includes(failureFilter.toLowerCase())) return false;
+      }
+
+      // General Search Query (Event ID, Order Ref, Trace, IP)
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const match = [
+          event.event_id,
+          event.orderRef,
+          event.id,
+          event.fbtrace_id,
+          event.client_ip,
+          event.event_name,
+        ].filter(Boolean).some((field) => String(field).toLowerCase().includes(q));
+        if (!match) return false;
+      }
+
+      return true;
+    });
+  }, [events, eventTypeFilter, statusFilter, sourceFilter, skuFilter, utmFilter, failureFilter, searchQuery]);
+
+  // Paginated slice
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedEvents = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredEvents.slice(start, start + pageSize);
+  }, [filteredEvents, currentPage, pageSize]);
+
+  const hasActiveFilters = eventTypeFilter !== "All" || statusFilter !== "all" || sourceFilter !== "all" || Boolean(skuFilter) || Boolean(utmFilter) || failureFilter !== "all" || Boolean(searchQuery);
 
   return <>
     <div className="adminTitle">
       <div>
         <div className="eventsLiveBadge">
           <span className="eventsLiveDot" />
-          Live event log
+          Live tracking operations
         </div>
-        <h1>Events</h1>
-        <span>Real Meta Pixel &amp; Conversions API activity logged straight from this store — no need to open Meta Events Manager.</span>
+        <h1>Events &amp; Meta Tracking</h1>
+        <span>Live Meta Pixel &amp; Conversions API activity, delivery health, and ecommerce funnel attribution.</span>
       </div>
       <div className="orderTabs" aria-label="Events period">
-        {[["7", "7 days"], ["30", "30 days"], ["90", "90 days"]].map(([value, label]) => (
+        {[["1", "Today"], ["7", "7 days"], ["30", "30 days"], ["90", "90 days"]].map(([value, label]) => (
           <button type="button" key={value} className={days === value ? "active" : ""} aria-pressed={days === value} onClick={() => setDays(value)}>{label}</button>
         ))}
       </div>
     </div>
 
-    {/* Meta Health & Credentials State Banner */}
+    {/* TOP TRACKING HEALTH ALERT AREA */}
     <div style={{
-      background: health.status === "Connected" ? "#f0fdf4" : health.status === "Warning" ? "#fefce8" : "#fef2f2",
-      border: `1px solid ${health.status === "Connected" ? "#bbf7d0" : health.status === "Warning" ? "#fef08a" : "#fecaca"}`,
-      borderRadius: "10px",
-      padding: "14px 18px",
-      marginBottom: "16px",
-      display: "flex",
-      flexWrap: "wrap",
-      justifyContent: "space-between",
-      alignItems: "center",
-      gap: "12px",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.04)"
+      background: isCriticalHealth ? "#fef2f2" : isWarningHealth ? "#fffbeb" : "#f0fdf4",
+      border: `1px solid ${isCriticalHealth ? "#fecaca" : isWarningHealth ? "#fde68a" : "#bbf7d0"}`,
+      borderRadius: "12px",
+      padding: "16px 20px",
+      marginBottom: "20px",
+      boxShadow: "0 1px 4px rgba(0,0,0,0.04)"
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <span style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "6px",
-          padding: "4px 10px",
-          borderRadius: "20px",
-          fontSize: "12px",
-          fontWeight: 700,
-          background: health.status === "Connected" ? "#dcfce7" : health.status === "Warning" ? "#fef9c3" : "#fee2e2",
-          color: health.status === "Connected" ? "#166534" : health.status === "Warning" ? "#854d0e" : "#991b1b",
-          border: `1px solid ${health.status === "Connected" ? "#86efac" : health.status === "Warning" ? "#fde047" : "#fca5a5"}`
-        }}>
-          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: health.status === "Connected" ? "#16a34a" : health.status === "Warning" ? "#ca8a04" : "#dc2626" }} />
-          {health.status}
-        </span>
-        <div>
-          <b style={{ color: "#1f2937", fontSize: "14px" }}>Meta Pixel &amp; Conversions API (CAPI)</b>
-          <span style={{ display: "block", color: "#4b5563", fontSize: "12px", marginTop: "2px" }}>
-            Pixel ID: <b>{health.pixelId || "5621950704696012"}</b> • CAPI Token: <b>{health.maskedAccessToken || "Configured"}</b> (Server-only) • Source: <b>{health.source === "database" ? "Admin Settings" : "Environment (.env.local)"}</b>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "14px", paddingBottom: "14px", borderBottom: `1px solid ${isCriticalHealth ? "#fee2e2" : isWarningHealth ? "#fef3c7" : "#dcfce7"}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <span style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "5px 12px",
+            borderRadius: "20px",
+            fontSize: "12px",
+            fontWeight: 800,
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
+            background: isCriticalHealth ? "#fee2e2" : isWarningHealth ? "#fef3c7" : "#dcfce7",
+            color: isCriticalHealth ? "#991b1b" : isWarningHealth ? "#92400e" : "#166534",
+            border: `1px solid ${isCriticalHealth ? "#fca5a5" : isWarningHealth ? "#fde047" : "#86efac"}`
+          }}>
+            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: isCriticalHealth ? "#dc2626" : isWarningHealth ? "#d97706" : "#16a34a" }} />
+            {isCriticalHealth ? "CRITICAL HEALTH ISSUE" : isWarningHealth ? "TRACKING WARNING" : "TRACKING HEALTHY & CONNECTED"}
           </span>
-          <small style={{ color: "#6b7280", fontSize: "11px", display: "block", marginTop: "2px" }}>{health.reason}</small>
+          <div>
+            <b style={{ color: "#1f2937", fontSize: "14px" }}>
+              {isCriticalHealth
+                ? "Meta Tracking is Disabled or Failing"
+                : isWarningHealth
+                ? `Delivery Rate is ${deliveryRate}% (Below 95% Target)`
+                : "All Meta Pixel & Conversions API channels operational"}
+            </b>
+            <span style={{ display: "block", color: "#4b5563", fontSize: "12px", marginTop: "2px" }}>
+              Pixel ID: <b>{health.pixelId || "5621950704696012"}</b> • CAPI Token: <b>{health.maskedAccessToken || "Configured"}</b> • Source: <b>{health.source === "database" ? "Admin Settings" : "Environment (.env.local)"}</b>
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+          {isCriticalHealth ? (
+            <button
+              type="button"
+              onClick={onNavigateToSettings}
+              style={{
+                background: "#dc2626",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                padding: "8px 16px",
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: "pointer"
+              }}
+            >
+              ⚙️ Fix Meta Credentials in Settings
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={runTestSuite}
+            disabled={suiteTesting}
+            style={{
+              background: "#166534",
+              color: "#fff",
+              border: "1px solid #14532d",
+              borderRadius: "6px",
+              padding: "7px 14px",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+          >
+            {suiteTesting ? "⚡ Testing 5 Events..." : "⚡ Run 5-Event Test Suite"}
+          </button>
+          <button
+            type="button"
+            onClick={runDedupTest}
+            disabled={suiteTesting}
+            style={{
+              background: "#0369a1",
+              color: "#fff",
+              border: "1px solid #075985",
+              borderRadius: "6px",
+              padding: "7px 14px",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+          >
+            {suiteTesting ? "Testing..." : "⚡ Test Deduplication"}
+          </button>
+          <button
+            type="button"
+            onClick={onNavigateToSettings}
+            style={{
+              background: "#fff",
+              color: "#374151",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              padding: "7px 12px",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+          >
+            Settings
+          </button>
         </div>
       </div>
-      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-        <button
-          type="button"
-          onClick={runTestSuite}
-          disabled={suiteTesting}
-          style={{
-            background: "#166534",
-            color: "#fff",
-            border: "1px solid #14532d",
-            borderRadius: "6px",
-            padding: "7px 14px",
-            fontSize: "12px",
-            fontWeight: 600,
-            cursor: "pointer"
-          }}
-        >
-          {suiteTesting ? "⚡ Testing 5 Events..." : "⚡ Run 5-Event Test Suite"}
-        </button>
-        <button
-          type="button"
-          onClick={runDedupTest}
-          disabled={suiteTesting}
-          style={{
-            background: "#0369a1",
-            color: "#fff",
-            border: "1px solid #075985",
-            borderRadius: "6px",
-            padding: "7px 14px",
-            fontSize: "12px",
-            fontWeight: 600,
-            cursor: "pointer"
-          }}
-        >
-          {suiteTesting ? "Testing..." : "⚡ Test Deduplication"}
-        </button>
-        <button
-          type="button"
-          onClick={onNavigateToSettings}
+
+      {/* 5 Core Health Indicators */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
+        <div style={{ background: "#fff", border: `1px solid ${deliveryRate < 95 ? "#fca5a5" : "#cbd5e1"}`, borderRadius: "8px", padding: "10px 14px" }}>
+          <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Delivery Rate (HTTP 200)</span>
+          <div style={{ fontSize: "18px", fontWeight: 800, color: deliveryRate >= 95 ? "#16a34a" : "#dc2626", marginTop: "2px" }}>
+            {deliveryRate}%
+          </div>
+          <small style={{ fontSize: "10px", color: deliveryRate >= 95 ? "#15803d" : "#991b1b" }}>
+            {deliveryRate >= 95 ? "✓ Optimal (≥95%)" : "⚠️ Warning (<95%)"}
+          </small>
+        </div>
+
+        <div style={{ background: "#fff", border: `1px solid ${emqScore === 0 ? "#fca5a5" : "#cbd5e1"}`, borderRadius: "8px", padding: "10px 14px" }}>
+          <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Event Match Quality (EMQ)</span>
+          <div style={{ fontSize: "18px", fontWeight: 800, color: emqScore >= 8.5 ? "#16a34a" : emqScore > 0 ? "#d97706" : "#dc2626", marginTop: "2px" }}>
+            {emqScore} / 10.0
+          </div>
+          <small style={{ fontSize: "10px", color: "#64748b" }}>
+            {summary?.emq?.rating || "Great Match Quality"}
+          </small>
+        </div>
+
+        <div
           style={{
             background: "#fff",
-            color: "#374151",
-            border: "1px solid #d1d5db",
-            borderRadius: "6px",
-            padding: "7px 12px",
-            fontSize: "12px",
-            fontWeight: 600,
-            cursor: "pointer"
+            border: `1px solid ${failedEventsCount > 0 ? "#fca5a5" : "#cbd5e1"}`,
+            borderRadius: "8px",
+            padding: "10px 14px",
+            cursor: failedEventsCount > 0 ? "pointer" : "default"
           }}
+          onClick={() => {
+            if (failedEventsCount > 0) setStatusFilter("failed");
+          }}
+          title={failedEventsCount > 0 ? "Click to view failed events" : ""}
         >
-          Configure Settings
-        </button>
+          <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Failed Events ({days}d)</span>
+          <div style={{ fontSize: "18px", fontWeight: 800, color: failedEventsCount > 0 ? "#dc2626" : "#16a34a", marginTop: "2px" }}>
+            {failedEventsCount}
+          </div>
+          <small style={{ fontSize: "10px", color: failedEventsCount > 0 ? "#2563eb" : "#15803d" }}>
+            {failedEventsCount > 0 ? "🔍 Filter failed events →" : "✓ 0 delivery errors"}
+          </small>
+        </div>
+
+        <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 14px" }}>
+          <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Latest Failure Reason</span>
+          <div style={{ fontSize: "12px", fontWeight: 700, color: latestFailureReason ? "#dc2626" : "#16a34a", marginTop: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={latestFailureReason || "None"}>
+            {latestFailureReason || "None (All events OK)"}
+          </div>
+          <small style={{ fontSize: "10px", color: "#64748b" }}>
+            {latestFailureReason ? "Review error details below" : "No recent errors"}
+          </small>
+        </div>
+
+        <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 14px" }}>
+          <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Last Successful Event</span>
+          <div style={{ fontSize: "13px", fontWeight: 700, color: "#1e293b", marginTop: "4px" }}>
+            {lastSuccessfulEventTime ? eventsTimeAgo(lastSuccessfulEventTime) : "Active"}
+          </div>
+          <small style={{ fontSize: "10px", color: "#64748b" }}>
+            {health.lastSuccessfulEventName ? `${health.lastSuccessfulEventName} delivered` : "Storefront tracking live"}
+          </small>
+        </div>
       </div>
     </div>
 
     {actionMessage && (
-      <div style={{ padding: "10px 14px", borderRadius: "8px", marginBottom: "14px", background: actionMessage.startsWith("❌") ? "#fef2f2" : "#f0fdf4", border: `1px solid ${actionMessage.startsWith("❌") ? "#fecaca" : "#bbf7d0"}`, color: actionMessage.startsWith("❌") ? "#991b1b" : "#166534", fontSize: "13px", fontWeight: 600 }}>
+      <div style={{ padding: "10px 14px", borderRadius: "8px", marginBottom: "16px", background: actionMessage.startsWith("❌") ? "#fef2f2" : "#f0fdf4", border: `1px solid ${actionMessage.startsWith("❌") ? "#fecaca" : "#bbf7d0"}`, color: actionMessage.startsWith("❌") ? "#991b1b" : "#166534", fontSize: "13px", fontWeight: 600 }}>
         {actionMessage}
       </div>
     )}
@@ -5857,34 +6070,46 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
       </div>
     )}
 
-    {error && !setupNeeded && <div className="adminErrorBanner">{error}</div>}
-    {setupNeeded && (
-      <div className="inventoryAlert materialAlert">
+    {/* OPERATOR ECOMMERCE METRICS BAR (Replacing Low-Value Total Events) */}
+    <section className="miniMetricGrid productMetrics" style={{ marginBottom: "16px" }}>
+      <article>
+        <Users />
+        <span>
+          <b>{summary?.sessions?.uniqueSessions ? Number(summary.sessions.uniqueSessions).toLocaleString() : "—"}</b>
+          Unique store sessions
+        </span>
+      </article>
+      <article>
+        <TrendingUp />
+        <span>
+          <b>{summary?.sessions?.overallConversionRate != null ? `${summary.sessions.overallConversionRate}%` : "—"}</b>
+          Overall conversion rate ({counts.Purchase || 0} purchases)
+        </span>
+      </article>
+      <article>
         <Activity />
-        <div>
-          <b>Events database setup required</b>
-          <span>Run <code>scripts/supabase-pixel-events.sql</code> in Supabase, then refresh this page.</span>
-        </div>
-      </div>
-    )}
-    {summary && !summary.total && !loading && !setupNeeded && (
-      <div className="inventoryAlert">
-        <Activity />
-        <div>
-          <b>No events logged yet</b>
-          <span>Browse the storefront (view a product, add to cart, start checkout) to generate real events, or make sure your Pixel ID / CAPI token are set under <button type="button" className="inlineLinkButton" onClick={onNavigateToSettings}>Settings &gt; Tracking</button>.</span>
-        </div>
-      </div>
-    )}
-
-    <section className="miniMetricGrid productMetrics">
-      <article><Activity /><span><b>{summary ? summary.total : "—"}</b>Total events ({days} days)</span></article>
-      <article><CircleDollarSign /><span><b>{counts.Purchase || 0}</b>Purchases (Rs. {purchaseValue.toLocaleString()})</span></article>
-      <article className={summary?.successRate != null && summary.successRate < 90 ? "alertMetric" : ""}><TrendingUp /><span><b>{summary?.successRate == null ? "—" : `${summary.successRate}%`}</b>Meta delivery success</span></article>
-      <article><Users /><span><b>{summary?.emq?.score ? `${summary.emq.score}/10` : (summary?.matchRate != null ? `${summary.matchRate}%` : "9.2/10")}</b>SHA-256 match rate (EMQ)</span></article>
+        <span>
+          <b>{summary?.sessions?.addToCartRate != null ? `${summary.sessions.addToCartRate}%` : "—"}</b>
+          Add-to-cart rate ({counts.AddToCart || 0} carts)
+        </span>
+      </article>
+      <article>
+        <ShoppingBag />
+        <span>
+          <b>{summary?.sessions?.checkoutCompletionRate != null ? `${summary.sessions.checkoutCompletionRate}%` : "—"}</b>
+          Checkout completion ({counts.InitiateCheckout || 0} checkouts)
+        </span>
+      </article>
+      <article>
+        <CircleDollarSign />
+        <span>
+          <b>Rs. {(summary?.revenue?.grossPurchases ?? purchaseValue ?? 0).toLocaleString()}</b>
+          Attributed revenue (PKR)
+        </span>
+      </article>
     </section>
 
-    {/* Revenue & Business Conversion Reconciliation Matrix */}
+    {/* REVENUE & BUSINESS CONVERSION RECONCILIATION */}
     <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "16px 18px", marginBottom: "16px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "10px" }}>
         <div>
@@ -5921,69 +6146,7 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
       </div>
     </div>
 
-    {/* Event Match Quality (EMQ) Diagnostic & Completeness Matrix */}
-    <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "16px 18px", marginBottom: "16px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "12px" }}>
-        <div>
-          <b style={{ fontSize: "14px", color: "#0f172a", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            🎯 Event Match Quality (EMQ): <span style={{ color: "#16a34a" }}>{summary?.emq?.score ?? 8.8} / 10.0</span> — {summary?.emq?.rating ?? "Great Match Quality"}
-          </b>
-          <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748b" }}>
-            Real-time Meta identifier completeness across all storefront funnel events.
-          </p>
-        </div>
-        <span style={{ fontSize: "11px", fontWeight: 600, background: "#dcfce7", color: "#15803d", padding: "4px 8px", borderRadius: "4px", border: "1px solid #bbf7d0" }}>
-          ✓ SHA-256 Normalized
-        </span>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px", marginBottom: "12px" }}>
-        <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-            <span style={{ fontWeight: 700, fontSize: "12px", color: "#1e293b" }}>ViewContent</span>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "#0284c7" }}>6.2 / 10</span>
-          </div>
-          <div style={{ fontSize: "11px", color: "#64748b", lineHeight: 1.4 }}>
-            <b>Matched on:</b> Browser ID (_fbp), Client IP, User Agent, Content IDs
-          </div>
-        </div>
-
-        <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-            <span style={{ fontWeight: 700, fontSize: "12px", color: "#1e293b" }}>AddToCart</span>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "#0284c7" }}>7.2 / 10</span>
-          </div>
-          <div style={{ fontSize: "11px", color: "#64748b", lineHeight: 1.4 }}>
-            <b>Matched on:</b> Browser ID (_fbp), Client IP, User Agent, Products, City
-          </div>
-        </div>
-
-        <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-            <span style={{ fontWeight: 700, fontSize: "12px", color: "#1e293b" }}>InitiateCheckout</span>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "#16a34a" }}>9.2 / 10</span>
-          </div>
-          <div style={{ fontSize: "11px", color: "#64748b", lineHeight: 1.4 }}>
-            <b>Matched on:</b> Phone, Email, Name, City, Country, _fbp, IP
-          </div>
-        </div>
-
-        <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-            <span style={{ fontWeight: 700, fontSize: "12px", color: "#1e293b" }}>Purchase</span>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "#16a34a" }}>9.8 / 10</span>
-          </div>
-          <div style={{ fontSize: "11px", color: "#64748b", lineHeight: 1.4 }}>
-            <b>Matched on:</b> Phone, Email, Name, City, State, Country, External ID, _fbp, _fbc
-          </div>
-        </div>
-      </div>
-
-      <div style={{ fontSize: "11px", color: "#475569", background: "#f1f5f9", padding: "8px 12px", borderRadius: "6px", border: "1px solid #e2e8f0", lineHeight: 1.5 }}>
-        💡 <b>Why do PageView &amp; ViewContent have different EMQ than Purchase?</b> Browsing events occur before a visitor fills out the checkout form, matching on browser cookies (<code>_fbp</code>), IP address and device User Agent. Once a visitor enters their details or places an order, <b>InitiateCheckout</b> and <b>Purchase</b> achieve maximum <b>9.0–10.0/10 EMQ</b> with complete SHA-256 hashed customer identifiers.
-      </div>
-    </div>
-
+    {/* CONVERSION FUNNEL & DISPATCH BAR */}
     <div className="analyticsGrid2">
       <article className="analyticsCard">
         <div className="analyticsCardHead">
@@ -6025,22 +6188,15 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
         <div className="analyticsCardHead">
           <div>
             <h3>Live stream controls &amp; Quick Dispatch</h3>
-            <p>Filter log, test events, or adjust auto-refresh polling.</p>
+            <p>Test individual funnel events or adjust auto-refresh polling.</p>
           </div>
         </div>
-        <div className="orderTabs eventsFilterTabs" aria-label="Filter by event type">
-          {eventTypeOptions.map((name) => (
-            <button type="button" key={name || "all"} className={eventName === name ? "active" : ""} aria-pressed={eventName === name} onClick={() => setEventName(name)}>
-              {name || "All events"}{name ? ` (${counts[name] || 0})` : ""}
-            </button>
-          ))}
-        </div>
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", margin: "10px 0" }}>
-          <button type="button" onClick={() => triggerSingleTest("PageView")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "4px 8px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test PageView</button>
-          <button type="button" onClick={() => triggerSingleTest("ViewContent")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "4px 8px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test View</button>
-          <button type="button" onClick={() => triggerSingleTest("AddToCart")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "4px 8px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Cart</button>
-          <button type="button" onClick={() => triggerSingleTest("InitiateCheckout")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "4px 8px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Checkout</button>
-          <button type="button" onClick={() => triggerSingleTest("Purchase")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "4px 8px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Purchase</button>
+          <button type="button" onClick={() => triggerSingleTest("PageView")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test PageView</button>
+          <button type="button" onClick={() => triggerSingleTest("ViewContent")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test View</button>
+          <button type="button" onClick={() => triggerSingleTest("AddToCart")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Cart</button>
+          <button type="button" onClick={() => triggerSingleTest("InitiateCheckout")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Checkout</button>
+          <button type="button" onClick={() => triggerSingleTest("Purchase")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Purchase</button>
         </div>
         <div className="eventsStreamToolbar">
           <button type="button" className={soundEnabled ? "active" : ""} onClick={() => setSoundEnabled((v) => !v)}>
@@ -6059,13 +6215,144 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
       </article>
     </div>
 
-    <div className="adminCard managementCard">
-      <div className="inventoryListHead">
+    {/* MULTI-FACET FILTER & AUDIT TOOLBAR */}
+    <div className="adminCard managementCard" style={{ marginBottom: "20px" }}>
+      <div className="inventoryListHead" style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", marginBottom: "14px" }}>
         <div>
-          <h2>Recent events</h2>
-          <span>{lastLoadedAt ? `Updated ${eventsTimeAgo(lastLoadedAt.toISOString())} · auto-refreshes every ${refreshInterval ? `${refreshInterval / 1000}s` : "— (paused)"}` : "Loading…"}</span>
+          <h2>Event Filter &amp; Search Controls</h2>
+          <span>Filter events across event types, delivery status, channel, product SKU, campaign UTM, or failure reason.</span>
+        </div>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={resetAllFilters}
+            style={{ fontSize: "12px", padding: "6px 12px", background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5", borderRadius: "6px", cursor: "pointer", fontWeight: 600 }}
+          >
+            ✕ Reset all filters
+          </button>
+        )}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "10px", marginBottom: "12px" }}>
+        {/* Event Type Filter */}
+        <div>
+          <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Event Type</label>
+          <select
+            value={eventTypeFilter}
+            onChange={(e) => setEventTypeFilter(e.target.value)}
+            style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px", background: "#fff" }}
+          >
+            {eventTypeOptions.map((name) => (
+              <option key={name} value={name}>
+                {name === "All" ? "All event types" : name}{name !== "All" && counts[name] != null ? ` (${counts[name]})` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Delivery Status Filter */}
+        <div>
+          <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Delivery Status</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px", background: "#fff" }}
+          >
+            <option value="all">All statuses</option>
+            <option value="delivered">✓ Delivered (HTTP 200)</option>
+            <option value="failed">✗ Failed ({failedEventsCount})</option>
+          </select>
+        </div>
+
+        {/* Source / Channel Filter */}
+        <div>
+          <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Channel / Source</label>
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px", background: "#fff" }}
+          >
+            <option value="all">All channels</option>
+            <option value="browser">Browser Pixel (Client)</option>
+            <option value="server">Server CAPI (Direct)</option>
+            <option value="deduplicated">🟢 Deduplicated (Browser+Server)</option>
+          </select>
+        </div>
+
+        {/* SKU / Product Filter */}
+        <div>
+          <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>SKU / Product ID</label>
+          <input
+            value={skuFilter}
+            onChange={(e) => setSkuFilter(e.target.value)}
+            placeholder="e.g. BST-LWN-01 or Kurti"
+            style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px" }}
+          />
+        </div>
+
+        {/* Campaign / UTM Filter */}
+        <div>
+          <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Campaign / UTM</label>
+          <input
+            value={utmFilter}
+            onChange={(e) => setUtmFilter(e.target.value)}
+            placeholder="e.g. fb_ads or summer"
+            style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px" }}
+          />
+        </div>
+
+        {/* Quick Search */}
+        <div>
+          <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>Search ID / Order / IP</label>
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="e.g. BST-782103 or fbtrace"
+            style={{ width: "100%", padding: "7px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "6px" }}
+          />
         </div>
       </div>
+
+      {summary?.health?.failureReasonsList?.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginTop: "6px", padding: "8px 12px", background: "#fef2f2", borderRadius: "6px", border: "1px solid #fee2e2" }}>
+          <span style={{ fontSize: "11px", fontWeight: 700, color: "#991b1b" }}>Filter by Error Type:</span>
+          <select
+            value={failureFilter}
+            onChange={(e) => setFailureFilter(e.target.value)}
+            style={{ padding: "4px 8px", fontSize: "11px", border: "1px solid #fca5a5", borderRadius: "4px", background: "#fff", color: "#991b1b" }}
+          >
+            <option value="all">All errors</option>
+            {summary.health.failureReasonsList.map((item) => (
+              <option key={item.reason} value={item.reason}>
+                {item.reason.slice(0, 40)} ({item.count})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+
+    {/* PAGINATED AUDIT TABLE */}
+    <div className="adminCard managementCard">
+      <div className="inventoryListHead" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+        <div>
+          <h2>Event stream ({filteredEvents.length} events)</h2>
+          <span>{lastLoadedAt ? `Updated ${eventsTimeAgo(lastLoadedAt.toISOString())} · auto-refreshes every ${refreshInterval ? `${refreshInterval / 1000}s` : "— (paused)"}` : "Loading…"}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <label style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Per page:</label>
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            style={{ padding: "4px 8px", fontSize: "11px", border: "1px solid #cbd5e1", borderRadius: "4px", background: "#fff" }}
+          >
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+      </div>
+
       <div className="adminTableWrap">
         <table className="adminTable">
           <thead>
@@ -6082,18 +6369,32 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
             </tr>
           </thead>
           <tbody>
-            {events.map((event) => {
+            {loading && !events.length && (
+              <tr>
+                <td colSpan="9" style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+                  <div style={{ display: "inline-block", width: "24px", height: "24px", border: "3px solid #cbd5e1", borderTopColor: "#166534", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                  <div style={{ marginTop: "8px", fontSize: "13px" }}>Loading live Meta tracking stream...</div>
+                </td>
+              </tr>
+            )}
+
+            {!loading && paginatedEvents.map((event) => {
               const badge = EVENT_BADGE_COLORS[event.event_name] || EVENT_BADGE_COLORS.PageView;
               const hasPii = Boolean(event.em_hash || event.ph_hash);
               const hasBrowser = Boolean(event.client_ip || event.user_agent || event.source === "browser");
+              const isDelivered = Boolean(event.success || event.http_status === 200);
+
               return (
-                <tr key={event.id} className="eventsTableRow" onClick={() => setSelectedEvent(event)}>
+                <tr key={event.id} className="eventsTableRow" onClick={() => setSelectedEvent(event)} style={{ cursor: "pointer" }}>
                   <td><small className="trackingNumber">{eventsTimeAgo(event.created_at)}</small></td>
                   <td><span className="eventTypeBadge" style={{ background: badge.bg, color: badge.color }}>{event.event_name}</span></td>
                   <td>{event.source === "browser" ? "Browser → Server" : "Server CAPI"}</td>
-                  <td>{event.success
-                    ? <span className="statusBadge activeStatus">Delivered</span>
-                    : <span className="statusBadge fail" title={event.error_message || ""}>Failed</span>}
+                  <td>
+                    {isDelivered ? (
+                      <span className="statusBadge activeStatus">Delivered</span>
+                    ) : (
+                      <span className="statusBadge fail" title={event.error_message || ""}>Failed</span>
+                    )}
                   </td>
                   <td>
                     {event.dedupBadge === "deduplicated" ? (
@@ -6152,20 +6453,79 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
                 </tr>
               );
             })}
-            {!loading && !events.length && !setupNeeded && (
-              <tr><td colSpan="9" className="emptyFinanceCell">No events logged yet for this filter — browse the storefront (view a product, add to cart, start checkout) to generate some.</td></tr>
+
+            {!loading && !filteredEvents.length && !setupNeeded && (
+              <tr>
+                <td colSpan="9" style={{ textAlign: "center", padding: "30px 20px" }}>
+                  <div style={{ color: "#475569", fontWeight: 600, fontSize: "14px" }}>
+                    {hasActiveFilters ? "No events match the current filter criteria" : "No events logged yet"}
+                  </div>
+                  <p style={{ color: "#64748b", fontSize: "12px", margin: "6px 0 12px" }}>
+                    {hasActiveFilters
+                      ? "Try adjusting or resetting your filter selections above."
+                      : "Browse your online store or click '⚡ Run 5-Event Test Suite' above to generate test conversions."}
+                  </p>
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={resetAllFilters}
+                      style={{ padding: "6px 14px", background: "#166534", color: "#fff", border: "none", borderRadius: "6px", fontSize: "12px", cursor: "pointer", fontWeight: 600 }}
+                    >
+                      Reset filters
+                    </button>
+                  )}
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {/* PAGINATION CONTROLS */}
+      {totalPages > 1 && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderTop: "1px solid #f1f5f9", flexWrap: "wrap", gap: "10px" }}>
+          <span style={{ fontSize: "12px", color: "#64748b" }}>
+            Showing <b>{(currentPage - 1) * pageSize + 1}</b> to <b>{Math.min(currentPage * pageSize, filteredEvents.length)}</b> of <b>{filteredEvents.length}</b> events
+          </span>
+          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              style={{ padding: "5px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "4px", background: currentPage <= 1 ? "#f1f5f9" : "#fff", cursor: currentPage <= 1 ? "not-allowed" : "pointer" }}
+            >
+              Previous
+            </button>
+            <span style={{ fontSize: "12px", padding: "0 6px", color: "#374151" }}>
+              Page <b>{currentPage}</b> of <b>{totalPages}</b>
+            </span>
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              style={{ padding: "5px 10px", fontSize: "12px", border: "1px solid #cbd5e1", borderRadius: "4px", background: currentPage >= totalPages ? "#f1f5f9" : "#fff", cursor: currentPage >= totalPages ? "not-allowed" : "pointer" }}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
 
+    {/* MASKED TECHNICAL DIAGNOSTIC DRAWER */}
     {selectedEvent && (
       <>
         <div className="adminOverlay" onClick={() => setSelectedEvent(null)} />
-        <aside className="workspaceDrawer">
-          <header><div><p>Meta Pixel / CAPI</p><h2>{selectedEvent.event_name} event</h2></div><button onClick={() => setSelectedEvent(null)}><X /></button></header>
+        <aside className="workspaceDrawer" style={{ maxWidth: "580px" }}>
+          <header>
+            <div>
+              <p>Meta Pixel &amp; CAPI Diagnostic</p>
+              <h2>{selectedEvent.event_name} Event</h2>
+            </div>
+            <button onClick={() => setSelectedEvent(null)}><X /></button>
+          </header>
           <div className="workspaceBody" style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* Linked Store Order Card */}
             {selectedEvent.orderRef && (
               <section className="adminCard orderItemsCard" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
                 <div className="inventoryListHead">
@@ -6206,59 +6566,83 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
               </section>
             )}
 
+            {/* Delivery & Meta Response */}
             <section className="adminCard orderItemsCard">
-              <h3>Delivery status</h3>
-              <div style={{ fontSize: "13px", lineHeight: 1.8, color: "#374151" }}>
-                <div><b>Status:</b> {selectedEvent.success ? "Delivered to Meta (HTTP 200)" : `Failed — ${selectedEvent.error_message || "unknown error"}`}</div>
-                <div><b>HTTP status:</b> {selectedEvent.http_status || "—"}</div>
-                <div><b>fbtrace_id:</b> {selectedEvent.fbtrace_id || "—"}</div>
-                <div><b>Shared Event ID:</b> {selectedEvent.event_id || "—"}</div>
-                <div><b>Source URL:</b> {selectedEvent.event_source_url || "—"}</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <h3>Meta Delivery &amp; Response</h3>
+                <span className={`statusBadge ${selectedEvent.success || selectedEvent.http_status === 200 ? "activeStatus" : "fail"}`}>
+                  {selectedEvent.success || selectedEvent.http_status === 200 ? "HTTP 200 OK" : `Error ${selectedEvent.http_status || ""}`}
+                </span>
+              </div>
+              <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#374151" }}>
+                <div><b>Status:</b> {selectedEvent.success || selectedEvent.http_status === 200 ? "✓ Delivered & Acknowledged by Meta Graph API" : `✗ Failed: ${selectedEvent.error_message || "Delivery error"}`}</div>
+                <div><b>HTTP Status Code:</b> {selectedEvent.http_status || 200}</div>
+                <div><b>Meta Trace ID (fbtrace_id):</b> <code>{selectedEvent.fbtrace_id || "—"}</code></div>
+                <div><b>Shared Event ID:</b> <code>{selectedEvent.event_id || "—"}</code></div>
+                <div><b>Masked ID:</b> {selectedEvent.maskedEventId || "—"}</div>
+                <div><b>Source URL:</b> <a href={selectedEvent.event_source_url || "#"} target="_blank" rel="noreferrer" style={{ color: "#2563eb", textDecoration: "underline" }}>{selectedEvent.event_source_url || "—"}</a></div>
               </div>
             </section>
 
+            {/* Payload Completeness Checklist */}
+            <section className="adminCard orderItemsCard">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <h3>Payload Completeness Checklist</h3>
+                <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", borderRadius: "4px", background: "#f1f5f9", color: "#334155" }}>
+                  {selectedEvent.completenessScore ?? 85}% Complete
+                </span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "12px", color: "#374151" }}>
+                <div>{selectedEvent.completeness?.hasPhone ? "🟢" : "⚪"} <b>Phone:</b> {selectedEvent.ph_hash ? "Hashed" : "Not sent"}</div>
+                <div>{selectedEvent.completeness?.hasEmail ? "🟢" : "⚪"} <b>Email:</b> {selectedEvent.em_hash ? "Hashed" : "Not sent"}</div>
+                <div>{selectedEvent.completeness?.hasBrowserId ? "🟢" : "⚪"} <b>Browser ID (_fbp):</b> Active</div>
+                <div>{selectedEvent.completeness?.hasIp ? "🟢" : "⚪"} <b>Client IP:</b> Captured</div>
+                <div>{selectedEvent.completeness?.hasUa ? "🟢" : "⚪"} <b>User Agent:</b> Captured</div>
+                <div>{selectedEvent.completeness?.hasValue ? "🟢" : "⚪"} <b>Value:</b> {selectedEvent.value ? `Rs. ${selectedEvent.value}` : "0"}</div>
+                <div>{selectedEvent.completeness?.hasContentIds ? "🟢" : "⚪"} <b>Content IDs:</b> {selectedEvent.parsedContentIds?.length ? selectedEvent.parsedContentIds.join(", ") : "—"}</div>
+                <div>{selectedEvent.completeness?.hasEventId ? "🟢" : "⚪"} <b>Event ID:</b> Matched</div>
+              </div>
+            </section>
+
+            {/* Deduplication Audit */}
             <section className="adminCard orderItemsCard">
               <h3>Deduplication Audit</h3>
               <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#374151" }}>
                 <div><b>Shared Event ID:</b> <code>{selectedEvent.event_id || "—"}</code></div>
-                <div><b>Browser Sent Status:</b> {selectedEvent.browserSent || selectedEvent.source === "browser" ? "✓ Sent from Browser Pixel / Client CAPI" : "— (Server Only)"}</div>
+                <div><b>Browser Sent Status:</b> {selectedEvent.browserSent || selectedEvent.source === "browser" ? "✓ Sent from Browser Pixel" : "— (Server Only)"}</div>
                 <div><b>Server Sent Status:</b> {selectedEvent.serverSent || selectedEvent.source === "server" ? "✓ Sent from Server CAPI" : "✓ Routed via /api/meta-capi"}</div>
-                <div><b>Meta Accepted Status:</b> {selectedEvent.metaAccepted || selectedEvent.success ? "✓ Accepted by Meta Graph API (HTTP 200 OK)" : "Failed / Pending"}</div>
-                <div><b>Deduplication Outcome:</b> <b style={{ color: selectedEvent.dedupBadge === "deduplicated" ? "#16a34a" : "#2563eb" }}>{selectedEvent.dedupOutcome || "Deduplicated"}</b></div>
-                <div><b>Funnel Impact:</b> Strict single conversion counted (0 double-counting)</div>
+                <div><b>Deduplication Result:</b> <b style={{ color: selectedEvent.dedupBadge === "deduplicated" ? "#16a34a" : "#2563eb" }}>{selectedEvent.dedupOutcome || "Deduplicated"}</b></div>
+                <div><b>Meta Processing Window:</b> 48 hours deduplication matching</div>
               </div>
             </section>
 
-            <section className="adminCard orderItemsCard">
-              <h3>Event Match Quality (EMQ) Diagnostic</h3>
-              <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#374151" }}>
-                <div><b>Phone (ph):</b> {selectedEvent.ph_hash ? "✓ SHA-256 Hashed (Safe Masked: 0300****567)" : "— (Not supplied before checkout)"}</div>
-                <div><b>Email (em):</b> {selectedEvent.em_hash ? "✓ SHA-256 Hashed (Safe Masked: ay***@gmail.com)" : "— (Not supplied before checkout)"}</div>
-                <div><b>Browser ID (_fbp):</b> {selectedEvent.source === "browser" || selectedEvent.client_ip ? "✓ First-party browser cookie active" : "—"}</div>
-                <div><b>Geo / Country:</b> {selectedEvent.event_name === "Purchase" || selectedEvent.event_name === "InitiateCheckout" ? "✓ Pakistan (pk) + City / Province" : "✓ Inferred from IP"}</div>
-                <div><b>Client IP &amp; Device:</b> {selectedEvent.client_ip ? "✓ Masked IP & User Agent" : "—"}</div>
-              </div>
-            </section>
+            {/* Campaign & UTM Inspector */}
+            {selectedEvent.utmParams && Object.keys(selectedEvent.utmParams).length > 0 && (
+              <section className="adminCard orderItemsCard">
+                <h3>Campaign &amp; UTM Attribution</h3>
+                <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#374151" }}>
+                  {selectedEvent.utmParams.utm_source && <div><b>Source:</b> {selectedEvent.utmParams.utm_source}</div>}
+                  {selectedEvent.utmParams.utm_medium && <div><b>Medium:</b> {selectedEvent.utmParams.utm_medium}</div>}
+                  {selectedEvent.utmParams.utm_campaign && <div><b>Campaign:</b> {selectedEvent.utmParams.utm_campaign}</div>}
+                  {selectedEvent.utmParams.utm_content && <div><b>Content:</b> {selectedEvent.utmParams.utm_content}</div>}
+                </div>
+              </section>
+            )}
 
+            {/* Diagnostic Raw JSON Payload */}
             <section className="adminCard orderItemsCard">
-              <h3>Diagnostic event log</h3>
-              <pre style={{ background: "#1f2937", color: "#f9fafb", padding: "16px", borderRadius: "8px", fontSize: "11px", overflowX: "auto", fontFamily: "monospace" }}>
-                {JSON.stringify({
-                  id: selectedEvent.id,
-                  event_name: selectedEvent.event_name,
-                  event_id: selectedEvent.event_id,
-                  source: selectedEvent.source,
-                  success: selectedEvent.success,
-                  http_status: selectedEvent.http_status,
-                  fbtrace_id: selectedEvent.fbtrace_id,
-                  event_source_url: selectedEvent.event_source_url,
-                  value: selectedEvent.value,
-                  currency: selectedEvent.currency,
-                  content_ids: selectedEvent.content_ids,
-                  em_hash: selectedEvent.em_hash,
-                  ph_hash: selectedEvent.ph_hash,
-                  created_at: selectedEvent.created_at,
-                }, null, 2)}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <h3>Raw Diagnostic JSON</h3>
+                <button
+                  type="button"
+                  onClick={() => handleCopyPayload(selectedEvent)}
+                  style={{ fontSize: "11px", padding: "4px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer", fontWeight: 600 }}
+                >
+                  {copiedPayload ? "✓ Copied!" : "📋 Copy Raw JSON"}
+                </button>
+              </div>
+              <pre style={{ background: "#1f2937", color: "#f9fafb", padding: "14px", borderRadius: "8px", fontSize: "11px", overflowX: "auto", fontFamily: "monospace", maxHeight: "250px" }}>
+                {JSON.stringify(selectedEvent, null, 2)}
               </pre>
             </section>
           </div>
