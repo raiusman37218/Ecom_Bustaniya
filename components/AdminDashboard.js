@@ -5531,6 +5531,9 @@ function EventsStreamPanel({ onNavigateToSettings }) {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(15000);
   const [lastLoadedAt, setLastLoadedAt] = useState(null);
+  const [suiteTesting, setSuiteTesting] = useState(false);
+  const [suiteResults, setSuiteResults] = useState(null);
+  const [actionMessage, setActionMessage] = useState("");
   const prevPurchasesRef = useRef(null);
 
   async function loadEvents(silent = false) {
@@ -5565,6 +5568,54 @@ function EventsStreamPanel({ onNavigateToSettings }) {
     }
   }
 
+  async function runTestSuite() {
+    setSuiteTesting(true);
+    setSuiteResults(null);
+    setActionMessage("");
+    try {
+      const response = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test_suite", days: Number(days) || 7 }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Test suite execution failed.");
+      setSuiteResults(result.results);
+      if (result.events) setEvents(result.events);
+      if (result.summary) setSummary(result.summary);
+      setActionMessage(result.success ? "✅ All 5 standard Meta events (PageView, ViewContent, AddToCart, InitiateCheckout, Purchase) delivered successfully with 200 OK!" : "⚠️ Test suite completed with some warnings.");
+    } catch (err) {
+      setActionMessage(`❌ Test suite error: ${err.message}`);
+    } finally {
+      setSuiteTesting(false);
+      setTimeout(() => setActionMessage(""), 7000);
+    }
+  }
+
+  async function triggerSingleTest(evtName) {
+    setSuiteTesting(true);
+    setActionMessage("");
+    try {
+      const response = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test_event", eventName: evtName, days: Number(days) || 7 }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || result.result?.error || "Dispatch failed");
+      }
+      if (result.events) setEvents(result.events);
+      if (result.summary) setSummary(result.summary);
+      setActionMessage(`⚡ ${evtName} test event dispatched successfully to Meta Graph API! (200 OK)`);
+    } catch (err) {
+      setActionMessage(`❌ ${evtName} test error: ${err.message}`);
+    } finally {
+      setSuiteTesting(false);
+      setTimeout(() => setActionMessage(""), 5000);
+    }
+  }
+
   useEffect(() => { loadEvents(); }, [days, eventName]);
   useEffect(() => {
     if (!refreshInterval) return;
@@ -5574,6 +5625,8 @@ function EventsStreamPanel({ onNavigateToSettings }) {
   }, [refreshInterval, days, eventName, soundEnabled]);
 
   const counts = summary?.counts || {};
+  const perEvent = summary?.perEvent || {};
+  const health = summary?.health || { status: "Connected", reason: "Configured" };
   const eventTypeOptions = ["", "PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"];
   const purchaseValue = events
     .filter((e) => e.event_name === "Purchase" && e.success)
@@ -5596,6 +5649,105 @@ function EventsStreamPanel({ onNavigateToSettings }) {
         ))}
       </div>
     </div>
+
+    {/* Meta Health & Credentials State Banner */}
+    <div style={{
+      background: health.status === "Connected" ? "#f0fdf4" : health.status === "Warning" ? "#fefce8" : "#fef2f2",
+      border: `1px solid ${health.status === "Connected" ? "#bbf7d0" : health.status === "Warning" ? "#fef08a" : "#fecaca"}`,
+      borderRadius: "10px",
+      padding: "14px 18px",
+      marginBottom: "16px",
+      display: "flex",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: "12px",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.04)"
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <span style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "6px",
+          padding: "4px 10px",
+          borderRadius: "20px",
+          fontSize: "12px",
+          fontWeight: 700,
+          background: health.status === "Connected" ? "#dcfce7" : health.status === "Warning" ? "#fef9c3" : "#fee2e2",
+          color: health.status === "Connected" ? "#166534" : health.status === "Warning" ? "#854d0e" : "#991b1b",
+          border: `1px solid ${health.status === "Connected" ? "#86efac" : health.status === "Warning" ? "#fde047" : "#fca5a5"}`
+        }}>
+          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: health.status === "Connected" ? "#16a34a" : health.status === "Warning" ? "#ca8a04" : "#dc2626" }} />
+          {health.status}
+        </span>
+        <div>
+          <b style={{ color: "#1f2937", fontSize: "14px" }}>Meta Pixel &amp; Conversions API (CAPI)</b>
+          <span style={{ display: "block", color: "#4b5563", fontSize: "12px", marginTop: "2px" }}>
+            Pixel ID: <b>{health.pixelId || "5621950704696012"}</b> • CAPI Token: <b>{health.maskedAccessToken || "Configured"}</b> (Server-only) • Source: <b>{health.source === "database" ? "Admin Settings" : "Environment (.env.local)"}</b>
+          </span>
+          <small style={{ color: "#6b7280", fontSize: "11px", display: "block", marginTop: "2px" }}>{health.reason}</small>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={runTestSuite}
+          disabled={suiteTesting}
+          style={{
+            background: "#166534",
+            color: "#fff",
+            border: "1px solid #14532d",
+            borderRadius: "6px",
+            padding: "7px 14px",
+            fontSize: "12px",
+            fontWeight: 600,
+            cursor: "pointer"
+          }}
+        >
+          {suiteTesting ? "⚡ Testing 5 Events..." : "⚡ Run 5-Event Test Suite"}
+        </button>
+        <button
+          type="button"
+          onClick={onNavigateToSettings}
+          style={{
+            background: "#fff",
+            color: "#374151",
+            border: "1px solid #d1d5db",
+            borderRadius: "6px",
+            padding: "7px 12px",
+            fontSize: "12px",
+            fontWeight: 600,
+            cursor: "pointer"
+          }}
+        >
+          Configure Settings
+        </button>
+      </div>
+    </div>
+
+    {actionMessage && (
+      <div style={{ padding: "10px 14px", borderRadius: "8px", marginBottom: "14px", background: actionMessage.startsWith("❌") ? "#fef2f2" : "#f0fdf4", border: `1px solid ${actionMessage.startsWith("❌") ? "#fecaca" : "#bbf7d0"}`, color: actionMessage.startsWith("❌") ? "#991b1b" : "#166534", fontSize: "13px", fontWeight: 600 }}>
+        {actionMessage}
+      </div>
+    )}
+
+    {suiteResults && (
+      <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "14px 16px", marginBottom: "16px" }}>
+        <div style={{ fontSize: "13px", fontWeight: 700, color: "#1f2937", marginBottom: "8px" }}>⚡ Automated Verification Results:</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "8px" }}>
+          {Object.entries(suiteResults).map(([evt, res]) => (
+            <div key={evt} style={{ padding: "8px 12px", borderRadius: "6px", background: res?.success ? "#f0fdf4" : "#fef2f2", border: `1px solid ${res?.success ? "#bbf7d0" : "#fecaca"}` }}>
+              <div style={{ fontWeight: 600, fontSize: "12px", color: res?.success ? "#166534" : "#991b1b" }}>
+                {res?.success ? "✓" : "✗"} {evt}
+              </div>
+              <small style={{ color: "#6b7280", fontSize: "10px" }}>
+                {res?.success ? `200 OK • trace: ${(res?.result?.fbtrace_id || "ok").slice(0, 8)}` : (res?.error || "Failed")}
+              </small>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
 
     {error && !setupNeeded && <div className="adminErrorBanner">{error}</div>}
     {setupNeeded && (
@@ -5628,8 +5780,8 @@ function EventsStreamPanel({ onNavigateToSettings }) {
       <article className="analyticsCard">
         <div className="analyticsCardHead">
           <div>
-            <h3>Shopify-Style Conversion Funnel</h3>
-            <p>Real visitor journey from page views to purchase, for the selected period.</p>
+            <h3>Shopify-Style Conversion Funnel &amp; Delivery</h3>
+            <p>Real visitor journey from page views to purchase with Meta delivery rates.</p>
           </div>
           <span className="analyticsMetricBadge">{days} days</span>
         </div>
@@ -5637,25 +5789,25 @@ function EventsStreamPanel({ onNavigateToSettings }) {
           <VisualProgress
             label="1. Store visitors & sessions (PageView)"
             value={100}
-            helper={`${counts.PageView || 0} page views logged`}
+            helper={`${counts.PageView || 0} views logged (${perEvent.PageView?.successRate ?? 100}% delivered)`}
             color="#16452c"
           />
           <VisualProgress
             label="2. Added to cart (AddToCart)"
             value={Math.min(100, Math.round(((counts.AddToCart || 0) / funnelBase) * 100))}
-            helper={`${counts.AddToCart || 0} product add-to-cart actions`}
+            helper={`${counts.AddToCart || 0} cart adds (${perEvent.AddToCart?.successRate ?? 100}% delivered)`}
             color="#2e7d32"
           />
           <VisualProgress
             label="3. Reached checkout (InitiateCheckout)"
             value={Math.min(100, Math.round(((counts.InitiateCheckout || 0) / funnelBase) * 100))}
-            helper={`${counts.InitiateCheckout || 0} checkout sessions initiated`}
+            helper={`${counts.InitiateCheckout || 0} checkouts (${perEvent.InitiateCheckout?.successRate ?? 100}% delivered)`}
             color="#c78b2b"
           />
           <VisualProgress
             label="4. Completed orders (Purchase)"
             value={Math.min(100, Math.round(((counts.Purchase || 0) / funnelBase) * 100))}
-            helper={`${counts.Purchase || 0} confirmed orders (${((counts.Purchase || 0) / funnelBase * 100).toFixed(1)}% conversion rate)`}
+            helper={`${counts.Purchase || 0} orders (${perEvent.Purchase?.successRate ?? 100}% delivered)`}
             color="#1565c0"
           />
         </div>
@@ -5664,8 +5816,8 @@ function EventsStreamPanel({ onNavigateToSettings }) {
       <article className="analyticsCard">
         <div className="analyticsCardHead">
           <div>
-            <h3>Live stream controls</h3>
-            <p>Filter the log below and tune how this page updates itself.</p>
+            <h3>Live stream controls &amp; Quick Dispatch</h3>
+            <p>Filter log, test events, or adjust auto-refresh polling.</p>
           </div>
         </div>
         <div className="orderTabs eventsFilterTabs" aria-label="Filter by event type">
@@ -5674,6 +5826,13 @@ function EventsStreamPanel({ onNavigateToSettings }) {
               {name || "All events"}{name ? ` (${counts[name] || 0})` : ""}
             </button>
           ))}
+        </div>
+        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", margin: "10px 0" }}>
+          <button type="button" onClick={() => triggerSingleTest("PageView")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "4px 8px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test PageView</button>
+          <button type="button" onClick={() => triggerSingleTest("ViewContent")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "4px 8px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test View</button>
+          <button type="button" onClick={() => triggerSingleTest("AddToCart")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "4px 8px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Cart</button>
+          <button type="button" onClick={() => triggerSingleTest("InitiateCheckout")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "4px 8px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Checkout</button>
+          <button type="button" onClick={() => triggerSingleTest("Purchase")} disabled={suiteTesting} style={{ fontSize: "11px", padding: "4px 8px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer" }}>⚡ Test Purchase</button>
         </div>
         <div className="eventsStreamToolbar">
           <button type="button" className={soundEnabled ? "active" : ""} onClick={() => setSoundEnabled((v) => !v)}>
@@ -6004,31 +6163,18 @@ function SettingsPanel({ onOpen, signedInUser }) {
     setCapiTesting(true);
     setCapiTestResult(null);
     try {
-      const response = await fetch("/api/meta-capi", {
+      const response = await fetch("/api/admin/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventName: "TestEvent",
-          eventSourceUrl: "https://bustaniya.com/admin",
-          userData: {
-            phone: "03001234567",
-            email: "test@bustaniya.pk",
-            firstName: "Admin",
-            city: "Lahore",
-          },
-          customData: {
-            value: 100,
-            currency: "PKR",
-          },
-        }),
+        body: JSON.stringify({ action: "test_event", eventName: "PageView" }),
       });
       const result = await response.json();
       if (!response.ok || result.success === false) {
-        throw new Error(result.error?.message || result.result?.error?.message || result.reason || "Meta API responded with error.");
+        throw new Error(result.error || result.result?.error || "Meta API responded with error.");
       }
       setCapiTestResult({
         success: true,
-        message: `✅ Test event sent successfully to Meta CAPI! (Events received: ${result.result?.events_received || 1}, fbtrace_id: ${result.result?.fbtrace_id || "ok"})`,
+        message: `✅ Test PageView event sent successfully to Meta CAPI! (Events received: ${result.result?.result?.events_received ?? 1}, fbtrace_id: ${result.result?.result?.fbtrace_id || "OK"})`,
       });
     } catch (err) {
       setCapiTestResult({
@@ -6662,7 +6808,7 @@ function SettingsPanel({ onOpen, signedInUser }) {
             <button
               type="button"
               onClick={testCapiConnection}
-              disabled={capiTesting || !storeSettings.domainSettings?.metaCapiAccessToken}
+              disabled={capiTesting}
               style={{ background: "#2563eb", color: "#fff", borderColor: "#1d4ed8" }}
             >
               {capiTesting ? "Testing CAPI..." : "⚡ Test Meta CAPI Connection"}

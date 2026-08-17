@@ -31,6 +31,7 @@ const REQUIRED_TABLES = [
   { table: "order_operations", select: "order_id", area: "Returns", detail: "Returns inspection and courier loss workflow." },
   { table: "order_operation_events", select: "id", area: "Returns", detail: "Operations timeline/history for orders." },
   { table: "marketing_campaigns", select: "id", area: "Marketing", detail: "Marketing ROI tracker data." },
+  { table: "pixel_events", select: "id", area: "Tracking", detail: "Meta Pixel and Conversions API server-side delivery log." },
 ];
 
 const FEATURE_SUPPORT = [
@@ -159,6 +160,15 @@ const FEATURE_SUPPORT = [
     required: ["marketing_campaigns"],
     selectChecks: [{ table: "marketing_campaigns", select: "id,name,spend_pkr,revenue_pkr,start_date,end_date" }],
     purpose: "Campaign spend, ROAS and weekly marketing report.",
+  },
+  {
+    feature: "Meta Pixel & CAPI Tracking",
+    required: ["pixel_events", "store_settings"],
+    selectChecks: [
+      { table: "pixel_events", select: "id,event_name,success,created_at" },
+      { table: "store_settings", select: "id,settings" },
+    ],
+    purpose: "Storefront Meta Pixel deduplication, CAPI server-side event tracking, and delivery log.",
   },
 ];
 
