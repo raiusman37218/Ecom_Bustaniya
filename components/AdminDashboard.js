@@ -5665,10 +5665,10 @@ function SettingsPanel({ onOpen, signedInUser }) {
     { zone: "Lahore same-day", cities: "Lahore", rate: "Rs. 250", freeAbove: "Rs. 8,000" },
   ]);
   const canManageUsers = canUseAdminArea(signedInUser, "users");
-  const tabs = ["Store", "Sections", "SizeChart", "Payments", "Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications", "Domains", "Checkout", "System"];
+  const tabs = ["Store", "Sections", "Tracking", "SizeChart", "Payments", "Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications", "Domains", "Checkout", "System"];
 
   useEffect(() => {
-    if (["Store", "Sections", "SizeChart", "Payments", "Shipping", "Notifications", "Domains", "Checkout"].includes(activeTab)) {
+    if (["Store", "Sections", "Tracking", "SizeChart", "Payments", "Shipping", "Notifications", "Domains", "Checkout"].includes(activeTab)) {
       loadStoreSettings();
     }
     if (activeTab === "Users") loadAdminUsers();
@@ -6264,15 +6264,34 @@ function SettingsPanel({ onOpen, signedInUser }) {
           <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save notification settings"}</button>
         </form>}
 
+        {activeTab === "Tracking" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
+          <h2>Meta Pixel & Conversions API (CAPI) Tracking</h2>
+          <p className="settingsHint">Configure your Meta Pixel and Conversions API (CAPI) server-side tracking here. Changes save directly to the database and go live instantly.</p>
+          <div className="formRow">
+            <label>Meta (Facebook) Pixel ID<input value={storeSettings.domainSettings?.metaPixelId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { metaPixelId: event.target.value })} placeholder="e.g. 5621950704696012" /></label>
+            <label>Google Analytics measurement ID (GA4)<input value={storeSettings.domainSettings?.analyticsMeasurementId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { analyticsMeasurementId: event.target.value })} placeholder="G-..." /></label>
+          </div>
+          <label>Meta Conversions API (CAPI) Access Token<textarea rows="4" value={storeSettings.domainSettings?.metaCapiAccessToken || ""} onChange={(event) => updateSettingsGroup("domainSettings", { metaCapiAccessToken: event.target.value })} placeholder="EAAN... (Paste your Meta System User Access Token here)" style={{ fontFamily: "monospace", fontSize: "12px" }} /></label>
+          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "12px 16px", marginTop: "12px" }}>
+            <div style={{ fontWeight: 600, color: "#166534", marginBottom: "4px" }}>🎯 Active Standard Events:</div>
+            <div style={{ fontSize: "13px", color: "#15803d", lineHeight: 1.5 }}>
+              • <b>PageView</b> (All page loads)<br />
+              • <b>ViewContent</b> (Product details page)<br />
+              • <b>AddToCart</b> (When product added to bag)<br />
+              • <b>InitiateCheckout</b> (When checkout page opens)<br />
+              • <b>Purchase</b> (When order is placed successfully)
+            </div>
+          </div>
+          <button style={{ marginTop: "16px" }} disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save Tracking Settings"}</button>
+        </form>}
+
         {activeTab === "Domains" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
-          <h2>Domains & Tracking</h2>
-          <p className="settingsHint">These saved values control storefront messaging, metadata, and analytics/pixel tracking.</p>
+          <h2>Domains & SEO</h2>
+          <p className="settingsHint">These saved values control storefront domain, www redirects, and default SEO title.</p>
           <label>Primary domain<input value={storeSettings.domainSettings?.primaryDomain || ""} onChange={(event) => updateSettingsGroup("domainSettings", { primaryDomain: event.target.value })} /></label>
           <div className="settingsOption"><div><b>www redirect</b><span>Keep the preferred public domain recorded for SEO and support links.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.domainSettings?.wwwRedirect !== false} onChange={(event) => updateSettingsGroup("domainSettings", { wwwRedirect: event.target.checked })} /> Enabled</label></div>
-          <div className="formRow"><label>SEO title<input value={storeSettings.domainSettings?.seoTitle || ""} onChange={(event) => updateSettingsGroup("domainSettings", { seoTitle: event.target.value })} /></label><label>Analytics measurement ID (GA4)<input value={storeSettings.domainSettings?.analyticsMeasurementId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { analyticsMeasurementId: event.target.value })} placeholder="G-..." /></label></div>
-          <div className="formRow"><label>Meta (Facebook) Pixel ID<input value={storeSettings.domainSettings?.metaPixelId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { metaPixelId: event.target.value })} placeholder="e.g. 5621950704696012" /></label></div>
-          <label>Meta Conversions API (CAPI) Access Token<textarea rows="3" value={storeSettings.domainSettings?.metaCapiAccessToken || ""} onChange={(event) => updateSettingsGroup("domainSettings", { metaCapiAccessToken: event.target.value })} placeholder="EAAN... (Paste your Meta System User Access Token here)" style={{ fontFamily: "monospace", fontSize: "12px" }} /></label>
-          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save domain & tracking settings"}</button>
+          <label>SEO title<input value={storeSettings.domainSettings?.seoTitle || ""} onChange={(event) => updateSettingsGroup("domainSettings", { seoTitle: event.target.value })} /></label>
+          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save domain settings"}</button>
         </form>}
 
         {activeTab === "SizeChart" && (
@@ -6424,6 +6443,7 @@ function settingsTabHint(tab) {
   return {
     Store: "Details",
     Sections: "Page builder",
+    Tracking: "Meta Pixel & CAPI",
     SizeChart: "Measurements",
     Payments: "COD, bank",
     Shipping: "Zones, rates",
