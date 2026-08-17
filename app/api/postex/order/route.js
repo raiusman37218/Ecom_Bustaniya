@@ -519,160 +519,46 @@ export async function POST(request) {
           `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
           `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
         ].join(" "),
-    });
-
-    const responseBody = {
-      success: true,
-      orderRef: reservedOrder.order_number,
-      trackingNumber: "",
-      paymentMethod: paymentAmounts.paymentMethod,
-      paymentStatus: "Awaiting Payment",
-      productSubtotal: paymentAmounts.productSubtotal,
-      deliveryCharges: paymentAmounts.deliveryCharges,
-      totalOrderValue: paymentAmounts.totalOrderValue,
-      amountPayableInAdvance: paymentAmounts.amountPayableInAdvance,
-      amountPayableOnDelivery: paymentAmounts.amountPayableOnDelivery,
-      postexCollectionAmount: paymentAmounts.courierCollectionAmount,
-      paymentDetails,
-      courierBooked: false,
-      courierMessage: "Courier booking will start after payment verification.",
-      emailSent: false,
-    };
-    activeCheckoutFingerprints.set(duplicateKey, {
-      expiresAt: Date.now() + DUPLICATE_ORDER_WINDOW_MS,
-      order: responseBody,
-    });
-    keepDuplicateGuard = true;
-    reservedOrder = null;
-    return NextResponse.json(responseBody);
-
-    const postexCollectionAmount = paymentMethod === "full_advance" ? 0 : Number(reservedOrder.total);
-    const courier = await getCourierAdapter("postex");
-    const courierConfigured = courier.configured;
-
-    const postexPayload = {
-      orderRefNumber: reservedOrder.order_number,
-      invoicePayment: String(postexCollectionAmount),
-      orderDetail: verifiedItems
-        .map((item) => `${item.name} x${item.quantity}`)
-        .join(", ")
-        .slice(0, 500),
-      customerName: fullName,
-      customerPhone: courierPhone,
-      deliveryAddress,
-      transactionNotes: [
-        paymentMethod === "full_advance"
-          ? "Payment: Bank deposit / advance - collect Rs. 0"
-          : "Payment: Cash on Delivery",
-        customer.email?.trim() ? `Email: ${customer.email.trim()}` : "",
-        customer.postalCode?.trim()
-          ? `Postal code: ${customer.postalCode.trim()}`
-          : "",
-      ]
-        .filter(Boolean)
-        .join(" | "),
-      cityName: customer.city.trim(),
-      invoiceDivision: 1,
-      items: Math.max(1, Array.isArray(verifiedItems) ? verifiedItems.reduce((acc, item) => acc + Math.max(1, Number(item.quantity || 1)), 0) : 1),
-      orderType: "Normal",
-      pickupAddressCode: courier.pickupAddressCode,
-    };
-
-    let completedOrder;
-    let trackingNumber;
-    let courierBooked = false;
-    let courierMessage = "";
-
-    if (courierConfigured) {
-      let postexResult;
-      try {
-        postexResult = await courier.createShipment(postexPayload);
-      } catch (courierError) {
-        const errText = String(courierError?.message || "").toLowerCase();
-        if (errText.includes("already exist") || errText.includes("duplicate") || errText.includes("already booked")) {
-          try {
-            postexResult = await courier.createShipment({
-              ...postexPayload,
-              orderRefNumber: `${postexPayload.orderRefNumber}-${Date.now().toString().slice(-4)}`
-            });
-          } catch (retryErr) {
-            courierMessage = retryErr.message;
-          }
-        } else {
-          courierMessage = courierError.message;
-        }
-      }
-
-      trackingNumber = postexTrackingNumberFromBooking(postexResult);
-
-      if (trackingNumber) {
-        completedOrder = await supabaseAdminRpc("complete_postex_booking", {
-          p_order_id: reservedOrder.order_id,
-          p_checkout_token: reservedOrder.checkout_token,
-          p_tracking_number: trackingNumber,
-          p_response: postexResult,
-        });
-        await recordShipmentState({ orderId: reservedOrder.order_id, courier, trackingNumber, rawStatus: postexResult?.dist?.transactionStatus || "Booked", serviceType: paymentMethod === "full_advance" ? "prepaid" : "COD" });
-        courierBooked = true;
-      } else {
-        courierMessage =
-          courierMessage ||
-          postexResult?.statusMessage ||
-          "PostEx booking did not return a tracking number.";
-      }
-    } else {
-      courierMessage = "PostEx API token is missing on this server.";
-    }
-
-    if (!completedOrder) {
-      const manualOrder = await completeManualCourierOrder(reservedOrder, courierMessage);
-      completedOrder = manualOrder.completedOrder;
-      trackingNumber = manualOrder.trackingNumber;
-      await recordShipmentState({ orderId: reservedOrder?.order_id, trackingNumber, rawStatus: "Manual delivery", serviceType: paymentMethod === "full_advance" ? "prepaid" : "COD", manual: true });
-    }
-
-    reservedOrder = null;
-
-    sendOrderConfirmation({
-      customer: normalizedCustomer,
-      order: completedOrder,
-      trackingNumber,
-      items: verifiedItems,
-    }).catch((emailError) => {
-      console.error("Order confirmation email failed", {
-        message: emailError?.message,
       });
-    });
 
-    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "";
-    const userAgent = req.headers.get("user-agent") || "";
-    const cookieFbp = req.cookies.get("_fbp")?.value || "";
-    const cookieFbc = req.cookies.get("_fbc")?.value || "";
+    const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "";
+    const userAgent = request.headers.get("user-agent") || "";
+    const cookieFbp = request.cookies?.get?.("_fbp")?.value || "";
+    const cookieFbc = request.cookies?.get?.("_fbc")?.value || "";
 
+    const orderNumber = reservedOrder.order_number;
+    const orderId = reservedOrder.order_id;
+    const orderTotalVal = Number(paymentAmounts.totalOrderValue || reservedOrder.total || 0);
+
+    // Send Server-Side Meta CAPI Purchase event immediately upon order creation.
+    // Uses the exact same order_number as eventId so the browser's fbq Purchase event is deduplicated by Meta.
     sendMetaCapiEvent({
       eventName: "Purchase",
-      eventId: completedOrder.order_number || completedOrder.id,
+      eventId: orderNumber || orderId,
       eventSourceUrl: "https://bustaniya.com/checkout",
       userData: {
-        phone: customer.phone,
-        email: customer.email,
-        firstName: customer.firstName || (customer.fullName || "").split(" ")[0],
-        lastName: customer.lastName || (customer.fullName || "").split(" ").slice(1).join(" "),
-        city: customer.city,
-        state: customer.province || customer.state,
+        phone: normalizedCustomer.phone,
+        email: normalizedCustomer.email,
+        firstName: normalizedCustomer.firstName,
+        lastName: normalizedCustomer.lastName,
+        city: normalizedCustomer.city,
+        state: normalizedCustomer.state || normalizedCustomer.province,
         country: "pk",
-        externalId: completedOrder.order_number || completedOrder.id,
+        externalId: orderNumber || orderId,
         fbp: cookieFbp || undefined,
         fbc: cookieFbc || undefined,
       },
       customData: {
-        value: Number(completedOrder.total || 0),
+        value: orderTotalVal,
         currency: "PKR",
-        contents: (verifiedItems || []).map((item) => ({
-          id: String(item.article_number || item.productId || item.id || ""),
+        orderId: orderNumber || orderId,
+        contentIds: verifiedItems.map((item) => String(item.articleNumber || item.productId || item.id || "")),
+        contents: verifiedItems.map((item) => ({
+          id: String(item.articleNumber || item.productId || item.id || ""),
           quantity: Number(item.quantity || 1),
           item_price: Number(item.price || 0),
         })),
+        numItems: verifiedItems.reduce((sum, item) => sum + Number(item.quantity || 1), 0),
       },
       clientIp,
       userAgent,
@@ -681,24 +567,70 @@ export async function POST(request) {
       console.error("Meta CAPI Purchase event error:", capiErr);
     });
 
-    const courierResponseBody = {
+    // Send order confirmation email asynchronously
+    sendOrderConfirmation({
+      customer: normalizedCustomer,
+      order: {
+        id: orderId,
+        order_number: orderNumber,
+        total: orderTotalVal,
+        subtotal: paymentAmounts.productSubtotal,
+        delivery: paymentAmounts.deliveryCharges,
+        payment_method: paymentAmounts.paymentMethod,
+        payment_status: "Awaiting Payment",
+      },
+      trackingNumber: "",
+      items: verifiedItems,
+    }).catch((emailError) => {
+      console.error("Order confirmation email failed", {
+        message: emailError?.message,
+      });
+    });
+
+    const responseBody = {
       success: true,
-      orderRef: completedOrder.order_number,
-      trackingNumber: completedOrder.tracking_number,
-      total: Number(completedOrder.total),
-      paymentMethod,
-      postexCollectionAmount,
-      courierBooked,
-      courierMessage,
+      orderRef: orderNumber,
+      order_number: orderNumber,
+      orderId: orderId,
+      id: orderId,
+      trackingNumber: "",
+      paymentMethod: paymentAmounts.paymentMethod,
+      paymentStatus: "Awaiting Payment",
+      productSubtotal: paymentAmounts.productSubtotal,
+      deliveryCharges: paymentAmounts.deliveryCharges,
+      totalOrderValue: paymentAmounts.totalOrderValue,
+      total: paymentAmounts.totalOrderValue,
+      amountPayableInAdvance: paymentAmounts.amountPayableInAdvance,
+      amountPayableOnDelivery: paymentAmounts.amountPayableOnDelivery,
+      postexCollectionAmount: paymentAmounts.courierCollectionAmount,
+      paymentDetails,
+      courierBooked: false,
+      courierMessage: "Courier booking will start after payment verification.",
       emailSent: true,
+      items: verifiedItems,
+      order: {
+        id: orderId,
+        order_number: orderNumber,
+        orderRef: orderNumber,
+        total: paymentAmounts.totalOrderValue,
+        subtotal: paymentAmounts.productSubtotal,
+        deliveryCharges: paymentAmounts.deliveryCharges,
+        amountPayableInAdvance: paymentAmounts.amountPayableInAdvance,
+        amountPayableOnDelivery: paymentAmounts.amountPayableOnDelivery,
+        paymentMethod: paymentAmounts.paymentMethod,
+        paymentStatus: "Awaiting Payment",
+        customer: normalizedCustomer,
+        items: verifiedItems,
+      },
     };
+
     activeCheckoutFingerprints.set(duplicateKey, {
       expiresAt: Date.now() + DUPLICATE_ORDER_WINDOW_MS,
-      order: courierResponseBody,
+      order: responseBody,
     });
     keepDuplicateGuard = true;
-
-    return NextResponse.json(courierResponseBody);
+    reservedOrder = null;
+    return NextResponse.json(responseBody);
   } catch (error) {
     if (reservedOrder) {
       await supabaseAdminRpc("release_checkout_order", {

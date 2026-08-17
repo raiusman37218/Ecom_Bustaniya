@@ -1617,11 +1617,11 @@ export default function AdminDashboard() {
         <div className="adminContent">
           {ordersError && active !== "Orders" && <div className="adminErrorBanner">{ordersError}</div>}
           {!canAccessActive && <div className="adminErrorBanner">You do not have access to this admin area.</div>}
-          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} ordersError={ordersLoadError} currentAdminUser={currentAdminUser} onRefresh={() => loadOrders()} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} />}
-          {canAccessActive && active === "Events" && <EventsStreamPanel onNavigateToSettings={() => navigateAdminSection("Settings")} />}
+          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} ordersError={ordersLoadError} currentAdminUser={currentAdminUser} onRefresh={() => loadOrders()} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.order_number || order.id); navigateAdminSection("Orders"); }} />}
+          {canAccessActive && active === "Events" && <EventsStreamPanel onNavigateToSettings={() => navigateAdminSection("Settings")} onNavigateToOrder={(orderId) => { setRequestedOrderId(orderId); navigateAdminSection("Orders"); }} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
-          {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
+          {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} onNavigateToEvents={() => navigateAdminSection("Events")} />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}
@@ -2866,7 +2866,7 @@ function formatSavedCustomOrder(order, fallback = {}) {
   };
 }
 
-function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, connected, loading, error, onRetry, onPageChange, initialSelectedId, onInitialSelectionHandled, tableDensity = "comfortable", setTableDensity }) {
+function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, connected, loading, error, onRetry, onPageChange, initialSelectedId, onInitialSelectionHandled, tableDensity = "comfortable", setTableDensity, onNavigateToEvents }) {
   const [localOrders, setLocalOrders] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [activeTab, setActiveTab] = useState("Total Orders");
@@ -2890,9 +2890,18 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
   }, [connected, rows]);
 
   useEffect(() => {
-    if (!initialSelectedId || !allRows.some((order) => order.id === initialSelectedId)) return;
-    setSelectedId(initialSelectedId);
-    onInitialSelectionHandled?.();
+    if (!initialSelectedId) return;
+    const cleanTarget = String(initialSelectedId).trim().toLowerCase().replace(/^#/, "");
+    const match = allRows.find((order) => {
+      const id1 = String(order.id || "").trim().toLowerCase().replace(/^#/, "");
+      const id2 = String(order.order_number || "").trim().toLowerCase().replace(/^#/, "");
+      const id3 = String(order.rawId || "").trim().toLowerCase();
+      return id1 === cleanTarget || id2 === cleanTarget || id3 === cleanTarget;
+    });
+    if (match) {
+      setSelectedId(match.id);
+      onInitialSelectionHandled?.();
+    }
   }, [allRows, initialSelectedId, onInitialSelectionHandled]);
 
   const orderStatusCounts = useMemo(() => orderCategoryLabels.map((label) => ({
@@ -3069,7 +3078,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       {pagination?.totalPages > 1 && <div className="ordersPagination"><button disabled={pagination.page <= 1} onClick={() => onPageChange(pagination.page - 1)}>Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button disabled={pagination.page >= pagination.totalPages} onClick={() => onPageChange(pagination.page + 1)}>Next</button></div>}
     </section>
     {showDraft && <DraftOrderDialog products={products} onClose={() => setShowDraft(false)} onCreate={createDraft} />}
-    {selectedOrder && <OrderDetailDrawer order={selectedOrder} onClose={() => setSelectedId("")} onUpdate={persistOrderUpdate} canRecordRefund={currentAdminUser?.role === "Owner"} />}
+    {selectedOrder && <OrderDetailDrawer order={selectedOrder} onClose={() => setSelectedId("")} onUpdate={persistOrderUpdate} canRecordRefund={currentAdminUser?.role === "Owner"} onNavigateToEvents={onNavigateToEvents} />}
     </>}
   </>;
 }
@@ -5011,7 +5020,7 @@ function DraftOrderDialog({ products = [], onClose, onCreate }) {
   </form></>;
 }
 
-function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
+function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNavigateToEvents }) {
   const [tracking, setTracking] = useState(order.tracking || "");
   const [orderStage, setOrderStage] = useState(order.postexStatus || order.status || "Un-Assigned By Me");
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || "COD pending");
@@ -5028,11 +5037,40 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
   const [refundMethod, setRefundMethod] = useState(order.operation?.refundMethod || "");
   const [saving, setSaving] = useState(false);
   const [bookingPostex, setBookingPostex] = useState(false);
+  const [resyncingCapi, setResyncingCapi] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const items = normalizeOrderItems(order);
   const returnStatusOptions = returnWorkflowTransitions[order.operation?.returnStatus || "No return"] || [returnStatus];
   const restoringReturnedStock = order.operation?.returnStatus !== "Return received" && returnStatus === "Return received";
+
+  async function resyncOrderMetaPurchase() {
+    if (resyncingCapi || saving) return;
+    setResyncingCapi(true);
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      const orderRef = order.order_number || String(order.id).replace(/^#/, "");
+      const response = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "sync_order_purchase",
+          orderId: orderRef,
+          orderData: order,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || result.capiResult?.error || "Meta CAPI dispatch was not accepted.");
+      }
+      setSaveMessage(`✅ Meta Purchase event dispatched successfully for order ${orderRef}! (Event ID: ${result.orderRef}, 200 OK)`);
+    } catch (err) {
+      setSaveError(`Meta CAPI error: ${err.message}`);
+    } finally {
+      setResyncingCapi(false);
+    }
+  }
 
   function changes(overrides = {}) {
     return {
@@ -5237,6 +5275,35 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
         <div className="formRow"><label>Transaction / reference ID<input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder="Bank transfer reference, if provided" /></label><label>Verification status<select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Awaiting Payment</option><option>Proof Submitted</option><option>Payment Verified</option><option>Payment Rejected</option></select></label></div>
         <div className="orderActionRow"><button type="button" onClick={() => { setPaymentStatus("Proof Submitted"); saveChanges({ paymentStatus: "Proof Submitted", paymentReference }); }} disabled={saving}>Mark proof submitted</button><button type="button" onClick={() => { setPaymentStatus("Payment Verified"); setFulfillmentStatus("Packing"); saveChanges({ paymentStatus: "Payment Verified", paymentReference, fulfillmentStatus: "Packing", confirmationStatus: "Confirmed" }); }} disabled={saving}>Verify & confirm</button><button type="button" className="dangerButton" onClick={() => { setPaymentStatus("Payment Rejected"); saveChanges({ paymentStatus: "Payment Rejected", paymentReference, confirmationStatus: "Payment rejected" }); }} disabled={saving}>Reject payment</button></div>
         <p className="shippingRuleHint">Verify only after checking the bank or wallet transfer. The courier must collect exactly the payable-on-delivery amount shown above.</p>
+      </section>
+
+      <section className="adminCard orderOpsCard metaCapiOrderSection" style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+        <div className="inventoryListHead">
+          <div>
+            <h3>Meta Pixel &amp; Conversions API (CAPI)</h3>
+            <span>Ad conversion tracking &amp; deduplication status</span>
+          </div>
+          <span className="statusBadge activeStatus" style={{ background: "#dcfce7", color: "#166534" }}>
+            CAPI Linked
+          </span>
+        </div>
+        <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#334155" }}>
+          <div><b>Shared Event ID:</b> <code>{order.order_number || String(order.id).replace(/^#/, "")}</code></div>
+          <div><b>Tracking Trigger:</b> Qualifying order created at checkout</div>
+          <div><b>Deduplication:</b> Browser Pixel + Server CAPI matched on <code>event_id</code></div>
+          <div><b>Conversion Value:</b> Rs. {Number(order.total || 0).toLocaleString()} (PKR)</div>
+          <div><b>Customer Identifiers:</b> Hashed Pakistani mobile (923...), city, province, browser cookie (_fbp)</div>
+        </div>
+        <div className="orderActionRow" style={{ marginTop: "12px" }}>
+          {onNavigateToEvents && (
+            <button type="button" onClick={() => onNavigateToEvents(order.order_number || order.id)}>
+              🔍 View in Events log
+            </button>
+          )}
+          <button type="button" className="editProductButton" onClick={resyncOrderMetaPurchase} disabled={resyncingCapi || saving}>
+            {resyncingCapi ? "Dispatching..." : "⚡ Re-sync Meta Purchase"}
+          </button>
+        </div>
       </section>
 
       <section className="adminCard orderOpsCard">
@@ -5519,7 +5586,7 @@ function eventsTimeAgo(isoString) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function EventsStreamPanel({ onNavigateToSettings }) {
+function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
   const [days, setDays] = useState("7");
   const [eventName, setEventName] = useState("");
   const [events, setEvents] = useState([]);
@@ -5817,6 +5884,43 @@ function EventsStreamPanel({ onNavigateToSettings }) {
       <article><Users /><span><b>{summary?.emq?.score ? `${summary.emq.score}/10` : (summary?.matchRate != null ? `${summary.matchRate}%` : "9.2/10")}</b>SHA-256 match rate (EMQ)</span></article>
     </section>
 
+    {/* Revenue & Business Conversion Reconciliation Matrix */}
+    <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "16px 18px", marginBottom: "16px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "10px" }}>
+        <div>
+          <b style={{ fontSize: "14px", color: "#0f172a" }}>💰 Revenue &amp; Business Conversion Reconciliation</b>
+          <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748b" }}>
+            Meta Gross Ad Conversions reconciled with operational returns and refunds for honest P&amp;L reporting.
+          </p>
+        </div>
+        <span style={{ fontSize: "11px", fontWeight: 600, background: "#ede9fe", color: "#6d28d9", padding: "4px 8px", borderRadius: "4px", border: "1px solid #ddd6fe" }}>
+          PKR Reconciled
+        </span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px" }}>
+        <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 12px" }}>
+          <div style={{ fontSize: "11px", color: "#64748b" }}>Gross Purchases (Meta Ad Conversions)</div>
+          <b style={{ fontSize: "16px", color: "#16a34a" }}>Rs. {(summary?.revenue?.grossPurchases ?? purchaseValue ?? 0).toLocaleString()}</b>
+          <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>{counts.Purchase || 0} qualifying order{counts.Purchase === 1 ? "" : "s"} placed</div>
+        </div>
+        <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 12px" }}>
+          <div style={{ fontSize: "11px", color: "#64748b" }}>Refunds &amp; Returns Deductions</div>
+          <b style={{ fontSize: "16px", color: (summary?.revenue?.refundsValue || 0) > 0 ? "#dc2626" : "#64748b" }}>
+            - Rs. {(summary?.revenue?.refundsValue || 0).toLocaleString()}
+          </b>
+          <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>{summary?.revenue?.refundsCount || 0} refunded, {summary?.revenue?.returnsCount || 0} returned</div>
+        </div>
+        <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 12px" }}>
+          <div style={{ fontSize: "11px", color: "#64748b" }}>Net Realized Business Revenue</div>
+          <b style={{ fontSize: "16px", color: "#2563eb" }}>Rs. {(summary?.revenue?.netRevenue ?? purchaseValue ?? 0).toLocaleString()}</b>
+          <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>Reconciled actual realized sales</div>
+        </div>
+      </div>
+      <div style={{ fontSize: "11px", color: "#475569", background: "#f1f5f9", padding: "6px 10px", borderRadius: "6px", border: "1px solid #e2e8f0", marginTop: "10px" }}>
+        📌 <b>Agreed Business Definition:</b> Purchase fires immediately when a qualifying COD or Advance-Payment order is committed at checkout. Returns and refunds are subtracted from gross conversions to maintain clean, non-misleading P&amp;L reporting.
+      </div>
+    </div>
+
     {/* Event Match Quality (EMQ) Diagnostic & Completeness Matrix */}
     <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "16px 18px", marginBottom: "16px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "12px" }}>
@@ -6010,7 +6114,26 @@ function EventsStreamPanel({ onNavigateToSettings }) {
                       </span>
                     )}
                   </td>
-                  <td><small className="trackingNumber">{event.maskedEventId || event.event_id || "—"}</small></td>
+                  <td>
+                    <small className="trackingNumber">
+                      {event.orderRef ? (
+                        <button
+                          type="button"
+                          className="inlineLinkButton"
+                          style={{ fontWeight: 600, color: "#166534", textDecoration: "underline", cursor: "pointer" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigateToOrder?.(event.orderRef);
+                          }}
+                          title="Inspect linked customer order in Admin > Orders"
+                        >
+                          #{event.orderRef} ↗
+                        </button>
+                      ) : (
+                        event.maskedEventId || event.event_id || "—"
+                      )}
+                    </small>
+                  </td>
                   <td>{event.value ? `Rs. ${Number(event.value).toLocaleString()}` : "—"}</td>
                   <td>
                     {hasPii ? (
@@ -6043,6 +6166,46 @@ function EventsStreamPanel({ onNavigateToSettings }) {
         <aside className="workspaceDrawer">
           <header><div><p>Meta Pixel / CAPI</p><h2>{selectedEvent.event_name} event</h2></div><button onClick={() => setSelectedEvent(null)}><X /></button></header>
           <div className="workspaceBody" style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+            {selectedEvent.orderRef && (
+              <section className="adminCard orderItemsCard" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+                <div className="inventoryListHead">
+                  <div>
+                    <h3>Linked Store Order</h3>
+                    <span>Order #{selectedEvent.orderRef}</span>
+                  </div>
+                  {selectedEvent.linkedOrder && (
+                    <span className="statusBadge activeStatus">
+                      {selectedEvent.linkedOrder.status || selectedEvent.linkedOrder.payment_status || "Active"}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#166534" }}>
+                  <div><b>Order Reference:</b> #{selectedEvent.orderRef}</div>
+                  {selectedEvent.linkedOrder ? (
+                    <>
+                      <div><b>Payment Status:</b> {selectedEvent.linkedOrder.payment_status || "Awaiting Payment"}</div>
+                      <div><b>Fulfillment Status:</b> {selectedEvent.linkedOrder.fulfillment_status || selectedEvent.linkedOrder.courier_status || "Pending"}</div>
+                      <div><b>Order Total:</b> Rs. {Number(selectedEvent.linkedOrder.total_pkr || selectedEvent.value || 0).toLocaleString()}</div>
+                    </>
+                  ) : (
+                    <div><b>Operational State:</b> Order placed &amp; recorded in store</div>
+                  )}
+                </div>
+                {onNavigateToOrder && (
+                  <button
+                    type="button"
+                    style={{ marginTop: "12px", padding: "8px 14px", background: "#166534", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 600, fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                    onClick={() => {
+                      setSelectedEvent(null);
+                      onNavigateToOrder(selectedEvent.orderRef);
+                    }}
+                  >
+                    📦 Inspect Linked Order #{selectedEvent.orderRef} →
+                  </button>
+                )}
+              </section>
+            )}
+
             <section className="adminCard orderItemsCard">
               <h3>Delivery status</h3>
               <div style={{ fontSize: "13px", lineHeight: 1.8, color: "#374151" }}>

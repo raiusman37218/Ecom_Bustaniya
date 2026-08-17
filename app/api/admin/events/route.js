@@ -204,6 +204,71 @@ export async function POST(request) {
       });
     }
 
+    // Action: Re-sync / Dispatch Meta Purchase for a specific order safely and idempotently
+    if (action === "sync_order_purchase") {
+      const targetOrderId = body.orderId || body.orderRef;
+      if (!targetOrderId) {
+        return NextResponse.json({ error: "Missing orderId or orderRef." }, { status: 400 });
+      }
+
+      const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "";
+      const userAgent = request.headers.get("user-agent") || "";
+      const order = body.orderData || {};
+
+      const fullName = order.customer || order.shipping_full_name || order.guest_name || "Customer";
+      const [firstName, ...lastNameParts] = fullName.split(/\s+/);
+      const lastName = lastNameParts.join(" ") || undefined;
+      const phone = order.phone || order.shipping_phone || order.guest_phone || "";
+      const email = order.email || order.shipping_email || order.guest_email || "";
+      const city = order.city || order.shipping_city || "";
+      const totalVal = Number(order.total || order.total_pkr || 0);
+      const orderRef = order.order_number || String(order.id || targetOrderId).replace(/^#/, "");
+      const items = Array.isArray(order.items) ? order.items : [];
+
+      const capiResult = await sendMetaCapiEvent({
+        eventName: "Purchase",
+        eventId: orderRef,
+        eventSourceUrl: "https://bustaniya.com/checkout",
+        userData: {
+          phone,
+          email,
+          firstName,
+          lastName,
+          city,
+          country: "pk",
+          externalId: orderRef,
+        },
+        customData: {
+          value: totalVal,
+          currency: "PKR",
+          orderId: orderRef,
+          contentIds: items.map((item) => String(item.article_number || item.productId || item.sku || item.id || "")),
+          contents: items.map((item) => ({
+            id: String(item.article_number || item.productId || item.sku || item.id || ""),
+            quantity: Number(item.quantity || 1),
+            item_price: Number(item.price || 0),
+          })),
+          numItems: items.reduce((sum, item) => sum + Number(item.quantity || 1), 0) || 1,
+        },
+        clientIp,
+        userAgent,
+        triggeredBy: "server",
+      });
+
+      const [events, summary] = await Promise.all([
+        getRecentPixelEvents({ limit: body.limit || 150, eventName: "" }),
+        getPixelFunnelSummary({ days }),
+      ]);
+
+      return NextResponse.json({
+        success: capiResult.success,
+        capiResult,
+        orderRef,
+        events,
+        summary,
+      });
+    }
+
     // Default: Load filtered events and summary
     const [events, summary] = await Promise.all([
       getRecentPixelEvents({ limit: body.limit || 150, eventName: eventName === "All" ? "" : eventName }),

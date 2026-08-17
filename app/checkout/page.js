@@ -438,7 +438,7 @@ export default function CheckoutPage() {
         paymentStatus: result.paymentStatus || "Awaiting Payment",
       };
 
-      const orderEventId = createdOrder.order_number || createdOrder.id || `order-${Date.now()}`;
+      const orderEventId = createdOrder.order_number || createdOrder.orderRef || createdOrder.orderId || createdOrder.id || `BST-${Date.now()}`;
       const totalOrderVal = Number(createdOrder.total || paymentAmounts.totalOrderValue || 0);
       const orderContentIds = (createdOrder.items || cart).map((item) => String(item.article_number || item.articleNumber || item.productId || item.id || ""));
       const orderContents = (createdOrder.items || cart).map((item) => ({
@@ -447,6 +447,14 @@ export default function CheckoutPage() {
         item_price: Number(item.price || 0),
       }));
       const orderNumItems = (createdOrder.items || cart).reduce((sum, item) => sum + Number(item.quantity || 1), 0);
+
+      // Save consented customer profile for browser tracking persistence
+      saveConsentedCustomerData({
+        phone: form.phone,
+        email: form.email,
+        name: form.fullName || form.name,
+        city: form.city,
+      });
 
       trackEvent("Purchase", {
         eventId: orderEventId,
@@ -457,10 +465,12 @@ export default function CheckoutPage() {
           lastName: (form.fullName || form.name || "").split(" ").slice(1).join(" ") || undefined,
           city: form.city,
           country: "pk",
+          externalId: orderEventId,
         },
         customData: {
           value: totalOrderVal,
           currency: "PKR",
+          orderId: orderEventId,
           contentIds: orderContentIds,
           contents: orderContents,
           numItems: orderNumItems,
