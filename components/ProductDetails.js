@@ -73,14 +73,31 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   }, []);
 
   useEffect(() => {
-    if (product && typeof window !== "undefined" && window.fbq) {
-      window.fbq("track", "ViewContent", {
-        content_name: product.name,
-        content_ids: [String(product.article_number || product.articleNumber || product.id || "")],
-        content_type: "product",
-        value: Number(product.price || 0),
-        currency: "PKR",
-      });
+    if (product && typeof window !== "undefined") {
+      if (window.fbq) {
+        window.fbq("track", "ViewContent", {
+          content_name: product.name,
+          content_ids: [String(product.article_number || product.articleNumber || product.id || "")],
+          content_type: "product",
+          value: Number(product.price || 0),
+          currency: "PKR",
+        });
+      }
+      fetch("/api/meta-capi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventName: "ViewContent",
+          eventSourceUrl: window.location.href,
+          customData: {
+            contentName: product.name,
+            contentIds: [String(product.article_number || product.articleNumber || product.id || "")],
+            contentType: "product",
+            value: Number(product.price || 0),
+            currency: "PKR",
+          },
+        }),
+      }).catch(() => {});
     }
   }, [product?.id]);
 
@@ -98,14 +115,31 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
   function addToBag({ openDrawer = true } = {}) {
     if (outOfStock) return;
-    if (typeof window !== "undefined" && window.fbq) {
-      window.fbq("track", "AddToCart", {
-        content_name: product.name,
-        content_ids: [String(product.article_number || product.articleNumber || product.id || "")],
-        content_type: "product",
-        value: Number(product.price || 0) * quantity,
-        currency: "PKR",
-      });
+    if (typeof window !== "undefined") {
+      if (window.fbq) {
+        window.fbq("track", "AddToCart", {
+          content_name: product.name,
+          content_ids: [String(product.article_number || product.articleNumber || product.id || "")],
+          content_type: "product",
+          value: Number(product.price || 0) * quantity,
+          currency: "PKR",
+        });
+      }
+      fetch("/api/meta-capi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventName: "AddToCart",
+          eventSourceUrl: window.location.href,
+          customData: {
+            contentName: product.name,
+            contents: [{ id: String(product.article_number || product.articleNumber || product.id || ""), quantity, item_price: Number(product.price || 0) }],
+            numItems: quantity,
+            value: Number(product.price || 0) * quantity,
+            currency: "PKR",
+          },
+        }),
+      }).catch(() => {});
     }
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id && item.size === size);

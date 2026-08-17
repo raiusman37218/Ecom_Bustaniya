@@ -164,14 +164,31 @@ export default function Home({
 
   function addToCart(product, size = "S", qty = 1) {
     if (Number(product.stock || 0) <= 0) return;
-    if (typeof window !== "undefined" && window.fbq) {
-      window.fbq("track", "AddToCart", {
-        content_name: product.name,
-        content_ids: [String(product.article_number || product.articleNumber || product.id || "")],
-        content_type: "product",
-        value: Number(product.price || 0) * qty,
-        currency: "PKR",
-      });
+    if (typeof window !== "undefined") {
+      if (window.fbq) {
+        window.fbq("track", "AddToCart", {
+          content_name: product.name,
+          content_ids: [String(product.article_number || product.articleNumber || product.id || "")],
+          content_type: "product",
+          value: Number(product.price || 0) * qty,
+          currency: "PKR",
+        });
+      }
+      fetch("/api/meta-capi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventName: "AddToCart",
+          eventSourceUrl: window.location.href,
+          customData: {
+            contentName: product.name,
+            contents: [{ id: String(product.article_number || product.articleNumber || product.id || ""), quantity: qty, item_price: Number(product.price || 0) }],
+            numItems: qty,
+            value: Number(product.price || 0) * qty,
+            currency: "PKR",
+          },
+        }),
+      }).catch(() => {});
     }
     setCart((current) => {
       const found = current.find((item) => item.id === product.id && item.size === size);

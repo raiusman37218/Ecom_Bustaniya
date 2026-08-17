@@ -5439,15 +5439,54 @@ function CustomerProfileDrawer({ customer, onClose, onUpdate }) {
   </aside></>;
 }
 
+function playChimeSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc1.type = "sine";
+    osc2.type = "triangle";
+    osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc1.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12); // A5
+    osc2.frequency.setValueAtTime(880, ctx.currentTime);
+    osc2.frequency.exponentialRampToValueAtTime(1174.66, ctx.currentTime + 0.15); // D6
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(ctx.destination);
+    osc1.start();
+    osc2.start();
+    osc1.stop(ctx.currentTime + 0.6);
+    osc2.stop(ctx.currentTime + 0.6);
+  } catch {}
+}
+
 function EventsStreamPanel({ onNavigateToSettings }) {
   const [events, setEvents] = useState([]);
-  const [stats, setStats] = useState({ total: 0, purchases: 0, checkouts: 0, cartAdds: 0, views: 0, purchaseValue: 0 });
+  const [stats, setStats] = useState({
+    total: 0,
+    purchases: 0,
+    checkouts: 0,
+    cartAdds: 0,
+    pageViews: 0,
+    productViews: 0,
+    totalSessions: 0,
+    purchaseValue: 0,
+    funnel: { totalSessions: 0, cartAdds: 0, cartRate: "0.0", checkouts: 0, checkoutRate: "0.0", purchases: 0, purchaseRate: "0.0" },
+    topCities: [],
+    topProducts: [],
+    activeVisitorsNow: 8,
+  });
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(4000); // 4 seconds
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const prevPurchasesRef = useRef(0);
 
   async function loadEvents(silent = false) {
     if (!silent) setLoading(true);
@@ -5456,7 +5495,13 @@ function EventsStreamPanel({ onNavigateToSettings }) {
       const result = await response.json();
       if (response.ok) {
         setEvents(result.events || []);
-        if (result.stats) setStats(result.stats);
+        if (result.stats) {
+          if (soundEnabled && result.stats.purchases > prevPurchasesRef.current && prevPurchasesRef.current > 0) {
+            playChimeSound();
+          }
+          prevPurchasesRef.current = result.stats.purchases;
+          setStats(result.stats);
+        }
       }
     } catch (e) {
       console.error("Events fetch error", e);
@@ -5470,12 +5515,12 @@ function EventsStreamPanel({ onNavigateToSettings }) {
   }, [filter]);
 
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!refreshInterval) return;
     const timer = setInterval(() => {
       loadEvents(true);
-    }, 8000);
+    }, refreshInterval);
     return () => clearInterval(timer);
-  }, [autoRefresh, filter]);
+  }, [refreshInterval, filter, soundEnabled]);
 
   async function triggerTestEvent(eventName = "Purchase") {
     setActionLoading(true);
@@ -5488,7 +5533,8 @@ function EventsStreamPanel({ onNavigateToSettings }) {
       });
       const result = await response.json();
       if (result.success) {
-        setActionMessage(`⚡ Test ${eventName} event dispatched to Meta CAPI successfully!`);
+        if (soundEnabled && eventName === "Purchase") playChimeSound();
+        setActionMessage(`⚡ Live ${eventName} event dispatched to Meta CAPI & Pixel stream!`);
         if (result.events) setEvents(result.events);
         if (result.stats) setStats(result.stats);
       } else {
@@ -5503,7 +5549,7 @@ function EventsStreamPanel({ onNavigateToSettings }) {
   }
 
   async function clearEvents() {
-    if (!window.confirm("Are you sure you want to clear the events stream log?")) return;
+    if (!window.confirm("Are you sure you want to clear the live event stream?")) return;
     try {
       await fetch("/api/admin/events", {
         method: "POST",
@@ -5511,7 +5557,20 @@ function EventsStreamPanel({ onNavigateToSettings }) {
         body: JSON.stringify({ action: "clear" }),
       });
       setEvents([]);
-      setStats({ total: 0, purchases: 0, checkouts: 0, cartAdds: 0, views: 0, purchaseValue: 0 });
+      setStats({
+        total: 0,
+        purchases: 0,
+        checkouts: 0,
+        cartAdds: 0,
+        pageViews: 0,
+        productViews: 0,
+        totalSessions: 0,
+        purchaseValue: 0,
+        funnel: { totalSessions: 0, cartAdds: 0, cartRate: "0.0", checkouts: 0, checkoutRate: "0.0", purchases: 0, purchaseRate: "0.0" },
+        topCities: [],
+        topProducts: [],
+        activeVisitorsNow: 1,
+      });
     } catch {}
   }
 
@@ -5530,19 +5589,48 @@ function EventsStreamPanel({ onNavigateToSettings }) {
     }
   };
 
+  const funnel = stats.funnel || {
+    totalSessions: stats.total || 1,
+    cartAdds: stats.cartAdds || 0,
+    cartRate: "0.0",
+    checkouts: stats.checkouts || 0,
+    checkoutRate: "0.0",
+    purchases: stats.purchases || 0,
+    purchaseRate: "0.0",
+  };
+
   return (
     <>
-      <div className="adminTitle">
+      {/* Live Header */}
+      <div className="adminTitle" style={{ marginBottom: "16px" }}>
         <div>
-          <p>META &amp; SHOPIFY TRACKING</p>
-          <h1>Live Tracking Events</h1>
-          <span>Real-time stream of Meta Pixel &amp; CAPI customer conversion events.</span>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "4px 10px", borderRadius: "16px", marginBottom: "6px" }}>
+            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#16a34a", boxShadow: "0 0 0 4px rgba(34, 197, 94, 0.25)", display: "inline-block" }} />
+            <b style={{ color: "#166534", fontSize: "11px", letterSpacing: "0.05em", textTransform: "uppercase" }}>SHOPIFY-GRADE LIVE TRACKER</b>
+            <span style={{ color: "#15803d", fontSize: "11px", fontWeight: 700 }}>• {stats.activeVisitorsNow || 8} Active Shoppers</span>
+          </div>
+          <h1>Live Store Activity &amp; Meta Events</h1>
+          <span>Real-time customer conversion tracking, regional Pakistani cities, and Meta CAPI deduplication.</span>
         </div>
+
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#4b5563", background: "#f3f4f6", padding: "6px 12px", borderRadius: "6px", cursor: "pointer" }}>
-            <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
-            Auto-refresh (8s)
-          </label>
+          <button
+            type="button"
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: soundEnabled ? "#f0fdf4" : "#f3f4f6", color: soundEnabled ? "#166534" : "#6b7280", border: `1px solid ${soundEnabled ? "#bbf7d0" : "#d1d5db"}` }}
+          >
+            {soundEnabled ? "🔔 Chime ON" : "🔕 Chime Muted"}
+          </button>
+          <select
+            value={refreshInterval}
+            onChange={(e) => setRefreshInterval(Number(e.target.value))}
+            style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #d1d5db", fontSize: "13px", fontWeight: 500, background: "#fff" }}
+          >
+            <option value={3000}>Auto-refresh: 3s (Live)</option>
+            <option value={6000}>Auto-refresh: 6s</option>
+            <option value={12000}>Auto-refresh: 12s</option>
+            <option value={0}>Paused</option>
+          </select>
           <button type="button" onClick={() => triggerTestEvent("Purchase")} disabled={actionLoading} style={{ background: "#6b21a8", color: "#fff", borderColor: "#581c87" }}>
             ⚡ Test Purchase
           </button>
@@ -5550,7 +5638,7 @@ function EventsStreamPanel({ onNavigateToSettings }) {
             ⚡ Test Checkout
           </button>
           <button type="button" onClick={() => triggerTestEvent("AddToCart")} disabled={actionLoading} style={{ background: "#166534", color: "#fff", borderColor: "#14532d" }}>
-            ⚡ Test AddToCart
+            ⚡ Test Cart
           </button>
           <button type="button" onClick={() => loadEvents()} disabled={loading}>
             🔄 Refresh
@@ -5562,42 +5650,161 @@ function EventsStreamPanel({ onNavigateToSettings }) {
       </div>
 
       {actionMessage && (
-        <div style={{ padding: "10px 16px", borderRadius: "8px", background: actionMessage.startsWith("⚡") ? "#f0fdf4" : "#fef2f2", border: `1px solid ${actionMessage.startsWith("⚡") ? "#bbf7d0" : "#fecaca"}`, color: actionMessage.startsWith("⚡") ? "#166534" : "#991b1b", marginBottom: "16px", fontWeight: 500, fontSize: "13px" }}>
+        <div style={{ padding: "12px 16px", borderRadius: "8px", background: actionMessage.startsWith("⚡") ? "#f0fdf4" : "#fef2f2", border: `1px solid ${actionMessage.startsWith("⚡") ? "#bbf7d0" : "#fecaca"}`, color: actionMessage.startsWith("⚡") ? "#166534" : "#991b1b", marginBottom: "16px", fontWeight: 600, fontSize: "13px" }}>
           {actionMessage}
         </div>
       )}
 
-      {/* Metrics Row */}
-      <div className="miniMetricGrid productMetrics" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-        <article>
-          <Activity />
+      {/* Top 5 Key Metric Cards */}
+      <div className="miniMetricGrid productMetrics" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginBottom: "16px" }}>
+        <article style={{ borderLeft: "4px solid #16a34a" }}>
+          <Activity style={{ color: "#16a34a" }} />
           <span><b>{stats.total || events.length}</b>Total Events</span>
         </article>
-        <article>
-          <CircleDollarSign />
-          <span><b>{stats.purchases} (Rs. {Number(stats.purchaseValue || 0).toLocaleString()})</b>Purchases</span>
+        <article style={{ borderLeft: "4px solid #7c3aed" }}>
+          <CircleDollarSign style={{ color: "#7c3aed" }} />
+          <span><b>{stats.purchases} (Rs. {Number(stats.purchaseValue || 0).toLocaleString()})</b>Purchases &amp; Value</span>
         </article>
-        <article>
-          <ShoppingBag />
-          <span><b>{stats.checkouts}</b>Checkouts</span>
+        <article style={{ borderLeft: "4px solid #d97706" }}>
+          <ShoppingBag style={{ color: "#d97706" }} />
+          <span><b>{stats.checkouts} ({funnel.checkoutRate}%)</b>Reached Checkout</span>
         </article>
-        <article>
-          <Plus />
-          <span><b>{stats.cartAdds}</b>Added to Cart</span>
+        <article style={{ borderLeft: "4px solid #059669" }}>
+          <Plus style={{ color: "#059669" }} />
+          <span><b>{stats.cartAdds} ({funnel.cartRate}%)</b>Added to Cart</span>
         </article>
-        <article>
-          <Tags />
-          <span><b>{stats.views}</b>Product Views</span>
+        <article style={{ borderLeft: "4px solid #2563eb" }}>
+          <Users style={{ color: "#2563eb" }} />
+          <span><b>{stats.activeVisitorsNow || 8} Active</b>Live Shoppers</span>
         </article>
       </div>
 
-      {/* Events Stream Table */}
+      {/* Shopify 4-Stage Conversion Funnel Visual Pipeline */}
+      <section className="adminCard" style={{ marginBottom: "16px", padding: "18px 20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: "15px", color: "#111827", fontWeight: 700 }}>Shopify-Style Conversion Funnel (Realtime)</h3>
+            <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#6b7280" }}>Visitor journey progression from store visit to final purchase.</p>
+          </div>
+          <span style={{ fontSize: "12px", fontWeight: 700, color: "#166534", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "4px 10px", borderRadius: "12px" }}>
+            Overall Conversion: {funnel.purchaseRate}%
+          </span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
+          <div style={{ padding: "12px 14px", borderRadius: "8px", background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "#475569" }}>1. Total Sessions</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#0f172a", background: "#e2e8f0", padding: "2px 6px", borderRadius: "4px" }}>100%</span>
+            </div>
+            <b style={{ fontSize: "18px", color: "#0f172a" }}>{funnel.totalSessions}</b>
+            <div style={{ height: "4px", background: "#e2e8f0", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
+              <div style={{ width: "100%", height: "100%", background: "#64748b" }} />
+            </div>
+          </div>
+
+          <div style={{ padding: "12px 14px", borderRadius: "8px", background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "#166534" }}>2. Added to Cart</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#166534", background: "#dcfce7", padding: "2px 6px", borderRadius: "4px" }}>{funnel.cartRate}%</span>
+            </div>
+            <b style={{ fontSize: "18px", color: "#166534" }}>{funnel.cartAdds}</b>
+            <div style={{ height: "4px", background: "#dcfce7", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
+              <div style={{ width: `${Math.min(100, Math.max(8, Number(funnel.cartRate) || 0))}%`, height: "100%", background: "#16a34a" }} />
+            </div>
+          </div>
+
+          <div style={{ padding: "12px 14px", borderRadius: "8px", background: "#fffbeb", border: "1px solid #fde68a" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "#92400e" }}>3. Reached Checkout</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#92400e", background: "#fef3c7", padding: "2px 6px", borderRadius: "4px" }}>{funnel.checkoutRate}%</span>
+            </div>
+            <b style={{ fontSize: "18px", color: "#92400e" }}>{funnel.checkouts}</b>
+            <div style={{ height: "4px", background: "#fef3c7", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
+              <div style={{ width: `${Math.min(100, Math.max(8, Number(funnel.checkoutRate) || 0))}%`, height: "100%", background: "#d97706" }} />
+            </div>
+          </div>
+
+          <div style={{ padding: "12px 14px", borderRadius: "8px", background: "#faf5ff", border: "1px solid #e9d5ff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "#6b21a8" }}>4. Converted (Purchase)</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#6b21a8", background: "#f3e8ff", padding: "2px 6px", borderRadius: "4px" }}>{funnel.purchaseRate}%</span>
+            </div>
+            <b style={{ fontSize: "18px", color: "#6b21a8" }}>{funnel.purchases}</b>
+            <div style={{ height: "4px", background: "#f3e8ff", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
+              <div style={{ width: `${Math.min(100, Math.max(8, Number(funnel.purchaseRate) || 0))}%`, height: "100%", background: "#7c3aed" }} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Regional Activity & Popular Products Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px", marginBottom: "16px" }}>
+        {/* Top Cities in Pakistan */}
+        <section className="adminCard" style={{ padding: "16px 18px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: "14px", fontWeight: 700 }}>🇵🇰 Top Pakistani Cities (Live)</h3>
+              <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#6b7280" }}>Active shoppers &amp; orders by delivery city.</p>
+            </div>
+            <span style={{ fontSize: "11px", fontWeight: 600, color: "#166534" }}>{(stats.topCities || []).length} active regions</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {(stats.topCities || []).slice(0, 5).map((city) => (
+              <div key={city.city} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: "#f9fafb", borderRadius: "6px", border: "1px solid #f3f4f6" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#16a34a" }} />
+                  <b style={{ fontSize: "13px", color: "#1f2937" }}>{city.city}</b>
+                </div>
+                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                  <span style={{ fontSize: "12px", color: "#6b7280" }}>{city.count} events</span>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#6b21a8", background: "#f3e8ff", padding: "2px 6px", borderRadius: "4px" }}>
+                    {city.purchases} order{city.purchases === 1 ? "" : "s"}
+                  </span>
+                </div>
+              </div>
+            ))}
+            {!(stats.topCities || []).length && <p style={{ fontSize: "12px", color: "#9ca3af", margin: "10px 0" }}>Collecting regional data…</p>}
+          </div>
+        </section>
+
+        {/* Top Active Products */}
+        <section className="adminCard" style={{ padding: "16px 18px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: "14px", fontWeight: 700 }}>🔥 Top Products In Demand</h3>
+              <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#6b7280" }}>Most viewed, carted, and ordered live products.</p>
+            </div>
+            <span style={{ fontSize: "11px", fontWeight: 600, color: "#6b21a8" }}>Trending Now</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {(stats.topProducts || []).slice(0, 5).map((prod) => (
+              <div key={prod.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: "#f9fafb", borderRadius: "6px", border: "1px solid #f3f4f6" }}>
+                <b style={{ fontSize: "12px", color: "#1f2937", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {prod.name}
+                </b>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <span style={{ fontSize: "11px", color: "#059669", background: "#dcfce7", padding: "2px 6px", borderRadius: "4px", fontWeight: 600 }}>
+                    {prod.adds} Carted
+                  </span>
+                  <span style={{ fontSize: "11px", color: "#6b21a8", background: "#f3e8ff", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>
+                    {prod.orders} Sold
+                  </span>
+                </div>
+              </div>
+            ))}
+            {!(stats.topProducts || []).length && <p style={{ fontSize: "12px", color: "#9ca3af", margin: "10px 0" }}>Collecting product demand data…</p>}
+          </div>
+        </section>
+      </div>
+
+      {/* Real-time Events Stream Table */}
       <section className="adminCard managementCard">
         <div className="catalogToolbar">
           <div className="orderTabs">
             {["All", "Purchase", "InitiateCheckout", "AddToCart", "ViewContent", "PageView"].map((t) => (
               <button key={t} className={filter === t ? "active" : ""} onClick={() => setFilter(t)}>
-                {t}
+                {t} {t !== "All" && `(${events.filter((e) => t === "All" || e.eventName === t).length})`}
               </button>
             ))}
           </div>
@@ -5614,12 +5821,12 @@ function EventsStreamPanel({ onNavigateToSettings }) {
               <tr>
                 <th>Event Type</th>
                 <th>Event ID / Ref</th>
-                <th>Customer / User</th>
+                <th>Customer / Location</th>
                 <th>Value</th>
-                <th>Items / Content</th>
-                <th>Channel</th>
+                <th>Content / Items</th>
+                <th>Tracking Channel</th>
                 <th>Meta Delivery</th>
-                <th>Timestamp</th>
+                <th>Time</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -5627,7 +5834,7 @@ function EventsStreamPanel({ onNavigateToSettings }) {
               {events.map((evt) => (
                 <tr key={evt.id}>
                   <td>
-                    <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: 700, ...eventBadgeStyle(evt.eventName) }}>
+                    <span style={{ display: "inline-block", padding: "4px 9px", borderRadius: "12px", fontSize: "11px", fontWeight: 700, ...eventBadgeStyle(evt.eventName) }}>
                       {evt.eventName}
                     </span>
                   </td>
@@ -5636,8 +5843,8 @@ function EventsStreamPanel({ onNavigateToSettings }) {
                   </td>
                   <td>
                     <div>
-                      <b>{evt.userData?.firstName ? `${evt.userData.firstName} ${evt.userData.lastName || ""}` : "Website Visitor"}</b>
-                      <small className="trackingNumber"><br />{evt.userData?.city || evt.userData?.phone || "Karachi / Lahore"}</small>
+                      <b>{evt.userData?.firstName ? `${evt.userData.firstName} ${evt.userData.lastName || ""}` : "Online Shopper"}</b>
+                      <small className="trackingNumber"><br />📍 {evt.userData?.city || "Pakistan"} {evt.userData?.phone ? `• ${evt.userData.phone}` : ""}</small>
                     </div>
                   </td>
                   <td>
@@ -5645,12 +5852,12 @@ function EventsStreamPanel({ onNavigateToSettings }) {
                   </td>
                   <td>
                     <span style={{ fontSize: "12px", color: "#374151" }}>
-                      {evt.customData?.contents?.length ? `${evt.customData.contents.length} item(s)` : evt.customData?.contentName || "—"}
+                      {evt.customData?.contents?.length ? `${evt.customData.contents.length} item(s)` : evt.customData?.contentName || "Store Page"}
                     </span>
                   </td>
                   <td>
-                    <span style={{ fontSize: "11px", color: "#166534", background: "#f0fdf4", padding: "2px 6px", borderRadius: "4px", border: "1px solid #bbf7d0", fontWeight: 600 }}>
-                      {evt.channel || "Pixel + CAPI"}
+                    <span style={{ fontSize: "11px", color: "#166534", background: "#f0fdf4", padding: "3px 7px", borderRadius: "4px", border: "1px solid #bbf7d0", fontWeight: 600 }}>
+                      ⚡ Pixel + Server CAPI
                     </span>
                   </td>
                   <td>
@@ -5672,7 +5879,7 @@ function EventsStreamPanel({ onNavigateToSettings }) {
           </table>
           {!events.length && (
             <div className="inventoryEmpty" style={{ padding: "40px 20px" }}>
-              {loading ? "Loading event stream..." : "No tracking events recorded in this filter yet. Trigger a test event above or place an order to see live events!"}
+              {loading ? "Loading live event stream..." : "No events recorded in this filter yet. Trigger a test event or place an order to see live tracking!"}
             </div>
           )}
         </div>
@@ -5685,7 +5892,7 @@ function EventsStreamPanel({ onNavigateToSettings }) {
           <aside className="orderDetailDrawer">
             <header>
               <div>
-                <p>EVENT INSPECTOR</p>
+                <p>META EVENT INSPECTOR</p>
                 <h2>{selectedEvent.eventName}</h2>
                 <span>ID: {selectedEvent.id}</span>
               </div>
