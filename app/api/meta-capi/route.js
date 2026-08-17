@@ -12,12 +12,21 @@ export async function POST(req) {
 
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "";
     const userAgent = req.headers.get("user-agent") || "";
+    const cookieFbp = req.cookies.get("_fbp")?.value || "";
+    const cookieFbc = req.cookies.get("_fbc")?.value || "";
+
+    const enrichedUserData = {
+      ...userData,
+      fbp: userData.fbp || cookieFbp || undefined,
+      fbc: userData.fbc || cookieFbc || undefined,
+      country: userData.country || "pk",
+    };
 
     const result = await sendMetaCapiEvent({
       eventName,
       eventId,
       eventSourceUrl: eventSourceUrl || req.headers.get("referer") || "https://bustaniya.com",
-      userData,
+      userData: enrichedUserData,
       customData,
       clientIp,
       userAgent,

@@ -644,6 +644,11 @@ export async function POST(request) {
       });
     });
 
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "";
+    const userAgent = req.headers.get("user-agent") || "";
+    const cookieFbp = req.cookies.get("_fbp")?.value || "";
+    const cookieFbc = req.cookies.get("_fbc")?.value || "";
+
     sendMetaCapiEvent({
       eventName: "Purchase",
       eventId: completedOrder.order_number || completedOrder.id,
@@ -651,18 +656,27 @@ export async function POST(request) {
       userData: {
         phone: customer.phone,
         email: customer.email,
-        firstName: customer.firstName,
-        lastName: customer.lastName,
+        firstName: customer.firstName || (customer.fullName || "").split(" ")[0],
+        lastName: customer.lastName || (customer.fullName || "").split(" ").slice(1).join(" "),
         city: customer.city,
+        state: customer.province || customer.state,
+        country: "pk",
+        externalId: completedOrder.order_number || completedOrder.id,
+        fbp: cookieFbp || undefined,
+        fbc: cookieFbc || undefined,
       },
       customData: {
         value: Number(completedOrder.total || 0),
+        currency: "PKR",
         contents: (verifiedItems || []).map((item) => ({
           id: String(item.article_number || item.productId || item.id || ""),
           quantity: Number(item.quantity || 1),
           item_price: Number(item.price || 0),
         })),
       },
+      clientIp,
+      userAgent,
+      triggeredBy: "server",
     }).catch((capiErr) => {
       console.error("Meta CAPI Purchase event error:", capiErr);
     });

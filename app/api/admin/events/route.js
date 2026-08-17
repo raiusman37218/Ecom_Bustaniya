@@ -5,10 +5,14 @@ import { sendMetaCapiEvent } from "../../../../lib/metaCapi";
 
 const TEST_CUSTOMER = {
   phone: "03001234567",
-  email: "test.shopper@bustaniya.pk",
+  email: "ayesha.khan@gmail.com",
   firstName: "Ayesha",
   lastName: "Khan",
   city: "Lahore",
+  state: "Punjab",
+  country: "pk",
+  fbp: "fb.1.1718000000.1234567890",
+  fbc: "fb.1.1718000000.IwAR0TestAdClick1234567890",
 };
 
 const TEST_PRODUCT = {

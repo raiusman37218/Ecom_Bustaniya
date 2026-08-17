@@ -5,7 +5,7 @@ import { AlertCircle, Check, CheckCircle2, ChevronDown, Loader2, Lock, MessageCi
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
-import { trackEvent } from "../../lib/trackEvent";
+import { trackEvent, saveConsentedCustomerData } from "../../lib/trackEvent";
 
 const MAJOR_CITIES = [
   "Lahore",
@@ -289,6 +289,14 @@ export default function CheckoutPage() {
       const numItems = cart.reduce((sum, item) => sum + Number(item.quantity || 1), 0);
 
       trackEvent("InitiateCheckout", {
+        userData: {
+          phone: form.phone,
+          email: form.email,
+          firstName: (form.fullName || form.name || "").split(" ")[0] || undefined,
+          lastName: (form.fullName || form.name || "").split(" ").slice(1).join(" ") || undefined,
+          city: form.city,
+          country: "pk",
+        },
         customData: {
           value: totalVal,
           contentIds,
@@ -297,7 +305,7 @@ export default function CheckoutPage() {
         },
       });
     }
-  }, [isCartLoaded, cart]);
+  }, [isCartLoaded, cart, form]);
 
   const subtotal = useMemo(
     () => cart.reduce((total, item) => total + item.price * item.quantity, 0),
@@ -321,7 +329,18 @@ export default function CheckoutPage() {
       nextValue = value.replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
     }
 
-    setForm((current) => ({ ...current, [name]: nextValue }));
+    setForm((current) => {
+      const next = { ...current, [name]: nextValue };
+      if (["phone", "email", "fullName", "name", "city"].includes(name) && nextValue) {
+        saveConsentedCustomerData({
+          phone: next.phone,
+          email: next.email,
+          name: next.fullName || next.name,
+          city: next.city,
+        });
+      }
+      return next;
+    });
 
     if (fieldErrors[name]) {
       setFieldErrors((current) => ({ ...current, [name]: "" }));
