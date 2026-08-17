@@ -6934,7 +6934,11 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
                     <tr key={event.id} className="eventsTableRow" onClick={() => setSelectedEvent(event)} style={{ cursor: "pointer" }}>
                       <td><small className="trackingNumber">{eventsTimeAgo(event.created_at)}</small></td>
                       <td><span className="eventTypeBadge" style={{ background: badge.bg, color: badge.color }}>{event.event_name}</span></td>
-                      <td>{event.source === "browser" ? "Browser → Server" : "Server CAPI"}</td>
+                      <td>
+                        <span style={{ fontSize: "12px", fontWeight: 600, color: event.browserSent && event.serverSent ? "#166534" : "#374151" }}>
+                          {event.channelDisplay || (event.browserSent && event.serverSent ? "Browser + Server CAPI" : event.source === "browser" ? "Browser Pixel" : "Server CAPI")}
+                        </span>
+                      </td>
                       <td>
                         {isDelivered ? (
                           <span className="statusBadge activeStatus">Delivered</span>
