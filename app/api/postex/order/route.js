@@ -572,7 +572,7 @@ export async function POST(request) {
         .join(" | "),
       cityName: customer.city.trim(),
       invoiceDivision: 1,
-      items: reservedOrder.items,
+      items: Math.max(1, Array.isArray(verifiedItems) ? verifiedItems.reduce((acc, item) => acc + Math.max(1, Number(item.quantity || 1)), 0) : 1),
       orderType: "Normal",
       pickupAddressCode: courier.pickupAddressCode,
     };

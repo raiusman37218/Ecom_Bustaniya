@@ -305,11 +305,9 @@ export async function POST(request) {
     }
 
     const postexCollectionAmount = paymentMethod === "bank_deposit" ? 0 : Number(reservedOrder?.total ?? total);
-    const postexItems = reservedOrder?.items || customItems.map((item) => ({
-      name: item.name || "Custom item",
-      quantity: Number(item.quantity || 1),
-      price: Number(item.price || 0),
-    }));
+    const totalItemsCount = Array.isArray(customItems)
+      ? customItems.reduce((sum, item) => sum + Math.max(1, Number(item.quantity || 1)), 0)
+      : 1;
 
     const courier = await getCourierAdapter("postex");
     const payload = {
@@ -329,7 +327,7 @@ export async function POST(request) {
       ].filter(Boolean).join(" | "),
       cityName: customer.city.trim(),
       invoiceDivision: 1,
-      items: postexItems,
+      items: Math.max(1, totalItemsCount),
       orderType: "Normal",
       pickupAddressCode: courier.pickupAddressCode,
     };
