@@ -149,28 +149,43 @@ export async function POST(request) {
       });
     }
 
-    // Action: Single Event Test
-    if (action === "test_event" && eventName) {
-      const testRunId = Date.now();
-      const isPurchase = eventName === "Purchase";
-      const isCheckout = eventName === "InitiateCheckout";
-      const isCart = eventName === "AddToCart";
-      const isView = eventName === "ViewContent";
+    // Action: Deduplication Live Proof Test (Browser + Server paired with identical event_id)
+    if (action === "test_dedup") {
+      const sharedEventId = `dedup_ord_${Date.now()}`;
 
-      const testResult = await sendMetaCapiEvent({
-        eventName,
-        eventId: `test_${eventName.toLowerCase()}_${testRunId}`,
-        eventSourceUrl: isPurchase || isCheckout ? "https://bustaniya.com/checkout" : isView ? `https://bustaniya.com/product/${TEST_PRODUCT.id}` : "https://bustaniya.com",
+      // 1. Browser copy with sharedEventId
+      const browserCopy = await sendMetaCapiEvent({
+        eventName: "Purchase",
+        eventId: sharedEventId,
+        eventSourceUrl: "https://bustaniya.com/checkout",
         userData: TEST_CUSTOMER,
         customData: {
-          contentName: eventName === "PageView" ? "Home Page" : TEST_PRODUCT.name,
-          contentType: eventName === "PageView" ? "page" : "product",
-          contentIds: isPurchase || isCheckout || isCart || isView ? [TEST_PRODUCT.id] : undefined,
-          contents: isPurchase || isCheckout || isCart ? [{ id: TEST_PRODUCT.id, quantity: 1, item_price: TEST_PRODUCT.price }] : undefined,
-          numItems: isPurchase || isCheckout || isCart ? 1 : undefined,
-          value: isPurchase || isCheckout || isCart || isView ? TEST_PRODUCT.price : 0,
+          contentName: TEST_PRODUCT.name,
+          contents: [{ id: TEST_PRODUCT.id, quantity: 1, item_price: TEST_PRODUCT.price }],
+          numItems: 1,
+          value: TEST_PRODUCT.price,
           currency: "PKR",
         },
+        clientIp: "111.119.187.1",
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        triggeredBy: "browser",
+      });
+
+      // 2. Server copy with identical sharedEventId
+      const serverCopy = await sendMetaCapiEvent({
+        eventName: "Purchase",
+        eventId: sharedEventId,
+        eventSourceUrl: "https://bustaniya.com/checkout",
+        userData: TEST_CUSTOMER,
+        customData: {
+          contentName: TEST_PRODUCT.name,
+          contents: [{ id: TEST_PRODUCT.id, quantity: 1, item_price: TEST_PRODUCT.price }],
+          numItems: 1,
+          value: TEST_PRODUCT.price,
+          currency: "PKR",
+        },
+        clientIp: "111.119.187.1",
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
         triggeredBy: "server",
       });
 
@@ -180,8 +195,10 @@ export async function POST(request) {
       ]);
 
       return NextResponse.json({
-        success: Boolean(testResult?.success),
-        result: testResult,
+        success: Boolean(browserCopy?.success && serverCopy?.success),
+        sharedEventId,
+        browserCopy,
+        serverCopy,
         events,
         summary,
       });

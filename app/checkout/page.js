@@ -448,20 +448,24 @@ export default function CheckoutPage() {
       }));
       const orderNumItems = (createdOrder.items || cart).reduce((sum, item) => sum + Number(item.quantity || 1), 0);
 
-      if (typeof window !== "undefined" && window.fbq) {
-        window.fbq(
-          "track",
-          "Purchase",
-          {
-            content_ids: orderContentIds,
-            contents: orderContents,
-            num_items: orderNumItems,
-            value: totalOrderVal,
-            currency: "PKR",
-          },
-          { eventID: orderEventId }
-        );
-      }
+      trackEvent("Purchase", {
+        eventId: orderEventId,
+        userData: {
+          phone: form.phone,
+          email: form.email,
+          firstName: (form.fullName || form.name || "").split(" ")[0] || undefined,
+          lastName: (form.fullName || form.name || "").split(" ").slice(1).join(" ") || undefined,
+          city: form.city,
+          country: "pk",
+        },
+        customData: {
+          value: totalOrderVal,
+          currency: "PKR",
+          contentIds: orderContentIds,
+          contents: orderContents,
+          numItems: orderNumItems,
+        },
+      });
 
       setOrder(createdOrder);
     } catch (err) {

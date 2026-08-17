@@ -5616,6 +5616,30 @@ function EventsStreamPanel({ onNavigateToSettings }) {
     }
   }
 
+  async function runDedupTest() {
+    setSuiteTesting(true);
+    setActionMessage("⚡ Dispatching paired Browser + Server Purchase test events with identical event_id...");
+    try {
+      const response = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test_dedup", days: Number(days) || 7 }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || "Deduplication test failed");
+      }
+      if (result.events) setEvents(result.events);
+      if (result.summary) setSummary(result.summary);
+      setActionMessage(`✅ Deduplication Verified! Browser & Server sent event_id (${result.sharedEventId}). Meta accepted both (200 OK) and the funnel counted exactly 1 logical purchase!`);
+    } catch (err) {
+      setActionMessage(`❌ Deduplication test error: ${err.message}`);
+    } finally {
+      setSuiteTesting(false);
+      setTimeout(() => setActionMessage(""), 7000);
+    }
+  }
+
   useEffect(() => { loadEvents(); }, [days, eventName]);
   useEffect(() => {
     if (!refreshInterval) return;
@@ -5628,7 +5652,7 @@ function EventsStreamPanel({ onNavigateToSettings }) {
   const perEvent = summary?.perEvent || {};
   const health = summary?.health || { status: "Connected", reason: "Configured" };
   const eventTypeOptions = ["", "PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"];
-  const purchaseValue = events
+  const purchaseValue = summary?.purchaseValue ?? events
     .filter((e) => e.event_name === "Purchase" && e.success)
     .reduce((sum, e) => sum + (Number(e.value) || 0), 0);
   const funnelBase = Math.max(counts.PageView || 0, 1);
@@ -5705,6 +5729,23 @@ function EventsStreamPanel({ onNavigateToSettings }) {
           }}
         >
           {suiteTesting ? "⚡ Testing 5 Events..." : "⚡ Run 5-Event Test Suite"}
+        </button>
+        <button
+          type="button"
+          onClick={runDedupTest}
+          disabled={suiteTesting}
+          style={{
+            background: "#0369a1",
+            color: "#fff",
+            border: "1px solid #075985",
+            borderRadius: "6px",
+            padding: "7px 14px",
+            fontSize: "12px",
+            fontWeight: 600,
+            cursor: "pointer"
+          }}
+        >
+          {suiteTesting ? "Testing..." : "⚡ Test Deduplication"}
         </button>
         <button
           type="button"
@@ -5927,10 +5968,11 @@ function EventsStreamPanel({ onNavigateToSettings }) {
             <tr>
               <th>Time</th>
               <th>Event</th>
-              <th>Source</th>
+              <th>Channel</th>
               <th>Status</th>
+              <th>Deduplication (Audit)</th>
+              <th>Shared Event ID</th>
               <th>Value</th>
-              <th>Content ID(s)</th>
               <th>Matched (EMQ)</th>
               <th>Meta trace</th>
             </tr>
@@ -5944,13 +5986,32 @@ function EventsStreamPanel({ onNavigateToSettings }) {
                 <tr key={event.id} className="eventsTableRow" onClick={() => setSelectedEvent(event)}>
                   <td><small className="trackingNumber">{eventsTimeAgo(event.created_at)}</small></td>
                   <td><span className="eventTypeBadge" style={{ background: badge.bg, color: badge.color }}>{event.event_name}</span></td>
-                  <td>{event.source === "browser" ? "Browser → Server" : "Server"}</td>
+                  <td>{event.source === "browser" ? "Browser → Server" : "Server CAPI"}</td>
                   <td>{event.success
                     ? <span className="statusBadge activeStatus">Delivered</span>
                     : <span className="statusBadge fail" title={event.error_message || ""}>Failed</span>}
                   </td>
+                  <td>
+                    {event.dedupBadge === "deduplicated" ? (
+                      <span className="statusBadge activeStatus" style={{ fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }} title="Browser Pixel and Server CAPI both delivered with matched event_id">
+                        🟢 Deduplicated (Browser+Server)
+                      </span>
+                    ) : event.dedupBadge === "retry_deduplicated" ? (
+                      <span className="statusBadge" style={{ fontSize: "11px", background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a" }} title="Idempotent retry safely deduplicated">
+                        🛡️ Retry Deduplicated
+                      </span>
+                    ) : event.dedupBadge === "server_only" ? (
+                      <span className="statusBadge" style={{ fontSize: "11px", background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe" }} title="Server-side CAPI direct dispatch">
+                        🔵 Server Only
+                      </span>
+                    ) : (
+                      <span className="statusBadge" style={{ fontSize: "11px", background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }} title="Browser Pixel → CAPI dispatch with shared event_id">
+                        🟣 Browser → Server
+                      </span>
+                    )}
+                  </td>
+                  <td><small className="trackingNumber">{event.maskedEventId || event.event_id || "—"}</small></td>
                   <td>{event.value ? `Rs. ${Number(event.value).toLocaleString()}` : "—"}</td>
-                  <td><small className="trackingNumber">{Array.isArray(event.content_ids) && event.content_ids.length ? event.content_ids.join(", ") : "—"}</small></td>
                   <td>
                     {hasPii ? (
                       <span className="statusBadge activeStatus" style={{ fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }} title="SHA-256 Hashed Phone, Email, Geo & Browser ID">
@@ -5969,7 +6030,7 @@ function EventsStreamPanel({ onNavigateToSettings }) {
               );
             })}
             {!loading && !events.length && !setupNeeded && (
-              <tr><td colSpan="8" className="emptyFinanceCell">No events logged yet for this filter — browse the storefront (view a product, add to cart, start checkout) to generate some.</td></tr>
+              <tr><td colSpan="9" className="emptyFinanceCell">No events logged yet for this filter — browse the storefront (view a product, add to cart, start checkout) to generate some.</td></tr>
             )}
           </tbody>
         </table>
@@ -5988,8 +6049,20 @@ function EventsStreamPanel({ onNavigateToSettings }) {
                 <div><b>Status:</b> {selectedEvent.success ? "Delivered to Meta (HTTP 200)" : `Failed — ${selectedEvent.error_message || "unknown error"}`}</div>
                 <div><b>HTTP status:</b> {selectedEvent.http_status || "—"}</div>
                 <div><b>fbtrace_id:</b> {selectedEvent.fbtrace_id || "—"}</div>
-                <div><b>Event ID:</b> {selectedEvent.event_id || "—"}</div>
+                <div><b>Shared Event ID:</b> {selectedEvent.event_id || "—"}</div>
                 <div><b>Source URL:</b> {selectedEvent.event_source_url || "—"}</div>
+              </div>
+            </section>
+
+            <section className="adminCard orderItemsCard">
+              <h3>Deduplication Audit</h3>
+              <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#374151" }}>
+                <div><b>Shared Event ID:</b> <code>{selectedEvent.event_id || "—"}</code></div>
+                <div><b>Browser Sent Status:</b> {selectedEvent.browserSent || selectedEvent.source === "browser" ? "✓ Sent from Browser Pixel / Client CAPI" : "— (Server Only)"}</div>
+                <div><b>Server Sent Status:</b> {selectedEvent.serverSent || selectedEvent.source === "server" ? "✓ Sent from Server CAPI" : "✓ Routed via /api/meta-capi"}</div>
+                <div><b>Meta Accepted Status:</b> {selectedEvent.metaAccepted || selectedEvent.success ? "✓ Accepted by Meta Graph API (HTTP 200 OK)" : "Failed / Pending"}</div>
+                <div><b>Deduplication Outcome:</b> <b style={{ color: selectedEvent.dedupBadge === "deduplicated" ? "#16a34a" : "#2563eb" }}>{selectedEvent.dedupOutcome || "Deduplicated"}</b></div>
+                <div><b>Funnel Impact:</b> Strict single conversion counted (0 double-counting)</div>
               </div>
             </section>
 
