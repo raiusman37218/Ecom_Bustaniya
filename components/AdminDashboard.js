@@ -6265,12 +6265,14 @@ function SettingsPanel({ onOpen, signedInUser }) {
         </form>}
 
         {activeTab === "Domains" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
-          <h2>Domains</h2>
-          <p className="settingsHint">These saved values control storefront messaging and metadata. DNS / Vercel redirects still need to be configured in your hosting provider.</p>
+          <h2>Domains & Tracking</h2>
+          <p className="settingsHint">These saved values control storefront messaging, metadata, and analytics/pixel tracking.</p>
           <label>Primary domain<input value={storeSettings.domainSettings?.primaryDomain || ""} onChange={(event) => updateSettingsGroup("domainSettings", { primaryDomain: event.target.value })} /></label>
           <div className="settingsOption"><div><b>www redirect</b><span>Keep the preferred public domain recorded for SEO and support links.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.domainSettings?.wwwRedirect !== false} onChange={(event) => updateSettingsGroup("domainSettings", { wwwRedirect: event.target.checked })} /> Enabled</label></div>
-          <div className="formRow"><label>SEO title<input value={storeSettings.domainSettings?.seoTitle || ""} onChange={(event) => updateSettingsGroup("domainSettings", { seoTitle: event.target.value })} /></label><label>Analytics measurement ID<input value={storeSettings.domainSettings?.analyticsMeasurementId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { analyticsMeasurementId: event.target.value })} placeholder="G-..." /></label></div>
-          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save domain settings"}</button>
+          <div className="formRow"><label>SEO title<input value={storeSettings.domainSettings?.seoTitle || ""} onChange={(event) => updateSettingsGroup("domainSettings", { seoTitle: event.target.value })} /></label><label>Analytics measurement ID (GA4)<input value={storeSettings.domainSettings?.analyticsMeasurementId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { analyticsMeasurementId: event.target.value })} placeholder="G-..." /></label></div>
+          <div className="formRow"><label>Meta (Facebook) Pixel ID<input value={storeSettings.domainSettings?.metaPixelId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { metaPixelId: event.target.value })} placeholder="e.g. 5621950704696012" /></label></div>
+          <label>Meta Conversions API (CAPI) Access Token<textarea rows="3" value={storeSettings.domainSettings?.metaCapiAccessToken || ""} onChange={(event) => updateSettingsGroup("domainSettings", { metaCapiAccessToken: event.target.value })} placeholder="EAAN... (Paste your Meta System User Access Token here)" style={{ fontFamily: "monospace", fontSize: "12px" }} /></label>
+          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save domain & tracking settings"}</button>
         </form>}
 
         {activeTab === "SizeChart" && (

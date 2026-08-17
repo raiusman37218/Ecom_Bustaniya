@@ -53,10 +53,10 @@ export const viewport = {
 };
 
 export default async function RootLayout({ children }) {
-  const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-  const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
-  const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID || "5621950704696012";
   const storeSettings = await getStoreSettings();
+  const gaId = storeSettings?.domainSettings?.analyticsMeasurementId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+  const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
+  const metaPixelId = storeSettings?.domainSettings?.metaPixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || "5621950704696012";
   const whatsappNumber = storeSettings?.paymentSettings?.whatsappNumber;
 
   return (
