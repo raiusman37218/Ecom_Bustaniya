@@ -6229,23 +6229,23 @@ function SettingsPanel({ onOpen, signedInUser }) {
             <div className="sizeChartManager" style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
               <div className="inventoryListHead" style={{ marginBottom: "16px" }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>Size Measurement Rows</h3>
+                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>Size Measurement Matrix</h3>
                   <span style={{ fontSize: "12px", color: "#6b7280" }}>
-                    Add, edit or remove sizes and measurements in inches
+                    Edit measurements for ready-stitched garments across XS, S, M, L, XL (in inches)
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
-                    const currentRows = storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows;
-                    const nextRows = [
-                      ...currentRows,
-                      { size: "Custom Size", chest: '20"', shoulder: '14.5"', waist: '19"', hips: '21"', length: '39"', trouser: '38"' },
+                    const current = storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements;
+                    const next = [
+                      ...current,
+                      { name: "NEW MEASUREMENT", values: { XS: "0", S: "0", M: "0", L: "0", XL: "0" } },
                     ];
-                    updateSettingsGroup("sizeChartSettings", { rows: nextRows });
+                    updateSettingsGroup("sizeChartSettings", { measurements: next });
                   }}
                 >
-                  <Plus size={14} /> Add size row
+                  <Plus size={14} /> Add measurement
                 </button>
               </div>
 
@@ -6253,111 +6253,53 @@ function SettingsPanel({ onOpen, signedInUser }) {
                 <table className="adminTable" style={{ width: "100%", fontSize: "13px" }}>
                   <thead>
                     <tr>
-                      <th style={{ textAlign: "left", padding: "10px" }}>Size Tag</th>
-                      <th style={{ textAlign: "left", padding: "10px" }}>Chest</th>
-                      <th style={{ textAlign: "left", padding: "10px" }}>Shoulder</th>
-                      <th style={{ textAlign: "left", padding: "10px" }}>Waist</th>
-                      <th style={{ textAlign: "left", padding: "10px" }}>Hips</th>
-                      <th style={{ textAlign: "left", padding: "10px" }}>Shirt Length</th>
-                      <th style={{ textAlign: "left", padding: "10px" }}>Trouser</th>
+                      <th style={{ textAlign: "left", padding: "10px" }}>Measurement</th>
+                      <th style={{ textAlign: "center", padding: "10px" }}>XS</th>
+                      <th style={{ textAlign: "center", padding: "10px" }}>S</th>
+                      <th style={{ textAlign: "center", padding: "10px" }}>M</th>
+                      <th style={{ textAlign: "center", padding: "10px" }}>L</th>
+                      <th style={{ textAlign: "center", padding: "10px" }}>XL</th>
                       <th style={{ textAlign: "center", padding: "10px", width: "50px" }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows).map((row, rIdx) => (
-                      <tr key={rIdx} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                    {(storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements).map((m, mIdx) => (
+                      <tr key={mIdx} style={{ borderBottom: "1px solid #f3f4f6" }}>
                         <td style={{ padding: "8px" }}>
                           <input
-                            style={{ width: "120px", fontWeight: 700, padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
-                            value={row.size || ""}
+                            style={{ width: "160px", fontWeight: 700, padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db", textTransform: "uppercase" }}
+                            value={m.name || ""}
                             onChange={(event) => {
-                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
-                              rows[rIdx] = { ...rows[rIdx], size: event.target.value };
-                              updateSettingsGroup("sizeChartSettings", { rows });
+                              const measurements = [...(storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements)];
+                              measurements[mIdx] = { ...measurements[mIdx], name: event.target.value.toUpperCase() };
+                              updateSettingsGroup("sizeChartSettings", { measurements });
                             }}
-                            placeholder="Small (S)"
+                            placeholder="SHIRT LENGTH"
                           />
                         </td>
-                        <td style={{ padding: "8px" }}>
-                          <input
-                            style={{ width: "70px", padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
-                            value={row.chest || ""}
-                            onChange={(event) => {
-                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
-                              rows[rIdx] = { ...rows[rIdx], chest: event.target.value };
-                              updateSettingsGroup("sizeChartSettings", { rows });
-                            }}
-                            placeholder='19"'
-                          />
-                        </td>
-                        <td style={{ padding: "8px" }}>
-                          <input
-                            style={{ width: "70px", padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
-                            value={row.shoulder || ""}
-                            onChange={(event) => {
-                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
-                              rows[rIdx] = { ...rows[rIdx], shoulder: event.target.value };
-                              updateSettingsGroup("sizeChartSettings", { rows });
-                            }}
-                            placeholder='14"'
-                          />
-                        </td>
-                        <td style={{ padding: "8px" }}>
-                          <input
-                            style={{ width: "70px", padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
-                            value={row.waist || ""}
-                            onChange={(event) => {
-                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
-                              rows[rIdx] = { ...rows[rIdx], waist: event.target.value };
-                              updateSettingsGroup("sizeChartSettings", { rows });
-                            }}
-                            placeholder='18"'
-                          />
-                        </td>
-                        <td style={{ padding: "8px" }}>
-                          <input
-                            style={{ width: "70px", padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
-                            value={row.hips || ""}
-                            onChange={(event) => {
-                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
-                              rows[rIdx] = { ...rows[rIdx], hips: event.target.value };
-                              updateSettingsGroup("sizeChartSettings", { rows });
-                            }}
-                            placeholder='20"'
-                          />
-                        </td>
-                        <td style={{ padding: "8px" }}>
-                          <input
-                            style={{ width: "95px", padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
-                            value={row.length || ""}
-                            onChange={(event) => {
-                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
-                              rows[rIdx] = { ...rows[rIdx], length: event.target.value };
-                              updateSettingsGroup("sizeChartSettings", { rows });
-                            }}
-                            placeholder='38" – 40"'
-                          />
-                        </td>
-                        <td style={{ padding: "8px" }}>
-                          <input
-                            style={{ width: "70px", padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db" }}
-                            value={row.trouser || ""}
-                            onChange={(event) => {
-                              const rows = [...(storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows)];
-                              rows[rIdx] = { ...rows[rIdx], trouser: event.target.value };
-                              updateSettingsGroup("sizeChartSettings", { rows });
-                            }}
-                            placeholder='37"'
-                          />
-                        </td>
+                        {["XS", "S", "M", "L", "XL"].map((sz) => (
+                          <td key={sz} style={{ padding: "8px", textAlign: "center" }}>
+                            <input
+                              style={{ width: "65px", padding: "6px 8px", borderRadius: "4px", border: "1px solid #d1d5db", textAlign: "center" }}
+                              value={m.values?.[sz] || ""}
+                              onChange={(event) => {
+                                const measurements = [...(storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements)];
+                                const values = { ...(measurements[mIdx].values || {}), [sz]: event.target.value };
+                                measurements[mIdx] = { ...measurements[mIdx], values };
+                                updateSettingsGroup("sizeChartSettings", { measurements });
+                              }}
+                              placeholder="0"
+                            />
+                          </td>
+                        ))}
                         <td style={{ padding: "8px", textAlign: "center" }}>
                           <button
                             type="button"
                             className="sectionRemoveBtn"
-                            title="Remove row"
+                            title="Remove measurement"
                             onClick={() => {
-                              const rows = (storeSettings.sizeChartSettings?.rows || DEFAULT_STORE_SETTINGS.sizeChartSettings.rows).filter((_, i) => i !== rIdx);
-                              updateSettingsGroup("sizeChartSettings", { rows });
+                              const measurements = (storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements).filter((_, i) => i !== mIdx);
+                              updateSettingsGroup("sizeChartSettings", { measurements });
                             }}
                           >
                             <X size={14} />

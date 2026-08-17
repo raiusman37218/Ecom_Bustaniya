@@ -2589,6 +2589,49 @@ footer {
 .sizeChartTable tr:last-child td {
   border-bottom:none;
 }
+.sizeChartUnitHeader {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.unitToggleSwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f4faf5;
+  border: 1px solid #dce7dd;
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #173d29;
+}
+.unitToggleOption {
+  background: none;
+  border: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: #88998d;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: all 0.2s ease;
+}
+.unitToggleOption.active {
+  color: #173d29;
+  font-weight: 900;
+}
+.unitDivider {
+  color: #cbd5e1;
+}
+.measurementName {
+  text-align: left !important;
+  font-weight: 700 !important;
+  color: #173d29 !important;
+  background: #f9faf7;
+  padding-left: 14px !important;
+  white-space: nowrap;
+}
 .sizeBadge {
   display:inline-block;
   padding:2px 8px;

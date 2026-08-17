@@ -210,15 +210,30 @@ export const DEFAULT_STORE_SETTINGS = {
     checkoutNote: "COD orders may receive a confirmation call before dispatch.",
   },
   sizeChartSettings: {
-    title: "Bustaniya Size Guide",
-    subtitle: "Standard Ready-to-Wear Measurements (Inches)",
-    advice: "💡 Fit Advice: Measurements shown are for ready stitched garments in inches. For a loose/relaxed fit or if you are between two sizes, we recommend selecting the larger size.",
-    columns: ["Size", "Chest", "Shoulder", "Waist", "Hips", "Shirt Length", "Trouser"],
+    title: "INCHES | CM",
+    subtitle: "Standard Ready-to-Wear Measurements (Inches & CM)",
+    advice: "💡 Fit Advice: All measurements shown are for ready-stitched garments. For a relaxed fit or if between two sizes, we recommend selecting the larger size.",
+    sizes: ["XS", "S", "M", "L", "XL"],
+    measurements: [
+      { name: "SHIRT LENGTH", values: { XS: "47.5", S: "47.5", M: "47.5", L: "47.5", XL: "47.5" } },
+      { name: "CROSS BACK", values: { XS: "13.5", S: "14", M: "15", L: "16", XL: "17" } },
+      { name: "BUST", values: { XS: "18", S: "19.5", M: "20.5", L: "22.5", XL: "24" } },
+      { name: "BICEP", values: { XS: "7", S: "8", M: "8.5", L: "9", XL: "9.5" } },
+      { name: "SHIRT HEM", values: { XS: "24", S: "24", M: "24", L: "25", XL: "25" } },
+      { name: "SLEEVE LENGTH", values: { XS: "21", S: "21", M: "22", L: "22", XL: "22.5" } },
+      { name: "SLEEVE EDGE", values: { XS: "4", S: "4", M: "4.5", L: "5", XL: "5" } },
+      { name: "TROUSER LENGTH", values: { XS: "38", S: "38", M: "39", L: "40", XL: "40" } },
+      { name: "WAIST", values: { XS: "11", S: "11", M: "12", L: "13", XL: "13" } },
+      { name: "THIGH", values: { XS: "11", S: "12", M: "13", L: "14", XL: "15" } },
+      { name: "TROUSER BOTTOM", values: { XS: "13", S: "13", M: "13", L: "13", XL: "13" } },
+    ],
+    columns: ["SIZE", "XS", "S", "M", "L", "XL"],
     rows: [
-      { size: "Small (S)", chest: '19"', shoulder: '14"', waist: '18"', hips: '20"', length: '38" – 40"', trouser: '37"' },
-      { size: "Medium (M)", chest: '20.5"', shoulder: '14.5"', waist: '19.5"', hips: '21.5"', length: '39" – 41"', trouser: '38"' },
-      { size: "Large (L)", chest: '22"', shoulder: '15"', waist: '21"', hips: '23"', length: '40" – 42"', trouser: '39"' },
-      { size: "X-Large (XL)", chest: '24"', shoulder: '16"', waist: '23"', hips: '25"', length: '41" – 43"', trouser: '40"' }
+      { size: "XS", chest: '18"', shoulder: '13.5"', waist: '11"', hips: '11"', length: '47.5"', trouser: '38"' },
+      { size: "Small (S)", chest: '19.5"', shoulder: '14"', waist: '11"', hips: '12"', length: '47.5"', trouser: '38"' },
+      { size: "Medium (M)", chest: '20.5"', shoulder: '15"', waist: '12"', hips: '13"', length: '47.5"', trouser: '39"' },
+      { size: "Large (L)", chest: '22.5"', shoulder: '16"', waist: '13"', hips: '14"', length: '47.5"', trouser: '40"' },
+      { size: "X-Large (XL)", chest: '24"', shoulder: '17"', waist: '13"', hips: '15"', length: '47.5"', trouser: '40"' }
     ]
   },
   homepageSections: DEFAULT_HOMEPAGE_SECTIONS,
