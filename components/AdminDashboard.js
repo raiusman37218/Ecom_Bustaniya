@@ -5660,10 +5660,52 @@ function SettingsPanel({ onOpen, signedInUser }) {
   const [staffLoading, setStaffLoading] = useState(false);
   const [staffError, setStaffError] = useState("");
   const [staffSaved, setStaffSaved] = useState("");
+  const [capiTesting, setCapiTesting] = useState(false);
+  const [capiTestResult, setCapiTestResult] = useState(null);
   const [shippingZones, setShippingZones] = useState([
     { zone: "Pakistan - Standard", cities: "All PostEx service cities", rate: "Rs. 200 COD", freeAbove: "Rs. 5,000" },
     { zone: "Lahore same-day", cities: "Lahore", rate: "Rs. 250", freeAbove: "Rs. 8,000" },
   ]);
+
+  async function testCapiConnection() {
+    setCapiTesting(true);
+    setCapiTestResult(null);
+    try {
+      const response = await fetch("/api/meta-capi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventName: "TestEvent",
+          eventSourceUrl: "https://bustaniya.com/admin",
+          userData: {
+            phone: "03001234567",
+            email: "test@bustaniya.pk",
+            firstName: "Admin",
+            city: "Lahore",
+          },
+          customData: {
+            value: 100,
+            currency: "PKR",
+          },
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error?.message || result.result?.error?.message || result.reason || "Meta API responded with error.");
+      }
+      setCapiTestResult({
+        success: true,
+        message: `✅ Test event sent successfully to Meta CAPI! (Events received: ${result.result?.events_received || 1}, fbtrace_id: ${result.result?.fbtrace_id || "ok"})`,
+      });
+    } catch (err) {
+      setCapiTestResult({
+        success: false,
+        message: `❌ CAPI test failed: ${err.message}`,
+      });
+    } finally {
+      setCapiTesting(false);
+    }
+  }
   const canManageUsers = canUseAdminArea(signedInUser, "users");
   const tabs = ["Store", "Sections", "Tracking", "SizeChart", "Payments", "Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications", "Domains", "Checkout", "System"];
 
@@ -6282,7 +6324,30 @@ function SettingsPanel({ onOpen, signedInUser }) {
               • <b>Purchase</b> (When order is placed successfully)
             </div>
           </div>
-          <button style={{ marginTop: "16px" }} disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save Tracking Settings"}</button>
+          <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
+            <button type="submit" disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save Tracking Settings"}</button>
+            <button
+              type="button"
+              onClick={testCapiConnection}
+              disabled={capiTesting || !storeSettings.domainSettings?.metaCapiAccessToken}
+              style={{ background: "#2563eb", color: "#fff", borderColor: "#1d4ed8" }}
+            >
+              {capiTesting ? "Testing CAPI..." : "⚡ Test Meta CAPI Connection"}
+            </button>
+            <a
+              href="https://eventsmanager.facebook.com"
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: "inline-flex", alignItems: "center", padding: "8px 16px", borderRadius: "6px", background: "#f3f4f6", color: "#1f2937", fontSize: "13px", fontWeight: 600, textDecoration: "none", border: "1px solid #d1d5db" }}
+            >
+              Open Meta Events Manager ↗
+            </a>
+          </div>
+          {capiTestResult && (
+            <div style={{ marginTop: "12px", padding: "12px 16px", borderRadius: "8px", background: capiTestResult.success ? "#f0fdf4" : "#fef2f2", border: `1px solid ${capiTestResult.success ? "#bbf7d0" : "#fecaca"}`, color: capiTestResult.success ? "#166534" : "#991b1b", fontSize: "13px", fontWeight: 500 }}>
+              {capiTestResult.message}
+            </div>
+          )}
         </form>}
 
         {activeTab === "Domains" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
