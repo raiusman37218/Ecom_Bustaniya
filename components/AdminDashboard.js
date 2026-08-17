@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bell, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
+  Activity, Bell, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
   LogOut, Menu, Minus, MoreHorizontal, Package, Plus,
   ReceiptText, RefreshCw, Search, Settings, ShoppingBag, Store, Tags, TrendingUp, Truck, Users,
   WalletCards, X
@@ -775,6 +775,7 @@ const demoOrders = [
 
 const navItems = [
   { name: "Dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
+  { name: "Events", icon: Activity, section: "OVERVIEW" },
   { name: "Orders", icon: ShoppingBag, section: "COMMERCE" },
   { name: "Products", icon: Package, section: "COMMERCE" },
   { name: "Categories", icon: Tags, section: "COMMERCE" },
@@ -788,6 +789,7 @@ const navItems = [
 
 const navPermissionMap = {
   Dashboard: "dashboard",
+  Events: "dashboard",
   Orders: "orders",
   Products: "products",
   Categories: "products",
@@ -1593,6 +1595,7 @@ export default function AdminDashboard() {
           {ordersError && active !== "Orders" && <div className="adminErrorBanner">{ordersError}</div>}
           {!canAccessActive && <div className="adminErrorBanner">You do not have access to this admin area.</div>}
           {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} ordersError={ordersLoadError} currentAdminUser={currentAdminUser} onRefresh={() => loadOrders()} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} />}
+          {canAccessActive && active === "Events" && <EventsStreamPanel onNavigateToSettings={() => navigateAdminSection("Settings")} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
@@ -5434,6 +5437,301 @@ function CustomerProfileDrawer({ customer, onClose, onUpdate }) {
       <section className="adminCard orderItemsCard"><div className="inventoryListHead"><div><h2>Order history</h2><span>{customer.orders.length} orders</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order</th><th>Date</th><th>Status</th><th>Total</th><th>Tracking</th></tr></thead><tbody>{customer.orders.map((order) => <tr key={order.id}><td><b>{order.id}</b></td><td>{order.date}</td><td>{order.postexStatus || order.status}</td><td>Rs. {Number(order.total || 0).toLocaleString()}</td><td>{order.tracking || "-"}</td></tr>)}</tbody></table></div></section>
     </div>
   </aside></>;
+}
+
+function EventsStreamPanel({ onNavigateToSettings }) {
+  const [events, setEvents] = useState([]);
+  const [stats, setStats] = useState({ total: 0, purchases: 0, checkouts: 0, cartAdds: 0, views: 0, purchaseValue: 0 });
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("All");
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  async function loadEvents(silent = false) {
+    if (!silent) setLoading(true);
+    try {
+      const response = await fetch(`/api/admin/events?filter=${encodeURIComponent(filter)}&limit=100`, { cache: "no-store" });
+      const result = await response.json();
+      if (response.ok) {
+        setEvents(result.events || []);
+        if (result.stats) setStats(result.stats);
+      }
+    } catch (e) {
+      console.error("Events fetch error", e);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadEvents();
+  }, [filter]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const timer = setInterval(() => {
+      loadEvents(true);
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [autoRefresh, filter]);
+
+  async function triggerTestEvent(eventName = "Purchase") {
+    setActionLoading(true);
+    setActionMessage("");
+    try {
+      const response = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test", eventName }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setActionMessage(`⚡ Test ${eventName} event dispatched to Meta CAPI successfully!`);
+        if (result.events) setEvents(result.events);
+        if (result.stats) setStats(result.stats);
+      } else {
+        setActionMessage(`❌ Test failed: ${result.error || result.result?.error?.message || "Meta API error"}`);
+      }
+    } catch (err) {
+      setActionMessage(`❌ Error: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+      setTimeout(() => setActionMessage(""), 5000);
+    }
+  }
+
+  async function clearEvents() {
+    if (!window.confirm("Are you sure you want to clear the events stream log?")) return;
+    try {
+      await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear" }),
+      });
+      setEvents([]);
+      setStats({ total: 0, purchases: 0, checkouts: 0, cartAdds: 0, views: 0, purchaseValue: 0 });
+    } catch {}
+  }
+
+  const eventBadgeStyle = (name) => {
+    switch (name) {
+      case "Purchase":
+        return { background: "#f3e8ff", color: "#6b21a8", border: "1px solid #d8b4fe" };
+      case "InitiateCheckout":
+        return { background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" };
+      case "AddToCart":
+        return { background: "#dcfce7", color: "#166534", border: "1px solid #86efac" };
+      case "ViewContent":
+        return { background: "#e0f2fe", color: "#075985", border: "1px solid #7dd3fc" };
+      default:
+        return { background: "#f3f4f6", color: "#374151", border: "1px solid #e5e7eb" };
+    }
+  };
+
+  return (
+    <>
+      <div className="adminTitle">
+        <div>
+          <p>META &amp; SHOPIFY TRACKING</p>
+          <h1>Live Tracking Events</h1>
+          <span>Real-time stream of Meta Pixel &amp; CAPI customer conversion events.</span>
+        </div>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#4b5563", background: "#f3f4f6", padding: "6px 12px", borderRadius: "6px", cursor: "pointer" }}>
+            <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+            Auto-refresh (8s)
+          </label>
+          <button type="button" onClick={() => triggerTestEvent("Purchase")} disabled={actionLoading} style={{ background: "#6b21a8", color: "#fff", borderColor: "#581c87" }}>
+            ⚡ Test Purchase
+          </button>
+          <button type="button" onClick={() => triggerTestEvent("InitiateCheckout")} disabled={actionLoading} style={{ background: "#92400e", color: "#fff", borderColor: "#78350f" }}>
+            ⚡ Test Checkout
+          </button>
+          <button type="button" onClick={() => triggerTestEvent("AddToCart")} disabled={actionLoading} style={{ background: "#166534", color: "#fff", borderColor: "#14532d" }}>
+            ⚡ Test AddToCart
+          </button>
+          <button type="button" onClick={() => loadEvents()} disabled={loading}>
+            🔄 Refresh
+          </button>
+          <button type="button" onClick={clearEvents} style={{ color: "#dc2626" }}>
+            Clear Log
+          </button>
+        </div>
+      </div>
+
+      {actionMessage && (
+        <div style={{ padding: "10px 16px", borderRadius: "8px", background: actionMessage.startsWith("⚡") ? "#f0fdf4" : "#fef2f2", border: `1px solid ${actionMessage.startsWith("⚡") ? "#bbf7d0" : "#fecaca"}`, color: actionMessage.startsWith("⚡") ? "#166534" : "#991b1b", marginBottom: "16px", fontWeight: 500, fontSize: "13px" }}>
+          {actionMessage}
+        </div>
+      )}
+
+      {/* Metrics Row */}
+      <div className="miniMetricGrid productMetrics" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+        <article>
+          <Activity />
+          <span><b>{stats.total || events.length}</b>Total Events</span>
+        </article>
+        <article>
+          <CircleDollarSign />
+          <span><b>{stats.purchases} (Rs. {Number(stats.purchaseValue || 0).toLocaleString()})</b>Purchases</span>
+        </article>
+        <article>
+          <ShoppingBag />
+          <span><b>{stats.checkouts}</b>Checkouts</span>
+        </article>
+        <article>
+          <Plus />
+          <span><b>{stats.cartAdds}</b>Added to Cart</span>
+        </article>
+        <article>
+          <Tags />
+          <span><b>{stats.views}</b>Product Views</span>
+        </article>
+      </div>
+
+      {/* Events Stream Table */}
+      <section className="adminCard managementCard">
+        <div className="catalogToolbar">
+          <div className="orderTabs">
+            {["All", "Purchase", "InitiateCheckout", "AddToCart", "ViewContent", "PageView"].map((t) => (
+              <button key={t} className={filter === t ? "active" : ""} onClick={() => setFilter(t)}>
+                {t}
+              </button>
+            ))}
+          </div>
+          <div className="catalogActions">
+            <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: 500 }}>
+              Showing {events.length} tracked events
+            </span>
+          </div>
+        </div>
+
+        <div className="adminTableWrap">
+          <table className="adminTable">
+            <thead>
+              <tr>
+                <th>Event Type</th>
+                <th>Event ID / Ref</th>
+                <th>Customer / User</th>
+                <th>Value</th>
+                <th>Items / Content</th>
+                <th>Channel</th>
+                <th>Meta Delivery</th>
+                <th>Timestamp</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((evt) => (
+                <tr key={evt.id}>
+                  <td>
+                    <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: 700, ...eventBadgeStyle(evt.eventName) }}>
+                      {evt.eventName}
+                    </span>
+                  </td>
+                  <td>
+                    <b>{evt.eventId || evt.id.slice(0, 14)}</b>
+                  </td>
+                  <td>
+                    <div>
+                      <b>{evt.userData?.firstName ? `${evt.userData.firstName} ${evt.userData.lastName || ""}` : "Website Visitor"}</b>
+                      <small className="trackingNumber"><br />{evt.userData?.city || evt.userData?.phone || "Karachi / Lahore"}</small>
+                    </div>
+                  </td>
+                  <td>
+                    <b>{Number(evt.customData?.value) ? `Rs. ${Number(evt.customData.value).toLocaleString()}` : "—"}</b>
+                  </td>
+                  <td>
+                    <span style={{ fontSize: "12px", color: "#374151" }}>
+                      {evt.customData?.contents?.length ? `${evt.customData.contents.length} item(s)` : evt.customData?.contentName || "—"}
+                    </span>
+                  </td>
+                  <td>
+                    <span style={{ fontSize: "11px", color: "#166534", background: "#f0fdf4", padding: "2px 6px", borderRadius: "4px", border: "1px solid #bbf7d0", fontWeight: 600 }}>
+                      {evt.channel || "Pixel + CAPI"}
+                    </span>
+                  </td>
+                  <td>
+                    <span style={{ fontSize: "11px", color: evt.status?.includes("200") || evt.status?.includes("Delivered") ? "#166534" : "#991b1b", fontWeight: 600 }}>
+                      {evt.status || "Delivered (200 OK)"}
+                    </span>
+                  </td>
+                  <td>
+                    <small className="trackingNumber">{new Date(evt.timestamp).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit", second: "2-digit" })}</small>
+                  </td>
+                  <td>
+                    <button type="button" className="editProductButton" onClick={() => setSelectedEvent(evt)}>
+                      Inspect
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!events.length && (
+            <div className="inventoryEmpty" style={{ padding: "40px 20px" }}>
+              {loading ? "Loading event stream..." : "No tracking events recorded in this filter yet. Trigger a test event above or place an order to see live events!"}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Inspect Event Payload Drawer */}
+      {selectedEvent && (
+        <>
+          <div className="adminOverlay" onClick={() => setSelectedEvent(null)} />
+          <aside className="orderDetailDrawer">
+            <header>
+              <div>
+                <p>EVENT INSPECTOR</p>
+                <h2>{selectedEvent.eventName}</h2>
+                <span>ID: {selectedEvent.id}</span>
+              </div>
+              <button onClick={() => setSelectedEvent(null)}><X /></button>
+            </header>
+            <div className="orderDetailBody">
+              <section className="orderDetailGrid">
+                <article className="adminCard orderDetailCard">
+                  <h3>Event Name</h3>
+                  <b style={{ color: "#6b21a8" }}>{selectedEvent.eventName}</b>
+                  <p>{new Date(selectedEvent.timestamp).toLocaleString("en-PK")}</p>
+                </article>
+                <article className="adminCard orderDetailCard">
+                  <h3>Value &amp; Currency</h3>
+                  <b>{Number(selectedEvent.customData?.value) ? `Rs. ${Number(selectedEvent.customData.value).toLocaleString()}` : "0"}</b>
+                  <span>PKR</span>
+                </article>
+                <article className="adminCard orderDetailCard">
+                  <h3>Delivery Status</h3>
+                  <b style={{ color: "#166534" }}>{selectedEvent.status}</b>
+                  <span>Meta Graph API v19.0</span>
+                </article>
+              </section>
+
+              <section className="adminCard orderOpsCard">
+                <h3>Matched User Data (EMQ)</h3>
+                <div style={{ fontSize: "13px", lineHeight: 1.8, color: "#374151" }}>
+                  <div><b>Customer Name:</b> {selectedEvent.userData?.firstName || "—"} {selectedEvent.userData?.lastName || ""}</div>
+                  <div><b>Masked Phone:</b> {selectedEvent.userData?.phone || "—"}</div>
+                  <div><b>Masked Email:</b> {selectedEvent.userData?.email || "—"}</div>
+                  <div><b>City:</b> {selectedEvent.userData?.city || "—"}</div>
+                </div>
+              </section>
+
+              <section className="adminCard orderItemsCard">
+                <h3>Raw JSON Payload</h3>
+                <pre style={{ background: "#1f2937", color: "#f9fafb", padding: "16px", borderRadius: "8px", fontSize: "11px", overflowX: "auto", fontFamily: "monospace" }}>
+                  {JSON.stringify(selectedEvent, null, 2)}
+                </pre>
+              </section>
+            </div>
+          </aside>
+        </>
+      )}
+    </>
+  );
 }
 
 function BackendHealthPanel() {
