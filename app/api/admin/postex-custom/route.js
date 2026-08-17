@@ -224,16 +224,23 @@ export async function POST(request) {
       throw validationError("Please enter a valid Pakistani mobile number, for example 03XXXXXXXXX.");
     }
 
-    const existingOrderId = body?.orderId || body?.orderRef;
+    const rawOrderId = String(body?.orderId || body?.orderRef || "").trim();
+    const cleanOrderId = rawOrderId.replace(/^#/, "").trim();
     let existingOrder = null;
 
-    if (existingOrderId) {
+    if (cleanOrderId) {
       try {
-        const rows = await supabaseAdminRequest(`orders?select=*&id=eq.${encodeURIComponent(existingOrderId)}&limit=1`);
-        if (rows?.[0]) existingOrder = rows[0];
-        else {
-          const rowsByNumber = await supabaseAdminRequest(`orders?select=*&order_number=eq.${encodeURIComponent(existingOrderId)}&limit=1`);
-          if (rowsByNumber?.[0]) existingOrder = rowsByNumber[0];
+        const rowsById = await supabaseAdminRequest(`orders?select=*&id=eq.${encodeURIComponent(cleanOrderId)}&limit=1`).catch(() => []);
+        if (rowsById?.[0]) {
+          existingOrder = rowsById[0];
+        } else {
+          const rowsByNumber = await supabaseAdminRequest(`orders?select=*&order_number=eq.${encodeURIComponent(cleanOrderId)}&limit=1`).catch(() => []);
+          if (rowsByNumber?.[0]) {
+            existingOrder = rowsByNumber[0];
+          } else if (rawOrderId) {
+            const rowsByRaw = await supabaseAdminRequest(`orders?select=*&order_number=eq.${encodeURIComponent(rawOrderId)}&limit=1`).catch(() => []);
+            if (rowsByRaw?.[0]) existingOrder = rowsByRaw[0];
+          }
         }
       } catch {}
     }

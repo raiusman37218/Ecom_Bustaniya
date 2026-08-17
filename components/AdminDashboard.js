@@ -4967,8 +4967,8 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          orderId: order.id,
-          orderRef: order.id,
+          orderId: order.rawId || String(order.id).replace(/^#/, ""),
+          orderRef: order.order_number || String(order.id).replace(/^#/, ""),
           total: order.total,
           paymentStatus,
           bookPostex: true,
