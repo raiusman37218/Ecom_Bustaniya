@@ -424,10 +424,17 @@ export default function CheckoutPage() {
         localStorage.removeItem("bustaniya_cart");
         window.dispatchEvent(new Event("cartUpdated"));
       }
-      const createdOrder = result.order || {
+      // result.order (when present) uses different field names (deliveryCharges,
+      // amountPayableInAdvance, amountPayableOnDelivery) than what this page and
+      // <OrderConfirmation> read (delivery, advanceAmount, payableOnDelivery), so
+      // always normalize from the top-level response fields instead of spreading
+      // result.order directly — otherwise the confirmation screen shows "Rs. 0" /
+      // "Free" even though the real order total was calculated correctly.
+      const createdOrder = {
+        ...(result.order || {}),
         ...result,
-        customer,
-        items: [...cart],
+        customer: result.order?.customer || customer,
+        items: result.order?.items || [...cart],
         subtotal: Number(result.productSubtotal ?? paymentAmounts.productSubtotal),
         delivery: Number(result.deliveryCharges ?? paymentAmounts.deliveryCharges),
         total: Number(result.totalOrderValue ?? paymentAmounts.totalOrderValue),
