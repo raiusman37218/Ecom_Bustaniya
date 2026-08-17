@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bell, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
+  Activity, Bell, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
   LogOut, Menu, Minus, MoreHorizontal, Package, Plus,
   ReceiptText, RefreshCw, Search, Settings, ShoppingBag, Store, Tags, TrendingUp, Truck, Users,
   WalletCards, X
@@ -415,6 +415,8 @@ function ExecutiveAnalyticsSuite({
   dashboardNetProfit = 0,
   liveOrders = [],
   products = [],
+  pixelFunnel = null,
+  setActive = () => {},
 }) {
   const maxDailySales = Math.max(...salesByDay.map((day) => day.sales), 1);
   const peakDay = salesByDay.reduce((best, current) => (current.sales > best.sales ? current : best), { label: "—", sales: 0 });
@@ -620,43 +622,53 @@ function ExecutiveAnalyticsSuite({
         </article>
       </div>
 
-      {/* Shopify-Style Funnel & Meta CAPI Realtime Audit */}
+      {/* Shopify-Style Funnel & Meta CAPI Realtime Audit — driven by real
+          events logged in pixel_events (see lib/pixelEvents.js), not
+          estimates, so this matches Admin > Events exactly. */}
       <div className="analyticsGrid2" style={{ marginTop: "18px" }}>
         <article className="analyticsCard">
           <div className="analyticsCardHead">
             <div>
               <h3>Shopify-Style Conversion Funnel</h3>
-              <p>Customer journey funnel from page views to completed orders.</p>
+              <p>Customer journey funnel from page views to completed orders ({periodLabel}).</p>
             </div>
             <span className="analyticsMetricBadge" style={{ background: "#edf5ee", color: "#173d29" }}>Conversion Funnel</span>
           </div>
 
-          <div className="visualBarList" style={{ marginTop: "12px" }}>
-            <VisualProgress
-              label="1. Store Visitors & Sessions (PageViews)"
-              value={100}
-              helper={`${Math.max(liveOrders.length * 28, 140)} estimated unique store visitors`}
-              color="#16452c"
-            />
-            <VisualProgress
-              label="2. Added to Cart (AddToCart)"
-              value={Math.min(100, Math.round(((liveOrders.length * 3.8) / Math.max(liveOrders.length * 28, 140)) * 100))}
-              helper={`${Math.round(liveOrders.length * 3.8)} product add-to-cart actions`}
-              color="#2e7d32"
-            />
-            <VisualProgress
-              label="3. Reached Checkout (InitiateCheckout)"
-              value={Math.min(100, Math.round(((liveOrders.length * 1.7) / Math.max(liveOrders.length * 28, 140)) * 100))}
-              helper={`${Math.round(liveOrders.length * 1.7)} checkout sessions initiated`}
-              color="#c78b2b"
-            />
-            <VisualProgress
-              label="4. Completed Orders (Purchase Conversion)"
-              value={Math.min(100, Math.round((liveOrders.length / Math.max(liveOrders.length * 28, 140)) * 100))}
-              helper={`${liveOrders.length} confirmed orders (${(liveOrders.length / Math.max(liveOrders.length * 28, 140) * 100).toFixed(1)}% conversion rate)`}
-              color="#1565c0"
-            />
-          </div>
+          {pixelFunnel ? (() => {
+            const c = pixelFunnel.counts || {};
+            const base = Math.max(c.PageView || 0, 1);
+            return (
+              <div className="visualBarList" style={{ marginTop: "12px" }}>
+                <VisualProgress
+                  label="1. Store Visitors & Sessions (PageViews)"
+                  value={100}
+                  helper={`${c.PageView || 0} page views logged`}
+                  color="#16452c"
+                />
+                <VisualProgress
+                  label="2. Added to Cart (AddToCart)"
+                  value={Math.min(100, Math.round(((c.AddToCart || 0) / base) * 100))}
+                  helper={`${c.AddToCart || 0} product add-to-cart actions`}
+                  color="#2e7d32"
+                />
+                <VisualProgress
+                  label="3. Reached Checkout (InitiateCheckout)"
+                  value={Math.min(100, Math.round(((c.InitiateCheckout || 0) / base) * 100))}
+                  helper={`${c.InitiateCheckout || 0} checkout sessions initiated`}
+                  color="#c78b2b"
+                />
+                <VisualProgress
+                  label="4. Completed Orders (Purchase Conversion)"
+                  value={Math.min(100, Math.round(((c.Purchase || 0) / base) * 100))}
+                  helper={`${c.Purchase || 0} confirmed orders (${((c.Purchase || 0) / base * 100).toFixed(1)}% conversion rate)`}
+                  color="#1565c0"
+                />
+              </div>
+            );
+          })() : (
+            <p className="visualEmpty" style={{ marginTop: "12px" }}>Loading real funnel data from pixel_events…</p>
+          )}
         </article>
 
         <article className="analyticsCard">
@@ -671,35 +683,46 @@ function ExecutiveAnalyticsSuite({
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
             <div style={{ padding: "10px 14px", borderRadius: "8px", background: "#f8faf9", border: "1px solid #e0e8e3", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <b style={{ color: "#173d29", fontSize: "13px" }}>Meta Pixel ID</b>
-                <div style={{ fontSize: "12px", color: "#6b7280", fontFamily: "monospace" }}>5621950704696012</div>
+                <b style={{ color: "#173d29", fontSize: "13px" }}>Events sent ({periodLabel})</b>
+                <div style={{ fontSize: "12px", color: "#6b7280" }}>{pixelFunnel ? pixelFunnel.total : "…"} total pixel/CAPI events logged</div>
               </div>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#2e7d32", padding: "3px 8px", background: "#e8f5e9", borderRadius: "12px" }}>Browser Pixel Connected</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#2e7d32", padding: "3px 8px", background: "#e8f5e9", borderRadius: "12px" }}>Browser + Server</span>
             </div>
 
             <div style={{ padding: "10px 14px", borderRadius: "8px", background: "#f8faf9", border: "1px solid #e0e8e3", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <b style={{ color: "#173d29", fontSize: "13px" }}>Conversions API (CAPI Token)</b>
-                <div style={{ fontSize: "12px", color: "#6b7280" }}>SHA-256 EMQ User Matching Active</div>
+                <b style={{ color: "#173d29", fontSize: "13px" }}>Meta delivery success rate</b>
+                <div style={{ fontSize: "12px", color: "#6b7280" }}>Share of events Meta's Graph API accepted (HTTP 200)</div>
               </div>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#2e7d32", padding: "3px 8px", background: "#e8f5e9", borderRadius: "12px" }}>Server CAPI Active</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: pixelFunnel?.successRate >= 90 || pixelFunnel?.successRate == null ? "#2e7d32" : "#c0392b", padding: "3px 8px", background: pixelFunnel?.successRate >= 90 || pixelFunnel?.successRate == null ? "#e8f5e9" : "#fdecea", borderRadius: "12px" }}>
+                {pixelFunnel?.successRate == null ? "—" : `${pixelFunnel.successRate}%`}
+              </span>
             </div>
 
             <div style={{ padding: "10px 14px", borderRadius: "8px", background: "#f8faf9", border: "1px solid #e0e8e3", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <b style={{ color: "#173d29", fontSize: "13px" }}>Tracked CAPI Events</b>
-                <div style={{ fontSize: "12px", color: "#6b7280" }}>PageView, ViewContent, AddToCart, InitiateCheckout, Purchase</div>
+                <b style={{ color: "#173d29", fontSize: "13px" }}>SHA-256 EMQ match rate</b>
+                <div style={{ fontSize: "12px", color: "#6b7280" }}>Events sent with hashed email/phone for Meta match quality</div>
               </div>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#1565c0", padding: "3px 8px", background: "#e3f2fd", borderRadius: "12px" }}>Deduplication ON</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#1565c0", padding: "3px 8px", background: "#e3f2fd", borderRadius: "12px" }}>
+                {pixelFunnel?.matchRate == null ? "—" : `${pixelFunnel.matchRate}%`}
+              </span>
             </div>
 
+            <button
+              type="button"
+              onClick={() => setActive("Events")}
+              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "10px", borderRadius: "8px", background: "#16452c", color: "#fff", fontWeight: 700, fontSize: "13px", border: "none", cursor: "pointer", marginTop: "4px" }}
+            >
+              View Live Events in Admin →
+            </button>
             <a
               href="https://eventsmanager.facebook.com"
               target="_blank"
               rel="noreferrer"
-              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "10px", borderRadius: "8px", background: "#16452c", color: "#fff", fontWeight: 700, fontSize: "13px", textDecoration: "none", marginTop: "4px" }}
+              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px", padding: "6px", fontSize: "12px", color: "#6b7280", textDecoration: "none" }}
             >
-              View Live Events in Meta Events Manager ↗
+              Open Meta Events Manager instead ↗
             </a>
           </div>
         </article>
@@ -781,6 +804,7 @@ const navItems = [
   { name: "Inventory", icon: Boxes, section: "COMMERCE" },
   { name: "Customers", icon: Users, section: "COMMERCE" },
   { name: "Finances", icon: Landmark, section: "COMMERCE" },
+  { name: "Events", icon: Activity, section: "COMMERCE" },
   { name: "Courier Ops", icon: Truck, section: "OPERATIONS" },
   { name: "Couriers", icon: Truck, section: "OPERATIONS" },
   { name: "Settings", icon: Settings, section: "OPERATIONS" }
@@ -794,6 +818,7 @@ const navPermissionMap = {
   Inventory: "inventory",
   Customers: "customers",
   Finances: "dashboard",
+  Events: "dashboard",
   "Courier Ops": "orders",
   Couriers: "settings",
   Settings: "settings",
@@ -1599,6 +1624,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}
+          {canAccessActive && active === "Events" && <EventsPanel />}
           {canAccessActive && active === "Courier Ops" && <CourierOperationsPanel />}
           {canAccessActive && active === "Couriers" && <CouriersPanel />}
           {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} />}
@@ -1842,6 +1868,19 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const [dashboardUpdatedAt, setDashboardUpdatedAt] = useState(null);
   const [dashboardRefreshing, setDashboardRefreshing] = useState(false);
   const [financeSnapshotStatus, setFinanceSnapshotStatus] = useState("loading");
+  const [pixelFunnel, setPixelFunnel] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ days: Number(dashboardPeriod) || 7, limit: 1 }),
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result) => { if (!cancelled && result?.summary) setPixelFunnel(result.summary); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [dashboardPeriod]);
   const isOwnerDashboard = !currentAdminUser || currentAdminUser.role === "Owner";
   useEffect(() => { setDashboardNow(new Date()); }, []);
   async function refreshDashboardFinance() {
@@ -2136,6 +2175,8 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
       dashboardNetProfit={dashboardNetProfit}
       liveOrders={liveOrders}
       products={products}
+      pixelFunnel={pixelFunnel}
+      setActive={setActive}
     />
 
     {/* Collapsible Cash explainer (Closed by default) */}
@@ -3111,6 +3152,161 @@ function CourierOperationsPanel() {
     <section className="adminCard courierCommandCard"><div className="inventoryListHead"><div><h2>Courier workflow</h2><span>Daily staff routine from booking to Finance settlement.</span></div></div><div className="courierFlowSteps"><div><b>1</b><span>Book order</span></div><div><b>2</b><span>Tracking saved</span></div><div><b>3</b><span>Sync status</span></div><div><b>4</b><span>Delivered / returned</span></div><div><b>5</b><span>PostEx Wallet</span></div></div></section>
     <section className="adminCard settingsForm settingsWideForm courierFilters"><div className="formRow"><label>Courier<select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}><option value="all">All couriers</option>{snapshot.couriers.map((courier) => <option key={courier.id} value={courier.provider}>{courier.name}</option>)}</select></label><label>Status<select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">All statuses</option>{["booked","picked_up","in_transit","out_for_delivery","delivered","attempted","on_hold","returned","cancelled","manual_delivery"].map((status) => <option value={status} key={status}>{statusLabel(status)}</option>)}</select></label><label>Queue<select value={filters.queue} onChange={(event) => setFilters((current) => ({ ...current, queue: event.target.value }))}><option value="all">All shipments</option><option value="delayed">Delayed only</option><option value="failed">Failed sync only</option></select></label></div><div className="orderTabs courierQuickFilters"><button type="button" className={filters.queue === "all" && filters.status === "all" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "all", status: "all" }))}>All</button><button type="button" className={filters.status === "out_for_delivery" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, status: "out_for_delivery", queue: "all" }))}>Out for delivery</button><button type="button" className={filters.status === "delivered" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, status: "delivered", queue: "all" }))}>Delivered</button><button type="button" className={filters.queue === "delayed" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "delayed", status: "all" }))}>Delayed</button><button type="button" className={filters.queue === "failed" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "failed", status: "all" }))}>Needs retry</button></div></section>
     <section className="adminCard settingsForm settingsWideForm"><div className="inventoryListHead"><div><h2>Shipment queue</h2><span>{rows.length} shipment{rows.length === 1 ? "" : "s"} shown</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order / tracking</th><th>Courier</th><th>Service</th><th>Live status</th><th>Last sync</th><th>Issue</th><th /></tr></thead><tbody>{rows.map((shipment) => <tr key={shipment.id}><td><b>#{shipment.order_number}</b><small className="trackingNumber"><br />{shipment.courier_tracking_number || "No tracking number"}</small></td><td>{shipment.courierName}</td><td>{shipment.courier_service_type || "—"}</td><td><span className={`statusBadge ${shipment.courier_normalized_status}`}>{String(shipment.courier_normalized_status || "unassigned").replaceAll("_", " ")}</span><small className="trackingNumber"><br />{shipment.courier_raw_status || "—"}</small></td><td>{shipment.courier_last_synced_at ? new Date(shipment.courier_last_synced_at).toLocaleString("en-PK") : "Never"}</td><td>{shipment.courier_sync_error ? <small className="expenseAmount">{shipment.courier_sync_error}</small> : shipment.isDelayed ? <small className="expenseAmount">Delayed</small> : "—"}</td><td>{shipment.provider === "postex" && shipment.courier_tracking_number && <button type="button" className="editProductButton" onClick={() => syncShipment(shipment.id)} disabled={syncing === shipment.id}>{syncing === shipment.id ? "Syncing..." : shipment.courier_sync_error ? "Retry" : "Sync"}</button>}</td></tr>)}{!loading && !rows.length && <tr><td colSpan="7" className="emptyFinanceCell">No shipment matches these filters.</td></tr>}{loading && <tr><td colSpan="7" className="emptyFinanceCell">Loading shipment queue...</td></tr>}</tbody></table></div></section>
+  </>;
+}
+
+const EVENT_BADGE_COLORS = {
+  PageView: { bg: "#eef2ff", color: "#3730a3" },
+  ViewContent: { bg: "#f0f9ff", color: "#075985" },
+  AddToCart: { bg: "#ecfdf5", color: "#065f46" },
+  InitiateCheckout: { bg: "#fffbeb", color: "#92400e" },
+  Purchase: { bg: "#e3f2fd", color: "#1565c0" },
+};
+
+function timeAgo(isoString) {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function EventsPanel() {
+  const [days, setDays] = useState("7");
+  const [eventName, setEventName] = useState("");
+  const [events, setEvents] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [setupNeeded, setSetupNeeded] = useState(false);
+  const [lastLoadedAt, setLastLoadedAt] = useState(null);
+
+  async function loadEvents() {
+    setLoading(true); setError("");
+    try {
+      const response = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: Number(days) || 7, eventName, limit: 150 }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        if (/pixel_events/.test(result.error || "") || response.status === 500) setSetupNeeded(true);
+        throw new Error(result.error || "Unable to load events.");
+      }
+      setSetupNeeded(false);
+      setEvents(result.events || []);
+      setSummary(result.summary || null);
+      setLastLoadedAt(new Date());
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadEvents(); }, [days, eventName]);
+  useEffect(() => {
+    const interval = setInterval(loadEvents, 20000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days, eventName]);
+
+  const counts = summary?.counts || {};
+  const eventTypeOptions = ["", "PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"];
+
+  return <>
+    <div className="adminTitle">
+      <div>
+        <p>MARKETING</p>
+        <h1>Live Events</h1>
+        <span>Real Meta Pixel &amp; Conversions API activity logged straight from this store — no need to open Meta Events Manager.</span>
+      </div>
+      <div className="orderTabs" aria-label="Events period">
+        {[["7", "7 days"], ["30", "30 days"], ["90", "90 days"]].map(([value, label]) => (
+          <button type="button" key={value} className={days === value ? "active" : ""} aria-pressed={days === value} onClick={() => setDays(value)}>{label}</button>
+        ))}
+      </div>
+    </div>
+
+    {error && !setupNeeded && <div className="adminErrorBanner">{error}</div>}
+    {setupNeeded && (
+      <div className="inventoryAlert materialAlert">
+        <Activity />
+        <div>
+          <b>Events database setup required</b>
+          <span>Run <code>scripts/supabase-pixel-events.sql</code> in Supabase, then refresh this page.</span>
+        </div>
+      </div>
+    )}
+
+    <section className="financeMetricGrid">
+      <article><Activity /><span><b>{summary ? summary.total : "—"}</b>Total events ({days} days)</span></article>
+      <article><CircleDollarSign /><span><b>{counts.Purchase || 0}</b>Purchases logged</span></article>
+      <article><TrendingUp /><span><b>{summary?.successRate == null ? "—" : `${summary.successRate}%`}</b>Meta delivery success</span></article>
+      <article><Users /><span><b>{summary?.matchRate == null ? "—" : `${summary.matchRate}%`}</b>SHA-256 match rate (EMQ)</span></article>
+    </section>
+
+    <div className="orderTabs" aria-label="Filter by event type" style={{ marginTop: "12px", marginBottom: "12px", flexWrap: "wrap" }}>
+      {eventTypeOptions.map((name) => (
+        <button type="button" key={name || "all"} className={eventName === name ? "active" : ""} aria-pressed={eventName === name} onClick={() => setEventName(name)}>
+          {name || "All events"}{name ? ` (${counts[name] || 0})` : ""}
+        </button>
+      ))}
+      <button type="button" onClick={loadEvents} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+        <RefreshCw size={14} /> Refresh
+      </button>
+    </div>
+
+    <div className="adminCard managementCard">
+      <div className="inventoryListHead">
+        <div>
+          <h2>Recent events</h2>
+          <span>{lastLoadedAt ? `Updated ${timeAgo(lastLoadedAt.toISOString())} · auto-refreshes every 20s` : "Loading…"}</span>
+        </div>
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Event</th>
+              <th>Source</th>
+              <th>Status</th>
+              <th>Value</th>
+              <th>Content ID(s)</th>
+              <th>Matched (EMQ)</th>
+              <th>Meta trace</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.map((event) => {
+              const badge = EVENT_BADGE_COLORS[event.event_name] || { bg: "#f3f4f6", color: "#374151" };
+              return (
+                <tr key={event.id}>
+                  <td><small className="trackingNumber">{timeAgo(event.created_at)}</small></td>
+                  <td><span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", borderRadius: "12px", background: badge.bg, color: badge.color }}>{event.event_name}</span></td>
+                  <td>{event.source === "browser" ? "Browser → Server" : "Server"}</td>
+                  <td>{event.success
+                    ? <span style={{ fontSize: "11px", fontWeight: 700, color: "#2e7d32", padding: "3px 8px", background: "#e8f5e9", borderRadius: "12px" }}>Delivered</span>
+                    : <span style={{ fontSize: "11px", fontWeight: 700, color: "#c0392b", padding: "3px 8px", background: "#fdecea", borderRadius: "12px" }} title={event.error_message || ""}>Failed</span>}
+                  </td>
+                  <td>{event.value ? `Rs. ${Number(event.value).toLocaleString()}` : "—"}</td>
+                  <td><small className="trackingNumber">{Array.isArray(event.content_ids) && event.content_ids.length ? event.content_ids.join(", ") : "—"}</small></td>
+                  <td>{event.em_hash || event.ph_hash ? "Yes" : "—"}</td>
+                  <td><small className="trackingNumber">{event.fbtrace_id || "—"}</small></td>
+                </tr>
+              );
+            })}
+            {!loading && !events.length && !setupNeeded && (
+              <tr><td colSpan="8" className="emptyFinanceCell">No events logged yet for this filter — browse the storefront (view a product, add to cart, start checkout) to generate some.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   </>;
 }
 

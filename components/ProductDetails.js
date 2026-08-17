@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Heart, Maximiz
 import { productDescription } from "../lib/seo";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
+import { trackEvent } from "../lib/trackEvent";
 import SizeChartModal, { SizeTable } from "./SizeChartModal";
 import SiteHeader from "./SiteHeader";
 
@@ -73,6 +74,19 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   }, []);
 
   useEffect(() => {
+    trackEvent("ViewContent", {
+      customData: {
+        value: Number(product.price || 0),
+        contentName: product.name,
+        contentCategory: product.category,
+        contentIds: [String(product.articleNumber || product.sku || product.id || "")],
+      },
+    });
+    // Only fire once per product page load, not on every re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
+
+  useEffect(() => {
     if (cartReady) localStorage.setItem("bustaniya-cart", JSON.stringify(cart));
   }, [cart, cartReady]);
 
@@ -92,6 +106,16 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         return current.map((item) => item.id === product.id && item.size === size ? { ...item, quantity: Math.min(availableStock, item.quantity + quantity) } : item);
       }
       return [...current, { ...product, size, quantity: Math.min(quantity, availableStock) }];
+    });
+    trackEvent("AddToCart", {
+      customData: {
+        value: Number(product.price || 0) * quantity,
+        contentName: product.name,
+        contentCategory: product.category,
+        contentIds: [String(product.articleNumber || product.sku || product.id || "")],
+        contents: [{ id: String(product.articleNumber || product.sku || product.id || ""), quantity }],
+        numItems: quantity,
+      },
     });
     setAdded(true);
     if (openDrawer) setCartOpen(true);

@@ -5,6 +5,7 @@ import { AlertCircle, Check, CheckCircle2, ChevronDown, Loader2, Lock, MessageCi
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
+import { trackEvent } from "../../lib/trackEvent";
 
 const MAJOR_CITIES = [
   "Lahore",
@@ -236,6 +237,23 @@ export default function CheckoutPage() {
     } catch {}
     setIsCartLoaded(true);
   }, []);
+
+  const initiateCheckoutFired = useRef(false);
+  useEffect(() => {
+    if (!isCartLoaded || initiateCheckoutFired.current || !cart.length) return;
+    initiateCheckoutFired.current = true;
+    trackEvent("InitiateCheckout", {
+      customData: {
+        value: cart.reduce((total, item) => total + item.price * item.quantity, 0),
+        contents: cart.map((item) => ({
+          id: String(item.articleNumber || item.sku || item.id || ""),
+          quantity: item.quantity,
+          item_price: item.price,
+        })),
+        numItems: cart.reduce((total, item) => total + item.quantity, 0),
+      },
+    });
+  }, [isCartLoaded, cart]);
 
   useEffect(() => {
     const raw = localStorage.getItem("bustaniya_last_checkout_fields");

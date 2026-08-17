@@ -2,20 +2,20 @@
 
 import Script from "next/script";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { trackEvent } from "../lib/trackEvent";
 
 export default function MetaPixel({ pixelId }) {
   const pathname = usePathname();
-  const initialPage = useRef(true);
   const isAdminRoute = pathname?.startsWith("/admin");
 
+  // Every PageView (including the first) is fired through the shared
+  // trackEvent() helper so it also gets logged server-side into
+  // pixel_events, matching the browser fbq call by event_id for Meta's
+  // deduplication. See lib/trackEvent.js and Admin > Events.
   useEffect(() => {
-    if (isAdminRoute || initialPage.current) {
-      initialPage.current = false;
-      return;
-    }
-
-    window.fbq?.("track", "PageView");
+    if (isAdminRoute) return;
+    trackEvent("PageView");
   }, [isAdminRoute, pathname]);
 
   if (!pixelId || isAdminRoute) return null;
@@ -31,8 +31,7 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '${pixelId}');
-fbq('track', 'PageView');`}
+fbq('init', '${pixelId}');`}
       </Script>
       <noscript>
         <img
