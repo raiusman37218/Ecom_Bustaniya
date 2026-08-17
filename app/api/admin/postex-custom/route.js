@@ -347,7 +347,20 @@ export async function POST(request) {
     if (shouldBookPostex) {
       if (courier.configured) {
         try {
-          const result = await courier.createShipment(payload);
+          let result = await courier.createShipment(payload).catch((err) => ({ _err: err }));
+          if (result?._err) {
+            const errText = String(result._err?.message || "").toLowerCase();
+            if (errText.includes("already exist") || errText.includes("duplicate") || errText.includes("already booked")) {
+              const retryPayload = {
+                ...payload,
+                orderRefNumber: `${payload.orderRefNumber}-${Date.now().toString().slice(-4)}`
+              };
+              result = await courier.createShipment(retryPayload);
+            } else {
+              throw result._err;
+            }
+          }
+
           const postexTrackingNumber = postexTrackingNumberFromBooking(result);
 
           if (postexTrackingNumber) {

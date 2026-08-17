@@ -587,7 +587,19 @@ export async function POST(request) {
       try {
         postexResult = await courier.createShipment(postexPayload);
       } catch (courierError) {
-        courierMessage = courierError.message;
+        const errText = String(courierError?.message || "").toLowerCase();
+        if (errText.includes("already exist") || errText.includes("duplicate") || errText.includes("already booked")) {
+          try {
+            postexResult = await courier.createShipment({
+              ...postexPayload,
+              orderRefNumber: `${postexPayload.orderRefNumber}-${Date.now().toString().slice(-4)}`
+            });
+          } catch (retryErr) {
+            courierMessage = retryErr.message;
+          }
+        } else {
+          courierMessage = courierError.message;
+        }
       }
 
       trackingNumber = postexTrackingNumberFromBooking(postexResult);
