@@ -8,6 +8,7 @@ import { getCourierAdapter, postexTrackingNumberFromBooking } from "../../../../
 import { recordShipmentState } from "../../../../lib/shipments";
 import { getStoreSettings } from "../../../../lib/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, paymentSnapshot } from "../../../../lib/paymentRules";
+import { sendMetaCapiEvent } from "../../../../lib/metaCapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -641,6 +642,29 @@ export async function POST(request) {
       console.error("Order confirmation email failed", {
         message: emailError?.message,
       });
+    });
+
+    sendMetaCapiEvent({
+      eventName: "Purchase",
+      eventId: completedOrder.order_number || completedOrder.id,
+      eventSourceUrl: "https://bustaniya.com/checkout",
+      userData: {
+        phone: customer.phone,
+        email: customer.email,
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        city: customer.city,
+      },
+      customData: {
+        value: Number(completedOrder.total || 0),
+        contents: (verifiedItems || []).map((item) => ({
+          id: String(item.article_number || item.productId || item.id || ""),
+          quantity: Number(item.quantity || 1),
+          item_price: Number(item.price || 0),
+        })),
+      },
+    }).catch((capiErr) => {
+      console.error("Meta CAPI Purchase event error:", capiErr);
     });
 
     const courierResponseBody = {
