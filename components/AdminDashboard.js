@@ -1221,12 +1221,16 @@ export default function AdminDashboard() {
         delivery_fee_pkr: form.get("deliveryFeeMode") === "paid"
           ? Number(form.get("deliveryFee") || 200)
           : null,
+        deliveryInfo: String(form.get("deliveryInfo") || "").trim(),
+        instagramVideoUrl: String(form.get("instagramVideoUrl") || "").trim(),
         cost_total_pkr: totalProductCost,
         cost_breakdown: {
           ...costBreakdown,
           metadata: {
             fabricDetails: "",
             careInstructions: "",
+            deliveryInfo: String(form.get("deliveryInfo") || "").trim(),
+            instagramVideoUrl: String(form.get("instagramVideoUrl") || "").trim(),
             vendor: String(form.get("vendor") || "").trim(),
             barcode: String(form.get("barcode") || "").trim(),
             weight: String(form.get("weight") || "").trim(),
@@ -1236,6 +1240,7 @@ export default function AdminDashboard() {
             seoTitle,
             seoDescription: String(form.get("seoDescription") || "").trim(),
             urlHandle: String(form.get("urlHandle") || "").trim(),
+
             compareAtPrice: Number(form.get("comparePrice") || 0) || null,
             status: form.get("status") || "Active",
             productType: form.get("productType") || "",
@@ -1244,6 +1249,7 @@ export default function AdminDashboard() {
           },
         },
       };
+
       if (!editingProduct) {
         productPayload.is_new = true;
         productPayload.is_bestseller = false;
@@ -1686,7 +1692,22 @@ export default function AdminDashboard() {
                   <button type="button" onClick={() => removeProductMedia(item.id)} aria-label={`Remove ${item.name}`}><X /></button>
                 </div>)}
               </div>}
+              <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid #e2e8e3" }}>
+                <label>
+                  Instagram Reel / Video URL (optional)
+                  <input
+                    name="instagramVideoUrl"
+                    type="url"
+                    defaultValue={editingProduct?.instagramVideoUrl || editingProduct?.cost_breakdown?.metadata?.instagramVideoUrl || ""}
+                    placeholder="https://www.instagram.com/reel/C8XYZ123/ or https://www.instagram.com/p/C8XYZ123/"
+                  />
+                  <small className="settingsHint" style={{ display: "block", marginTop: "4px", color: "#64748b", fontSize: "11px" }}>
+                    Paste an Instagram Reel or Post link to embed an interactive showcase reel on this product page.
+                  </small>
+                </label>
+              </div>
             </section>
+
 
             <section className="productEditorCard">
               <h3>Product organization</h3>
@@ -1740,14 +1761,27 @@ export default function AdminDashboard() {
             </section>
 
             <section className="productEditorCard">
-              <h3>Shipping</h3>
+              <h3>Shipping &amp; Delivery</h3>
               <label className="checkLabel"><input type="checkbox" defaultChecked /> This is a physical product</label>
               <input type="hidden" name="deliveryFeeMode" value="inherit" />
               <div className="formRow"><label>Delivery fee per order<input readOnly value="Rs. 200" /></label><label>Rule<input readOnly value="Applied once, even for multiple products" /></label></div>
               <p className="shippingRuleHint">Store rule: product prices exclude delivery. Every order has one flat Rs. 200 delivery fee, regardless of item quantity.</p>
+              <label>
+                Custom delivery information (optional override)
+                <textarea
+                  name="deliveryInfo"
+                  rows="3"
+                  defaultValue={editingProduct?.deliveryInfo || editingProduct?.cost_breakdown?.metadata?.deliveryInfo || ""}
+                  placeholder="e.g. Dispatched within 24-48 hours. Delivery in 3-5 business days across Pakistan."
+                />
+                <small className="settingsHint" style={{ display: "block", marginTop: "4px", color: "#64748b", fontSize: "11px" }}>
+                  Leave empty to use the store&apos;s global delivery information and policies.
+                </small>
+              </label>
               <div className="formRow"><label>Weight<input name="weight" type="number" step="0.1" defaultValue={editingProduct?.weight || ""} placeholder="0.5" /></label><label>Unit<select name="weightUnit" defaultValue={editingProduct?.weightUnit || "kg"}><option>kg</option><option>g</option></select></label></div>
               <div className="formRow"><label>Country of origin<select name="countryOfOrigin" defaultValue={editingProduct?.countryOfOrigin || "Pakistan"}><option>Pakistan</option></select></label><label>HS tariff code<input name="hsTariffCode" defaultValue={editingProduct?.hsTariffCode || ""} placeholder="Optional" /></label></div>
             </section>
+
 
             <section className="productEditorCard">
               <h3>Search engine listing</h3>
@@ -7725,6 +7759,24 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
     event.currentTarget.reset();
   }
 
+  function removeShippingZone(index) {
+    const updated = (shippingZones || []).filter((_, idx) => idx !== index);
+    setShippingZones(updated);
+    setStoreSettings((current) => ({ ...current, shippingZones: updated }));
+  }
+
+  function updateDeliverySettings(changes) {
+    setStoreSettings((current) => ({
+      ...current,
+      deliverySettings: {
+        ...(DEFAULT_STORE_SETTINGS.deliverySettings || {}),
+        ...(current.deliverySettings || {}),
+        ...changes,
+      },
+    }));
+  }
+
+
   return <><div className="adminTitle"><div><p>CONFIGURATION</p><h1>Settings</h1><span>Manage storefront and workspace configuration. Store Details changes save live; use the relevant section to save its settings.</span></div></div>
 {savedAt && <div className="adminErrorBanner settingsSaved">Store settings saved at {savedAt}.</div>}
     <section className="settingsLayout">
@@ -8033,7 +8085,122 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
           <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save payment settings"}</button>
         </form>}
 
+        {activeTab === "Shipping" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
+          <h2>Shipping &amp; Delivery Settings</h2>
+          {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
+          
+          <div className="paymentRulesCard">
+            <h3>Global Delivery Information (Storewide Fallback)</h3>
+            <p className="settingsHint">These defaults appear on product detail pages whenever a product does not have a custom delivery note specified.</p>
+            
+            <div className="formRow">
+              <label>
+                Estimated Delivery Timeline
+                <input
+                  value={storeSettings.deliverySettings?.estimatedDays || ""}
+                  onChange={(event) => updateDeliverySettings({ estimatedDays: event.target.value })}
+                  placeholder="e.g. 3-5 business days"
+                />
+              </label>
+              <label>
+                Free Delivery Above Order (PKR)
+                <input
+                  type="number"
+                  min="0"
+                  value={storeSettings.deliverySettings?.freeDeliveryThreshold ?? 5000}
+                  onChange={(event) => updateDeliverySettings({ freeDeliveryThreshold: event.target.value })}
+                  placeholder="5000"
+                />
+              </label>
+            </div>
+
+            <label>
+              Standard Delivery Charges Copy
+              <input
+                value={storeSettings.deliverySettings?.deliveryFeeText || ""}
+                onChange={(event) => updateDeliverySettings({ deliveryFeeText: event.target.value })}
+                placeholder="e.g. Rs. 200 standard delivery nationwide · Free above Rs. 5,000"
+              />
+            </label>
+
+            <div className="settingsOption" style={{ margin: "14px 0 8px" }}>
+              <div>
+                <b>Cash on Delivery (COD) availability</b>
+                <span>Highlight COD availability badge on product detail pages.</span>
+              </div>
+              <label className="switchLabel">
+                <input
+                  type="checkbox"
+                  checked={storeSettings.deliverySettings?.codAvailable !== false}
+                  onChange={(event) => updateDeliverySettings({ codAvailable: event.target.checked })}
+                />
+                Available
+              </label>
+            </div>
+
+            <label>
+              Cash on Delivery Note
+              <input
+                value={storeSettings.deliverySettings?.codNote || ""}
+                onChange={(event) => updateDeliverySettings({ codNote: event.target.value })}
+                placeholder="e.g. Cash on Delivery available nationwide (Rs. 250 advance confirmation fee)"
+              />
+            </label>
+
+            <label>
+              Global Default Delivery Information Text
+              <textarea
+                rows="4"
+                value={storeSettings.deliverySettings?.defaultDeliveryInfo || ""}
+                onChange={(event) => updateDeliverySettings({ defaultDeliveryInfo: event.target.value })}
+                placeholder="Orders are processed within 24 hours and delivered within 3-5 business days across Pakistan. Tracking details are shared via SMS and WhatsApp once dispatched."
+              />
+              <small className="settingsHint">Shown in the Delivery accordion on all products unless overridden per product.</small>
+            </label>
+          </div>
+
+          <div className="paymentRulesCard">
+            <div className="inventoryListHead">
+              <div>
+                <h3>Shipping Zones &amp; Rates</h3>
+                <span>Configured courier delivery rates</span>
+              </div>
+            </div>
+            <div className="adminTableWrap">
+              <table className="adminTable">
+                <thead>
+                  <tr>
+                    <th>Zone</th>
+                    <th>Cities</th>
+                    <th>Rate</th>
+                    <th>Free above</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {(shippingZones || []).map((zone, index) => (
+                    <tr key={zone.id || index}>
+                      <td><b>{zone.zone}</b></td>
+                      <td>{zone.cities}</td>
+                      <td>Rs. {Number(zone.rate || 0).toLocaleString()}</td>
+                      <td>{Number(zone.freeAbove || 0) > 0 ? `Rs. ${Number(zone.freeAbove).toLocaleString()}` : "—"}</td>
+                      <td>
+                        <button type="button" onClick={() => removeShippingZone(index)} aria-label="Remove zone" style={{ padding: "4px 8px", background: "none", border: "none", cursor: "pointer", color: "#b91c1c" }}>
+                          <X size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save shipping settings"}</button>
+        </form>}
+
         {activeTab === "Users" && <div className="settingsStack">
+
           {staffError && <div className="adminErrorBanner">{staffError}</div>}
           {staffSaved && <div className="adminErrorBanner settingsSaved">{staffSaved}</div>}
           <section className="adminCard settingsForm settingsWideForm">

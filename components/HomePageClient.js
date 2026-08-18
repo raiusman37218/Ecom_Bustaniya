@@ -2,7 +2,8 @@
 
 import Image, { getImageProps } from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, Minus, Play, Plus, Ruler, ShieldCheck, ShoppingBag, Truck, UserRound, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, Minus, Play, Plus, Ruler, ShieldCheck, ShoppingBag, Sparkles, Truck, UserRound, X } from "lucide-react";
+
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
@@ -151,6 +152,15 @@ export default function Home({
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
   const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+  const totalSavings = useMemo(() => {
+    return cart.reduce((sum, item) => {
+      const original = Number(item.compareAtPrice || item.comparePrice || item.compare_at_price || item.originalPrice || 0);
+      const price = Number(item.price || 0);
+      const diff = original > price ? (original - price) * Number(item.quantity || 1) : 0;
+      return sum + diff;
+    }, 0);
+  }, [cart]);
+
 
   function salePercent(product) {
     const previous = Number(product.compareAtPrice || product.compare_at_price || 0);
@@ -569,19 +579,68 @@ export default function Home({
       <aside className={cartOpen ? "cartDrawer cartOpen" : "cartDrawer"}>
         <div className="cartHeader"><h2>Your bag <span>({cartCount})</span></h2><button onClick={() => setCartOpen(false)}><X /></button></div>
         <div className="cartItems">
-          {!cart.length ? <div className="emptyCart"><ShoppingBag size={36} /><h3>Your bag is empty</h3><p>Looks like you haven&apos;t added anything yet.</p><button onClick={() => setCartOpen(false)}>Continue shopping</button></div>
-          : cart.map((item) => <div className="cartItem" key={item.id}>
-              <div style={{ backgroundImage: `url(${optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
-              <section><h3>{item.name}</h3><p>Rs. {item.price.toLocaleString()}</p><span className="quantity"><button onClick={() => updateQuantity(item.id, -1)}><Minus size={14} /></button>{item.quantity}<button onClick={() => updateQuantity(item.id, 1)}><Plus size={14} /></button></span></section>
-            </div>)}
+          {!cart.length ? (
+            <div className="emptyCart"><ShoppingBag size={36} /><h3>Your bag is empty</h3><p>Looks like you haven&apos;t added anything yet.</p><button onClick={() => setCartOpen(false)}>Continue shopping</button></div>
+          ) : cart.map((item) => {
+            const originalPrice = Number(item.compareAtPrice || item.comparePrice || item.compare_at_price || item.originalPrice || 0);
+            const price = Number(item.price || 0);
+            const hasDiscount = originalPrice > price;
+            const unitSaving = hasDiscount ? originalPrice - price : 0;
+            const itemTotalSaving = unitSaving * item.quantity;
+
+            return (
+              <div className="cartItem" key={item.id}>
+                <div style={{ backgroundImage: `url(${optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
+                <section>
+                  <h3>{item.name}</h3>
+                  <div className="cartItemMeta">
+                    {item.size && <small>Size: {item.size}</small>}
+                    {item.color && <small className="cartItemColor">Color: {item.color}</small>}
+                  </div>
+                  <div className="cartItemPriceLine">
+                    <p className="cartItemPrice">Rs. {(item.price * item.quantity).toLocaleString()}</p>
+                    {hasDiscount && (
+                      <span className="cartItemOriginalPrice">Rs. {(originalPrice * item.quantity).toLocaleString()}</span>
+                    )}
+                  </div>
+                  {hasDiscount && itemTotalSaving > 0 && (
+                    <span className="cartItemSavingsBadge">
+                      You saved Rs. {itemTotalSaving.toLocaleString()}
+                    </span>
+                  )}
+                  <span className="quantity">
+                    <button onClick={() => updateQuantity(item.id, -1)}><Minus size={14} /></button>
+                    {item.quantity}
+                    <button onClick={() => updateQuantity(item.id, 1)}><Plus size={14} /></button>
+                  </span>
+                </section>
+              </div>
+            );
+          })}
         </div>
         {!!cart.length && <div className="cartFooter">
-          <div><span>Subtotal</span><b>Rs. {subtotal.toLocaleString()}</b></div>
+          {totalSavings > 0 && (
+            <div className="cartTotalSavingsCallout">
+              <Sparkles size={14} />
+              <span>You saved <b>Rs. {totalSavings.toLocaleString()}</b> on this order!</span>
+            </div>
+          )}
+          <div className="cartFooterSubtotal">
+            <span>Subtotal</span>
+            <b>Rs. {subtotal.toLocaleString()}</b>
+          </div>
+          {totalSavings > 0 && (
+            <div className="cartFooterSavingsRow">
+              <span>Total Discount</span>
+              <b className="cartSavingsHighlight">- Rs. {totalSavings.toLocaleString()}</b>
+            </div>
+          )}
           <p>Delivery charges calculated at checkout.</p>
           <a className="checkoutButton" href="/checkout">Checkout <ArrowRight size={18} /></a>
           <button className="shopMoreButton" onClick={() => setCartOpen(false)}>Shop more</button>
         </div>}
       </aside>
+
       <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} chartData={quickViewProduct?.sizeChart || storeSettings?.sizeChartSettings} />
     </>
   );

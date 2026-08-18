@@ -82,8 +82,11 @@ function formatProduct(product) {
     stock: Number(inventory?.stock_quantity ?? (product.instock ? DEFAULT_ACTIVE_STOCK : 0)),
     lowStockThreshold: Number(inventory?.low_stock_threshold || 5),
     sizes: parseJsonArray(product.size),
-    colors: parseJsonArray(product.color),
+    colors: parseJsonArray(product.color || productMetadata.colors),
+    variants: Array.isArray(productMetadata.variants) ? productMetadata.variants : [],
+    colorImages: productMetadata.colorImages || {},
     images,
+
     image: images[0] || "/bustaniya-campaign-hero-v4.png",
     status,
     badge: product.new ? "New" : product.bestsellere ? "Bestseller" : "",
@@ -95,6 +98,8 @@ function formatProduct(product) {
     isBestseller: Boolean(product.bestsellere),
     deliveryFeeMode: product.delivery_fee_mode || "inherit",
     deliveryFee: Number(product.delivery_fee_pkr || 0),
+    deliveryInfo: String(product.delivery_info || productMetadata.deliveryInfo || productMetadata.deliveryText || "").trim(),
+    instagramVideoUrl: String(product.instagram_video_url || productMetadata.instagramVideoUrl || productMetadata.instagramEmbedUrl || "").trim(),
     costTotalPkr: Number(product.cost_total_pkr || 0),
     costBreakdown,
     vendor: String(productMetadata.vendor || "Bustaniya"),
@@ -108,6 +113,7 @@ function formatProduct(product) {
     urlHandle: String(productMetadata.urlHandle || ""),
   };
 }
+
 
 function errorResponse(error) {
   const unauthorized = error.status === 401 || error.status === 403;
@@ -133,28 +139,22 @@ function normalizeNonNegativeNumber(value, label, max = 10000000) {
 function normalizeImageList(value) {
   const images = Array.isArray(value) ? value : parseJsonArray(value);
   const cleaned = images
-    .map((image) => String(image || "").trim())
-    .filter(Boolean)
-    .slice(0, 12);
-  for (const image of cleaned) {
-    const isAllowedPath = image.startsWith("/");
-    const isAllowedUrl = /^https:\/\/[^ "]+$/i.test(image);
-    if (!isAllowedPath && !isAllowedUrl) {
-      throw validationError("Product images must be HTTPS URLs or site image paths.");
-    }
-  }
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
   return cleaned.length ? cleaned : ["/bustaniya-campaign-hero-v4.png"];
 }
 
-function normalizeProductPayload(product = {}) {
-  const articleNumber = articleNumberForProduct(product);
-  const price = normalizeNonNegativeNumber(product.price, "Product price");
-  const compareAtPrice = normalizeNonNegativeNumber(product.compare_at_price ?? product.compareAtPrice, "Compare-at price");
-  const costTotal = normalizeNonNegativeNumber(product.cost_total_pkr ?? product.costTotalPkr, "Product cost");
-  const deliveryFee = normalizeNonNegativeNumber(product.delivery_fee_pkr ?? product.deliveryFee, "Delivery fee", 1000000);
+function normalizeProductPayload(product) {
+  const price = normalizeNonNegativeNumber(product.price, "Price");
+  const compareAtPrice = product.compare_at_price ? normalizeNonNegativeNumber(product.compare_at_price, "Compare-at price") : null;
+  const costTotal = normalizeNonNegativeNumber(product.cost_total_pkr ?? product.costTotalPkr, "Total cost");
+  const deliveryFee = normalizeNonNegativeNumber(product.delivery_fee_pkr ?? product.deliveryFee, "Delivery fee");
+  const articleNumber = String(product.article_number || product.articleNumber || "").trim();
   const status = ["Active", "Draft", "Archived"].includes(product.status) ? product.status : "Active";
   const costBreakdown = parseJsonObject(product.cost_breakdown ?? product.costBreakdown ?? {});
   const metadata = parseJsonObject(costBreakdown.metadata);
+  const deliveryInfo = String(product.deliveryInfo || product.delivery_info || product.deliveryText || metadata.deliveryInfo || metadata.deliveryText || "").trim();
+  const instagramVideoUrl = String(product.instagramVideoUrl || product.instagram_video_url || product.instagramEmbedUrl || metadata.instagramVideoUrl || metadata.instagramEmbedUrl || "").trim();
 
   return {
     name: String(product.name || "").trim(),
@@ -177,6 +177,8 @@ function normalizeProductPayload(product = {}) {
       (product.delivery_fee_mode || product.deliveryFeeMode) === "paid"
         ? deliveryFee
         : null,
+    delivery_info: deliveryInfo || null,
+    instagram_video_url: instagramVideoUrl || null,
     cost_total_pkr: costTotal,
     cost_breakdown: {
       ...costBreakdown,
@@ -184,6 +186,8 @@ function normalizeProductPayload(product = {}) {
         ...metadata,
         compareAtPrice,
         status,
+        deliveryInfo,
+        instagramVideoUrl,
         productType: String(product.productType || product.product_type || metadata.productType || "").trim(),
         tags: Array.isArray(product.tags) ? product.tags : metadata.tags || [],
         publishDate: String(product.publishDate || product.publish_date || metadata.publishDate || "").trim(),
@@ -193,14 +197,15 @@ function normalizeProductPayload(product = {}) {
 }
 
 function withoutDeliveryColumns(record) {
-  const { delivery_fee_mode, delivery_fee_pkr, ...baseRecord } = record;
+  const { delivery_fee_mode, delivery_fee_pkr, delivery_info, instagram_video_url, ...baseRecord } = record;
   return baseRecord;
 }
 
 function isSchemaColumnError(error) {
   const message = `${error?.message || ""} ${JSON.stringify(error?.details || {})}`.toLowerCase();
-  return message.includes("schema cache") || message.includes("column") || message.includes("delivery_fee");
+  return message.includes("schema cache") || message.includes("column") || message.includes("delivery_fee") || message.includes("delivery_info") || message.includes("instagram_video_url");
 }
+
 
 function isRpcUnavailableError(error) {
   const message = `${error?.message || ""} ${JSON.stringify(error?.details || {})}`.toLowerCase();
@@ -253,6 +258,10 @@ async function updateProductDirect(body) {
       ? Number(product.delivery_fee_pkr ?? product.deliveryFee ?? 0)
       : null;
   }
+  if (product.deliveryInfo !== undefined || product.delivery_info !== undefined || product.deliveryText !== undefined) {
+    const deliveryInfo = String(product.deliveryInfo || product.delivery_info || product.deliveryText || "").trim();
+    updates.delivery_info = deliveryInfo || null;
+  }
   if (product.name !== undefined) updates.name = String(product.name || "").trim();
   if (product.description !== undefined) updates.description = product.description || "";
   if (
@@ -278,13 +287,16 @@ async function updateProductDirect(body) {
   if (product.cost_total_pkr !== undefined || product.costTotalPkr !== undefined) {
     updates.cost_total_pkr = normalizeNonNegativeNumber(product.cost_total_pkr ?? product.costTotalPkr, "Product cost");
   }
-  if (product.cost_breakdown !== undefined || product.costBreakdown !== undefined) {
+  if (product.cost_breakdown !== undefined || product.costBreakdown !== undefined || product.deliveryInfo !== undefined || product.delivery_info !== undefined || product.deliveryText !== undefined) {
     const incomingBreakdown = parseJsonObject(product.cost_breakdown ?? product.costBreakdown ?? {});
     const incomingMetadata = parseJsonObject(incomingBreakdown.metadata);
     updates.cost_breakdown = {
       ...incomingBreakdown,
       metadata: {
         ...incomingMetadata,
+        ...(product.deliveryInfo !== undefined || product.delivery_info !== undefined || product.deliveryText !== undefined
+          ? { deliveryInfo: String(product.deliveryInfo || product.delivery_info || product.deliveryText || "").trim() }
+          : {}),
         ...(product.compare_at_price !== undefined || product.compareAtPrice !== undefined
           ? { compareAtPrice: normalizeNonNegativeNumber(product.compare_at_price ?? product.compareAtPrice, "Compare-at price") }
           : {}),
@@ -299,6 +311,7 @@ async function updateProductDirect(body) {
       },
     };
   }
+
 
   if (Object.keys(updates).length) {
     try {

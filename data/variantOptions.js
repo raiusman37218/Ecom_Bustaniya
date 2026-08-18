@@ -21,3 +21,16 @@ export const fashionColors = [
   ["Sage", "#9caf88"], ["Lime", "#b7d43f"], ["Yellow", "#f2cf32"], ["Mustard", "#d19a20"],
   ["Multi Colour", "linear-gradient(135deg,#db4c77,#f2cf32,#237542,#3267a8)"]
 ].map(([name, hex]) => ({ name, hex }));
+
+export const fashionColorsMap = Object.fromEntries(
+  fashionColors.map((c) => [c.name.toLowerCase().replace(/[^a-z0-9]/g, ""), c.hex])
+);
+
+export function getColorHex(colorName, fallback = "#64748b") {
+  if (!colorName) return fallback;
+  const clean = String(colorName).trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (fashionColorsMap[clean]) return fashionColorsMap[clean];
+  if (/^#[0-9a-f]{3,8}$/i.test(colorName) || /^rgb/i.test(colorName) || /^hsl/i.test(colorName)) return colorName;
+  return fallback;
+}
+

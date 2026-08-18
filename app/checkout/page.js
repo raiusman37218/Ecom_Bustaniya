@@ -310,10 +310,20 @@ export default function CheckoutPage() {
     () => cart.reduce((total, item) => total + item.price * item.quantity, 0),
     [cart]
   );
+  const totalSavings = useMemo(
+    () => cart.reduce((sum, item) => {
+      const original = Number(item.compareAtPrice || item.comparePrice || item.compare_at_price || item.originalPrice || 0);
+      const price = Number(item.price || 0);
+      const diff = original > price ? (original - price) * Number(item.quantity || 1) : 0;
+      return sum + diff;
+    }, 0),
+    [cart]
+  );
   const paymentAmounts = useMemo(
     () => calculatePaymentAmounts({ subtotal, paymentMethod, paymentSettings }),
     [subtotal, paymentMethod, paymentSettings]
   );
+
   const selectedInstructions = paymentMethod === PAYMENT_METHODS.FULL_ADVANCE
     ? paymentSettings.instructions
     : paymentSettings.codInstructions;
@@ -673,20 +683,49 @@ export default function CheckoutPage() {
               <p>SUMMARY</p>
               <h2>Your order <span>({cart.reduce((n, item) => n + item.quantity, 0)})</span></h2>
             </div>
-            {cart.map((item) => (
-              <div className="summaryItem" key={`${item.id}-${item.size || "cart"}`}>
-                <div className="summaryImage" style={{ backgroundImage: `url(${item.image})` }}><span>{item.quantity}</span></div>
-                <div><b>{item.name}</b><small>{[item.category, item.size && `Size ${item.size}`, item.color].filter(Boolean).join(" · ")}</small></div>
-                <p>Rs. {(item.price * item.quantity).toLocaleString()}</p>
-              </div>
-            ))}
+            {cart.map((item) => {
+              const originalPrice = Number(item.compareAtPrice || item.comparePrice || item.compare_at_price || item.originalPrice || 0);
+              const price = Number(item.price || 0);
+              const hasDiscount = originalPrice > price;
+              const unitSaving = hasDiscount ? originalPrice - price : 0;
+              const itemTotalSaving = unitSaving * item.quantity;
+
+              return (
+                <div className="summaryItem" key={`${item.id}-${item.size || "cart"}`}>
+                  <div className="summaryImage" style={{ backgroundImage: `url(${item.image})` }}><span>{item.quantity}</span></div>
+                  <div>
+                    <b>{item.name}</b>
+                    <small>{[item.category, item.size && `Size ${item.size}`, item.color].filter(Boolean).join(" · ")}</small>
+                    {hasDiscount && itemTotalSaving > 0 && (
+                      <span className="checkoutItemSavingsTag">You saved Rs. {itemTotalSaving.toLocaleString()}</span>
+                    )}
+                  </div>
+                  <div className="summaryItemPriceCol">
+                    <p>Rs. {(item.price * item.quantity).toLocaleString()}</p>
+                    {hasDiscount && <small className="summaryItemOriginalPrice">Rs. {(originalPrice * item.quantity).toLocaleString()}</small>}
+                  </div>
+                </div>
+              );
+            })}
 
             <div className="summaryTotals">
               <div><span>Subtotal</span><span>Rs. {subtotal.toLocaleString()}</span></div>
+              {totalSavings > 0 && (
+                <div className="summarySavingsRow">
+                  <span>Product discounts</span>
+                  <b className="checkoutSavingsHighlight">- Rs. {totalSavings.toLocaleString()}</b>
+                </div>
+              )}
               <div><span>Delivery</span><span>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</span></div>
               {paymentMethod === PAYMENT_METHODS.FULL_ADVANCE && <div><span>Prepaid discount</span><span>- Rs. {Number(paymentSettings.codDeliveryChargePkr ?? 250).toLocaleString()} (Free Delivery)</span></div>}
+              {totalSavings > 0 && (
+                <div className="checkoutSavingsSummaryBanner">
+                  ✨ Total savings on this order: <b>Rs. {totalSavings.toLocaleString()}</b>
+                </div>
+              )}
               <div className="totalLine"><b>Total</b><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div>
             </div>
+
           </div>
         </aside>
       </div>

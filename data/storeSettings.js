@@ -238,5 +238,14 @@ export const DEFAULT_STORE_SETTINGS = {
       { size: "X-Large (XL)", chest: '24"', shoulder: '17"', waist: '13"', hips: '15"', length: '47.5"', trouser: '40"' }
     ]
   },
+  deliverySettings: {
+    estimatedDays: "3-5 business days",
+    deliveryFeeText: "Rs. 200 standard delivery nationwide · Free above Rs. 5,000",
+    freeDeliveryThreshold: 5000,
+    codAvailable: true,
+    codNote: "Cash on Delivery available nationwide (Rs. 250 advance confirmation fee)",
+    defaultDeliveryInfo: "Orders are processed within 24 hours and delivered within 3-5 business days across Pakistan. Tracking details are shared via SMS and WhatsApp once dispatched.",
+  },
   homepageSections: DEFAULT_HOMEPAGE_SECTIONS,
 };
+
