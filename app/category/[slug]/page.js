@@ -78,7 +78,7 @@ export default async function CategoryPage({ params }) {
                   categoryProducts.find((product) => product.subcategory === item.slug)?.image || item.image;
                 return (
                 <a href={`/category/${category.slug}/${item.slug}`} key={item.slug}>
-                  <div style={{ backgroundImage: `url(${optimizedImageUrl(subcategoryCoverImage, CLOUDINARY_IMAGE_PRESETS.category)})` }} />
+                  <div style={{ backgroundImage: `url(${optimizedImageUrl(subcategoryCoverImage, CLOUDINARY_IMAGE_PRESETS.circleThumb)})` }} />
                   <h3>{item.name}</h3>
                   <span>Explore collection</span>
                 </a>
