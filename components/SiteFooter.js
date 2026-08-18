@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowRight, Check, Heart, Mail, MapPin, MessageCircle, Phone, ShieldCheck, Sparkles, Truck } from "lucide-react";
+import { ShieldCheck, Truck } from "lucide-react";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 
 function WhatsAppIcon({ size = 18, className = "" }) {
@@ -28,9 +27,6 @@ const DEFAULT_CATEGORY_NAV = [
 ];
 
 export default function SiteFooter({ categories = [], storeSettings = DEFAULT_STORE_SETTINGS }) {
-  const [email, setEmail] = useState("");
-  const [subscribed, setSubscribed] = useState(false);
-
   const rawWhatsapp = String(
     storeSettings?.paymentSettings?.whatsappNumber ||
     storeSettings?.whatsappNumber ||
@@ -52,52 +48,8 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
   const categoryList = (categories || []).filter((c) => c && !c.parentSlug);
   const displayCategories = categoryList.length ? categoryList : DEFAULT_CATEGORY_NAV;
 
-  function handleNewsletterSubmit(e) {
-    e.preventDefault();
-    if (!email || !email.includes("@")) return;
-    setSubscribed(true);
-    setEmail("");
-  }
-
   return (
     <footer id="footer" className="siteFooterWrapper">
-      {/* Top Newsletter & Brand Banner */}
-      <div className="footerNewsletterBand">
-        <div className="newsletterBandContent">
-          <div className="newsletterBandText">
-            <span className="newsletterEyebrow">
-              <Sparkles size={14} /> VIP CLUB &amp; NEW ARRIVALS
-            </span>
-            <h3>Join the Bustaniya Circle</h3>
-            <p>Subscribe for private sales, new silhouette drops, and style inspiration.</p>
-          </div>
-
-          <form className="footerNewsletterForm" onSubmit={handleNewsletterSubmit}>
-            {subscribed ? (
-              <div className="newsletterSuccessMessage">
-                <Check size={16} />
-                <span>Thank you for subscribing! Welcome to Bustaniya.</span>
-              </div>
-            ) : (
-              <div className="newsletterInputGroup">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email address"
-                  aria-label="Email address for newsletter"
-                />
-                <button type="submit" aria-label="Subscribe to newsletter">
-                  <span>Subscribe</span>
-                  <ArrowRight size={16} />
-                </button>
-              </div>
-            )}
-          </form>
-        </div>
-      </div>
-
       {/* Main Multi-Column Links Section */}
       <div className="footerMainGrid">
         {/* Brand Bio Column */}

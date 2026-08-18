@@ -53,7 +53,8 @@ export default async function CategoryPage({ params }) {
         { name: "Home", path: "/" },
         { name: category.name, path: `/category/${slug}` },
       ])} />
-      <SiteHeader storeSettings={storeSettings} activeNav={slug} />
+      <SiteHeader storeSettings={storeSettings} categories={categories} activeNav={slug} />
+
 
       <section
         className="categoryHero"
