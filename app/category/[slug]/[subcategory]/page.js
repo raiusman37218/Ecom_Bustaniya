@@ -1,7 +1,8 @@
-import { ArrowLeft, Search, ShoppingBag } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import AnnouncementBar from "../../../../components/AnnouncementBar";
+import SiteHeader from "../../../../components/SiteHeader";
+import SiteFooter from "../../../../components/SiteFooter";
 import { normalizeCategory } from "../../../../data/store";
 import { getCatalogCategories, subcategoryOptions } from "../../../../lib/categories";
 import { getCatalogProducts } from "../../../../lib/catalog";
@@ -34,7 +35,6 @@ export default async function SubcategoryPage({ params }) {
   const [products, storeSettings] = await Promise.all([getCatalogProducts(), getStoreSettings()]);
   const items = products.filter((product) => normalizeCategory(product.category) === parent.name && product.subcategory === subcategory);
   const coverImage = items[0]?.image || details.image;
-  const siblingCategories = subcategoryOptions(categories, slug);
 
   return (
     <main className="categoryPage">
@@ -51,14 +51,7 @@ export default async function SubcategoryPage({ params }) {
         { name: parent.name, path: `/category/${slug}` },
         { name: details.name, path: `/category/${slug}/${subcategory}` },
       ])} />
-      <AnnouncementBar storeSettings={storeSettings} className="categoryAnnouncement" />
-      <header className="categoryHeader">
-        <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
-        <nav>
-          {siblingCategories.map((item) => <a href={`/category/${slug}/${item.slug}`} key={item.slug}>{item.name}</a>)}
-        </nav>
-        <div><Search /><ShoppingBag /></div>
-      </header>
+      <SiteHeader storeSettings={storeSettings} categories={categories} activeNav={slug} />
 
       <section
         className="categoryHero subcategoryHero"
@@ -78,7 +71,10 @@ export default async function SubcategoryPage({ params }) {
           <span>Sort by: Featured</span>
         </div>
         <div className="productGrid">
-          {items.map((product) => (
+          {items.map((product) => {
+            const compareAtPrice = Number(product.compareAtPrice || product.compare_at_price || 0);
+            const onSale = compareAtPrice > product.price;
+            return (
             <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
               <a href={`/product/${product.id}`} className="productImage">
                 <Image
@@ -92,12 +88,15 @@ export default async function SubcategoryPage({ params }) {
               </a>
               <div className="productInfo">
                 <div><p>{details.name}</p><h3><a href={`/product/${product.id}`}>{product.name}</a></h3></div>
-                <div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span><small>Regular price Rs. {product.price.toLocaleString()}</small></div>
+                <div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span>{onSale && <del>Rs. {compareAtPrice.toLocaleString()}</del>}</div>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       </section>
+
+      <SiteFooter categories={categories} storeSettings={storeSettings} />
     </main>
   );
 }

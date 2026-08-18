@@ -1,8 +1,8 @@
-import { ArrowLeft, Search, ShoppingBag, UserRound } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import AnnouncementBar from "../../../components/AnnouncementBar";
 import SiteHeader from "../../../components/SiteHeader";
+import SiteFooter from "../../../components/SiteFooter";
 import { normalizeCategory } from "../../../data/store";
 import { getCatalogCategories, subcategoryOptions } from "../../../lib/categories";
 import { getCatalogProducts } from "../../../lib/catalog";
@@ -92,7 +92,10 @@ export default async function CategoryPage({ params }) {
           <span>Sort by: Featured</span>
         </div>
         <div className="productGrid">
-          {categoryProducts.map((product) => (
+          {categoryProducts.map((product) => {
+            const compareAtPrice = Number(product.compareAtPrice || product.compare_at_price || 0);
+            const onSale = compareAtPrice > product.price;
+            return (
             <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
               <a href={`/product/${product.id}`} className="productImage">
                 <Image
@@ -109,12 +112,15 @@ export default async function CategoryPage({ params }) {
                   <p>{product.category}</p>
                   <h3><a href={`/product/${product.id}`}>{product.name}</a></h3>
                 </div>
-                <div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span><small>Regular price Rs. {product.price.toLocaleString()}</small></div>
+                <div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span>{onSale && <del>Rs. {compareAtPrice.toLocaleString()}</del>}</div>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       </section>
+
+      <SiteFooter categories={categories} storeSettings={storeSettings} />
     </main>
   );
 }

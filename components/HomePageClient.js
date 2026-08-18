@@ -7,6 +7,7 @@ import { categories, categoryDetails, categoryToSlug, normalizeCategory, product
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
 import SiteHeader from "./SiteHeader";
+import SiteFooter from "./SiteFooter";
 import SizeChartModal from "./SizeChartModal";
 import { trackEvent } from "../lib/trackEvent";
 
@@ -504,21 +505,7 @@ export default function Home({
         })}
       </main>
 
-      <footer id="footer">
-        <div className="footerBrand">
-          <a className="brand" href="/" aria-label="Bustaniya home"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
-          <p>Pakistani clothing, rooted in grace.</p>
-          <span>Thoughtfully designed silhouettes for everyday elegance and memorable occasions.</span>
-        </div>
-        <div><b>Shop</b>{categoryRecords.map((category) => <a href={`/category/${category.slug}`} key={category.slug}>{category.name}</a>)}</div>
-        <div><b>Help</b><a href="/shipping-policy">Delivery</a><a href="/exchange-return-policy">Exchange & returns</a><a href="/contact">Contact Us</a><a href="/about">About Bustaniya</a></div>
-        <div><b>Follow</b><a href="https://www.instagram.com/bustaniya_/" target="_blank" rel="noreferrer">Instagram</a></div>
-        <div><b>Shop with confidence</b><span className="footerTrustCopy">COD delivery charges are verified in advance.</span><span className="footerTrustCopy">Full advance orders include free delivery.</span>{supportWhatsapp && <a href={`https://wa.me/${supportWhatsapp}`} target="_blank" rel="noreferrer">WhatsApp support</a>}</div>
-        <div className="copyright">
-          <p>Copyright 2026 Bustaniya. Made with care in Pakistan.</p>
-          <div><a href="/privacy-policy">Privacy</a><a href="/terms-and-conditions">Terms</a><a href="/shipping-policy">Shipping</a></div>
-        </div>
-      </footer>
+      <SiteFooter categories={categoryRecords} storeSettings={safeSettings} />
 
       {quickViewProduct && (
         <>
