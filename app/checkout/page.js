@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Check, CheckCircle2, ChevronDown, Loader2, Lock, MessageCircle, Search, ShoppingBag, Truck } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, ChevronDown, Loader2, Lock, MessageCircle, Search, ShoppingBag } from "lucide-react";
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
@@ -227,7 +227,6 @@ export default function CheckoutPage() {
   const [paymentSettings, setPaymentSettings] = useState(DEFAULT_STORE_SETTINGS.paymentSettings);
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const [discountCode, setDiscountCode] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
@@ -615,7 +614,7 @@ export default function CheckoutPage() {
 
             <div className="checkoutSectionHeading"><span>04</span><div><b>Payment</b><small>Select a payment option. We will show the exact transfer instructions before you place your order.</small></div></div>
             <label className={paymentMethod === PAYMENT_METHODS.COD_ADVANCE_DELIVERY ? "paymentBox" : "paymentBox paymentChoice"}>
-              <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} disabled={paymentSettings.codEnabled === false} onChange={() => setPaymentMethod("cod")} />
+              <input type="radio" name="paymentMethod" value={PAYMENT_METHODS.COD_ADVANCE_DELIVERY} checked={paymentMethod === PAYMENT_METHODS.COD_ADVANCE_DELIVERY} disabled={paymentSettings.codEnabled === false} onChange={() => setPaymentMethod(PAYMENT_METHODS.COD_ADVANCE_DELIVERY)} />
               <div className="paymentMethodCopy">
                 <div className="paymentMethodTitle"><b>Cash on Delivery</b><span>Pay the delivery charges first. Your products are paid to the courier when delivered.</span></div>
                 {paymentMethod === PAYMENT_METHODS.COD_ADVANCE_DELIVERY && <ul className="paymentOptionList">
@@ -641,7 +640,9 @@ export default function CheckoutPage() {
               <b>{paymentMethod === PAYMENT_METHODS.FULL_ADVANCE ? (paymentSettings.advanceHeading || "Full Advance Payment Instructions") : (paymentSettings.codHeading || "Cash on Delivery Instructions")}</b>
               {instructionPoints.length > 0 && <ul className="paymentInstructionList">{instructionPoints.map((point, index) => <li key={`${point}-${index}`}>{point}</li>)}</ul>}
               <div className="checkoutPaymentBreakdown"><span>Product subtotal <b>Rs. {paymentAmounts.productSubtotal.toLocaleString()}</b></span><span>Delivery charges <b>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</b></span><span>Total order value <b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></span><span>Pay now <b>Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</b></span><span>Pay on delivery <b>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</b></span></div>
-              <div className="bankPaymentDetails">{paymentSettings.bankName && <span><b>Bank / Wallet</b><small>{paymentSettings.bankName}</small></span>}{paymentSettings.bankTitle && <span><b>Account Title</b><small>{paymentSettings.bankTitle}</small></span>}{paymentSettings.bankAccountNumber && <span><b>Account No.</b><small>{paymentSettings.bankAccountNumber}</small></span>}{paymentSettings.bankIban && <span><b>IBAN</b><small>{paymentSettings.bankIban}</small></span>}</div>
+              {(paymentSettings.bankName || paymentSettings.bankTitle || paymentSettings.bankAccountNumber || paymentSettings.bankIban) && (
+                <div className="bankPaymentDetails">{paymentSettings.bankName && <span><b>Bank / Wallet</b><small>{paymentSettings.bankName}</small></span>}{paymentSettings.bankTitle && <span><b>Account Title</b><small>{paymentSettings.bankTitle}</small></span>}{paymentSettings.bankAccountNumber && <span><b>Account No.</b><small>{paymentSettings.bankAccountNumber}</small></span>}{paymentSettings.bankIban && <span><b>IBAN</b><small>{paymentSettings.bankIban}</small></span>}</div>
+              )}
             </div>
             {error && <p className="checkoutError" role="alert">{error}</p>}
             <div className="checkoutSubmitBar">
@@ -680,23 +681,10 @@ export default function CheckoutPage() {
               </div>
             ))}
 
-            <div className="discountCodeBox">
-              <input
-                type="text"
-                placeholder="Discount code or gift card"
-                value={discountCode}
-                onChange={(e) => setDiscountCode(e.target.value)}
-                aria-label="Discount code or gift card"
-              />
-              <button type="button" className="discountApplyBtn" disabled={!discountCode.trim()}>
-                Apply
-              </button>
-            </div>
-
             <div className="summaryTotals">
               <div><span>Subtotal</span><span>Rs. {subtotal.toLocaleString()}</span></div>
               <div><span>Delivery</span><span>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</span></div>
-              {paymentMethod === PAYMENT_METHODS.FULL_ADVANCE && <div><span>Prepaid discount</span><span>- Rs. {DEFAULT_STORE_SETTINGS.paymentSettings.codDeliveryChargePkr} (Free Delivery)</span></div>}
+              {paymentMethod === PAYMENT_METHODS.FULL_ADVANCE && <div><span>Prepaid discount</span><span>- Rs. {Number(paymentSettings.codDeliveryChargePkr ?? 250).toLocaleString()} (Free Delivery)</span></div>}
               <div className="totalLine"><b>Total</b><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div>
             </div>
           </div>
@@ -717,7 +705,9 @@ function OrderConfirmation({ order, items }) {
     .map((item) => `• ${item.name}${item.size ? ` (Size: ${item.size})` : ""} x${item.quantity}`)
     .join("\n");
 
-  const whatsappMessage = `Assalam-o-Alaikum Bustaniya! 🌸\nI have transferred Rs. ${paymentAmount.toLocaleString()} for Order #${order.orderRef}.\n\n📋 *Order Summary:*\n- Customer: ${order.customer?.fullName || ""}\n- City: ${order.customer?.city || ""}\n- Method: ${isFullAdvance ? "Full Advance Payment" : "COD (Rs. 250 Delivery Advance)"}\n- Amount Transferred: Rs. ${paymentAmount.toLocaleString()}\n\n📦 *Items:*\n${itemsText}\n\n📎 *Payment Screenshot Attached Below:*`;
+  const deliveryChargeAmount = Number(order.delivery || 0);
+
+  const whatsappMessage = `Assalam-o-Alaikum Bustaniya! 🌸\nI have transferred Rs. ${paymentAmount.toLocaleString()} for Order #${order.orderRef}.\n\n📋 *Order Summary:*\n- Customer: ${order.customer?.fullName || ""}\n- City: ${order.customer?.city || ""}\n- Method: ${isFullAdvance ? "Full Advance Payment" : `COD (Rs. ${deliveryChargeAmount.toLocaleString()} Delivery Advance)`}\n- Amount Transferred: Rs. ${paymentAmount.toLocaleString()}\n\n📦 *Items:*\n${itemsText}\n\n📎 *Payment Screenshot Attached Below:*`;
 
   const whatsappHref = whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}` : "";
 
@@ -806,7 +796,7 @@ function OrderConfirmation({ order, items }) {
           </div>
           <div className="confirmationRecapRow">
             <span className="recapLabel">Method</span>
-            <span className="recapValue">{isFullAdvance ? "Full Advance Payment (Free Delivery)" : "Cash on Delivery (Rs. 250 Advance)"}</span>
+            <span className="recapValue">{isFullAdvance ? "Full Advance Payment (Free Delivery)" : `Cash on Delivery (Rs. ${deliveryChargeAmount.toLocaleString()} Advance)`}</span>
           </div>
           <div className="confirmationRecapRow">
             <span className="recapLabel">Pay on delivery</span>
