@@ -11805,6 +11805,7 @@ html, body {
   outline: none;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  font:inherit;
 }
 
 .socialBtnIconWrap {
@@ -11859,6 +11860,48 @@ html, body {
   box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
 }
 
+.whatsAppOrderBackdrop {
+  position:fixed;
+  z-index:220;
+  inset:0;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  overflow-y:auto;
+  background:rgba(13,33,23,.48);
+  backdrop-filter:blur(4px);
+}
+.whatsAppOrderDialog {
+  width:min(100%,620px);
+  max-height:calc(100dvh - 40px);
+  overflow-y:auto;
+  border:1px solid #dce7de;
+  border-radius:18px;
+  background:#fffefb;
+  box-shadow:0 24px 70px rgba(8,37,23,.3);
+}
+.whatsAppOrderDialogHead { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; padding:24px 24px 18px; border-bottom:1px solid #e5ece5; }
+.whatsAppOrderDialogHead .eyebrow { margin:0 0 6px; color:#1d6840; font-size:10px; font-weight:850; letter-spacing:.13em; }
+.whatsAppOrderDialogHead h2 { margin:0; color:#143f29; font-family:var(--font-display); font-size:30px; line-height:1.05; }
+.whatsAppOrderDialogHead span { display:block; margin-top:8px; color:#64756a; font-size:12px; }
+.whatsAppOrderDialogHead>button { display:grid; flex:0 0 auto; width:36px; height:36px; place-items:center; border:1px solid #dce7de; border-radius:50%; background:#fff; color:#16452c; cursor:pointer; }
+.whatsAppOrderProduct { display:flex; align-items:center; gap:12px; margin:18px 24px 0; padding:12px; border-radius:12px; background:#f3f8f3; }
+.whatsAppOrderProduct>div { width:48px; height:58px; flex:0 0 auto; border-radius:8px; background:center/cover no-repeat #e5ece5; }
+.whatsAppOrderProduct span { display:grid; gap:4px; min-width:0; }
+.whatsAppOrderProduct b { overflow:hidden; color:#173d29; font-size:14px; text-overflow:ellipsis; white-space:nowrap; }
+.whatsAppOrderProduct small { color:#5d7063; font-size:11px; }
+.whatsAppOrderForm { display:grid; gap:14px; padding:20px 24px 24px; }
+.whatsAppOrderForm label { display:grid; gap:7px; color:#173d29; font-size:12px; font-weight:800; }
+.whatsAppOrderForm label small { color:#78887d; font-size:10px; font-weight:600; }
+.whatsAppOrderForm input,.whatsAppOrderForm textarea { width:100%; box-sizing:border-box; border:1px solid #cfdcd1; border-radius:9px; outline:none; background:#fff; color:#1c3426; font:inherit; font-size:14px; font-weight:500; }
+.whatsAppOrderForm input { min-height:46px; padding:0 12px; }
+.whatsAppOrderForm textarea { padding:12px; resize:vertical; }
+.whatsAppOrderForm input:focus,.whatsAppOrderForm textarea:focus { border-color:#1d6840; box-shadow:0 0 0 3px rgba(29,104,64,.12); }
+.whatsAppOrderGrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.whatsAppOrderHelp { margin:0; color:#65776a; font-size:11px; line-height:1.55; }
+.whatsAppOrderSubmit { display:inline-flex; align-items:center; justify-content:center; gap:9px; min-height:52px; border:0; border-radius:10px; background:#1d6840; color:#fff; font:inherit; font-size:13px; font-weight:850; cursor:pointer; transition:background .2s ease,transform .2s ease; }
+.whatsAppOrderSubmit:hover { background:#125232; transform:translateY(-1px); }
+
 /* Instagram Button */
 .productSocialBtn--instagram {
   background: #ffffff;
@@ -11904,6 +11947,13 @@ html, body {
   .productSocialBtn {
     height: 50px;
   }
+  .whatsAppOrderBackdrop { align-items:end; padding:0; }
+  .whatsAppOrderDialog { max-height:calc(100dvh - 18px); border-radius:18px 18px 0 0; }
+  .whatsAppOrderDialogHead { padding:20px 16px 16px; }
+  .whatsAppOrderDialogHead h2 { font-size:26px; }
+  .whatsAppOrderProduct { margin:14px 16px 0; }
+  .whatsAppOrderForm { padding:18px 16px 24px; }
+  .whatsAppOrderGrid { grid-template-columns:1fr; gap:14px; }
 }
 
 

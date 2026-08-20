@@ -116,6 +116,15 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
   const [cartReady, setCartReady] = useState(false);
   const [added, setAdded] = useState(false);
+  const [whatsAppOrderOpen, setWhatsAppOrderOpen] = useState(false);
+  const [whatsAppOrderDetails, setWhatsAppOrderDetails] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    city: "",
+    address: "",
+    landmark: "",
+  });
 
   useEffect(() => {
     if (colors.length && (!color || !colors.includes(color))) {
@@ -194,12 +203,48 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     size ? `Size: ${size}` : "",
   ].filter(Boolean).join(", ");
 
+  const articleNumber = String(product.article_number || product.articleNumber || product.sku || product.id || "—").trim();
+
 
   const whatsappMessage = `Hi Bustaniya! 🌸 I am interested in "${product.name}" (Rs. ${Number(product.price || 0).toLocaleString()})${selectedOptionsText ? ` [${selectedOptionsText}]` : ""}.\n\nProduct Link: ${productUrl}`;
 
   const whatsappHref = whatsappNumber
     ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`
     : `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
+
+  const whatsAppOrderMessage = [
+    "Assalam-o-Alaikum, I would like to place an order with Bustaniya.",
+    "",
+    `Product: ${product.name}`,
+    `Article no.: ${articleNumber}`,
+    `Price: Rs. ${Number(product.price || 0).toLocaleString()}`,
+    `Quantity: ${quantity}`,
+    selectedOptionsText ? `Selected options: ${selectedOptionsText}` : "",
+    "",
+    "Customer details",
+    `Name: ${whatsAppOrderDetails.fullName}`,
+    `Email: ${whatsAppOrderDetails.email || "Not provided"}`,
+    `WhatsApp no.: ${whatsAppOrderDetails.phone}`,
+    `City: ${whatsAppOrderDetails.city}`,
+    `Complete address: ${whatsAppOrderDetails.address}`,
+    `Nearby area / landmark: ${whatsAppOrderDetails.landmark || "Not provided"}`,
+    "",
+    `Product link: ${productUrl}`,
+  ].filter(Boolean).join("\n");
+
+  const whatsAppOrderHref = whatsappNumber
+    ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsAppOrderMessage)}`
+    : `https://wa.me/?text=${encodeURIComponent(whatsAppOrderMessage)}`;
+
+  function updateWhatsAppOrderDetail(field, value) {
+    setWhatsAppOrderDetails((current) => ({ ...current, [field]: value }));
+  }
+
+  function submitWhatsAppOrder(event) {
+    event.preventDefault();
+    if (!event.currentTarget.reportValidity()) return;
+    window.open(whatsAppOrderHref, "_blank", "noopener,noreferrer");
+  }
 
   const instagramRaw = String(
     storeSettings?.instagramHandle ||
@@ -609,12 +654,11 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
           {/* WhatsApp & Instagram Direct Action Buttons */}
           <div className="productSocialActions">
-            <a
+            <button
+              type="button"
               className="productSocialBtn productSocialBtn--whatsapp"
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
               aria-label="Order on WhatsApp"
+              onClick={() => setWhatsAppOrderOpen(true)}
             >
               <div className="socialBtnIconWrap whatsappIconCircle">
                 <WhatsAppIcon size={20} />
@@ -623,7 +667,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                 <span className="socialBtnLine">ORDER ON</span>
                 <span className="socialBtnLine">WHATSAPP</span>
               </div>
-            </a>
+            </button>
 
             <a
               className="productSocialBtn productSocialBtn--instagram"
@@ -803,6 +847,41 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         <button className="shopMoreButton" onClick={() => setCartOpen(false)}>Shop more</button>
       </div>}
     </aside>
+
+    {whatsAppOrderOpen && (
+      <div className="whatsAppOrderBackdrop" role="presentation" onClick={() => setWhatsAppOrderOpen(false)}>
+        <section className="whatsAppOrderDialog" role="dialog" aria-modal="true" aria-labelledby="whatsapp-order-title" onClick={(event) => event.stopPropagation()}>
+          <div className="whatsAppOrderDialogHead">
+            <div>
+              <p className="eyebrow">DIRECT WHATSAPP ORDER</p>
+              <h2 id="whatsapp-order-title">Your order details</h2>
+              <span>Article no. {articleNumber} is already attached to this request.</span>
+            </div>
+            <button type="button" aria-label="Close WhatsApp order form" onClick={() => setWhatsAppOrderOpen(false)}><X size={20} /></button>
+          </div>
+
+          <div className="whatsAppOrderProduct">
+            <div style={{ backgroundImage: `url(${optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
+            <span><b>{product.name}</b><small>Article {articleNumber} · Rs. {Number(product.price || 0).toLocaleString()}</small></span>
+          </div>
+
+          <form className="whatsAppOrderForm" onSubmit={submitWhatsAppOrder}>
+            <div className="whatsAppOrderGrid">
+              <label>Full name<input required autoComplete="name" value={whatsAppOrderDetails.fullName} onChange={(event) => updateWhatsAppOrderDetail("fullName", event.target.value)} placeholder="Your full name" /></label>
+              <label>WhatsApp number<input required type="tel" autoComplete="tel" value={whatsAppOrderDetails.phone} onChange={(event) => updateWhatsAppOrderDetail("phone", event.target.value)} placeholder="03xx xxxxxxx" /></label>
+            </div>
+            <label>Email <small>(optional)</small><input type="email" autoComplete="email" value={whatsAppOrderDetails.email} onChange={(event) => updateWhatsAppOrderDetail("email", event.target.value)} placeholder="you@example.com" /></label>
+            <div className="whatsAppOrderGrid">
+              <label>City<input required autoComplete="address-level2" value={whatsAppOrderDetails.city} onChange={(event) => updateWhatsAppOrderDetail("city", event.target.value)} placeholder="e.g. Lahore" /></label>
+              <label>Nearby area / landmark <small>(optional)</small><input value={whatsAppOrderDetails.landmark} onChange={(event) => updateWhatsAppOrderDetail("landmark", event.target.value)} placeholder="e.g. Near Central Mosque" /></label>
+            </div>
+            <label>Complete address<textarea required autoComplete="street-address" rows="3" value={whatsAppOrderDetails.address} onChange={(event) => updateWhatsAppOrderDetail("address", event.target.value)} placeholder="House/flat no., street/road, block/area" /></label>
+            <p className="whatsAppOrderHelp">Your filled details and this product&apos;s article number will be added to the WhatsApp message. You can attach a screenshot or continue the conversation there.</p>
+            <button className="whatsAppOrderSubmit" type="submit"><WhatsAppIcon size={20} /> Continue to WhatsApp</button>
+          </form>
+        </section>
+      </div>
+    )}
 
     <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} chartData={product?.sizeChart || storeSettings?.sizeChartSettings} />
     </>
