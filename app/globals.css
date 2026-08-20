@@ -11893,10 +11893,11 @@ html, body {
 .whatsAppOrderForm { display:grid; gap:14px; padding:20px 24px 24px; }
 .whatsAppOrderForm label { display:grid; gap:7px; color:#173d29; font-size:12px; font-weight:800; }
 .whatsAppOrderForm label small { color:#78887d; font-size:10px; font-weight:600; }
-.whatsAppOrderForm input,.whatsAppOrderForm textarea { width:100%; box-sizing:border-box; border:1px solid #cfdcd1; border-radius:9px; outline:none; background:#fff; color:#1c3426; font:inherit; font-size:14px; font-weight:500; }
-.whatsAppOrderForm input { min-height:46px; padding:0 12px; }
+.whatsAppOrderForm input,.whatsAppOrderForm textarea,.whatsAppOrderForm select { width:100%; box-sizing:border-box; border:1px solid #cfdcd1; border-radius:9px; outline:none; background:#fff; color:#1c3426; font:inherit; font-size:14px; font-weight:500; }
+.whatsAppOrderForm input,.whatsAppOrderForm select { min-height:46px; padding:0 12px; }
 .whatsAppOrderForm textarea { padding:12px; resize:vertical; }
-.whatsAppOrderForm input:focus,.whatsAppOrderForm textarea:focus { border-color:#1d6840; box-shadow:0 0 0 3px rgba(29,104,64,.12); }
+.whatsAppOrderForm select { cursor:pointer; }
+.whatsAppOrderForm input:focus,.whatsAppOrderForm textarea:focus,.whatsAppOrderForm select:focus { border-color:#1d6840; box-shadow:0 0 0 3px rgba(29,104,64,.12); }
 .whatsAppOrderGrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .whatsAppOrderHelp { margin:0; color:#65776a; font-size:11px; line-height:1.55; }
 .whatsAppOrderSubmit { display:inline-flex; align-items:center; justify-content:center; gap:9px; min-height:52px; border:0; border-radius:10px; background:#1d6840; color:#fff; font:inherit; font-size:13px; font-weight:850; cursor:pointer; transition:background .2s ease,transform .2s ease; }

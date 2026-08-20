@@ -870,6 +870,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               <label>Full name<input required autoComplete="name" value={whatsAppOrderDetails.fullName} onChange={(event) => updateWhatsAppOrderDetail("fullName", event.target.value)} placeholder="Your full name" /></label>
               <label>WhatsApp number<input required type="tel" autoComplete="tel" value={whatsAppOrderDetails.phone} onChange={(event) => updateWhatsAppOrderDetail("phone", event.target.value)} placeholder="03xx xxxxxxx" /></label>
             </div>
+            <label>Size<select required value={size} onChange={(event) => setSize(event.target.value)} aria-label="Select size for this WhatsApp order"><option value="" disabled>Select your size</option>{sizes.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
             <label>Email <small>(optional)</small><input type="email" autoComplete="email" value={whatsAppOrderDetails.email} onChange={(event) => updateWhatsAppOrderDetail("email", event.target.value)} placeholder="you@example.com" /></label>
             <div className="whatsAppOrderGrid">
               <label>City<input required autoComplete="address-level2" value={whatsAppOrderDetails.city} onChange={(event) => updateWhatsAppOrderDetail("city", event.target.value)} placeholder="e.g. Lahore" /></label>
