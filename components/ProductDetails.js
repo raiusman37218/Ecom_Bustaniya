@@ -221,6 +221,11 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   ).trim();
 
   const instagramEmbedUrl = useMemo(() => getInstagramEmbedUrl(instagramVideoUrl), [instagramVideoUrl]);
+  // A product-level Reel/Post link must always take precedence over the
+  // storefront profile. Otherwise the visible Instagram action incorrectly
+  // opens the brand homepage even when the admin has attached a showcase Reel.
+  const instagramActionUrl = instagramVideoUrl || instagramUrl;
+  const hasProductInstagramVideo = Boolean(instagramVideoUrl);
 
 
 
@@ -622,16 +627,16 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
             <a
               className="productSocialBtn productSocialBtn--instagram"
-              href={instagramUrl}
+              href={instagramActionUrl}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="View on Instagram"
+              aria-label={hasProductInstagramVideo ? "Watch product reel on Instagram" : "View on Instagram"}
             >
               <div className="socialBtnIconWrap instagramIconWrap">
                 <InstagramIcon size={22} />
               </div>
               <div className="socialBtnTextWrap">
-                <span className="socialBtnLine">VIEW ON</span>
+                <span className="socialBtnLine">{hasProductInstagramVideo ? "WATCH REEL ON" : "VIEW ON"}</span>
                 <span className="socialBtnLine">INSTAGRAM</span>
               </div>
             </a>
