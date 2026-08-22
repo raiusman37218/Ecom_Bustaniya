@@ -1,6 +1,6 @@
 "use client";
 
-import Image, { getImageProps } from "next/image";
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, Minus, Play, Plus, Ruler, ShieldCheck, ShoppingBag, Sparkles, Truck, UserRound, X } from "lucide-react";
 
@@ -38,15 +38,14 @@ function normalizeProducts(items) {
 function CampaignHeroImage({ desktopSrc, mobileSrc, alt }) {
   const safeDesktop = desktopSrc || "/bustaniya-campaign-hero-v5.png";
   const safeMobile = mobileSrc || safeDesktop;
-  const shared = { alt: alt || "Bustaniya campaign hero", fill: true, priority: true, quality: 90, sizes: "100vw" };
-  const { props: desktop } = getImageProps({ ...shared, src: optimizedImageUrl(safeDesktop, CLOUDINARY_IMAGE_PRESETS.heroDesktop) });
-  const { props: mobile } = getImageProps({ ...shared, src: optimizedImageUrl(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile) });
+  const desktopUrl = optimizedImageUrl(safeDesktop, CLOUDINARY_IMAGE_PRESETS.heroDesktop);
+  const mobileUrl = optimizedImageUrl(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile);
 
   return (
     <picture>
-      <source media="(max-width: 767px)" srcSet={mobile.srcSet} />
-      <source media="(min-width: 768px)" srcSet={desktop.srcSet} />
-      <img {...desktop} src={desktop.src} alt={alt || "Bustaniya campaign hero"} fetchPriority="high" />
+      <source media="(max-width: 767px)" srcSet={mobileUrl} />
+      <source media="(min-width: 768px)" srcSet={desktopUrl} />
+      <img src={desktopUrl} alt={alt || "Bustaniya campaign hero"} fetchPriority="high" decoding="async" />
     </picture>
   );
 }
@@ -330,6 +329,7 @@ export default function Home({
                           src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                           alt={`${product.name} - ${product.category} by Bustaniya`}
                           fill
+                          unoptimized
                           sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                         />
                         <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
@@ -371,6 +371,7 @@ export default function Home({
                             src={optimizedImageUrl(category.image || "/bustaniya-campaign-hero-v4.png", CLOUDINARY_IMAGE_PRESETS.category)}
                             alt={category.name}
                             fill
+                            unoptimized
                             sizes="(max-width: 600px) 50vw, (max-width: 1000px) 25vw, 300px"
                           />
                           <span className="categoryCardOverlay">
@@ -426,7 +427,7 @@ export default function Home({
                   {bestSellers.map((product) => (
                     <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
                       <div className="productImage">
-                        <Image src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
+                        <Image src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill unoptimized sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
                         <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
                         <span className="badge">Best seller</span>
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
@@ -487,12 +488,13 @@ export default function Home({
                     >
                       <div className="instagramPostImageWrap">
                         {post.mediaType === "video" ? (
-                          <video src={post.image} muted autoPlay loop playsInline preload="metadata" aria-label={post.caption || "Bustaniya Instagram reel"} />
+                          <video src={post.image} muted loop playsInline preload="none" aria-label={post.caption || "Bustaniya Instagram reel"} />
                         ) : (
                           <Image
                             src={post.image || "/bustaniya-instagram-hero.jpg"}
                             alt={post.caption || "Bustaniya Instagram post"}
                             fill
+                            unoptimized
                             sizes="(max-width: 600px) 82vw, (max-width: 1000px) 43vw, 28vw"
                           />
                         )}

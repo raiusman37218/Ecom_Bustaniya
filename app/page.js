@@ -4,7 +4,10 @@ import { getCatalogBestSellerIds, getCatalogProducts } from "../lib/catalog";
 import { JsonLd, breadcrumbSchema, buildMetadata, organizationSchema, siteConfig, websiteSchema } from "../lib/seo";
 import { getStoreSettings } from "../lib/storeSettings";
 
-export const dynamic = "force-dynamic";
+// The public home page is cached at the edge, while its catalog/settings
+// fetches refresh in the background. This avoids every mobile visitor waiting
+// for multiple Supabase requests before seeing the first screen.
+export const revalidate = 60;
 
 export const metadata = buildMetadata({
   title: "Pakistani Women's Wear, Kurtis, Co-ord Sets & 3 Piece Suits",
