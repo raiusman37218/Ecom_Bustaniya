@@ -12602,7 +12602,6 @@ html, body {
   contain-intrinsic-size: 1px 380px;
 }
 
-.cartDrawer,
 .headerNavRow,
 .modalBackdrop,
 .modalDialog,
@@ -12627,6 +12626,19 @@ html {
 .headerBrandLogo img {
   transform: translateZ(0);
   backface-visibility: hidden;
+}
+
+/* The bag must only become visible after an explicit cart action. */
+.cartDrawer:not(.cartOpen) {
+  visibility:hidden;
+  pointer-events:none;
+  transform:translateX(100%);
+}
+
+.cartDrawer.cartOpen {
+  visibility:visible;
+  pointer-events:auto;
+  transform:translateX(0);
 }
 
 
