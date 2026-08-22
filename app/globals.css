@@ -2944,6 +2944,24 @@ footer {
   text-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
 }
 
+.footerCompanyDetails {
+  display:grid;
+  gap:5px;
+  margin:18px 0 0;
+  color:rgba(255,255,255,.58);
+  font-size:10.5px;
+  font-style:normal;
+  line-height:1.45;
+}
+
+.footerCompanyDetails strong {
+  color:rgba(255,255,255,.88);
+  font-size:10px;
+  font-style:normal;
+  font-weight:800;
+  letter-spacing:.1em;
+}
+
 /* Social Column */
 .footerConnectText {
   margin: 0 0 14px;
@@ -12571,6 +12589,46 @@ html, body {
     font-size: 22px;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   HIGH-PERFORMANCE RENDERING & GPU HARDWARE ACCELERATION
+   ═══════════════════════════════════════════════════════════════ */
+.productGrid,
+.connectedProductsGrid,
+.collectionGrid,
+.productCardList,
+.catalogGrid {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 380px;
+}
+
+.cartDrawer,
+.headerNavRow,
+.modalBackdrop,
+.modalDialog,
+.sizeModalWrapper,
+.sizeChartModalCard,
+.siteHeaderLucknawi {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+html {
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.productCard img,
+.productGallery img,
+.heroMedia img,
+.headerBrandLogo img {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
 
 
 

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { formatCategorySelection, parseCategorySelection } from "../../../../data/store";
 import { authorizeAdminRequest } from "../../../../lib/adminAuth";
 import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabaseRest";
+import { invalidateCatalogCache } from "../../../../lib/catalog";
+
 
 const DEFAULT_ACTIVE_STOCK = 10;
 
@@ -525,6 +527,7 @@ export async function PUT(request) {
         });
       }
     }
+    invalidateCatalogCache();
     return NextResponse.json({ success: true, result });
   } catch (error) {
     return errorResponse(error);
@@ -547,6 +550,7 @@ export async function PATCH(request) {
         if (!isRpcUnavailableError(error)) throw error;
         result = await adjustInventoryDirect(body);
       }
+      invalidateCatalogCache();
       return NextResponse.json({ success: true, result });
     }
     await authorizeAdminRequest(request, "products");
@@ -593,6 +597,7 @@ export async function PATCH(request) {
         },
       });
     }
+    invalidateCatalogCache();
     return NextResponse.json({ success: true, result });
   } catch (error) {
     return errorResponse(error);
@@ -615,6 +620,7 @@ export async function DELETE(request) {
     } catch (error) {
       result = await deleteProductDirect(productId);
     }
+    invalidateCatalogCache();
     return NextResponse.json({
       success: true,
       ...result,
@@ -622,4 +628,5 @@ export async function DELETE(request) {
   } catch (error) {
     return errorResponse(error);
   }
+
 }

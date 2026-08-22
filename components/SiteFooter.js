@@ -109,6 +109,13 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
             <li><a href="/terms-and-conditions">Terms &amp; Conditions</a></li>
             <li><a href="/shipping-policy">Payment Methods &amp; COD</a></li>
           </ul>
+          <address className="footerCompanyDetails">
+            <strong>BUSTANIYA LTD</strong>
+            <span>Company no. 17414024</span>
+            <span>Registered office</span>
+            <span>Unit A1099 Siu Office, 4–6 Greatorex Street, London, United Kingdom, E1 5NF</span>
+            <span>SIC 47910 — Retail sale via mail order houses or via Internet</span>
+          </address>
         </div>
 
         {/* Column 4: Connect With Us */}
