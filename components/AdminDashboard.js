@@ -5990,7 +5990,7 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
                 : "All Meta Pixel & Conversions API channels operational"}
             </b>
             <span style={{ display: "block", color: "#4b5563", fontSize: "12px", marginTop: "2px" }}>
-              Pixel ID: <b>{health.pixelId || "5621950704696012"}</b> • CAPI Token: <b>{health.maskedAccessToken || "Configured"}</b> • Source: <b>{health.source === "database" ? "Admin Settings" : "Environment (.env.local)"}</b>
+              Pixel ID: <b>{health.pixelId || "1972532723444962"}</b> • CAPI Token: <b>{health.maskedAccessToken || "Configured"}</b> • Source: <b>{health.source === "database" ? "Admin Settings" : "Environment (.env.local)"}</b>
             </span>
           </div>
         </div>
@@ -8232,7 +8232,7 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
           <h2>Meta Pixel & Conversions API (CAPI) Tracking</h2>
           <p className="settingsHint">Configure your Meta Pixel and Conversions API (CAPI) server-side tracking here. Changes save directly to the database and go live instantly.</p>
           <div className="formRow">
-            <label>Meta (Facebook) Pixel ID<input value={storeSettings.domainSettings?.metaPixelId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { metaPixelId: event.target.value })} placeholder="e.g. 5621950704696012" /></label>
+            <label>Meta (Facebook) Pixel ID<input value={storeSettings.domainSettings?.metaPixelId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { metaPixelId: event.target.value })} placeholder="e.g. 1972532723444962" /></label>
             <label>Google Analytics measurement ID (GA4)<input value={storeSettings.domainSettings?.analyticsMeasurementId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { analyticsMeasurementId: event.target.value })} placeholder="G-..." /></label>
           </div>
           <label>Meta Conversions API (CAPI) Access Token<textarea rows="4" value={storeSettings.domainSettings?.metaCapiAccessToken || ""} onChange={(event) => updateSettingsGroup("domainSettings", { metaCapiAccessToken: event.target.value })} placeholder="EAAN... (Paste your Meta System User Access Token here)" style={{ fontFamily: "monospace", fontSize: "12px" }} /></label>

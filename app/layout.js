@@ -6,6 +6,9 @@ import MetaPixel from "../components/MetaPixel";
 import WhatsAppSupportButton from "../components/WhatsAppSupportButton";
 import { getStoreSettings } from "../lib/storeSettings";
 
+const RETIRED_META_PIXEL_ID = "5621950704696012";
+const ACTIVE_META_PIXEL_ID = "1972532723444962";
+
 export const metadata = {
   ...buildMetadata(),
   title: {
@@ -56,7 +59,8 @@ export default async function RootLayout({ children }) {
   const storeSettings = await getStoreSettings();
   const gaId = storeSettings?.domainSettings?.analyticsMeasurementId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
-  const metaPixelId = storeSettings?.domainSettings?.metaPixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || process.env.META_PIXEL_ID || "";
+  const requestedMetaPixelId = storeSettings?.domainSettings?.metaPixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || process.env.META_PIXEL_ID || ACTIVE_META_PIXEL_ID;
+  const metaPixelId = requestedMetaPixelId === RETIRED_META_PIXEL_ID ? ACTIVE_META_PIXEL_ID : requestedMetaPixelId;
   const whatsappNumber = storeSettings?.paymentSettings?.whatsappNumber;
 
   return (
