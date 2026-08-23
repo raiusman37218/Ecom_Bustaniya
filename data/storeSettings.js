@@ -201,7 +201,7 @@ export const DEFAULT_STORE_SETTINGS = {
     wwwRedirect: true,
     seoTitle: "Bustaniya: Pakistani Women's Wear",
     analyticsMeasurementId: "",
-    metaPixelId: "1972532723444962",
+    metaPixelId: "5621950704696012",
     metaCapiAccessToken: "",
   },
   checkoutSettings: {
