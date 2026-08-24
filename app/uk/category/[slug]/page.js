@@ -1,0 +1,136 @@
+import { ArrowLeft } from "lucide-react";
+import Image from "next/image";
+import { notFound } from "next/navigation";
+import UkHeader from "../../../../components/uk/UkHeader";
+import UkFooter from "../../../../components/uk/UkFooter";
+import { normalizeCategory } from "../../../../data/store";
+import { getCatalogCategories, subcategoryOptions } from "../../../../lib/categories";
+import { getCatalogProducts } from "../../../../lib/catalog";
+import { JsonLd, breadcrumbSchema, buildMetadata, collectionSchema } from "../../../../lib/seo";
+import { getStoreSettings } from "../../../../lib/storeSettings";
+import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../../../lib/images";
+import { convertProductsToRegion, formatPrice } from "../../../../lib/regions";
+
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }) {
+  const { slug } = await params;
+  const categories = await getCatalogCategories();
+  const category = categories.find((item) => item.slug === slug && !item.parentSlug);
+  if (!category) return {};
+  return buildMetadata({
+    title: `${category.name} Collection in the UK`,
+    description: `${category.description} Shop ${category.name.toLowerCase()} in the UK with fast tracked delivery.`,
+    path: `/uk/category/${slug}`,
+    image: category.image,
+  });
+}
+
+export default async function UkCategoryPage({ params }) {
+  const { slug } = await params;
+  const categories = await getCatalogCategories();
+  const category = categories.find((item) => item.slug === slug && !item.parentSlug);
+  if (!category) notFound();
+  const [rawProducts, storeSettings] = await Promise.all([getCatalogProducts(), getStoreSettings()]);
+  const subcategories = subcategoryOptions(categories, category.slug);
+
+  const rawCategoryProducts = rawProducts.filter(
+    (product) => normalizeCategory(product.category) === category.name
+  );
+  const categoryProducts = convertProductsToRegion(rawCategoryProducts, "uk");
+  const categoryCoverImage = categoryProducts[0]?.image || category.image;
+
+  return (
+    <main className="categoryPage">
+      <JsonLd
+        data={collectionSchema({
+          name: `${category.name} Collection - UK`,
+          description: category.description,
+          path: `/uk/category/${slug}`,
+          products: categoryProducts,
+        })}
+      />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: "Home", path: "/uk" },
+          { name: category.name, path: `/uk/category/${slug}` },
+        ])}
+      />
+      <UkHeader storeSettings={storeSettings} categories={categories} activeNav={slug} />
+
+      <section
+        className="categoryHero"
+        style={{ backgroundImage: `url(${optimizedImageUrl(categoryCoverImage, CLOUDINARY_IMAGE_PRESETS.heroDesktop)})` }}
+      >
+        <a href="/uk">
+          <ArrowLeft size={16} /> Back to home
+        </a>
+        <div>
+          <p className="eyebrow">BUSTANIYA UK COLLECTIONS</p>
+          <h1>{category.name}</h1>
+          <p>{category.description}</p>
+        </div>
+      </section>
+
+      <section className="collectionArea">
+        {!!subcategories.length && (
+          <div className="subCollectionBlock">
+            <p className="eyebrow">EXPLORE {category.name.toUpperCase()}</p>
+            <h2>Shop by style</h2>
+            <div className="subCollectionGrid">
+              {subcategories.map((item) => {
+                const subcategoryCoverImage =
+                  categoryProducts.find((product) => product.subcategory === item.slug)?.image || item.image;
+                return (
+                  <a href={`/uk/category/${category.slug}/${item.slug}`} key={item.slug}>
+                    <div style={{ backgroundImage: `url(${optimizedImageUrl(subcategoryCoverImage, CLOUDINARY_IMAGE_PRESETS.circleThumb)})` }} />
+                    <h3>{item.name}</h3>
+                    <span>Explore collection</span>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <div className="collectionTop">
+          <p>{categoryProducts.length} products</p>
+          <span>Sort by: Featured</span>
+        </div>
+        <div className="productGrid">
+          {categoryProducts.map((product) => {
+            const compareAtPrice = Number(product.compareAtPrice || product.compare_at_price || 0);
+            const onSale = compareAtPrice > product.price;
+            return (
+              <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
+                <a href={`/uk/product/${product.id}`} className="productImage">
+                  <Image
+                    src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
+                    alt={`${product.name} - ${product.category} by Bustaniya UK`}
+                    fill
+                    sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
+                  />
+                  {product.badge && <span className="badge">{product.badge}</span>}
+                  <span className="quickAdd">Choose options</span>
+                </a>
+                <div className="productInfo">
+                  <div>
+                    <p>{product.category}</p>
+                    <h3>
+                      <a href={`/uk/product/${product.id}`}>{product.name}</a>
+                    </h3>
+                  </div>
+                  <div className="productPrice">
+                    <span>{formatPrice(product.price, "uk")}</span>
+                    {onSale && <del>{formatPrice(compareAtPrice, "uk")}</del>}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <UkFooter categories={categories} storeSettings={storeSettings} />
+    </main>
+  );
+}
