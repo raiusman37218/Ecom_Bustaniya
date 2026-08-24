@@ -78,8 +78,31 @@ export default function Home({
   const heroDesktopImages = rawDesktop.map((img) => img || "/bustaniya-campaign-hero-v5.png");
   const heroMobileImages = rawMobile.map((img) => img || "/bustaniya-campaign-hero-v5.png");
   const heroSlideCount = Math.max(heroDesktopImages.length, heroMobileImages.length);
-  const desktopHero = { ...DEFAULT_STORE_SETTINGS.heroDesktopContent, ...(safeSettings.heroDesktopContent || {}) };
-  const mobileHero = { ...DEFAULT_STORE_SETTINGS.heroMobileContent, ...desktopHero, ...(safeSettings.heroMobileContent || {}) };
+  const desktopHero = {
+    eyebrow: safeSettings.heroDesktopContent?.eyebrow ?? safeSettings.heroEyebrow ?? "",
+    heading: safeSettings.heroDesktopContent?.heading ?? safeSettings.heroHeading ?? "",
+    supportingText: safeSettings.heroDesktopContent?.supportingText ?? safeSettings.heroSupportingText ?? "",
+    primaryButtonText: safeSettings.heroDesktopContent?.primaryButtonText ?? safeSettings.heroPrimaryButtonText ?? "",
+    primaryButtonLink: safeSettings.heroDesktopContent?.primaryButtonLink ?? safeSettings.heroPrimaryButtonLink ?? "#products",
+    secondaryButtonText: safeSettings.heroDesktopContent?.secondaryButtonText ?? safeSettings.heroSecondaryButtonText ?? "",
+    secondaryButtonLink: safeSettings.heroDesktopContent?.secondaryButtonLink ?? safeSettings.heroSecondaryButtonLink ?? "",
+    alignment: safeSettings.heroDesktopContent?.alignment || safeSettings.heroTextAlignment || "left",
+    position: safeSettings.heroDesktopContent?.position || safeSettings.heroTextPosition || "left",
+  };
+  const mobileHero = safeSettings.heroMobileContent ? {
+    eyebrow: safeSettings.heroMobileContent.eyebrow ?? desktopHero.eyebrow ?? "",
+    heading: safeSettings.heroMobileContent.heading ?? desktopHero.heading ?? "",
+    supportingText: safeSettings.heroMobileContent.supportingText ?? desktopHero.supportingText ?? "",
+    primaryButtonText: safeSettings.heroMobileContent.primaryButtonText ?? desktopHero.primaryButtonText ?? "",
+    primaryButtonLink: safeSettings.heroMobileContent.primaryButtonLink ?? desktopHero.primaryButtonLink ?? "#products",
+    secondaryButtonText: safeSettings.heroMobileContent.secondaryButtonText ?? desktopHero.secondaryButtonText ?? "",
+    secondaryButtonLink: safeSettings.heroMobileContent.secondaryButtonLink ?? desktopHero.secondaryButtonLink ?? "",
+    alignment: safeSettings.heroMobileContent.alignment || desktopHero.alignment || "left",
+    position: safeSettings.heroMobileContent.position || "bottom",
+  } : {
+    ...desktopHero,
+    position: "bottom",
+  };
 
   useEffect(() => {
     const savedCart = localStorage.getItem("bustaniya-cart");
@@ -259,12 +282,21 @@ export default function Home({
 
           if (section.type === "hero") {
             if (storeSettings.heroEnabled === false) return null;
+            const hasDesktopContent = Boolean(desktopHero.eyebrow || desktopHero.heading || desktopHero.supportingText || desktopHero.primaryButtonText || desktopHero.secondaryButtonText);
+            const hasMobileContent = Boolean(mobileHero.eyebrow || mobileHero.heading || mobileHero.supportingText || mobileHero.primaryButtonText || mobileHero.secondaryButtonText);
+            const hasAnyContent = hasDesktopContent || hasMobileContent;
+            const overlayIntensity = Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0)));
+
             return (
               <section
                 key={section.id}
-                className={`campaignHero campaignHero--position-${desktopHero.position} campaignHero--align-${desktopHero.alignment} campaignHero--mobile-position-${mobileHero.position} campaignHero--mobile-align-${mobileHero.alignment}`}
+                className={`campaignHero campaignHero--position-${desktopHero.position || "left"} campaignHero--align-${desktopHero.alignment || "left"} campaignHero--mobile-position-${mobileHero.position || "bottom"} campaignHero--mobile-align-${mobileHero.alignment || "left"}`}
                 id="new"
-                style={{ "--campaign-overlay": Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0))) / 100, "--campaign-overlay-color": "#102a1d", "--campaign-text-color": sectionTextColors.heroOverlay }}
+                style={{
+                  "--campaign-overlay": hasAnyContent ? (overlayIntensity / 100) : 0,
+                  "--campaign-overlay-color": "#102a1d",
+                  "--campaign-text-color": sectionTextColors.heroOverlay || "#173d29"
+                }}
               >
                 <div className="campaignHeroMedia">
                   <CampaignHeroImage
@@ -274,29 +306,31 @@ export default function Home({
                     alt="Bustaniya eastern wear campaign"
                   />
                 </div>
-                <div className="campaignHeroOverlay" />
-                <div className="campaignHeroInner">
-                  <div className="campaignHeroCopy">
-                    {desktopHero.eyebrow && <p className="campaignHeroDesktopOnly">{desktopHero.eyebrow}</p>}
-                    {mobileHero.eyebrow && <p className="campaignHeroMobileOnly">{mobileHero.eyebrow}</p>}
-                    {(desktopHero.heading || mobileHero.heading) && (
-                      <h1>
-                        {desktopHero.heading && <span className="campaignHeroDesktopOnly">{desktopHero.heading}</span>}
-                        {mobileHero.heading && <span className="campaignHeroMobileOnly">{mobileHero.heading}</span>}
-                      </h1>
-                    )}
-                    {desktopHero.supportingText && <span className="campaignHeroDesktopOnly">{desktopHero.supportingText}</span>}
-                    {mobileHero.supportingText && <span className="campaignHeroMobileOnly">{mobileHero.supportingText}</span>}
-                    {(desktopHero.primaryButtonText || mobileHero.primaryButtonText || desktopHero.secondaryButtonText || mobileHero.secondaryButtonText) && (
-                      <div className="campaignHeroActions">
-                        {desktopHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroDesktopOnly" href={desktopHero.primaryButtonLink || "#products"}>{desktopHero.primaryButtonText}<ArrowRight size={17} /></a>}
-                        {mobileHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroMobileOnly" href={mobileHero.primaryButtonLink || "#products"}>{mobileHero.primaryButtonText}<ArrowRight size={14} /></a>}
-                        {desktopHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroDesktopOnly" href={desktopHero.secondaryButtonLink || "#products"}>{desktopHero.secondaryButtonText}</a>}
-                        {mobileHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroMobileOnly" href={mobileHero.secondaryButtonLink || "#products"}>{mobileHero.secondaryButtonText}</a>}
-                      </div>
-                    )}
+                {hasAnyContent && overlayIntensity > 0 && <div className="campaignHeroOverlay" />}
+                {hasAnyContent && (
+                  <div className="campaignHeroInner">
+                    <div className="campaignHeroCopy">
+                      {desktopHero.eyebrow && <p className="campaignHeroDesktopOnly">{desktopHero.eyebrow}</p>}
+                      {mobileHero.eyebrow && <p className="campaignHeroMobileOnly">{mobileHero.eyebrow}</p>}
+                      {(desktopHero.heading || mobileHero.heading) && (
+                        <h1>
+                          {desktopHero.heading && <span className="campaignHeroDesktopOnly">{desktopHero.heading}</span>}
+                          {mobileHero.heading && <span className="campaignHeroMobileOnly">{mobileHero.heading}</span>}
+                        </h1>
+                      )}
+                      {desktopHero.supportingText && <span className="campaignHeroDesktopOnly">{desktopHero.supportingText}</span>}
+                      {mobileHero.supportingText && <span className="campaignHeroMobileOnly">{mobileHero.supportingText}</span>}
+                      {(desktopHero.primaryButtonText || mobileHero.primaryButtonText || desktopHero.secondaryButtonText || mobileHero.secondaryButtonText) && (
+                        <div className="campaignHeroActions">
+                          {desktopHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroDesktopOnly" href={desktopHero.primaryButtonLink || "#products"}>{desktopHero.primaryButtonText}<ArrowRight size={17} /></a>}
+                          {mobileHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroMobileOnly" href={mobileHero.primaryButtonLink || "#products"}>{mobileHero.primaryButtonText}<ArrowRight size={14} /></a>}
+                          {desktopHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroDesktopOnly" href={desktopHero.secondaryButtonLink || "#products"}>{desktopHero.secondaryButtonText}</a>}
+                          {mobileHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroMobileOnly" href={mobileHero.secondaryButtonLink || "#products"}>{mobileHero.secondaryButtonText}</a>}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
                 {heroSlideCount > 1 && <div className="campaignHeroDots" role="tablist" aria-label="Hero banner slides">
                   {Array.from({ length: heroSlideCount }, (_, index) => <button
                     key={index}
