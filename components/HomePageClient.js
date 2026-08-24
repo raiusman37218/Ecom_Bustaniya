@@ -384,7 +384,7 @@ export default function Home({
           }
 
           if (section.type === "shop_by_category") {
-            const currentStyle = (section.style === "minimal" || storeSettings.categorySectionStyle === "minimal") ? "minimal" : "atelier";
+            const currentStyle = section.style === "minimal" ? "minimal" : (section.style === "atelier" ? "atelier" : (storeSettings.categorySectionStyle === "minimal" ? "minimal" : "atelier"));
             const sectionHeading = (!section.heading || section.heading === "Choose your mood") ? "Shop by Category" : section.heading;
             const catBg = sectionColors.categories || "#ffffff";
             const isLightCatBg = !catBg || ["#ffffff", "#fffefb", "#fff", "#fcf8ef", "#f7f2e8"].includes(catBg.toLowerCase().trim());

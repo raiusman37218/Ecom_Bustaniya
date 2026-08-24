@@ -7909,11 +7909,15 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
                         return { ...current, homepageSections: sections };
                       })} /></label>
                       {section.type === "shop_by_category" && (
-                        <label style={{ gridColumn: "1 / -1" }}>Category Display Layout<select value={section.style || storeSettings.categorySectionStyle || "atelier"} onChange={(event) => setStoreSettings((current) => {
-                          const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
-                          sections[index] = { ...sections[index], style: event.target.value };
-                          return { ...current, categorySectionStyle: event.target.value, homepageSections: sections };
-                        })}><option value="atelier">Atelier Card Overlay (Dark Theme Overlay)</option><option value="minimal">Minimal Collections Grid (House of Lucknawi Style)</option></select></label>
+                        <label style={{ gridColumn: "1 / -1" }}>Category Display Layout<select value={section.style || storeSettings.categorySectionStyle || "atelier"} onChange={(event) => {
+                          const nextStyle = event.target.value;
+                          setStoreSettings((current) => {
+                            const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
+                              sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
+                            );
+                            return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
+                          });
+                        }}><option value="atelier">Atelier Overlay Cards (Dark Theme Overlay)</option><option value="minimal">Minimal Collections Grid (House of Lucknawi Style - Rounded cards with titles below)</option></select></label>
                       )}
                       {section.type === "instagram_feed" && (
                         <div className="instagramManager" style={{ gridColumn: "1 / -1" }}>

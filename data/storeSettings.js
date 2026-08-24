@@ -56,6 +56,7 @@ export const DEFAULT_HOMEPAGE_SECTIONS = [
     heading: "Shop by Category",
     eyebrow: "CURATED COLLECTIONS",
     subtitle: "",
+    style: "atelier",
   },
   {
     id: "new-arrivals",
@@ -173,17 +174,6 @@ export const DEFAULT_STORE_SETTINGS = {
     whatsappNumber: "",
     advanceHeading: "Full Advance Payment Instructions",
     instructions: "Full payment bank account mein transfer karein. Payment karne ke baad transaction ka screenshot proof ke taur par WhatsApp (+92 305 3530008) par bhejein. Dispatch payment verification ke baad start hoga.",
-  },
-  shippingZones: [
-    { id: "pakistan-standard", zone: "Pakistan - Standard", cities: "All PostEx service cities", rate: 200, freeAbove: 5000 },
-    { id: "lahore-same-day", zone: "Lahore same-day", cities: "Lahore", rate: 250, freeAbove: 8000 },
-  ],
-  notificationSettings: {
-    orderConfirmationEnabled: true,
-    orderConfirmationSubject: "Your Bustaniya order is confirmed",
-    orderConfirmationTemplate: "Hi {{customer_name}},\n\nYour order {{order_number}} has been confirmed. Tracking: {{tracking_number}}.\n\nThank you,\nBustaniya",
-    fulfillmentUpdateEnabled: true,
-    codVerificationReminderEnabled: true,
   },
   shippingZones: [
     { id: "pakistan-standard", zone: "Pakistan - Standard", cities: "All PostEx service cities", rate: 200, freeAbove: 5000 },
