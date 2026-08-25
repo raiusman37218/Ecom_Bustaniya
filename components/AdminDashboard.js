@@ -2010,15 +2010,15 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const dashboardOwnerInvestments = dashboardActiveTransactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardOwnerWithdrawals = dashboardActiveTransactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardOtherIncome = dashboardActiveTransactions.filter((item) => item.type === "other_income").reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const dashboardCprReferences = new Set((financeSnapshot.postex?.batches || []).filter((batch) => !isVoidedPostexBatch(batch)).map((batch) => String(batch.cpr_number || "").trim().toLowerCase()).filter(Boolean));
-  const dashboardManualPostexReceipts = dashboardActiveTransactions.filter((item) => {
-    if (item.type !== "postex_bank_receipt") return false;
-    const reference = String(item.reference || item.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim().toLowerCase();
-    return !dashboardCprReferences.has(reference);
-  }).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const dashboardPostexBankReceived = Number(financeSnapshot.postex?.summary?.bankReceivedPkr || 0) + dashboardManualPostexReceipts;
+  // A PostEx "settled" status/CPR is reconciliation data, not proof that the
+  // money is available in our bank. Available cash only uses receipts that
+  // the owner manually verified and entered in the cashbook.
+  const dashboardManualPostexReceipts = dashboardActiveTransactions
+    .filter((item) => item.type === "postex_bank_receipt")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardPostexBankReceived = dashboardManualPostexReceipts;
   const dashboardExpectedPostexNet = Number(dashboardCalculatedPostex.totalExpectedNetPkr || financeSnapshot.postex?.summary?.totalExpectedNetPkr || dashboardSales);
-  const dashboardPostexReceivable = Math.max(0, Number(dashboardCalculatedPostex.outstandingPkr || financeSnapshot.postex?.summary?.outstandingPkr || dashboardExpectedPostexNet || dashboardCod) - dashboardManualPostexReceipts);
+  const dashboardPostexReceivable = Math.max(0, dashboardExpectedPostexNet - dashboardManualPostexReceipts);
   const dashboardReceivedRatio = dashboardExpectedPostexNet > 0 ? Math.min(1, dashboardPostexBankReceived / dashboardExpectedPostexNet) : 0;
   const dashboardCashGstReserve = 0;
   const dashboardCashTaxReserve = 0;
@@ -2287,7 +2287,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
           <section>
             <div className="cashBreakdownHeading"><div><h3>Cash movement breakdown</h3><span>Shows the money currently available to use.</span></div><span className="cashBreakdownTag">CASH</span></div>
             <div className="financeStatement">
-              <div><span>Verified PostEx bank receipts</span><b className="cashPlus">+ Rs. {dashboardPostexBankReceived.toLocaleString()}</b></div>
+              <div><span>Manually verified PostEx bank receipts</span><b className="cashPlus">+ Rs. {dashboardPostexBankReceived.toLocaleString()}</b></div>
               <div><span>PostEx receivable (not available cash)</span><b>Rs. {dashboardPostexReceivable.toLocaleString()}</b></div>
               <div><span>Owner funds added</span><b className="cashPlus">+ Rs. {dashboardOwnerInvestments.toLocaleString()}</b></div>
               <div><span>PostEx GST already deducted before bank receipt</span><b>Rs. {dashboardGst.toLocaleString()}</b></div>
@@ -3429,9 +3429,10 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const postexPayments = Array.isArray(postexSnapshot?.payments) ? postexSnapshot.payments : [];
   const postexBatches = Array.isArray(postexSnapshot?.batches) ? postexSnapshot.batches : [];
   const manualPostexReceiptHistory = cashbookTransactions.filter((item) => item.type === "postex_bank_receipt");
-  const activeCprReferences = new Set(postexBatches.filter((batch) => !isVoidedPostexBatch(batch)).map((batch) => String(batch.cpr_number || "").trim().toLowerCase()).filter(Boolean));
-  const duplicateManualPostexReceipts = manualPostexReceiptHistory.filter((item) => !item.voided && activeCprReferences.has(String(item.reference || item.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim().toLowerCase()));
-  const manualPostexReceipts = manualPostexReceiptHistory.filter((item) => !item.voided && !activeCprReferences.has(String(item.reference || item.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim().toLowerCase()));
+  // CPR batches may carry the same reference as the bank receipt entered by
+  // the owner. They serve different purposes and are intentionally allowed
+  // to coexist: only the manual receipt contributes to Available Cash.
+  const manualPostexReceipts = manualPostexReceiptHistory.filter((item) => !item.voided);
   const manualPostexBankReceived = manualPostexReceipts.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const calculatedPostex = postexCalculatedSummary(postexSnapshot || {});
   const postexAllocatedByPayment = calculatedPostex.allocations;
@@ -3462,14 +3463,14 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       net: amounts.net,
     };
   };
-  const reconciledPostexBankReceived = Number(postexSummary.bankReceivedPkr || 0);
-  const receivedCash = reconciledPostexBankReceived + manualPostexBankReceived;
+  const receivedCash = manualPostexBankReceived;
   const expectedPostexReceivable = postexPayments.length
     ? Number(calculatedPostex.totalExpectedNetPkr || postexSummary.totalExpectedNetPkr || 0)
     : grossRevenue;
-  const receivables = Math.max(0, (postexPayments.length
-    ? Number(calculatedPostex.outstandingPkr || postexSummary.outstandingPkr || 0)
-    : expectedPostexReceivable) - manualPostexBankReceived);
+  // For cash visibility, the remaining amount is always expected PostEx net
+  // less receipts manually verified in the bank. CPR allocations remain a
+  // settlement audit trail and must not make cash look received early.
+  const receivables = Math.max(0, expectedPostexReceivable - manualPostexBankReceived);
   const productCosts = new Map(safeProducts.map((product) => [String(product.id), Number(product.costTotalPkr || 0)]));
   const deliveredProductRevenue = deliveredItems
     .reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0);
@@ -3612,10 +3613,6 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     const formElement = event.currentTarget;
     const data = new FormData(formElement);
     const cprNumber = String(data.get("cprNumber") || "").trim();
-    if (manualPostexReceipts.some((entry) => String(entry.reference || entry.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim().toLowerCase() === cprNumber.toLowerCase())) {
-      setCashbookError("This CPR was already entered as a simple bank receipt. Keep one record only so cash is not counted twice.");
-      return;
-    }
     setPostexSyncing(true);
     setCashbookError("");
     try {
@@ -3701,10 +3698,6 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     const bank = String(data.get("bank") || "").trim();
     if (!reference) {
       setCashbookError("Enter the PostEx CPR or bank reference so this receipt can be tracked and reversed safely.");
-      return;
-    }
-    if (postexBatches.some((batch) => !isVoidedPostexBatch(batch) && String(batch.cpr_number || "").trim().toLowerCase() === reference.toLowerCase())) {
-      setCashbookError("This CPR is already recorded through Advanced CPR reconciliation. Do not add it again here, otherwise available cash would be counted twice.");
       return;
     }
     if (manualPostexReceipts.some((entry) => String(entry.reference || entry.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim().toLowerCase() === reference.toLowerCase())) {
@@ -3955,7 +3948,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       ["Delivered orders", deliveredOrderCount],
       ["Total products sold", totalProductsSold],
       ["Product sales total", deliveredProductRevenue],
-      ["Verified PostEx bank receipts", receivedCash],
+      ["Manually verified PostEx bank receipts", receivedCash],
       ["PostEx receivable / carry forward", receivables],
       ["PostEx marked settled", Number(postexSummary.postexSettledPkr || 0)],
       ["PostEx settled but not bank reconciled", Number(postexSummary.settledNotBankedPkr || 0)],
@@ -4019,12 +4012,10 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
 
       <div className="miniMetricGrid settlementMetrics">
         <article><CircleDollarSign /><span><b>{money(expectedPostexReceivable)}</b>Expected from delivered orders</span></article>
-        <article><ReceiptText /><span><b>{money(postexSummary.postexSettledPkr)}</b>PostEx shows as settled</span></article>
-        <article><WalletCards /><span><b>{money(receivedCash)}</b>Actually received in bank</span></article>
+        <article><ReceiptText /><span><b>{money(postexSummary.postexSettledPkr)}</b>PostEx marked settled (status only)</span></article>
+        <article><WalletCards /><span><b>{money(receivedCash)}</b>Actually received in bank (manual)</span></article>
         <article className={receivables ? "alertMetric" : ""}><Landmark /><span><b>{money(receivables)}</b>Still pending / not received</span></article>
       </div>
-
-      {duplicateManualPostexReceipts.length > 0 && <div className="inventoryAlert materialAlert"><Landmark /><div><b>{duplicateManualPostexReceipts.length} duplicate bank receipt not counted</b><span>The same CPR exists in Advanced CPR records and simple bank receipts. It is excluded from cash to prevent double-counting. Void one of the duplicate records after checking your bank statement.</span></div></div>}
 
       <div className="financeGrid financeGridWide postexWalletWorkspace">
         <form className="adminCard financeExpenseForm postexWalletForm" onSubmit={addPostexWalletReceipt}>
@@ -4042,7 +4033,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
             <div><span>1</span><b>Refresh PostEx status</b></div>
             <div><span>2</span><b>Check your actual bank / wallet balance</b></div>
             <div><span>3</span><b>Enter one bank receipt with its reference</b></div>
-            <div className="statementTotal"><span>Result</span><b>Cash and pending amount update automatically</b></div>
+            <div className="statementTotal"><span>Result</span><b>Only manual receipts update Available Cash</b></div>
           </div>
           <p className="cashBreakdownNote">“PostEx settled” means PostEx has processed the order. “Actually received in bank” is the only amount you can spend.</p>
         </div>
@@ -4100,13 +4091,13 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
 
         <form className="adminCard financeExpenseForm settlementForm" onSubmit={saveCprBatch}>
           <h2>Record CPR / weekly receipt</h2>
-          <p className="trackingNumber">Use the CPR statement amount and the exact amount credited to your bank. A short payment automatically becomes carry-forward.</p>
+          <p className="trackingNumber">Use this for PostEx settlement reconciliation only. The CPR amount/status will appear here, but it will not increase Available Cash. When the money is visible in your bank or wallet, enter the verified receipt in the form above.</p>
           <div className="formRow"><label>CPR number<input name="cprNumber" required placeholder="e.g. CPR-2026-W30" /></label><label>CPR date<input name="cprDate" type="date" /></label></div>
           <div className="formRow"><label>Period start<input name="periodStart" type="date" /></label><label>Period end<input name="periodEnd" type="date" /></label></div>
           <label>Tracking numbers<textarea rows="6" required value={cprTrackingText} onChange={(event) => setCprTrackingText(event.target.value)} placeholder={"One tracking number per line\n28640330000063"} /></label>
           <label className="settlementFileInput">Import tracking list (CSV/TXT)<input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={importCprTrackingFile} /></label>
           <div className="formRow"><label>Expected CPR amount<input name="expectedAmountPkr" type="number" min="0" step="0.01" placeholder="Auto from selected orders" /></label><label>Other statement deductions<input name="additionalDeductionsPkr" type="number" min="0" step="0.01" defaultValue="0" /></label></div>
-          <div className="formRow"><label>Actual bank receipt<input name="bankReceivedPkr" type="number" min="0" step="0.01" required /></label><label>Bank receipt date<input name="bankReceivedDate" type="date" /></label></div>
+          <div className="formRow"><label>CPR bank amount (reconciliation only)<input name="bankReceivedPkr" type="number" min="0" step="0.01" required /></label><label>Statement date<input name="bankReceivedDate" type="date" /></label></div>
           <label>Notes<input name="notes" placeholder="Short payment, adjustment, bank reference..." /></label>
           <button disabled={postexSyncing || !postexSnapshot.setupAvailable}>{postexSyncing ? "Saving..." : "Save reconciliation"}</button>
         </form>
@@ -4133,7 +4124,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
           <Landmark />
           <div>
             <b>This will reverse the PostEx bank receipt</b>
-            <span>Available cash will decrease by {money(voidPostexBatch.bank_received_pkr)} and the linked orders will become pending/remaining again. The CPR record stays visible as voided for audit.</span>
+            <span>This reverses the CPR reconciliation and its linked settlement allocations. It does not change Available Cash; to correct cash, void the separate manual bank receipt. The CPR record stays visible as voided for audit.</span>
           </div>
         </div>
         <label>Type <b>{`VOID ${voidPostexBatch.cpr_number}`}</b> exactly to confirm<input value={voidPostexConfirmation} onChange={(event) => setVoidPostexConfirmation(event.target.value)} autoComplete="off" autoFocus /></label>
@@ -4165,7 +4156,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       <article><WalletCards /><span><b>{money(deliveredCogs)}</b>Total product cost</span></article>
       <article><ShoppingBag /><span><b>{money(courierDeliveryCost)}</b>Courier delivery cost</span></article>
       <article><WalletCards /><span><b>{money(availableCash)}</b>Available business cash</span></article>
-      <article><Landmark /><span><b>{money(receivedCash)}</b>Verified PostEx bank receipts</span></article>
+      <article><Landmark /><span><b>{money(receivedCash)}</b>Manually verified PostEx receipts</span></article>
       <article><CircleDollarSign /><span><b>{money(otherBusinessIncome)}</b>Other business income</span></article>
       <article><CircleDollarSign /><span><b>{money(ownerInvestments)}</b>Owner funds added</span></article>
       <article className={ownerWithdrawals ? "alertMetric" : ""}><CircleDollarSign /><span><b>{money(ownerWithdrawals)}</b>Owner withdrawals</span></article>
@@ -4185,7 +4176,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       <div className="adminCard financeSummaryCard">
         <div className="cardHeading"><div><h2>Where money comes from</h2><p>Only verified money is treated as usable cash.</p></div></div>
         <div className="financeStatement">
-          <div><span>PostEx bank receipts</span><b>+ {money(receivedCash)}</b></div>
+          <div><span>Manually verified PostEx receipts</span><b>+ {money(receivedCash)}</b></div>
           <div><span>Other recorded business income</span><b>+ {money(otherBusinessIncome)}</b></div>
           <div><span>Owner funds added</span><b>+ {money(ownerInvestments)}</b></div>
           <div className="statementTotal"><span>Cash received / added</span><b>{money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
