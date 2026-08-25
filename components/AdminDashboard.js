@@ -34,6 +34,41 @@ function HelpHint({ text }) {
   return <span className="helpHint" tabIndex="0" role="note" aria-label={text} data-tooltip={text}><Info /></span>;
 }
 
+const FINANCE_INVENTORY_CATEGORIES = new Set([
+  "fabric / stock",
+  "tailoring / stitching",
+  "lace / embellishment",
+  "inventory production",
+  "inventory",
+  "stock purchase",
+]);
+
+function normalizedFinanceCategory(value) {
+  return String(value || "Other").trim().toLowerCase();
+}
+
+function isInventoryCashExpense(entry) {
+  if (entry?.type !== "business_expense") return false;
+  return Boolean(entry?.productionBatchId)
+    || String(entry?.title || "").startsWith("Production batch ")
+    || FINANCE_INVENTORY_CATEGORIES.has(normalizedFinanceCategory(entry?.category));
+}
+
+function isActiveFinanceEntry(entry) {
+  return entry?.voided !== true;
+}
+
+function financeEntryLabel(type) {
+  return ({
+    owner_investment: "Owner funds added",
+    owner_withdrawal: "Owner withdrawal",
+    postex_bank_receipt: "PostEx bank receipt",
+    supplier_payment: "Supplier payment",
+    other_income: "Other business income",
+    business_expense: "Business expense",
+  })[type] || "Finance entry";
+}
+
 function normalizeHeroImages(value, fallback) {
   let source = value;
   if (typeof value === "string") {
@@ -1965,13 +2000,17 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const dashboardReturnPostexLoss = Math.round(Number(dashboardCalculatedPostex.returnedPostexLossPkr || 0));
   const dashboardTaxes = dashboardGst + dashboardTax;
   const dashboardCourierCost = Math.max(0, dashboardActualPostexDeductions - dashboardTaxes);
-  const dashboardManualExpenses = financeSnapshot.expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0) + Number(financeSnapshot.packagingExpense || 0) + Number(financeSnapshot.deliveryExpense || 0);
-  const dashboardCashbookExpenses = financeSnapshot.transactions.filter((item) => item.type === "business_expense" && !item.productionBatchId && item.category !== "Inventory production" && !String(item.title || "").startsWith("Production batch ")).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const dashboardProductionCashOutflow = financeSnapshot.transactions.filter((item) => item.type === "business_expense" && (item.productionBatchId || item.category === "Inventory production" || String(item.title || "").startsWith("Production batch "))).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const dashboardSupplierPayments = financeSnapshot.transactions.filter((item) => item.type === "supplier_payment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const dashboardOwnerInvestments = financeSnapshot.transactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const dashboardOwnerWithdrawals = financeSnapshot.transactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const dashboardManualPostexReceipts = financeSnapshot.transactions.filter((item) => item.type === "postex_bank_receipt" && !item.voided).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardActiveTransactions = financeSnapshot.transactions.filter(isActiveFinanceEntry);
+  const dashboardLegacyInventory = financeSnapshot.expenses.filter((item) => FINANCE_INVENTORY_CATEGORIES.has(normalizedFinanceCategory(item.category))).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardLegacyOperating = financeSnapshot.expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0) - dashboardLegacyInventory;
+  const dashboardManualExpenses = dashboardLegacyOperating + Number(financeSnapshot.packagingExpense || 0) + Number(financeSnapshot.deliveryExpense || 0);
+  const dashboardCashbookExpenses = dashboardActiveTransactions.filter((item) => item.type === "business_expense" && !isInventoryCashExpense(item)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardProductionCashOutflow = dashboardActiveTransactions.filter(isInventoryCashExpense).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardSupplierPayments = dashboardActiveTransactions.filter((item) => item.type === "supplier_payment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardOwnerInvestments = dashboardActiveTransactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardOwnerWithdrawals = dashboardActiveTransactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardOtherIncome = dashboardActiveTransactions.filter((item) => item.type === "other_income").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const dashboardManualPostexReceipts = dashboardActiveTransactions.filter((item) => item.type === "postex_bank_receipt").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardPostexBankReceived = Number(financeSnapshot.postex?.summary?.bankReceivedPkr || 0) + dashboardManualPostexReceipts;
   const dashboardExpectedPostexNet = Number(dashboardCalculatedPostex.totalExpectedNetPkr || financeSnapshot.postex?.summary?.totalExpectedNetPkr || dashboardSales);
   const dashboardPostexReceivable = Math.max(0, Number(dashboardCalculatedPostex.outstandingPkr || financeSnapshot.postex?.summary?.outstandingPkr || dashboardExpectedPostexNet || dashboardCod) - dashboardManualPostexReceipts);
@@ -1979,7 +2018,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const dashboardCashGstReserve = 0;
   const dashboardCashTaxReserve = 0;
   const dashboardNetProfit = dashboardSales - dashboardCogs - dashboardCourierCost - dashboardReturnPostexLoss - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses;
-  const dashboardAvailableCash = dashboardPostexBankReceived + dashboardOwnerInvestments - dashboardManualExpenses - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments - dashboardOwnerWithdrawals;
+  const dashboardAvailableCash = dashboardPostexBankReceived + dashboardOwnerInvestments + dashboardOtherIncome - dashboardManualExpenses - dashboardLegacyInventory - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments - dashboardOwnerWithdrawals;
   const zeroCostActive = (products || []).filter((product) => productStatus(product) === "Active" && !Number(product.costTotalPkr || 0));
   const lowStockProducts = (products || []).filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5));
   const chartRange = Number(dashboardPeriod);
@@ -3428,25 +3467,28 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     .reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0);
   const deliveredCogs = deliveredOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order)
     .reduce((itemTotal, item) => itemTotal + Number(item.quantity || 0) * Number(productCosts.get(String(item.productId)) || 0), 0), 0);
-  const manualExpenseTotal = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const isProductionBatchExpense = (item) => item.type === "business_expense" && (
-    item.productionBatchId ||
-    item.category === "Inventory production" ||
-    String(item.title || "").startsWith("Production batch ")
-  );
-  const productionCashOutflow = cashbookTransactions.filter(isProductionBatchExpense).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const supplierPaymentTotal = cashbookTransactions.filter((item) => item.type === "supplier_payment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const cashbookOperatingExpenses = cashbookTransactions
-    .filter((item) => item.type === "business_expense" && !isProductionBatchExpense(item))
+  const activeCashbookTransactions = cashbookTransactions.filter(isActiveFinanceEntry);
+  const manualInventoryExpenseTotal = expenses.filter((item) => FINANCE_INVENTORY_CATEGORIES.has(normalizedFinanceCategory(item.category))).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const manualOperatingExpenseTotal = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0) - manualInventoryExpenseTotal;
+  const manualExpenseTotal = manualOperatingExpenseTotal + manualInventoryExpenseTotal;
+  const inventoryCashOutflow = activeCashbookTransactions.filter(isInventoryCashExpense).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const productionCashOutflow = activeCashbookTransactions.filter((item) => isInventoryCashExpense(item) && (item.productionBatchId || String(item.title || "").startsWith("Production batch "))).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const tailoringCashOutflow = activeCashbookTransactions.filter((item) => normalizedFinanceCategory(item.category) === "tailoring / stitching").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const laceCashOutflow = activeCashbookTransactions.filter((item) => normalizedFinanceCategory(item.category) === "lace / embellishment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const fabricCashOutflow = activeCashbookTransactions.filter((item) => ["fabric / stock", "stock purchase"].includes(normalizedFinanceCategory(item.category))).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const supplierPaymentTotal = activeCashbookTransactions.filter((item) => item.type === "supplier_payment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const cashbookOperatingExpenses = activeCashbookTransactions
+    .filter((item) => item.type === "business_expense" && !isInventoryCashExpense(item))
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const ownerInvestments = cashbookTransactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const ownerWithdrawals = cashbookTransactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const ownerInvestments = activeCashbookTransactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const ownerWithdrawals = activeCashbookTransactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const otherBusinessIncome = activeCashbookTransactions.filter((item) => item.type === "other_income").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const packagingTotal = Number(packagingExpense || 0);
   const deliveryTotal = Number(deliveryExpense || 0);
   // A batch purchase is cash spent now but becomes COGS only when its units sell.
   // Keeping it out of this P&L total prevents subtracting the same cost twice.
-  const profitExpenseTotal = manualExpenseTotal + cashbookOperatingExpenses + packagingTotal + deliveryTotal;
-  const cashOutflowTotal = profitExpenseTotal + productionCashOutflow + supplierPaymentTotal;
+  const profitExpenseTotal = manualOperatingExpenseTotal + cashbookOperatingExpenses + packagingTotal + deliveryTotal;
+  const cashOutflowTotal = manualOperatingExpenseTotal + manualInventoryExpenseTotal + cashbookOperatingExpenses + inventoryCashOutflow + supplierPaymentTotal + packagingTotal + deliveryTotal;
   const gstProvision = Math.round(Number(calculatedPostex.deliveredPostexGstPkr || 0));
   const taxProvision = Math.round(Number(calculatedPostex.deliveredPostexDeduction4Pkr || 0));
   const gstTaxTotal = gstProvision + taxProvision;
@@ -3461,7 +3503,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   // PostEx bank receipts are already net of courier deductions. Delivered
   // revenue remains in P&L, but it becomes spendable cash only after a CPR
   // receipt is verified.
-  const availableCash = receivedCash - cashOutflowTotal + ownerInvestments - ownerWithdrawals;
+  const availableCash = receivedCash + ownerInvestments + otherBusinessIncome - cashOutflowTotal - ownerWithdrawals;
   const allocatableProfit = Math.max(0, netProfit);
   const marketingAllocation = Math.round(allocatableProfit * Number(profitAllocation.marketingPercent || 0) / 100);
   const ownerAllocation = Math.round(allocatableProfit * Number(profitAllocation.ownerPercent || 0) / 100);
@@ -3510,14 +3552,18 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     const total = Number(data.get("total") || 0);
     const paid = Math.min(total, Math.max(0, Number(data.get("paid") || 0)));
     if (!total) return;
-    const nextBills = [{ id: `supplier-bill-${Date.now()}`, supplier: String(data.get("supplier") || "").trim(), reference: String(data.get("reference") || "").trim(), total, paid, date: data.get("date") || today, dueDate: data.get("dueDate") || "", note: String(data.get("note") || "").trim(), status: paid >= total ? "paid" : "open" }, ...supplierBills];
+    const billId = `supplier-bill-${Date.now()}`;
+    const nextBills = [{ id: billId, supplier: String(data.get("supplier") || "").trim(), reference: String(data.get("reference") || "").trim(), total, paid, date: data.get("date") || today, dueDate: data.get("dueDate") || "", note: String(data.get("note") || "").trim(), status: paid >= total ? "paid" : "open" }, ...supplierBills];
     if (!nextBills[0].supplier) return;
+    // A bill is only a payable. If money was already paid, create the matching
+    // cash movement now so Available Cash never overstates the bank balance.
+    const nextTransactions = paid > 0 ? [{ id: `supplier-opening-payment-${Date.now()}`, type: "supplier_payment", title: `Supplier payment: ${nextBills[0].supplier}`, category: "Supplier payable", amount: paid, date: nextBills[0].date, note: nextBills[0].reference || nextBills[0].note || "Opening payment recorded with supplier bill", supplierBillId: billId }, ...cashbookTransactions] : cashbookTransactions;
     setCashbookLoading(true); setCashbookError("");
     try {
-      const response = await fetch("/api/admin/finance-transactions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactions: cashbookTransactions, allocation: profitAllocation, supplierBills: nextBills }) });
+      const response = await fetch("/api/admin/finance-transactions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactions: nextTransactions, allocation: profitAllocation, supplierBills: nextBills }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to save supplier bill.");
-      setSupplierBills(result.supplierBills || nextBills); formElement?.reset();
+      setSupplierBills(result.supplierBills || nextBills); setCashbookTransactions(result.transactions || nextTransactions); formElement?.reset();
     } catch (error) { setCashbookError(error.message); } finally { setCashbookLoading(false); }
   }
 
@@ -3792,12 +3838,12 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       amount: -200,
       status: "Returned",
     })),
-    ...cashbookTransactions.map((entry) => ({
+    ...activeCashbookTransactions.map((entry) => ({
       id: entry.id,
       date: formatFinanceDate(entry.date),
-      type: entry.type === "owner_investment" ? "Owner investment" : entry.type === "owner_withdrawal" ? "Owner withdrawal" : entry.type === "postex_bank_receipt" ? "PostEx wallet receipt" : "Business expense",
-      account: entry.title,
-      amount: entry.type === "owner_investment" || entry.type === "postex_bank_receipt" ? Number(entry.amount) : -Number(entry.amount),
+      type: financeEntryLabel(entry.type),
+      account: [entry.title, entry.counterparty].filter(Boolean).join(" · "),
+      amount: ["owner_investment", "postex_bank_receipt", "other_income"].includes(entry.type) ? Number(entry.amount) : -Number(entry.amount),
       status: entry.category,
     })).filter((entry) => entry.type !== "PostEx wallet receipt"),
   ];
@@ -3846,6 +3892,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       category: String(data.get("category") || "Other").trim(),
       amount: Number(data.get("amount") || 0),
       date: data.get("date") || new Date().toISOString().slice(0, 10),
+      counterparty: String(data.get("counterparty") || "").trim(),
+      reference: String(data.get("reference") || "").trim(),
       note: String(data.get("note") || "").trim(),
     }, ...cashbookTransactions];
     if (!nextTransactions[0].amount || nextTransactions[0].amount < 0) return;
@@ -4096,6 +4144,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       <article><ShoppingBag /><span><b>{money(courierDeliveryCost)}</b>Courier delivery cost</span></article>
       <article><WalletCards /><span><b>{money(availableCash)}</b>Available business cash</span></article>
       <article><Landmark /><span><b>{money(receivedCash)}</b>Verified PostEx bank receipts</span></article>
+      <article><CircleDollarSign /><span><b>{money(otherBusinessIncome)}</b>Other business income</span></article>
       <article><CircleDollarSign /><span><b>{money(ownerInvestments)}</b>Owner funds added</span></article>
       <article className={ownerWithdrawals ? "alertMetric" : ""}><CircleDollarSign /><span><b>{money(ownerWithdrawals)}</b>Owner withdrawals</span></article>
       <article className={returnedOrderCount ? "alertMetric" : ""}><Package /><span><b>{returnedOrderCount}</b>Returned orders</span></article>
@@ -4109,6 +4158,30 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       <VisualDonut title="Cash allocation" subtitle="Where your available cash, receivables and owner capital currently sit." centerValue={money(Math.max(0, availableCash))} centerLabel="available" items={financeCashVisual} />
       <VisualBars title="Profit waterfall" subtitle="Revenue flow from gross sales through costs to final net profit." format={(value) => money(value)} items={financeCostVisual} />
     </div>
+
+    <section className="financeGrid financeGridWide">
+      <div className="adminCard financeSummaryCard">
+        <div className="cardHeading"><div><h2>Where money comes from</h2><p>Only verified money is treated as usable cash.</p></div></div>
+        <div className="financeStatement">
+          <div><span>PostEx bank receipts</span><b>+ {money(receivedCash)}</b></div>
+          <div><span>Other recorded business income</span><b>+ {money(otherBusinessIncome)}</b></div>
+          <div><span>Owner funds added</span><b>+ {money(ownerInvestments)}</b></div>
+          <div className="statementTotal"><span>Cash received / added</span><b>{money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
+        </div>
+      </div>
+      <div className="adminCard financeSummaryCard">
+        <div className="cardHeading"><div><h2>Where money goes</h2><p>Stock purchases reduce cash now; COGS is recognised when the product sells.</p></div></div>
+        <div className="financeStatement">
+          <div><span>Fabric / stock</span><b>- {money(fabricCashOutflow)}</b></div>
+          <div><span>Tailoring / stitching</span><b>- {money(tailoringCashOutflow)}</b></div>
+          <div><span>Lace / embellishment</span><b>- {money(laceCashOutflow)}</b></div>
+          <div><span>Other stock / production</span><b>- {money(Math.max(0, inventoryCashOutflow - fabricCashOutflow - tailoringCashOutflow - laceCashOutflow))}</b></div>
+          <div><span>Operating expenses + supplier payments</span><b>- {money(manualOperatingExpenseTotal + cashbookOperatingExpenses + packagingTotal + deliveryTotal + supplierPaymentTotal)}</b></div>
+          <div><span>Owner withdrawals</span><b>- {money(ownerWithdrawals)}</b></div>
+          <div className="statementTotal"><span>Available business cash</span><b>{money(availableCash)}</b></div>
+        </div>
+      </div>
+    </section>
 
     <section className="financeGrid financeGridWide">
       <form className="adminCard financeExpenseForm" onSubmit={saveProfitAllocation}>
@@ -4221,12 +4294,15 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
         </tbody></table></div>
       </div>
 
-      <form className="adminCard financeExpenseForm" onSubmit={addExpense}>
-        <h2>Add expense</h2>
-        <label>Expense title<input name="title" required placeholder="e.g. Fabric purchase" /></label>
-        <div className="formRow"><label>Category<select name="category"><option>Inventory</option><option>Marketing</option><option>Operations</option><option>Bills</option><option>Delivery</option><option>Other</option></select></label><label>Amount<input name="amount" type="number" min="0" required placeholder="0" /></label></div>
-        <label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label>
-        <button>Add expense</button>
+      <form className="adminCard financeExpenseForm" onSubmit={addCashbookTransaction}>
+        <h2>Add cash movement</h2>
+        <p className="trackingNumber">Har cash entry yahan record karein. Stock categories cash ko reduce karti hain, lekin product cost ke saath profit mein dobara deduct nahi hotin.</p>
+        <div className="formRow"><label>Money direction<select name="type"><option value="business_expense">Money paid / expense</option><option value="other_income">Other business income</option><option value="owner_investment">Owner funds added</option><option value="owner_withdrawal">Owner withdrawal</option></select></label><label>Category<select name="category"><option>Fabric / stock</option><option>Tailoring / stitching</option><option>Lace / embellishment</option><option>Packaging</option><option>Marketing</option><option>Courier / delivery</option><option>Rent &amp; utilities</option><option>Salaries &amp; labour</option><option>Operations</option><option>Other</option></select></label></div>
+        <label>What was it for?<input name="title" required placeholder="e.g. Stitching payment for Farshi suits" /></label>
+        <div className="formRow"><label>Tailor / supplier / source<input name="counterparty" placeholder="e.g. Amina Tailors" /></label><label>Amount<input name="amount" type="number" min="0.01" step="0.01" required placeholder="0" /></label></div>
+        <div className="formRow"><label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label><label>Reference (optional)<input name="reference" placeholder="Invoice, bank ref, WhatsApp ref" /></label></div>
+        <label>Note (optional)<input name="note" placeholder="Extra detail for later checking" /></label>
+        <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save cash movement"}</button>
       </form>
 
     </section>
