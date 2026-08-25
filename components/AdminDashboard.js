@@ -63,11 +63,19 @@ function isLinkedFinanceEntry(entry) {
     || String(entry?.title || "").startsWith("Production batch ");
 }
 
+function financeEntryCashEffect(entry) {
+  const amount = Number(entry?.amount || 0);
+  if (!Number.isFinite(amount)) return 0;
+  if (entry?.type === "cash_reset") return entry?.cashDirection === "in" ? amount : -amount;
+  return ["owner_investment", "postex_bank_receipt", "other_income"].includes(entry?.type) ? amount : -amount;
+}
+
 function financeEntryLabel(type) {
   return ({
     owner_investment: "Owner funds added",
     owner_withdrawal: "Owner withdrawal",
     postex_bank_receipt: "PostEx bank receipt",
+    cash_reset: "Opening balance reset",
     supplier_payment: "Supplier payment",
     other_income: "Other business income",
     business_expense: "Business expense",
@@ -2022,13 +2030,16 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     .filter((item) => item.type === "postex_bank_receipt")
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardPostexBankReceived = dashboardManualPostexReceipts;
+  const dashboardCashResetAdjustment = dashboardActiveTransactions
+    .filter((item) => item.type === "cash_reset")
+    .reduce((sum, item) => sum + financeEntryCashEffect(item), 0);
   const dashboardExpectedPostexNet = Number(dashboardCalculatedPostex.totalExpectedNetPkr || financeSnapshot.postex?.summary?.totalExpectedNetPkr || dashboardSales);
   const dashboardPostexReceivable = Math.max(0, dashboardExpectedPostexNet - dashboardManualPostexReceipts);
   const dashboardReceivedRatio = dashboardExpectedPostexNet > 0 ? Math.min(1, dashboardPostexBankReceived / dashboardExpectedPostexNet) : 0;
   const dashboardCashGstReserve = 0;
   const dashboardCashTaxReserve = 0;
   const dashboardNetProfit = dashboardSales - dashboardCogs - dashboardCourierCost - dashboardReturnPostexLoss - dashboardTaxes - dashboardManualExpenses - dashboardCashbookExpenses;
-  const dashboardAvailableCash = dashboardPostexBankReceived + dashboardOwnerInvestments + dashboardOtherIncome - dashboardManualExpenses - dashboardLegacyInventory - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments - dashboardOwnerWithdrawals;
+  const dashboardAvailableCash = dashboardPostexBankReceived + dashboardOwnerInvestments + dashboardOtherIncome + dashboardCashResetAdjustment - dashboardManualExpenses - dashboardLegacyInventory - dashboardCashbookExpenses - dashboardProductionCashOutflow - dashboardSupplierPayments - dashboardOwnerWithdrawals;
   const zeroCostActive = (products || []).filter((product) => productStatus(product) === "Active" && !Number(product.costTotalPkr || 0));
   const lowStockProducts = (products || []).filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5));
   const chartRange = Number(dashboardPeriod);
@@ -2295,6 +2306,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
               <div><span>Manually verified PostEx bank receipts</span><b className="cashPlus">+ Rs. {dashboardPostexBankReceived.toLocaleString()}</b></div>
               <div><span>PostEx receivable (not available cash)</span><b>Rs. {dashboardPostexReceivable.toLocaleString()}</b></div>
               <div><span>Owner funds added</span><b className="cashPlus">+ Rs. {dashboardOwnerInvestments.toLocaleString()}</b></div>
+              {dashboardCashResetAdjustment !== 0 && <div><span>Opening cash reset adjustment</span><b className={dashboardCashResetAdjustment < 0 ? "cashMinus" : "cashPlus"}>{dashboardCashResetAdjustment < 0 ? "-" : "+"} Rs. {Math.abs(dashboardCashResetAdjustment).toLocaleString()}</b></div>}
               <div><span>PostEx GST already deducted before bank receipt</span><b>Rs. {dashboardGst.toLocaleString()}</b></div>
               <div><span>PostEx 4% deduction already deducted before bank receipt</span><b>Rs. {dashboardTax.toLocaleString()}</b></div>
               <div><span>Operating expenses paid</span><b className="cashMinus">- Rs. {(dashboardManualExpenses + dashboardCashbookExpenses).toLocaleString()}</b></div>
@@ -3367,6 +3379,9 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const [voidCashbookEntryTarget, setVoidCashbookEntryTarget] = useState(null);
   const [voidCashbookConfirmation, setVoidCashbookConfirmation] = useState("");
   const [voidingCashbookEntryId, setVoidingCashbookEntryId] = useState("");
+  const [resetCashConfirmation, setResetCashConfirmation] = useState("");
+  const [showResetCashDialog, setShowResetCashDialog] = useState(false);
+  const [resettingCash, setResettingCash] = useState(false);
   const [cprTrackingText, setCprTrackingText] = useState("");
   const [showAdvancedPostex, setShowAdvancedPostex] = useState(false);
   const [financeTab, setFinanceTab] = useState(["overview","settlements","pnl","cashbook","suppliers","marketing","reports"].includes(initialTab) ? initialTab : "overview");
@@ -3500,6 +3515,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const ownerInvestments = activeCashbookTransactions.filter((item) => item.type === "owner_investment").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const ownerWithdrawals = activeCashbookTransactions.filter((item) => item.type === "owner_withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const otherBusinessIncome = activeCashbookTransactions.filter((item) => item.type === "other_income").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const cashResetAdjustment = activeCashbookTransactions.filter((item) => item.type === "cash_reset").reduce((sum, item) => sum + financeEntryCashEffect(item), 0);
   const packagingTotal = Number(packagingExpense || 0);
   const deliveryTotal = Number(deliveryExpense || 0);
   // A batch purchase is cash spent now but becomes COGS only when its units sell.
@@ -3520,7 +3536,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   // PostEx bank receipts are already net of courier deductions. Delivered
   // revenue remains in P&L, but it becomes spendable cash only after a CPR
   // receipt is verified.
-  const availableCash = receivedCash + ownerInvestments + otherBusinessIncome - cashOutflowTotal - ownerWithdrawals;
+  const availableCash = receivedCash + ownerInvestments + otherBusinessIncome + cashResetAdjustment - cashOutflowTotal - ownerWithdrawals;
   const allocatableProfit = Math.max(0, netProfit);
   const marketingAllocation = Math.round(allocatableProfit * Number(profitAllocation.marketingPercent || 0) / 100);
   const ownerAllocation = Math.round(allocatableProfit * Number(profitAllocation.ownerPercent || 0) / 100);
@@ -3839,6 +3855,68 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     }
   }
 
+  function requestResetAvailableCash() {
+    if (!isOwnerFinance) {
+      setCashbookError("Only an Owner can reset the opening cash balance.");
+      return;
+    }
+    if (Math.abs(Number(availableCash || 0)) < 0.01) {
+      setCashbookError("Available Cash is already Rs. 0.");
+      return;
+    }
+    setResetCashConfirmation("");
+    setShowResetCashDialog(true);
+    setCashbookError("");
+  }
+
+  function closeResetCashDialog() {
+    if (resettingCash) return;
+    setShowResetCashDialog(false);
+    setResetCashConfirmation("");
+  }
+
+  async function resetAvailableCash(event) {
+    event.preventDefault();
+    if (resetCashConfirmation.trim() !== "RESET CASH TO 0") return;
+    const currentCash = Number(availableCash || 0);
+    if (!Number.isFinite(currentCash) || Math.abs(currentCash) < 0.01) {
+      closeResetCashDialog();
+      return;
+    }
+    const resetEntry = {
+      id: `cash-reset-${Date.now()}`,
+      type: "cash_reset",
+      title: "Opening balance reset to Rs. 0",
+      category: "Opening balance",
+      amount: Math.abs(currentCash),
+      cashDirection: currentCash > 0 ? "out" : "in",
+      date: today,
+      reference: "START-FRESH",
+      note: "One-time reset. Historical finance entries remain visible for audit; future cash movements continue normally.",
+    };
+    const nextTransactions = [resetEntry, ...cashbookTransactions];
+    setResettingCash(true);
+    setCashbookLoading(true);
+    setCashbookError("");
+    try {
+      const response = await fetch("/api/admin/finance-transactions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactions: nextTransactions }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to reset Available Cash.");
+      setCashbookTransactions(result.transactions || nextTransactions);
+      setShowResetCashDialog(false);
+      setResetCashConfirmation("");
+    } catch (error) {
+      setCashbookError(error.message);
+    } finally {
+      setResettingCash(false);
+      setCashbookLoading(false);
+    }
+  }
+
   async function importCprTrackingFile(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -3893,7 +3971,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       date: formatFinanceDate(entry.date),
       type: financeEntryLabel(entry.type),
       account: [entry.title, entry.counterparty].filter(Boolean).join(" · "),
-      amount: ["owner_investment", "postex_bank_receipt", "other_income"].includes(entry.type) ? Number(entry.amount) : -Number(entry.amount),
+      amount: financeEntryCashEffect(entry),
       status: entry.voided ? "Voided" : entry.category,
       voided: entry.voided === true,
       financeEntry: entry,
@@ -4207,6 +4285,23 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       </form>
     </>}
 
+    {showResetCashDialog && <>
+      <div className="adminOverlay" onClick={closeResetCashDialog} />
+      <form className="inventoryDialog" onSubmit={resetAvailableCash}>
+        <DialogHead title="Start Available Cash from zero" onClose={closeResetCashDialog} />
+        <div className="inventoryAlert materialAlert">
+          <Landmark />
+          <div>
+            <b>Current Available Cash: {money(availableCash)}</b>
+            <span>This creates one auditable opening-balance adjustment and makes Available Cash Rs. 0. Existing orders, settlements and finance history are not deleted.</span>
+          </div>
+        </div>
+        <p className="trackingNumber">After reset, add every real bank receipt, expense, supplier payment and withdrawal from today onward. You can void this reset later from the Cashbook ledger.</p>
+        <label>Type <b>RESET CASH TO 0</b> exactly to confirm<input value={resetCashConfirmation} onChange={(event) => setResetCashConfirmation(event.target.value)} autoComplete="off" autoFocus /></label>
+        <button className="removeProductButton" type="submit" disabled={resettingCash || resetCashConfirmation.trim() !== "RESET CASH TO 0"}>{resettingCash ? "Resetting cash..." : "Reset Available Cash to Rs. 0"}</button>
+      </form>
+    </>}
+
     {financeTab === "overview" && <>
     <div className="miniMetricGrid financeMetrics">
       <article><CircleDollarSign /><span><b>{money(grossRevenue)}</b>Total sales</span></article>
@@ -4238,6 +4333,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
           <div><span>Manually verified PostEx receipts</span><b>+ {money(receivedCash)}</b></div>
           <div><span>Other recorded business income</span><b>+ {money(otherBusinessIncome)}</b></div>
           <div><span>Owner funds added</span><b>+ {money(ownerInvestments)}</b></div>
+          {cashResetAdjustment > 0 && <div><span>Opening balance adjustment</span><b>+ {money(cashResetAdjustment)}</b></div>}
           <div className="statementTotal"><span>Cash received / added</span><b>{money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
         </div>
       </div>
@@ -4250,6 +4346,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
           <div><span>Other stock / production</span><b>- {money(Math.max(0, inventoryCashOutflow - fabricCashOutflow - tailoringCashOutflow - laceCashOutflow))}</b></div>
           <div><span>Operating expenses + supplier payments</span><b>- {money(manualOperatingExpenseTotal + cashbookOperatingExpenses + packagingTotal + deliveryTotal + supplierPaymentTotal)}</b></div>
           <div><span>Owner withdrawals</span><b>- {money(ownerWithdrawals)}</b></div>
+          {cashResetAdjustment < 0 && <div><span>Opening balance reset</span><b>- {money(Math.abs(cashResetAdjustment))}</b></div>}
           <div className="statementTotal"><span>Available business cash</span><b>{money(availableCash)}</b></div>
         </div>
       </div>
@@ -4359,11 +4456,12 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     {financeTab === "cashbook" && <>
     <section className="financeGrid financeGridWide">
       <div className={`adminCard financeSummaryCard ${availableCash < 0 ? "alertMetric" : ""}`}>
-        <div className="cardHeading"><div><h2>Available Cash</h2><p>Current spendable balance after every active receipt, payment, expense and withdrawal.</p></div><WalletCards /></div>
+        <div className="cardHeading"><div><h2>Available Cash</h2><p>Current spendable balance after every active receipt, payment, expense and withdrawal.</p></div><div className="cashBalanceCardActions"><WalletCards /><button type="button" className="removeProductButton" onClick={requestResetAvailableCash} disabled={cashbookLoading || Math.abs(Number(availableCash || 0)) < 0.01}>Reset to Rs. 0</button></div></div>
         <div className="financeStatement">
           <div><span>Current balance</span><b>{money(availableCash)}</b></div>
           <div><span>Cash coming in</span><b className="cashPlus">+ {money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
           <div><span>Cash already used</span><b className="cashMinus">- {money(cashOutflowTotal + ownerWithdrawals)}</b></div>
+          {cashResetAdjustment !== 0 && <div><span>Opening balance adjustment</span><b className={cashResetAdjustment < 0 ? "cashMinus" : "cashPlus"}>{cashResetAdjustment < 0 ? "-" : "+"} {money(Math.abs(cashResetAdjustment))}</b></div>}
           <div className="statementTotal"><span>Rule</span><b>{availableCash < 0 ? "Cash shortfall — add funds or review entries" : "Every active movement is included"}</b></div>
         </div>
         <p className="cashBreakdownNote">Incoming receipts add to the balance. Expenses, supplier/tailor payments and withdrawals subtract from it. Voiding an entry restores exactly that movement.</p>
