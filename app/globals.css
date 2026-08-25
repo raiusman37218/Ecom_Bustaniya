@@ -5149,13 +5149,6 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 .dialogSave { height:40px; border:0; border-radius:5px; background:var(--berry); color:#fff; text-transform:uppercase; letter-spacing:.07em; font-size:9px; }
 .financeMetrics { margin-bottom:16px; }
 .financeSectionTabs { margin:-12px 0 18px; width:max-content; max-width:100%; overflow-x:auto; }
-.financeSystem.financeTab-overview > section:nth-of-type(n+4) { display:none; }
-.financeSystem.financeTab-marketing > section:not(:nth-of-type(1)):not(:nth-of-type(2)) { display:none; }
-.financeSystem.financeTab-suppliers > section:not(:nth-of-type(4)) { display:none; }
-.financeSystem.financeTab-pnl > section:not(:nth-of-type(5)):not(:nth-of-type(6)) { display:none; }
-.financeSystem.financeTab-cashbook > section:not(:nth-of-type(7)) { display:none; }
-.financeSystem.financeTab-reports > section:not(:nth-of-type(8)) { display:none; }
-.financeSystem.financeTab-settlements > section:not(.postexSettlementPanel) { display:none; }
 .financeErrorBanner { margin:-4px 0 18px; }
 .postexSettlementPanel { display:flex; flex-direction:column; gap:16px; }
 .settlementIntro { padding:20px 22px; border:1px solid #dce5dd; border-radius:9px; background:linear-gradient(135deg,#f8fbf5,#fff); display:flex; align-items:center; justify-content:space-between; gap:20px; }
