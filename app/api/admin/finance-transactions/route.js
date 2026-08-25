@@ -91,6 +91,7 @@ export async function PATCH(request) {
       const authError = adminAuthErrorResponse(error);
       return NextResponse.json({ error: authError.error }, { status: authError.status });
     }
-    return NextResponse.json({ error: "Unable to save cashbook." }, { status: 500 });
+    console.error("Finance transaction PATCH error:", error);
+    return NextResponse.json({ error: error?.message || "Unable to save cashbook." }, { status: 500 });
   }
 }
