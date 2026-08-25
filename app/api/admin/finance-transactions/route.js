@@ -28,10 +28,41 @@ export async function GET(request) {
 
 export async function PATCH(request) {
   try {
-    await authorizeAdminSession(request, "finance");
+    const { user } = await authorizeAdminSession(request, "finance");
     const body = await request.json();
     const existing = await getStoreSettings({ includeFinance: true });
-    const proposedTransactions = body.transactions ?? existing.financeTransactions;
+    let proposedTransactions = body.transactions ?? existing.financeTransactions;
+    let proposedSupplierBills = body.supplierBills ?? existing.supplierBills;
+
+    if (body.action === "void_transaction") {
+      if (user.role !== "Owner") {
+        return NextResponse.json({ error: "Only an Owner can void a cashbook movement." }, { status: 403 });
+      }
+      const transactionId = String(body.transactionId || "").trim();
+      const confirmation = String(body.confirmation || "").trim();
+      const transaction = (existing.financeTransactions || []).find((item) => String(item.id) === transactionId);
+      if (!transaction) return NextResponse.json({ error: "Cashbook movement not found." }, { status: 404 });
+      if (transaction.voided === true) return NextResponse.json({ error: "This cashbook movement is already voided." }, { status: 422 });
+      if (confirmation !== `VOID ${transaction.id}`) return NextResponse.json({ error: "Void confirmation does not match." }, { status: 422 });
+      if (transaction.productionBatchId || String(transaction.title || "").startsWith("Production batch ")) {
+        return NextResponse.json({ error: "Void this movement from its production batch so stock and cost reverse together." }, { status: 422 });
+      }
+      const voidedAt = new Date().toISOString();
+      proposedTransactions = (existing.financeTransactions || []).map((item) => String(item.id) === transactionId ? {
+        ...item,
+        voided: true,
+        voidedAt,
+        voidedBy: user.name || user.email || "Owner",
+        note: [item.note, `VOIDED ${voidedAt}`].filter(Boolean).join(" · "),
+      } : item);
+      if (transaction.supplierBillId) {
+        proposedSupplierBills = (existing.supplierBills || []).map((bill) => {
+          if (String(bill.id) !== String(transaction.supplierBillId)) return bill;
+          const paid = Math.max(0, Number(bill.paid || 0) - Number(transaction.amount || 0));
+          return { ...bill, paid, status: paid >= Number(bill.total || 0) ? "paid" : "open" };
+        });
+      }
+    }
     const activePostexReferences = new Set();
     for (const transaction of Array.isArray(proposedTransactions) ? proposedTransactions : []) {
       if (transaction?.type !== "postex_bank_receipt" || transaction?.voided === true) continue;
@@ -46,7 +77,7 @@ export async function PATCH(request) {
       ...existing,
       financeTransactions: proposedTransactions,
       financeAllocation: body.allocation ?? existing.financeAllocation,
-      supplierBills: body.supplierBills ?? existing.supplierBills,
+      supplierBills: proposedSupplierBills,
       financeFixedCosts: body.fixedCosts ?? existing.financeFixedCosts,
       financeManualExpenses: body.manualExpenses ?? existing.financeManualExpenses,
       financePackagingExpense: body.packagingExpense ?? existing.financePackagingExpense,

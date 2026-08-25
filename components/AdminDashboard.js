@@ -58,6 +58,11 @@ function isActiveFinanceEntry(entry) {
   return entry?.voided !== true;
 }
 
+function isLinkedFinanceEntry(entry) {
+  return Boolean(entry?.productionBatchId)
+    || String(entry?.title || "").startsWith("Production batch ");
+}
+
 function financeEntryLabel(type) {
   return ({
     owner_investment: "Owner funds added",
@@ -3359,6 +3364,9 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const [voidManualPostexReceipt, setVoidManualPostexReceipt] = useState(null);
   const [voidManualPostexConfirmation, setVoidManualPostexConfirmation] = useState("");
   const [voidingManualPostexReceiptId, setVoidingManualPostexReceiptId] = useState("");
+  const [voidCashbookEntryTarget, setVoidCashbookEntryTarget] = useState(null);
+  const [voidCashbookConfirmation, setVoidCashbookConfirmation] = useState("");
+  const [voidingCashbookEntryId, setVoidingCashbookEntryId] = useState("");
   const [cprTrackingText, setCprTrackingText] = useState("");
   const [showAdvancedPostex, setShowAdvancedPostex] = useState(false);
   const [financeTab, setFinanceTab] = useState(["overview","settlements","pnl","cashbook","suppliers","marketing","reports"].includes(initialTab) ? initialTab : "overview");
@@ -3612,7 +3620,6 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     event.preventDefault();
     const formElement = event.currentTarget;
     const data = new FormData(formElement);
-    const cprNumber = String(data.get("cprNumber") || "").trim();
     setPostexSyncing(true);
     setCashbookError("");
     try {
@@ -3783,6 +3790,55 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     }
   }
 
+  function requestVoidCashbookEntry(entry) {
+    if (!isOwnerFinance) {
+      setCashbookError("Only an Owner can void a cashbook movement.");
+      return;
+    }
+    if (!entry || entry.voided) return;
+    if (isLinkedFinanceEntry(entry)) {
+      setCashbookError("This movement is linked to a production batch. Void the batch from Inventory so stock and cost are reversed together.");
+      return;
+    }
+    setVoidCashbookEntryTarget(entry);
+    setVoidCashbookConfirmation("");
+    setCashbookError("");
+  }
+
+  function closeVoidCashbookEntry() {
+    if (voidingCashbookEntryId) return;
+    setVoidCashbookEntryTarget(null);
+    setVoidCashbookConfirmation("");
+  }
+
+  async function voidCashbookEntry(event) {
+    event.preventDefault();
+    const entry = voidCashbookEntryTarget;
+    const confirmation = voidCashbookConfirmation.trim();
+    if (!entry || confirmation !== `VOID ${entry.id}`) return;
+    setVoidingCashbookEntryId(entry.id);
+    setCashbookLoading(true);
+    setCashbookError("");
+    try {
+      const response = await fetch("/api/admin/finance-transactions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "void_transaction", transactionId: entry.id, confirmation }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to void cashbook movement.");
+      setCashbookTransactions(result.transactions || cashbookTransactions.map((item) => item.id === entry.id ? { ...item, voided: true } : item));
+      setSupplierBills(result.supplierBills || supplierBills);
+      setVoidCashbookEntryTarget(null);
+      setVoidCashbookConfirmation("");
+    } catch (error) {
+      setCashbookError(error.message);
+    } finally {
+      setVoidingCashbookEntryId("");
+      setCashbookLoading(false);
+    }
+  }
+
   async function importCprTrackingFile(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -3816,22 +3872,6 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       amount: Number(order.total || 0),
       status: order.status,
     })),
-    ...postexBatches.map((batch) => ({
-      id: batch.cpr_number,
-      date: formatFinanceDate(batch.bank_received_date || batch.cpr_date),
-      type: "PostEx bank receipt",
-      account: `${batch.items?.length || 0} reconciled order${batch.items?.length === 1 ? "" : "s"}`,
-      amount: Number(batch.bank_received_pkr || 0),
-      status: batch.status,
-    })),
-    ...manualPostexReceipts.map((entry) => ({
-      id: entry.id,
-      date: formatFinanceDate(entry.date),
-      type: "PostEx wallet receipt",
-      account: entry.title,
-      amount: Number(entry.amount || 0),
-      status: entry.category || "Manual receipt",
-    })),
     ...expenses.slice(0, 5).map((expense) => ({
       id: `EXP-${expense.id}`,
       date: formatFinanceDate(expense.date),
@@ -3848,14 +3888,16 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       amount: -200,
       status: "Returned",
     })),
-    ...activeCashbookTransactions.map((entry) => ({
+    ...cashbookTransactions.filter((entry) => entry.type !== "postex_bank_receipt").map((entry) => ({
       id: entry.id,
       date: formatFinanceDate(entry.date),
       type: financeEntryLabel(entry.type),
       account: [entry.title, entry.counterparty].filter(Boolean).join(" · "),
       amount: ["owner_investment", "postex_bank_receipt", "other_income"].includes(entry.type) ? Number(entry.amount) : -Number(entry.amount),
-      status: entry.category,
-    })).filter((entry) => entry.type !== "PostEx wallet receipt"),
+      status: entry.voided ? "Voided" : entry.category,
+      voided: entry.voided === true,
+      financeEntry: entry,
+    })),
   ];
 
   async function saveManualFinance(next = {}) {
@@ -4104,8 +4146,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       </div>
 
       <div className="adminCard managementCard settlementHistory">
-        <div className="inventoryListHead"><div><h2>CPR history</h2><span>Every weekly or biweekly receipt with its expected, received and carried-forward balance.</span></div><b>{postexBatches.length} batches</b></div>
-        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>CPR</th><th>Period</th><th>Orders</th><th>Expected bank</th><th>Received</th><th>Carry forward</th><th>Status</th><th>Action</th></tr></thead><tbody>
+        <div className="inventoryListHead"><div><h2>CPR history</h2><span>Every weekly or biweekly PostEx settlement record. This is reconciliation only; Available Cash uses manual bank receipts.</span></div><b>{postexBatches.length} batches</b></div>
+        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>CPR</th><th>Period</th><th>Orders</th><th>Expected bank</th><th>Received (reconciliation)</th><th>Carry forward</th><th>Status</th><th>Action</th></tr></thead><tbody>
           {postexBatches.map((batch) => {
             const voided = isVoidedPostexBatch(batch);
             return <tr key={batch.id}><td><b>{batch.cpr_number}</b><small className="trackingNumber">{batch.cpr_date || "No CPR date"}</small></td><td>{batch.period_start || "—"} to {batch.period_end || "—"}</td><td>{batch.items?.length || 0}</td><td>{money(batch.expected_bank_pkr)}</td><td className={voided ? "" : "incomeAmount"}>{money(batch.bank_received_pkr)}</td><td className={Number(batch.carried_forward_pkr || 0) ? "expenseAmount" : ""}>{money(batch.carried_forward_pkr)}</td><td><span className={`statusBadge ${voided ? "cancelled" : batch.status}`}>{voided ? "voided" : batch.status}</span>{voided && <small className="trackingNumber"><br />Reversed</small>}</td><td>{!voided && isOwnerFinance ? <button type="button" className="removeProductButton" disabled={voidingPostexBatchId === batch.id || postexSyncing} onClick={() => requestVoidPostexBatch(batch)}>{voidingPostexBatchId === batch.id ? "Voiding..." : "Void"}</button> : "—"}</td></tr>;
@@ -4145,6 +4187,23 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
         </div>
         <label>Type <b>{`VOID ${String(voidManualPostexReceipt.reference || voidManualPostexReceipt.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim()}`}</b> exactly to confirm<input value={voidManualPostexConfirmation} onChange={(event) => setVoidManualPostexConfirmation(event.target.value)} autoComplete="off" autoFocus /></label>
         <button className="removeProductButton" type="submit" disabled={voidingManualPostexReceiptId === voidManualPostexReceipt.id || voidManualPostexConfirmation.trim() !== `VOID ${String(voidManualPostexReceipt.reference || voidManualPostexReceipt.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim()}`}>{voidingManualPostexReceiptId === voidManualPostexReceipt.id ? "Voiding receipt..." : "Void / reverse receipt"}</button>
+      </form>
+    </>}
+
+    {voidCashbookEntryTarget && <>
+      <div className="adminOverlay" onClick={closeVoidCashbookEntry} />
+      <form className="inventoryDialog" onSubmit={voidCashbookEntry}>
+        <DialogHead title="Void cash movement" onClose={closeVoidCashbookEntry} />
+        <div className="inventoryAlert materialAlert">
+          <Landmark />
+          <div>
+            <b>This will restore {money(voidCashbookEntryTarget.amount)} to Available Cash</b>
+            <span>The movement will stay visible as Voided for audit. Supplier payments also restore that bill&apos;s unpaid balance.</span>
+          </div>
+        </div>
+        <p className="trackingNumber"><b>{voidCashbookEntryTarget.title}</b><br />{financeEntryLabel(voidCashbookEntryTarget.type)} · {voidCashbookEntryTarget.date || "No date"}</p>
+        <label>Type <b>{`VOID ${voidCashbookEntryTarget.id}`}</b> exactly to confirm<input value={voidCashbookConfirmation} onChange={(event) => setVoidCashbookConfirmation(event.target.value)} autoComplete="off" autoFocus /></label>
+        <button className="removeProductButton" type="submit" disabled={voidingCashbookEntryId === voidCashbookEntryTarget.id || voidCashbookConfirmation.trim() !== `VOID ${voidCashbookEntryTarget.id}`}>{voidingCashbookEntryId === voidCashbookEntryTarget.id ? "Voiding movement..." : "Void / restore cash"}</button>
       </form>
     </>}
 
@@ -4224,7 +4283,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     <section className="financeGrid financeGridWide">
       <div className="adminCard managementCard">
         <div className="inventoryListHead"><div><h2>Supplier payables</h2><span>{overdueSupplierBills.length ? `${overdueSupplierBills.length} overdue — action needed` : "Bills and due dates"}</span></div><b>{money(supplierPayableTotal)} due</b></div>
-        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Supplier</th><th>Reference</th><th>Due date</th><th>Bill</th><th>Paid</th><th>Remaining</th><th /></tr></thead><tbody>{supplierBills.map((bill) => { const remaining = Math.max(0, Number(bill.total) - Number(bill.paid)); const payments = cashbookTransactions.filter((entry) => entry.supplierBillId === bill.id); const dueSoon = bill.dueDate && bill.dueDate >= today && bill.dueDate <= new Date(Date.now() + 7 * 86400000).toISOString().slice(0,10); return <tr key={bill.id}><td><b>{bill.supplier}</b>{payments.length > 0 && <small><br />{payments.length} payment{payments.length === 1 ? "" : "s"}: {payments.map((entry) => `${entry.date} ${money(entry.amount)}`).join(" · ")}</small>}</td><td>{bill.reference || "—"}</td><td className={dueSoon && remaining ? "expenseAmount" : ""}>{bill.dueDate || "—"}{dueSoon && remaining ? <small><br />Due soon</small> : null}</td><td>{money(bill.total)}</td><td>{money(bill.paid)}</td><td className={bill.dueDate && bill.dueDate < today && remaining ? "expenseAmount" : ""}>{money(remaining)}</td><td>{remaining > 0 && <button className="editProductButton" onClick={() => recordSupplierPayment(bill)} disabled={cashbookLoading}>Pay</button>}</td></tr>; })}{!supplierBills.length && <tr><td colSpan="7" className="emptyFinanceCell">No supplier bills added yet.</td></tr>}</tbody></table></div>
+        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Supplier</th><th>Reference</th><th>Due date</th><th>Bill</th><th>Paid</th><th>Remaining</th><th /></tr></thead><tbody>{supplierBills.map((bill) => { const remaining = Math.max(0, Number(bill.total) - Number(bill.paid)); const payments = cashbookTransactions.filter((entry) => entry.supplierBillId === bill.id && !entry.voided); const dueSoon = bill.dueDate && bill.dueDate >= today && bill.dueDate <= new Date(Date.now() + 7 * 86400000).toISOString().slice(0,10); return <tr key={bill.id}><td><b>{bill.supplier}</b>{payments.length > 0 && <small><br />{payments.length} active payment{payments.length === 1 ? "" : "s"}: {payments.map((entry) => `${entry.date} ${money(entry.amount)}`).join(" · ")}</small>}</td><td>{bill.reference || "—"}</td><td className={dueSoon && remaining ? "expenseAmount" : ""}>{bill.dueDate || "—"}{dueSoon && remaining ? <small><br />Due soon</small> : null}</td><td>{money(bill.total)}</td><td>{money(bill.paid)}</td><td className={bill.dueDate && bill.dueDate < today && remaining ? "expenseAmount" : ""}>{money(remaining)}</td><td>{remaining > 0 && <button className="editProductButton" onClick={() => recordSupplierPayment(bill)} disabled={cashbookLoading}>Pay</button>}</td></tr>; })}{!supplierBills.length && <tr><td colSpan="7" className="emptyFinanceCell">No supplier bills added yet.</td></tr>}</tbody></table></div>
       </div>
       <form className="adminCard financeExpenseForm" onSubmit={addSupplierBill}>
         <h2>Add supplier bill</h2><p className="trackingNumber">Record the full bill, any amount already paid, and the due date. This creates a payable, not an expense twice.</p>
@@ -4299,17 +4358,27 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
 
     {financeTab === "cashbook" && <>
     <section className="financeGrid financeGridWide">
+      <div className={`adminCard financeSummaryCard ${availableCash < 0 ? "alertMetric" : ""}`}>
+        <div className="cardHeading"><div><h2>Available Cash</h2><p>Current spendable balance after every active receipt, payment, expense and withdrawal.</p></div><WalletCards /></div>
+        <div className="financeStatement">
+          <div><span>Current balance</span><b>{money(availableCash)}</b></div>
+          <div><span>Cash coming in</span><b className="cashPlus">+ {money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
+          <div><span>Cash already used</span><b className="cashMinus">- {money(cashOutflowTotal + ownerWithdrawals)}</b></div>
+          <div className="statementTotal"><span>Rule</span><b>{availableCash < 0 ? "Cash shortfall — add funds or review entries" : "Every active movement is included"}</b></div>
+        </div>
+        <p className="cashBreakdownNote">Incoming receipts add to the balance. Expenses, supplier/tailor payments and withdrawals subtract from it. Voiding an entry restores exactly that movement.</p>
+      </div>
       <div className="adminCard managementCard">
-        <div className="inventoryListHead"><div><h2>Finance ledger</h2><span>Orders and expenses in one view</span></div></div>
-        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Ref</th><th>Date</th><th>Type</th><th>Account</th><th>Status</th><th>Amount</th></tr></thead><tbody>
-          {ledgerRows.map((row) => <tr key={`${row.id}-${row.type}`}><td><b>{row.id}</b></td><td>{row.date}</td><td>{row.type}</td><td>{row.account}</td><td><span className={`statusBadge ${String(row.status).toLowerCase()}`}>{row.status}</span></td><td className={row.amount < 0 ? "expenseAmount" : "incomeAmount"}>{row.amount < 0 ? "-" : "+"} {money(Math.abs(row.amount))}</td></tr>)}
-          {!ledgerRows.length && <tr><td colSpan="6" className="emptyFinanceCell">No finance entries yet.</td></tr>}
+        <div className="inventoryListHead"><div><h2>Finance ledger</h2><span>Orders, cash movements and expenses. PostEx settlement status stays in Settlements.</span></div></div>
+        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Ref</th><th>Date</th><th>Type</th><th>Account</th><th>Status</th><th>Amount</th><th>Action</th></tr></thead><tbody>
+          {ledgerRows.map((row) => <tr key={`${row.id}-${row.type}`}><td><b>{row.id}</b></td><td>{row.date}</td><td>{row.type}</td><td>{row.account}</td><td><span className={`statusBadge ${String(row.status).toLowerCase()}`}>{row.status}</span></td><td className={row.amount < 0 ? "expenseAmount" : "incomeAmount"}>{row.amount < 0 ? "-" : "+"} {money(Math.abs(row.amount))}</td><td>{row.financeEntry && !row.voided && isOwnerFinance ? (isLinkedFinanceEntry(row.financeEntry) ? <small className="trackingNumber">Use batch</small> : <button type="button" className="removeProductButton" onClick={() => requestVoidCashbookEntry(row.financeEntry)} disabled={cashbookLoading}>Void</button>) : row.voided ? <small className="trackingNumber">Voided</small> : "—"}</td></tr>)}
+          {!ledgerRows.length && <tr><td colSpan="7" className="emptyFinanceCell">No finance entries yet.</td></tr>}
         </tbody></table></div>
       </div>
 
       <form className="adminCard financeExpenseForm" onSubmit={addCashbookTransaction}>
         <h2>Add cash movement</h2>
-        <p className="trackingNumber">Har cash entry yahan record karein. Stock categories cash ko reduce karti hain, lekin product cost ke saath profit mein dobara deduct nahi hotin.</p>
+        <p className="trackingNumber">Har real cash movement yahan record karein. Expense, supplier/tailor payment aur withdrawal Available Cash se minus honge; income aur owner funds plus honge. PostEx settlement status khud cash nahi banata.</p>
         <div className="formRow"><label>Money direction<select name="type"><option value="business_expense">Money paid / expense</option><option value="other_income">Other business income</option><option value="owner_investment">Owner funds added</option><option value="owner_withdrawal">Owner withdrawal</option></select></label><label>Category<select name="category"><option>Fabric / stock</option><option>Tailoring / stitching</option><option>Lace / embellishment</option><option>Packaging</option><option>Marketing</option><option>Courier / delivery</option><option>Rent &amp; utilities</option><option>Salaries &amp; labour</option><option>Operations</option><option>Other</option></select></label></div>
         <label>What was it for?<input name="title" required placeholder="e.g. Stitching payment for Farshi suits" /></label>
         <div className="formRow"><label>Tailor / supplier / source<input name="counterparty" placeholder="e.g. Amina Tailors" /></label><label>Amount<input name="amount" type="number" min="0.01" step="0.01" required placeholder="0" /></label></div>
