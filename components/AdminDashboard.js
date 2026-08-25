@@ -4486,6 +4486,8 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
   const [voidingBatchId, setVoidingBatchId] = useState("");
   const [voidBatch, setVoidBatch] = useState(null);
   const [voidConfirmation, setVoidConfirmation] = useState("");
+  const [batchCostBatch, setBatchCostBatch] = useState(null);
+  const [batchCostSaving, setBatchCostSaving] = useState(false);
   const [inventoryView, setInventoryView] = useState(initialView === "low-stock" ? "Low stock" : "All");
   const [inventorySearch, setInventorySearch] = useState("");
   const [localHistory, setLocalHistory] = useState([]);
@@ -4583,6 +4585,26 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       window.alert(error.message || "Unable to void production batch.");
     } finally {
       setVoidingBatchId("");
+    }
+  }
+
+  async function addProductionBatchCost(event) {
+    event.preventDefault();
+    if (!batchCostBatch) return;
+    const form = new FormData(event.currentTarget);
+    const amount = Number(form.get("amount") || 0);
+    if (!amount) return;
+    setBatchCostSaving(true);
+    try {
+      const response = await fetch("/api/admin/production-batches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "add_cost", batchId: batchCostBatch.id, entryId: `batch-cost-${Date.now()}`, costKey: form.get("costKey"), amount, date: form.get("date"), counterparty: form.get("counterparty"), reference: form.get("reference"), note: form.get("note") }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to add production cost.");
+      setProductionBatches(result.batches || []);
+      setBatchCostBatch(null);
+    } catch (error) {
+      window.alert(error.message || "Unable to add production cost.");
+    } finally {
+      setBatchCostSaving(false);
     }
   }
 
@@ -4958,9 +4980,9 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     </section>}
 
     {tab === "Stock" && <section className="adminCard managementCard inventoryLedger">
-      <div className="editorHeading"><div><h2>Production batches</h2><p>Voiding is owner-only and requires a typed batch confirmation. Use it only for a test batch with no customer orders; the audit record remains.</p></div></div>
+      <div className="editorHeading"><div><h2>Production batches</h2><p>Start a batch with the costs you know today, then add stitching, lace, packing or travel later. Every new cost updates the same batch and its per-suit cost once.</p></div></div>
       <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Batch</th><th>Product</th><th>Quantity</th><th>Total cost</th><th>Unit cost</th><th>Date</th><th>Status</th><th /></tr></thead><tbody>
-        {productionBatches.map((batch) => <tr key={batch.id}><td><b>{batch.id}</b></td><td>{batch.productName}</td><td>{Number(batch.quantity || 0).toLocaleString()}</td><td>Rs. {Number(batch.totalCost || 0).toLocaleString()}</td><td>Rs. {Number(batch.unitCost || 0).toLocaleString()}</td><td>{batch.date || "—"}</td><td><span className={`statusBadge ${batch.status === "voided" ? "cancelled" : "delivered"}`}>{batch.status === "voided" ? "Voided" : "Active"}</span></td><td>{batch.status !== "voided" && <button className="removeProductButton" type="button" disabled={voidingBatchId === batch.id} onClick={() => voidProductionBatch(batch)}>{voidingBatchId === batch.id ? "Voiding..." : "Void test batch"}</button>}</td></tr>)}
+        {productionBatches.map((batch) => <tr key={batch.id}><td><b>{batch.id}</b><small className="trackingNumber"><br />{Array.isArray(batch.costEntries) ? batch.costEntries.length : 0} cost entries</small></td><td>{batch.productName}</td><td>{Number(batch.quantity || 0).toLocaleString()}</td><td>Rs. {Number(batch.totalCost || 0).toLocaleString()}</td><td>Rs. {Number(batch.unitCost || 0).toLocaleString()}</td><td>{batch.date || "—"}</td><td><span className={`statusBadge ${batch.status === "voided" ? "cancelled" : "delivered"}`}>{batch.status === "voided" ? "Voided" : "Active"}</span></td><td>{batch.status !== "voided" && <div className="tableActionButtons"><button className="editProductButton" type="button" onClick={() => setBatchCostBatch(batch)}>Add cost</button><button className="removeProductButton" type="button" disabled={voidingBatchId === batch.id} onClick={() => voidProductionBatch(batch)}>{voidingBatchId === batch.id ? "Voiding..." : "Void test batch"}</button></div>}</td></tr>)}
         {!productionBatchesLoading && !productionBatches.length && <tr><td colSpan="8"><div className="inventoryEmpty">No production batches yet.</div></td></tr>}
         {productionBatchesLoading && <tr><td colSpan="8"><div className="inventoryEmpty">Loading production batches...</div></td></tr>}
       </tbody></table></div>
@@ -4986,6 +5008,14 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       <p className="trackingNumber">Owner-only action. It reverses the batch stock, removes its linked Finance production expense and keeps a voided audit record. Do not void a batch that has customer orders.</p>
       <label>Type <b>{`VOID ${voidBatch.id}`}</b> exactly to confirm<input value={voidConfirmation} onChange={(event) => setVoidConfirmation(event.target.value)} autoComplete="off" autoFocus /></label>
       <button className="removeProductButton" type="submit" disabled={voidingBatchId === voidBatch.id || voidConfirmation.trim() !== `VOID ${voidBatch.id}`}>{voidingBatchId === voidBatch.id ? "Voiding batch..." : "Void batch permanently"}</button>
+    </form></>}
+    {batchCostBatch && <><div className="adminOverlay" onClick={() => !batchCostSaving && setBatchCostBatch(null)} /><form className="inventoryDialog" onSubmit={addProductionBatchCost}>
+      <DialogHead title={`Add cost to ${batchCostBatch.id}`} onClose={() => !batchCostSaving && setBatchCostBatch(null)} />
+      <p className="trackingNumber">Batch: {batchCostBatch.productName} · {Number(batchCostBatch.quantity || 0)} suits. Yeh amount isi batch ke total aur per-suit cost mein add hogi; Finance Cashbook mein bhi ek hi linked entry banegi.</p>
+      <div className="formRow"><label>Cost type<select name="costKey" defaultValue="stitching"><option value="fabric">Fabric</option><option value="stitching">Stitching / tailor</option><option value="stitchingMaterial">Lace / embellishment</option><option value="packaging">Packaging</option><option value="travel">Travel / transport</option><option value="other">Other production cost</option></select></label><label>Amount<input name="amount" type="number" min="0.01" step="0.01" required autoFocus /></label></div>
+      <div className="formRow"><label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label><label>Tailor / supplier<input name="counterparty" placeholder="e.g. Amina Tailors" /></label></div>
+      <div className="formRow"><label>Reference<input name="reference" placeholder="Invoice / bank / WhatsApp ref" /></label><label>Note<input name="note" placeholder="e.g. Final stitching for 8 suits" /></label></div>
+      <button disabled={batchCostSaving}>{batchCostSaving ? "Adding cost..." : "Add to this batch"}</button>
     </form></>}
     <ProductionBatchModal isOpen={productionOpen} onClose={() => setProductionOpen(false)} onSubmit={saveProductionBatch} products={products} saving={productionSaving} />
   </div>;

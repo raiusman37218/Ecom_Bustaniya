@@ -6,6 +6,24 @@ import { supabaseAdminRequest } from "../../../../lib/supabaseRest";
 
 const COST_KEYS = ["fabric", "stitching", "stitchingMaterial", "packaging", "travel", "other"];
 
+const CASH_CATEGORY_BY_COST_KEY = {
+  fabric: "Fabric / stock",
+  stitching: "Tailoring / stitching",
+  stitchingMaterial: "Lace / embellishment",
+  packaging: "Inventory production",
+  travel: "Inventory production",
+  other: "Inventory production",
+};
+
+const COST_LABEL_BY_KEY = {
+  fabric: "Fabric",
+  stitching: "Stitching",
+  stitchingMaterial: "Lace / material",
+  packaging: "Packaging",
+  travel: "Travel / transport",
+  other: "Other production cost",
+};
+
 function normalizedCosts(value = {}) {
   return Object.fromEntries(COST_KEYS.map((key) => [key, Math.max(0, Number(value[key] || 0))]));
 }
@@ -33,6 +51,22 @@ function productCostBreakdown(directCosts, sharedCosts, quantity, totalQuantity)
     delivery: (directCosts.travel / quantity) + (sharedCosts.travel / totalQuantity),
     other: (directCosts.other / quantity) + (sharedCosts.other / totalQuantity),
   };
+}
+
+function costBreakdownKey(costKey) {
+  return ({ stitchingMaterial: "embellishment", travel: "delivery" })[costKey] || costKey;
+}
+
+function batchCostEntries(sharedCosts, items, date) {
+  return COST_KEYS.map((costKey) => ({
+    id: `initial-${costKey}`,
+    costKey,
+    amount: Number(sharedCosts[costKey] || 0) + items.reduce((sum, item) => sum + Number(item.directCostBreakdown?.[costKey] || 0), 0),
+    date,
+    counterparty: "",
+    reference: "",
+    note: "Initial production cost",
+  })).filter((entry) => entry.amount > 0);
 }
 
 async function resolveBatchProduct(item) {
@@ -73,6 +107,55 @@ export async function POST(request) {
   try {
     const { user } = await authorizeAdminSession(request, "inventory");
     const body = await request.json();
+    if (body.action === "add_cost") {
+      const batchId = String(body.batchId || "").trim();
+      const costKey = COST_KEYS.includes(body.costKey) ? body.costKey : "other";
+      const amount = Math.max(0, Number(body.amount || 0));
+      const entryId = String(body.entryId || "").trim();
+      if (!batchId || !entryId || !amount) return NextResponse.json({ error: "Batch, cost type and amount are required." }, { status: 400 });
+      const settings = await getStoreSettings({ includeFinance: true });
+      const batch = (settings.productionBatches || []).find((item) => item.id === batchId);
+      if (!batch) return NextResponse.json({ error: "Production batch was not found." }, { status: 404 });
+      if (batch.status === "voided") return NextResponse.json({ error: "A voided batch cannot receive a new cost." }, { status: 400 });
+      const currentEntries = Array.isArray(batch.costEntries) ? batch.costEntries : [];
+      if (currentEntries.some((entry) => entry.id === entryId)) {
+        return NextResponse.json({ success: true, batch, batches: settings.productionBatches || [] });
+      }
+      const batchItems = Array.isArray(batch.items) && batch.items.length ? batch.items : [{ productId: batch.productId, productName: batch.productName, quantity: batch.quantity, totalCost: batch.totalCost, unitCost: batch.unitCost, unitCostBreakdown: batch.unitCostBreakdown || {} }];
+      for (const item of batchItems) {
+        const linkedOrderItems = await supabaseAdminRequest(`order_items?select=order_id&product_id=eq.${encodeURIComponent(item.productId)}&limit=1`).catch(() => []);
+        if (linkedOrderItems.length) return NextResponse.json({ error: "This batch already has a customer order. To keep past order profit correct, add a Finance adjustment instead of changing its production cost." }, { status: 400 });
+      }
+      const entry = { id: entryId, costKey, amount, date: String(body.date || new Date().toISOString().slice(0, 10)), counterparty: String(body.counterparty || "").trim().slice(0, 160), reference: String(body.reference || "").trim().slice(0, 160), note: String(body.note || "").trim().slice(0, 500) };
+      const nextEntries = [...currentEntries, entry];
+      const initialTotal = Number((batch.baseTotalCost ?? batch.totalCost) || 0);
+      const addedTotal = nextEntries.filter((item) => !String(item.id).startsWith("initial-")).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+      const nextTotalCost = initialTotal + addedTotal;
+      const totalQuantity = batchItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 1;
+      const nextItems = [];
+      for (const item of batchItems) {
+        const itemQuantity = Number(item.quantity || 0) || 1;
+        const baseItemTotal = Number((item.baseTotalCost ?? item.totalCost) || 0);
+        const baseBreakdown = item.baseUnitCostBreakdown || item.unitCostBreakdown || {};
+        const additionPerUnit = nextEntries.filter((cost) => !String(cost.id).startsWith("initial-")).reduce((breakdown, cost) => {
+          const key = costBreakdownKey(cost.costKey);
+          return { ...breakdown, [key]: Number(breakdown[key] || 0) + (Number(cost.amount || 0) * itemQuantity / totalQuantity / itemQuantity) };
+        }, {});
+        const unitCostBreakdown = { ...baseBreakdown };
+        for (const [key, value] of Object.entries(additionPerUnit)) unitCostBreakdown[key] = Number(unitCostBreakdown[key] || 0) + Number(value || 0);
+        const itemTotalCost = baseItemTotal + (addedTotal * itemQuantity / totalQuantity);
+        const unitCost = itemTotalCost / itemQuantity;
+        const productRows = await supabaseAdminRequest(`products?select=cost_breakdown&id=eq.${encodeURIComponent(item.productId)}&limit=1`).catch(() => []);
+        const metadata = parseJsonObject(parseJsonObject(productRows?.[0]?.cost_breakdown).metadata);
+        await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(item.productId)}`, { method: "PATCH", prefer: "return=minimal", body: { cost_total_pkr: unitCost, cost_breakdown: { ...unitCostBreakdown, metadata, costSource: "production_batch", productionBatchId: batch.id, productionBatchDate: batch.date, productionBatchQuantity: itemQuantity, productionBatchTotalCost: itemTotalCost, sharedCostAllocation: Number(item.sharedCostAllocation || 0) + (addedTotal * itemQuantity / totalQuantity) } } });
+        nextItems.push({ ...item, baseTotalCost: baseItemTotal, baseUnitCostBreakdown: baseBreakdown, totalCost: itemTotalCost, unitCost, unitCostBreakdown });
+      }
+      const nextBatch = { ...batch, baseTotalCost: initialTotal, totalCost: nextTotalCost, unitCost: nextTotalCost / totalQuantity, items: nextItems, costEntries: nextEntries, updatedAt: new Date().toISOString() };
+      const transactions = [{ id: `batch-cost-${entryId}`, type: "business_expense", title: `Production batch ${batch.id}: ${COST_LABEL_BY_KEY[costKey]}`, category: CASH_CATEGORY_BY_COST_KEY[costKey], amount, date: entry.date, counterparty: entry.counterparty, reference: entry.reference, note: entry.note, productionBatchId: batch.id, costEntryId: entryId }, ...(settings.financeTransactions || [])];
+      const batches = (settings.productionBatches || []).map((item) => item.id === batch.id ? nextBatch : item);
+      const saved = await updateStoreSettings({ ...settings, productionBatches: batches, financeTransactions: transactions });
+      return NextResponse.json({ success: true, batch: nextBatch, batches: saved.productionBatches || [] });
+    }
     if (body.action === "void") {
       const batchId = String(body.batchId || "").trim();
       if (user.role !== "Owner") {
@@ -132,11 +215,12 @@ export async function POST(request) {
       const existingMetadata = parseJsonObject(parseJsonObject(product.cost_breakdown).metadata);
       await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(product.id)}`, { method: "PATCH", prefer: "return=minimal", body: { cost_total_pkr: unitCost, cost_breakdown: { ...unitCostBreakdown, metadata: existingMetadata, costSource: "production_batch", productionBatchId: batchId, productionBatchDate: batchDate, productionBatchQuantity: item.quantity, productionBatchTotalCost: itemTotalCost, sharedCostAllocation: sumCosts(sharedCostBreakdown) * item.quantity / totalQuantity } } });
       await supabaseAdminRequest("inventory_movements", { method: "POST", prefer: "return=minimal", body: { product_id: product.id, quantity_change: item.quantity, reason: `Production batch ${batchId}`, stock_before: before, stock_after: after } }).catch(() => {});
-      savedItems.push({ productId: product.id, productName: product.name, quantity: item.quantity, directCostBreakdown: item.directCostBreakdown, sharedCostAllocation: sumCosts(sharedCostBreakdown) * item.quantity / totalQuantity, totalCost: itemTotalCost, unitCost, unitCostBreakdown });
+      savedItems.push({ productId: product.id, productName: product.name, quantity: item.quantity, directCostBreakdown: item.directCostBreakdown, sharedCostAllocation: sumCosts(sharedCostBreakdown) * item.quantity / totalQuantity, baseTotalCost: itemTotalCost, totalCost: itemTotalCost, unitCost, baseUnitCostBreakdown: unitCostBreakdown, unitCostBreakdown });
     }
-    const batch = { id: batchId, productId: savedItems[0].productId, productName: savedItems.length === 1 ? savedItems[0].productName : `${savedItems.length} products`, quantity: totalQuantity, totalCost, unitCost: totalCost / totalQuantity, costBreakdown: sharedCostBreakdown, sharedCostBreakdown, items: savedItems, date: batchDate, note: String(body.note || "").slice(0, 500) };
+    const costEntries = batchCostEntries(sharedCostBreakdown, items, batchDate);
+    const batch = { id: batchId, productId: savedItems[0].productId, productName: savedItems.length === 1 ? savedItems[0].productName : `${savedItems.length} products`, quantity: totalQuantity, baseTotalCost: totalCost, totalCost, unitCost: totalCost / totalQuantity, costBreakdown: sharedCostBreakdown, sharedCostBreakdown, costEntries, items: savedItems, date: batchDate, note: String(body.note || "").slice(0, 500) };
     const settings = await getStoreSettings({ includeFinance: true });
-    const transactions = [{ id: `cash-${Date.now()}`, type: "business_expense", title: `Production batch ${batch.id}: ${batch.productName}`, category: "Inventory production", amount: totalCost, date: batch.date, note: batch.note, productionBatchId: batch.id }, ...(settings.financeTransactions || [])];
+    const transactions = costEntries.map((entry) => ({ id: `batch-cost-${batch.id}-${entry.id}`, type: "business_expense", title: `Production batch ${batch.id}: ${COST_LABEL_BY_KEY[entry.costKey]}`, category: CASH_CATEGORY_BY_COST_KEY[entry.costKey], amount: entry.amount, date: entry.date, note: batch.note || entry.note, productionBatchId: batch.id, costEntryId: entry.id })).concat(settings.financeTransactions || []);
     const saved = await updateStoreSettings({ ...settings, productionBatches: [batch, ...(settings.productionBatches || [])], financeTransactions: transactions });
     return NextResponse.json({ success: true, batch, batches: saved.productionBatches || [] });
   } catch (error) {
