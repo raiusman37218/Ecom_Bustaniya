@@ -5727,9 +5727,16 @@ function OrderTable({ rows, onSelect, density = "comfortable" }) {
               <td><b>Rs. {Number(order.total || 0).toLocaleString()}</b><small className="trackingNumber"><br />Advance: Rs. {Number(order.amountPayableInAdvance || 0).toLocaleString()}</small></td>
               <td><b>{order.paymentMethod || "COD"}</b><small className="trackingNumber"><br />{order.paymentStatus || "Awaiting Payment"}</small></td>
               <td>
-                <span className={`statusBadge ${orderStatus(order).replaceAll(" ", "").toLowerCase()}`}>
+                <span className={`statusBadge ${orderStatus(order).replaceAll(" ", "").replaceAll("-", "").toLowerCase()}`}>
                   {order.postexStatus || order.status}
                 </span>
+                {order.confirmationStatus && !["confirmed", "payment verified", "verified"].includes(String(order.confirmationStatus).toLowerCase()) && (
+                  <small className="trackingNumber" style={{ display: "block", marginTop: "4px" }}>
+                    <span className="statusBadge unconfirmed" style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "10px" }}>
+                      ⚠️ {order.confirmationStatus}
+                    </span>
+                  </small>
+                )}
               </td>
               <td>{order.date}</td>
               <td>{order.risk || "Standard COD"}</td>

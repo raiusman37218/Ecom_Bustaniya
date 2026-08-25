@@ -5580,28 +5580,70 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   opacity:.48;
   cursor:not-allowed;
 }
+.statusBadge.unconfirmed,
+.statusBadge.pending,
+.statusBadge.awaitingconfirmation,
+.statusBadge.unverified {
+  background: #fffbe6;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  font-weight: 800;
+}
+.statusBadge.unbooked,
+.statusBadge.un-assignedbyme,
+.statusBadge.unassignedbyme,
+.statusBadge.draft {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  font-weight: 800;
+}
 .statusBadge.booked,
+.statusBadge.bookedwithpostex,
+.statusBadge.readyforpickup {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #6ee7b7;
+  font-weight: 800;
+}
 .statusBadge.postexwarehouse,
-.statusBadge.outfordelivery,
+.statusBadge.intransit,
 .statusBadge.transferred {
-  background:#e8f0fb;
-  color:#315d95;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+  font-weight: 800;
+}
+.statusBadge.outfordelivery,
+.statusBadge.riderassigned {
+  background: #ecfeff;
+  color: #0e7490;
+  border: 1px solid #67e8f9;
+  font-weight: 800;
 }
 .statusBadge.delivered,
 .statusBadge.completed {
-  background:#e5f3e9;
-  color:#247042;
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+  font-weight: 800;
 }
 .statusBadge.returned,
 .statusBadge.outforreturn,
-.statusBadge.cancelled {
-  background:#f8e8ec;
-  color:#a51c47;
+.statusBadge.cancelled,
+.statusBadge.fail {
+  background: #ffe4e6;
+  color: #be123c;
+  border: 1px solid #fda4af;
+  font-weight: 800;
 }
 .statusBadge.attempted,
-.statusBadge.deliveryunderreview {
-  background:#fff3dc;
-  color:#9b5d06;
+.statusBadge.deliveryunderreview,
+.statusBadge.onhold {
+  background: #f3e8ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+  font-weight: 800;
 }
 .orderDetailDrawer {
   width:min(860px,100%);
