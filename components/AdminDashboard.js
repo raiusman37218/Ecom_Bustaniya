@@ -1032,6 +1032,45 @@ export default function AdminDashboard() {
     lowStock: 0,
   });
 
+  // Keep every async admin action visibly busy without duplicating spinner logic
+  // in each panel. Existing loading labels/icons remain the source of truth;
+  // this observer adds the shared visual treatment to disabled processing buttons.
+  useEffect(() => {
+    if (!adminReady || !adminAuthChecked || !currentAdminUser) return undefined;
+
+    const root = document.querySelector(".adminShell");
+    if (!root) return undefined;
+
+    const processingText = /\b(?:saving|loading|syncing|processing|voiding|adding|booking|checking|resetting|removing|creating|updating|uploading|publishing|exporting|logging out|testing|verifying|retrying|dispatching|refreshing)\b/i;
+
+    const syncActionStates = () => {
+      root.querySelectorAll("button").forEach((button) => {
+        const text = button.textContent || "";
+        const hasInlineSpinner = Boolean(button.querySelector(".spinIcon, .buttonSpinner"));
+        const pending = button.disabled && (
+          button.getAttribute("aria-busy") === "true" ||
+          processingText.test(text) ||
+          hasInlineSpinner
+        );
+
+        // Inline spinners already provide the same feedback; avoid rendering a
+        // second pseudo-element spinner on those buttons.
+        button.toggleAttribute("data-admin-loading", pending && !hasInlineSpinner);
+      });
+    };
+
+    syncActionStates();
+    const observer = new MutationObserver(syncActionStates);
+    observer.observe(root, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["disabled", "class"],
+    });
+
+    return () => observer.disconnect();
+  }, [adminReady, adminAuthChecked, currentAdminUser]);
+
   useEffect(() => {
     const requestedSection = getSectionFromLocation();
     const savedActiveSection = localStorage.getItem("bustaniya-admin-active-section");
@@ -2498,11 +2537,11 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
         <div className="inventoryListHead"><div><h2>{selectedCategory?.name || "Select category"}</h2><span>{childCategories.length} subcategories inside</span></div>{selectedCategory && <button onClick={() => openNewSubcategory(selectedCategory)} disabled={saving}><Plus /> Add inside</button>}</div>
         {selectedCategory && <div className="categoryParentSummary">
           <div className="tableProduct"><span style={{ backgroundImage: `url(${selectedCategory.image || "/bustaniya-campaign-hero-v4.png"})` }} /><div><b>{selectedCategory.name}</b><small><a href={`/category/${selectedCategory.slug}`} target="_blank">/category/{selectedCategory.slug}</a></small></div></div>
-          <div className="productRowActions"><button className="editProductButton" onClick={() => moveCategory(selectedCategory, -1)} disabled={saving}>↑</button><button className="editProductButton" onClick={() => moveCategory(selectedCategory, 1)} disabled={saving}>↓</button><button className="editProductButton" onClick={() => setEditing(selectedCategory)} disabled={saving}>Edit main</button><button className="removeProductButton" onClick={() => confirmArchive(selectedCategory)} disabled={saving}><X /><span>Archive</span></button></div>
+          <div className="productRowActions"><button className="editProductButton" onClick={() => moveCategory(selectedCategory, -1)} disabled={saving} aria-busy={saving}>↑</button><button className="editProductButton" onClick={() => moveCategory(selectedCategory, 1)} disabled={saving} aria-busy={saving}>↓</button><button className="editProductButton" onClick={() => setEditing(selectedCategory)} disabled={saving} aria-busy={saving}>Edit main</button><button className="removeProductButton" onClick={() => confirmArchive(selectedCategory)} disabled={saving} aria-busy={saving}><X /><span>Archive</span></button></div>
         </div>}
         <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Subcategory</th><th>URL</th><th>Products</th><th>Status</th><th /></tr></thead><tbody>
           {childCategories.map((category) => (
-            <tr key={category.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${category.image || "/bustaniya-campaign-hero-v4.png"})` }} /><div><b>{category.name}</b><small>{category.description || "No description"}</small></div></div></td><td><a href={`/category/${category.parentSlug}/${category.slug}`} target="_blank">/category/{category.parentSlug}/{category.slug}</a></td><td>{productCount(category)}</td><td><span className={`statusBadge ${category.status === "Active" ? "activeStatus" : "processing"}`}>{category.status}</span></td><td><div className="productRowActions"><button className="editProductButton" onClick={() => setEditing(category)} disabled={saving}>Edit</button><button className="removeProductButton" onClick={() => confirmArchive(category)} disabled={saving}><X /><span>Remove</span></button></div></td></tr>
+            <tr key={category.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${category.image || "/bustaniya-campaign-hero-v4.png"})` }} /><div><b>{category.name}</b><small>{category.description || "No description"}</small></div></div></td><td><a href={`/category/${category.parentSlug}/${category.slug}`} target="_blank">/category/{category.parentSlug}/{category.slug}</a></td><td>{productCount(category)}</td><td><span className={`statusBadge ${category.status === "Active" ? "activeStatus" : "processing"}`}>{category.status}</span></td><td><div className="productRowActions"><button className="editProductButton" onClick={() => setEditing(category)} disabled={saving} aria-busy={saving}>Edit</button><button className="removeProductButton" onClick={() => confirmArchive(category)} disabled={saving} aria-busy={saving}><X /><span>Remove</span></button></div></td></tr>
           ))}
           {!childCategories.length && <tr><td colSpan="5"><div className="inventoryEmpty">No subcategories inside {selectedCategory?.name || "this category"} yet.</div></td></tr>}
         </tbody></table></div>
@@ -2615,7 +2654,7 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
     setCsvImportState({ isOpen: false, file: null, rows: [] });
   }
 
-  return <><div className="adminTitle"><div><p>CATALOGUE</p><h1>Products</h1><span>Add/edit products, variants, collections, inventory and private-drop status.</span></div><button onClick={onAdd}><Plus /> Add product</button></div>
+  return <><div className="adminTitle"><div><p>CATALOGUE</p><h1>Products</h1><span>Add/edit products, variants, collections, inventory and private-drop status.</span></div><button onClick={onAdd} disabled={loading} aria-busy={loading}><Plus /> Add product</button></div>
     <div className="miniMetricGrid productMetrics">
       <article><Package /><span><b>{products.length}</b>Total products</span></article>
       <article><Tags /><span><b>{collections.length}</b>Collections</span></article>
@@ -2649,11 +2688,11 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
             <td>{productCollection(product)}</td>
             <td><b>Rs. {Number(product.price || 0).toLocaleString()}</b></td>
             <td>{Number(product.costTotalPkr || 0) ? `Rs. ${Number(product.costTotalPkr).toLocaleString()}` : <span className="expenseAmount">Missing cost</span>}</td>
-            <td><button type="button" className="editProductButton" onClick={() => setVariantProduct(product)}>{variants.length} variant{variants.length === 1 ? "" : "s"}</button></td>
+            <td><button type="button" className="editProductButton" onClick={() => setVariantProduct(product)} disabled={loading} aria-busy={loading}>{variants.length} variant{variants.length === 1 ? "" : "s"}</button></td>
             <td><b className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)} units</b></td>
             <td>Rs. {Number(product.deliveryCostPkr || 0).toLocaleString()}</td>
             <td><span className={`statusBadge ${status.toLowerCase()}`}>{status}</span></td>
-            <td><div className="productRowActions"><button type="button" className="editProductButton" onClick={() => onEdit(product)}>Edit</button><button type="button" className="removeProductButton" onClick={() => onDelete(product)}><X /> Delete</button></div></td>
+            <td><div className="productRowActions"><button type="button" className="editProductButton" onClick={() => onEdit(product)} disabled={loading} aria-busy={loading}>Edit</button><button type="button" className="removeProductButton" onClick={() => onDelete(product)} disabled={loading} aria-busy={loading}><X /> Delete</button></div></td>
           </tr>;
         })}
       </tbody></table>
@@ -2967,6 +3006,8 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
   const [activeTab, setActiveTab] = useState("Total Orders");
   const [orderSearch, setOrderSearch] = useState("");
   const [showDraft, setShowDraft] = useState(false);
+  const [creatingDraft, setCreatingDraft] = useState(false);
+  const [exportingOrders, setExportingOrders] = useState(false);
   const [orderEdits, setOrderEdits] = useState({});
   const allRows = useMemo(() => {
     const localIds = new Set(localOrders.map((order) => order.id));
@@ -3120,15 +3161,21 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
 
   async function createDraft(event) {
     event.preventDefault();
-    const draftOrder = createDraftOrderFromForm(new FormData(event.currentTarget), products);
-    const finalOrder = await saveCustomOrderToSupabase(draftOrder);
-    if (!finalOrder) return;
-    setShowDraft(false);
-    await onRetry();
-    setSelectedId(finalOrder.id);
+    setCreatingDraft(true);
+    try {
+      const draftOrder = createDraftOrderFromForm(new FormData(event.currentTarget), products);
+      const finalOrder = await saveCustomOrderToSupabase(draftOrder);
+      if (!finalOrder) return;
+      setShowDraft(false);
+      await onRetry();
+      setSelectedId(finalOrder.id);
+    } finally {
+      setCreatingDraft(false);
+    }
   }
 
   async function exportOrders() {
+    setExportingOrders(true);
     try {
       const response = await fetch("/api/admin/orders/export", { method: "POST" });
       if (!response.ok) throw new Error("Orders could not be exported.");
@@ -3140,9 +3187,11 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       URL.revokeObjectURL(link.href);
     } catch (exportError) {
       window.alert(exportError.message || "Orders could not be exported.");
+    } finally {
+      setExportingOrders(false);
     }
   }
-  return <><div className="adminTitle"><div><p>FULFILMENT</p><h1>Orders</h1><span>PostEx status, custom admin orders, fulfillment, returns and team notes.</span></div><button onClick={exportOrders} disabled={loading || !canExport || !connected || !allRows.length}>Export orders</button></div>
+  return <><div className="adminTitle"><div><p>FULFILMENT</p><h1>Orders</h1><span>PostEx status, custom admin orders, fulfillment, returns and team notes.</span></div><button onClick={exportOrders} disabled={loading || exportingOrders || !canExport || !connected || !allRows.length} aria-busy={exportingOrders}>{exportingOrders ? "Exporting..." : "Export orders"}</button></div>
     {loading && <div className="ordersConnect" aria-busy="true"><div><b>Loading ordersâ€¦</b><span>Fetching the latest stored order data.</span></div></div>}
     {!loading && error && <div className="ordersConnect"><div><b>Orders could not be loaded.</b><span>{error}</span></div><button onClick={onRetry}>Retry</button></div>}
     {!loading && !connected && !error && <div className="ordersConnect"><div><b>Session expired</b><span>Please sign in again to view orders.</span></div></div>}
@@ -3170,9 +3219,9 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
         <div className="inlineSearch"><Search /><input value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Search order, customer, tracking..." /></div>
       </div>
       {allRows.length === 0 ? <EmptyState icon={ShoppingBag} title="No orders received" description="There are no orders in your store database yet." /> : <OrderTable rows={visibleRows} density={tableDensity} onSelect={(order) => setSelectedId(order.id)} />}
-      {pagination?.totalPages > 1 && <div className="ordersPagination"><button disabled={pagination.page <= 1} onClick={() => onPageChange(pagination.page - 1)}>Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button disabled={pagination.page >= pagination.totalPages} onClick={() => onPageChange(pagination.page + 1)}>Next</button></div>}
+      {pagination?.totalPages > 1 && <div className="ordersPagination"><button disabled={loading || pagination.page <= 1} aria-busy={loading} onClick={() => onPageChange(pagination.page - 1)}>Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button disabled={loading || pagination.page >= pagination.totalPages} aria-busy={loading} onClick={() => onPageChange(pagination.page + 1)}>Next</button></div>}
     </section>
-    {showDraft && <DraftOrderDialog products={products} onClose={() => setShowDraft(false)} onCreate={createDraft} />}
+    {showDraft && <DraftOrderDialog products={products} onClose={() => setShowDraft(false)} onCreate={createDraft} saving={creatingDraft} />}
     {selectedOrder && <OrderDetailDrawer order={selectedOrder} onClose={() => setSelectedId("")} onUpdate={persistOrderUpdate} canRecordRefund={currentAdminUser?.role === "Owner"} onNavigateToEvents={onNavigateToEvents} />}
     </>}
   </>;
@@ -4162,7 +4211,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       <div className="adminCard managementCard settlementHistory">
         <div className="inventoryListHead"><div><h2>Manual wallet receipt history</h2><span>Every manually entered bank receipt stays here. Void a wrong entry instead of editing or re-entering it.</span></div><b>{manualPostexReceiptHistory.length} entries</b></div>
         <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Reference / CPR</th><th>Bank / wallet</th><th>Date</th><th>Amount</th><th>Note</th><th>Status</th><th>Action</th></tr></thead><tbody>
-          {manualPostexReceiptHistory.map((receipt) => { const reference = String(receipt.reference || receipt.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim() || receipt.id; return <tr key={receipt.id}><td><b>{reference}</b></td><td>{receipt.category || "PostEx wallet"}</td><td>{receipt.date || "—"}</td><td className={receipt.voided ? "" : "incomeAmount"}>{money(receipt.amount)}</td><td>{receipt.note || "—"}</td><td><span className={`statusBadge ${receipt.voided ? "cancelled" : "reconciled"}`}>{receipt.voided ? "Voided" : "Active"}</span>{receipt.voidedAt && <small className="trackingNumber"><br />{formatFinanceDate(receipt.voidedAt)}</small>}</td><td>{!receipt.voided && isOwnerFinance ? <button type="button" className="removeProductButton" onClick={() => requestVoidManualPostexReceipt(receipt)} disabled={cashbookLoading}>Void</button> : "—"}</td></tr>; })}
+          {manualPostexReceiptHistory.map((receipt) => { const reference = String(receipt.reference || receipt.title || "").replace(/^PostEx bank receipt:\s*/i, "").trim() || receipt.id; return <tr key={receipt.id}><td><b>{reference}</b></td><td>{receipt.category || "PostEx wallet"}</td><td>{receipt.date || "—"}</td><td className={receipt.voided ? "" : "incomeAmount"}>{money(receipt.amount)}</td><td>{receipt.note || "—"}</td><td><span className={`statusBadge ${receipt.voided ? "cancelled" : "reconciled"}`}>{receipt.voided ? "Voided" : "Active"}</span>{receipt.voidedAt && <small className="trackingNumber"><br />{formatFinanceDate(receipt.voidedAt)}</small>}</td><td>{!receipt.voided && isOwnerFinance ? <button type="button" className="removeProductButton" onClick={() => requestVoidManualPostexReceipt(receipt)} disabled={cashbookLoading} aria-busy={cashbookLoading}>Void</button> : "—"}</td></tr>; })}
           {!manualPostexReceiptHistory.length && <tr><td colSpan="7" className="emptyFinanceCell">No manual PostEx wallet receipts recorded yet.</td></tr>}
         </tbody></table></div>
       </div>
@@ -4228,7 +4277,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
         <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>CPR</th><th>Period</th><th>Orders</th><th>Expected bank</th><th>Received (reconciliation)</th><th>Carry forward</th><th>Status</th><th>Action</th></tr></thead><tbody>
           {postexBatches.map((batch) => {
             const voided = isVoidedPostexBatch(batch);
-            return <tr key={batch.id}><td><b>{batch.cpr_number}</b><small className="trackingNumber">{batch.cpr_date || "No CPR date"}</small></td><td>{batch.period_start || "—"} to {batch.period_end || "—"}</td><td>{batch.items?.length || 0}</td><td>{money(batch.expected_bank_pkr)}</td><td className={voided ? "" : "incomeAmount"}>{money(batch.bank_received_pkr)}</td><td className={Number(batch.carried_forward_pkr || 0) ? "expenseAmount" : ""}>{money(batch.carried_forward_pkr)}</td><td><span className={`statusBadge ${voided ? "cancelled" : batch.status}`}>{voided ? "voided" : batch.status}</span>{voided && <small className="trackingNumber"><br />Reversed</small>}</td><td>{!voided && isOwnerFinance ? <button type="button" className="removeProductButton" disabled={voidingPostexBatchId === batch.id || postexSyncing} onClick={() => requestVoidPostexBatch(batch)}>{voidingPostexBatchId === batch.id ? "Voiding..." : "Void"}</button> : "—"}</td></tr>;
+            return <tr key={batch.id}><td><b>{batch.cpr_number}</b><small className="trackingNumber">{batch.cpr_date || "No CPR date"}</small></td><td>{batch.period_start || "—"} to {batch.period_end || "—"}</td><td>{batch.items?.length || 0}</td><td>{money(batch.expected_bank_pkr)}</td><td className={voided ? "" : "incomeAmount"}>{money(batch.bank_received_pkr)}</td><td className={Number(batch.carried_forward_pkr || 0) ? "expenseAmount" : ""}>{money(batch.carried_forward_pkr)}</td><td><span className={`statusBadge ${voided ? "cancelled" : batch.status}`}>{voided ? "voided" : batch.status}</span>{voided && <small className="trackingNumber"><br />Reversed</small>}</td><td>{!voided && isOwnerFinance ? <button type="button" className="removeProductButton" disabled={voidingPostexBatchId === batch.id || postexSyncing} aria-busy={voidingPostexBatchId === batch.id} onClick={() => requestVoidPostexBatch(batch)}>{voidingPostexBatchId === batch.id ? "Voiding..." : "Void"}</button> : "—"}</td></tr>;
           })}
           {!postexBatches.length && <tr><td colSpan="8" className="emptyFinanceCell">No CPR receipts have been recorded yet.</td></tr>}
         </tbody></table></div>
@@ -4380,7 +4429,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     <section className="financeGrid financeGridWide">
       <div className="adminCard managementCard">
         <div className="inventoryListHead"><div><h2>Supplier payables</h2><span>{overdueSupplierBills.length ? `${overdueSupplierBills.length} overdue — action needed` : "Bills and due dates"}</span></div><b>{money(supplierPayableTotal)} due</b></div>
-        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Supplier</th><th>Reference</th><th>Due date</th><th>Bill</th><th>Paid</th><th>Remaining</th><th /></tr></thead><tbody>{supplierBills.map((bill) => { const remaining = Math.max(0, Number(bill.total) - Number(bill.paid)); const payments = cashbookTransactions.filter((entry) => entry.supplierBillId === bill.id && !entry.voided); const dueSoon = bill.dueDate && bill.dueDate >= today && bill.dueDate <= new Date(Date.now() + 7 * 86400000).toISOString().slice(0,10); return <tr key={bill.id}><td><b>{bill.supplier}</b>{payments.length > 0 && <small><br />{payments.length} active payment{payments.length === 1 ? "" : "s"}: {payments.map((entry) => `${entry.date} ${money(entry.amount)}`).join(" · ")}</small>}</td><td>{bill.reference || "—"}</td><td className={dueSoon && remaining ? "expenseAmount" : ""}>{bill.dueDate || "—"}{dueSoon && remaining ? <small><br />Due soon</small> : null}</td><td>{money(bill.total)}</td><td>{money(bill.paid)}</td><td className={bill.dueDate && bill.dueDate < today && remaining ? "expenseAmount" : ""}>{money(remaining)}</td><td>{remaining > 0 && <button className="editProductButton" onClick={() => recordSupplierPayment(bill)} disabled={cashbookLoading}>Pay</button>}</td></tr>; })}{!supplierBills.length && <tr><td colSpan="7" className="emptyFinanceCell">No supplier bills added yet.</td></tr>}</tbody></table></div>
+      <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Supplier</th><th>Reference</th><th>Due date</th><th>Bill</th><th>Paid</th><th>Remaining</th><th /></tr></thead><tbody>{supplierBills.map((bill) => { const remaining = Math.max(0, Number(bill.total) - Number(bill.paid)); const payments = cashbookTransactions.filter((entry) => entry.supplierBillId === bill.id && !entry.voided); const dueSoon = bill.dueDate && bill.dueDate >= today && bill.dueDate <= new Date(Date.now() + 7 * 86400000).toISOString().slice(0,10); return <tr key={bill.id}><td><b>{bill.supplier}</b>{payments.length > 0 && <small><br />{payments.length} active payment{payments.length === 1 ? "" : "s"}: {payments.map((entry) => `${entry.date} ${money(entry.amount)}`).join(" · ")}</small>}</td><td>{bill.reference || "—"}</td><td className={dueSoon && remaining ? "expenseAmount" : ""}>{bill.dueDate || "—"}{dueSoon && remaining ? <small><br />Due soon</small> : null}</td><td>{money(bill.total)}</td><td>{money(bill.paid)}</td><td className={bill.dueDate && bill.dueDate < today && remaining ? "expenseAmount" : ""}>{money(remaining)}</td><td>{remaining > 0 && <button className="editProductButton" onClick={() => recordSupplierPayment(bill)} disabled={cashbookLoading} aria-busy={cashbookLoading}>Pay</button>}</td></tr>; })}{!supplierBills.length && <tr><td colSpan="7" className="emptyFinanceCell">No supplier bills added yet.</td></tr>}</tbody></table></div>
       </div>
       <form className="adminCard financeExpenseForm" onSubmit={addSupplierBill}>
         <h2>Add supplier bill</h2><p className="trackingNumber">Record the full bill, any amount already paid, and the due date. This creates a payable, not an expense twice.</p>
@@ -4456,7 +4505,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     {financeTab === "cashbook" && <>
     <section className="financeGrid financeGridWide">
       <div className={`adminCard financeSummaryCard ${availableCash < 0 ? "alertMetric" : ""}`}>
-        <div className="cardHeading"><div><h2>Available Cash</h2><p>Current spendable balance after every active receipt, payment, expense and withdrawal.</p></div><div className="cashBalanceCardActions"><WalletCards /><button type="button" className="removeProductButton" onClick={requestResetAvailableCash} disabled={cashbookLoading || Math.abs(Number(availableCash || 0)) < 0.01}>Reset to Rs. 0</button></div></div>
+        <div className="cardHeading"><div><h2>Available Cash</h2><p>Current spendable balance after every active receipt, payment, expense and withdrawal.</p></div><div className="cashBalanceCardActions"><WalletCards /><button type="button" className="removeProductButton" onClick={requestResetAvailableCash} disabled={cashbookLoading || Math.abs(Number(availableCash || 0)) < 0.01} aria-busy={cashbookLoading}>{cashbookLoading ? "Processing..." : "Reset to Rs. 0"}</button></div></div>
         <div className="financeStatement">
           <div><span>Current balance</span><b>{money(availableCash)}</b></div>
           <div><span>Cash coming in</span><b className="cashPlus">+ {money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
@@ -4469,7 +4518,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       <div className="adminCard managementCard">
         <div className="inventoryListHead"><div><h2>Finance ledger</h2><span>Orders, cash movements and expenses. PostEx settlement status stays in Settlements.</span></div></div>
         <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Ref</th><th>Date</th><th>Type</th><th>Account</th><th>Status</th><th>Amount</th><th>Action</th></tr></thead><tbody>
-          {ledgerRows.map((row) => <tr key={`${row.id}-${row.type}`}><td><b>{row.id}</b></td><td>{row.date}</td><td>{row.type}</td><td>{row.account}</td><td><span className={`statusBadge ${String(row.status).toLowerCase()}`}>{row.status}</span></td><td className={row.amount < 0 ? "expenseAmount" : "incomeAmount"}>{row.amount < 0 ? "-" : "+"} {money(Math.abs(row.amount))}</td><td>{row.financeEntry && !row.voided && isOwnerFinance ? (isLinkedFinanceEntry(row.financeEntry) ? <small className="trackingNumber">Use batch</small> : <button type="button" className="removeProductButton" onClick={() => requestVoidCashbookEntry(row.financeEntry)} disabled={cashbookLoading}>Void</button>) : row.voided ? <small className="trackingNumber">Voided</small> : "—"}</td></tr>)}
+          {ledgerRows.map((row) => <tr key={`${row.id}-${row.type}`}><td><b>{row.id}</b></td><td>{row.date}</td><td>{row.type}</td><td>{row.account}</td><td><span className={`statusBadge ${String(row.status).toLowerCase()}`}>{row.status}</span></td><td className={row.amount < 0 ? "expenseAmount" : "incomeAmount"}>{row.amount < 0 ? "-" : "+"} {money(Math.abs(row.amount))}</td><td>{row.financeEntry && !row.voided && isOwnerFinance ? (isLinkedFinanceEntry(row.financeEntry) ? <small className="trackingNumber">Use batch</small> : <button type="button" className="removeProductButton" onClick={() => requestVoidCashbookEntry(row.financeEntry)} disabled={cashbookLoading} aria-busy={cashbookLoading}>Void</button>) : row.voided ? <small className="trackingNumber">Voided</small> : "—"}</td></tr>)}
           {!ledgerRows.length && <tr><td colSpan="7" className="emptyFinanceCell">No finance entries yet.</td></tr>}
         </tbody></table></div>
       </div>
@@ -5219,7 +5268,7 @@ function InventorySourcesPanel({
       <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Material</th><th>Category</th><th>Source</th><th>Qty</th><th>Reorder</th><th>Value</th><th /></tr></thead><tbody>
         {materials.map((item) => {
           const low = Number(item.quantity || 0) <= Number(item.reorderAt || 0);
-          return <tr key={item.id}><td><b>{item.item}</b><small className="trackingNumber">{item.notes || item.unit}</small></td><td>{item.category}</td><td>{sourceName(item.sourceId)}</td><td><b className={low ? "stockLow" : ""}>{Number(item.quantity || 0).toLocaleString()} {item.unit}</b></td><td>{Number(item.reorderAt || 0).toLocaleString()} {item.unit}</td><td>Rs. {(Number(item.quantity || 0) * Number(item.unitCost || 0)).toLocaleString()}</td><td><div className="materialQtyActions"><button type="button" disabled={saving} onClick={() => onUpdateMaterialQuantity(item.id, -1)}><Minus /></button><button type="button" disabled={saving} onClick={() => onUpdateMaterialQuantity(item.id, 1)}><Plus /></button></div></td></tr>;
+          return <tr key={item.id}><td><b>{item.item}</b><small className="trackingNumber">{item.notes || item.unit}</small></td><td>{item.category}</td><td>{sourceName(item.sourceId)}</td><td><b className={low ? "stockLow" : ""}>{Number(item.quantity || 0).toLocaleString()} {item.unit}</b></td><td>{Number(item.reorderAt || 0).toLocaleString()} {item.unit}</td><td>Rs. {(Number(item.quantity || 0) * Number(item.unitCost || 0)).toLocaleString()}</td><td><div className="materialQtyActions"><button type="button" disabled={saving} aria-busy={saving} onClick={() => onUpdateMaterialQuantity(item.id, -1)}><Minus /></button><button type="button" disabled={saving} aria-busy={saving} onClick={() => onUpdateMaterialQuantity(item.id, 1)}><Plus /></button></div></td></tr>;
         })}
         {!materials.length && <tr><td colSpan="7"><div className="inventoryEmpty">No materials match this search.</div></td></tr>}
       </tbody></table></div>
@@ -5267,7 +5316,7 @@ function InventoryDialog({ products, productChoice, setProductChoice, onClose, o
 
 function DialogHead({title,onClose}) { return <div className="dialogHead"><h2>{title}</h2><button type="button" onClick={onClose}><X/></button></div>; }
 
-function DraftOrderDialog({ products = [], onClose, onCreate }) {
+function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) {
   const makeItem = () => ({ key: `${Date.now()}-${Math.random()}`, productId: products[0]?.id ? String(products[0].id) : "__custom__", quantity: 1, size: "", color: "", customName: "", unitPrice: "" });
   const [draftItems, setDraftItems] = useState(() => [makeItem()]);
   const [postexCities, setPostexCities] = useState([]);
@@ -5336,7 +5385,7 @@ function DraftOrderDialog({ products = [], onClose, onCreate }) {
     <input type="hidden" name="itemsJson" value={JSON.stringify(preparedItems)} />
     <div className="adminCard" style={{ padding: "16px", marginBottom: "12px" }}><div className="formRow"><span>Products subtotal: <b>Rs. {productSubtotal.toLocaleString()}</b></span><span>Delivery (once per order): <b>Rs. {deliveryFee.toLocaleString()}</b></span></div><b>Order total: Rs. {orderTotal.toLocaleString()}</b></div>
     <label>Internal note<textarea name="notes" rows="3" placeholder="Rider name, pickup timing, DM link, customer request" /></label>
-    <button className="dialogSave">Create custom order</button>
+    <button className="dialogSave" disabled={saving} aria-busy={saving}>{saving ? "Creating order..." : "Create custom order"}</button>
   </form></>;
 }
 
@@ -5574,7 +5623,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
       <section className="adminCard orderOpsCard">
         <h3>Fulfill order</h3>
         <div className="formRow"><label>Tracking number<input value={tracking} onChange={(event) => setTracking(event.target.value)} placeholder="PostEx tracking number" /></label></div>
-        <div className="orderActionRow"><button type="button" onClick={printInvoice}>Print invoice</button><button type="button" onClick={printPackingSlip}>Print packing slip</button>{!order.postexBooked && !tracking && <button type="button" className="editProductButton" onClick={bookWithPostex} disabled={saving || bookingPostex}>{bookingPostex ? "Booking with PostEx..." : "⚡ Book with PostEx"}</button>}{tracking && <button type="button" onClick={() => saveChanges({ fulfillmentStatus: "Booked with PostEx" })} disabled={saving}>{saving ? "Saving..." : "Save tracking"}</button>}</div>
+        <div className="orderActionRow"><button type="button" onClick={printInvoice}>Print invoice</button><button type="button" onClick={printPackingSlip}>Print packing slip</button>{!order.postexBooked && !tracking && <button type="button" className="editProductButton" onClick={bookWithPostex} disabled={saving || bookingPostex}>{bookingPostex ? "Booking with PostEx..." : "⚡ Book with PostEx"}</button>}{tracking && <button type="button" onClick={() => saveChanges({ fulfillmentStatus: "Booked with PostEx" })} disabled={saving} aria-busy={saving}>{saving ? "Saving..." : "Save tracking"}</button>}</div>
       </section>
 
       <section className="adminCard orderOpsCard">
@@ -5584,7 +5633,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
         <div className="formRow"><label>Refund amount (PKR)<input type="number" min="0" max={order.total} step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} /></label><label>Refund method<select value={refundMethod} onChange={(event) => setRefundMethod(event.target.value)} disabled={!canRecordRefund}><option value="">Select method</option><option>Bank transfer</option><option>Easypaisa</option><option>JazzCash</option><option>Card reversal</option><option>Cash</option><option>Other</option></select></label></div>
         {!canRecordRefund && <p className="shippingRuleHint">Only an Owner can approve or record refund details.</p>}
         {restoringReturnedStock ? <p className="checkoutError">Final check: this will restore {items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} item(s) to stock once. Only continue after the returned parcel has been physically inspected.</p> : <p className="shippingRuleHint">Refund entries are internal records only; they do not send money. Finance uses the actual PostEx CPR return, shipping, GST and tax deductions. Stock changes only when an inspected return is marked <b>Return received</b>.</p>}
-        <button type="button" onClick={() => saveChanges()} disabled={saving}>{saving ? "Saving..." : restoringReturnedStock ? "Confirm inspection & restore stock" : "Save return workflow"}</button>
+        <button type="button" onClick={() => saveChanges()} disabled={saving} aria-busy={saving}>{saving ? "Saving..." : restoringReturnedStock ? "Confirm inspection & restore stock" : "Save return workflow"}</button>
       </section>
 
       <section className="adminCard orderOpsCard paymentVerificationWorkspace">
@@ -5593,7 +5642,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
           <span>Method <b>{order.paymentMethod || "COD — delivery charge in advance"}</b></span><span>Product subtotal <b>Rs. {Number(order.productSubtotal ?? order.total ?? 0).toLocaleString()}</b></span><span>Delivery charges <b>{Number(order.deliveryCharges || 0) ? `Rs. ${Number(order.deliveryCharges).toLocaleString()}` : "Free"}</b></span><span>Total order value <b>Rs. {Number(order.total || 0).toLocaleString()}</b></span><span>Required in advance <b>Rs. {Number(order.amountPayableInAdvance || 0).toLocaleString()}</b></span><span>Payable on delivery <b>Rs. {Number(order.amountPayableOnDelivery ?? order.total ?? 0).toLocaleString()}</b></span>
         </div>
         <div className="formRow"><label>Transaction / reference ID<input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder="Bank transfer reference, if provided" /></label><label>Verification status<select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Awaiting Payment</option><option>Proof Submitted</option><option>Payment Verified</option><option>Payment Rejected</option></select></label></div>
-        <div className="orderActionRow"><button type="button" onClick={() => { setPaymentStatus("Proof Submitted"); saveChanges({ paymentStatus: "Proof Submitted", paymentReference }); }} disabled={saving}>Mark proof submitted</button><button type="button" onClick={() => { setPaymentStatus("Payment Verified"); setFulfillmentStatus("Packing"); saveChanges({ paymentStatus: "Payment Verified", paymentReference, fulfillmentStatus: "Packing", confirmationStatus: "Confirmed" }); }} disabled={saving}>Verify & confirm</button><button type="button" className="dangerButton" onClick={() => { setPaymentStatus("Payment Rejected"); saveChanges({ paymentStatus: "Payment Rejected", paymentReference, confirmationStatus: "Payment rejected" }); }} disabled={saving}>Reject payment</button></div>
+        <div className="orderActionRow"><button type="button" onClick={() => { setPaymentStatus("Proof Submitted"); saveChanges({ paymentStatus: "Proof Submitted", paymentReference }); }} disabled={saving} aria-busy={saving}>Mark proof submitted</button><button type="button" onClick={() => { setPaymentStatus("Payment Verified"); setFulfillmentStatus("Packing"); saveChanges({ paymentStatus: "Payment Verified", paymentReference, fulfillmentStatus: "Packing", confirmationStatus: "Confirmed" }); }} disabled={saving} aria-busy={saving}>Verify & confirm</button><button type="button" className="dangerButton" onClick={() => { setPaymentStatus("Payment Rejected"); saveChanges({ paymentStatus: "Payment Rejected", paymentReference, confirmationStatus: "Payment rejected" }); }} disabled={saving} aria-busy={saving}>Reject payment</button></div>
         <p className="shippingRuleHint">Verify only after checking the bank or wallet transfer. The courier must collect exactly the payable-on-delivery amount shown above.</p>
       </section>
 
@@ -5631,7 +5680,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
         <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows="5" placeholder="Team notes, DM context, phone verification result" />
         {saveError && <p className="checkoutError" role="alert">{saveError}</p>}
         {saveMessage && <p className="adminSuccessBanner" role="status">{saveMessage}</p>}
-        <button onClick={() => saveChanges()} disabled={saving}>{saving ? "Saving..." : "Save order changes"}</button>
+        <button onClick={() => saveChanges()} disabled={saving} aria-busy={saving}>{saving ? "Saving..." : "Save order changes"}</button>
       </section>
 
       <section className="adminCard orderOpsCard">
@@ -7074,7 +7123,7 @@ function EventsStreamPanel({ onNavigateToSettings, onNavigateToOrder }) {
                 <option value={60000}>Auto-refresh: 60s</option>
                 <option value={0}>Paused</option>
               </select>
-              <button type="button" onClick={() => loadEvents()} disabled={loading}>
+              <button type="button" onClick={() => loadEvents()} disabled={loading} aria-busy={loading}>
                 <RefreshCw size={14} /> Refresh
               </button>
             </div>
@@ -7571,7 +7620,7 @@ function BackendHealthPanel() {
           <h2>Supabase backend health</h2>
           <span>Read-only audit for database tables, required env config and public-data safety.</span>
         </div>
-        <button type="button" onClick={loadHealth} disabled={loading}><RefreshCw /> {loading ? "Checking..." : "Refresh"}</button>
+        <button type="button" onClick={loadHealth} disabled={loading} aria-busy={loading}><RefreshCw /> {loading ? "Checking..." : "Refresh"}</button>
       </div>
       {error && <div className="adminErrorBanner">{error}</div>}
       <div className="dashboardMiniGrid">
@@ -8504,7 +8553,7 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
             <div className="settingsPermissionGrid">
               {availablePermissions.map((permission) => <label className="switchLabel" key={permission}><input name={`permission-${permission}`} type="checkbox" defaultChecked={["dashboard", "orders"].includes(permission)} /> {permission}</label>)}
             </div>
-            <button disabled={staffLoading}>Add admin user</button>
+            <button disabled={staffLoading} aria-busy={staffLoading}>Add admin user</button>
           </form>
         </div>}
 
