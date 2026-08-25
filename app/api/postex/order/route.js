@@ -192,10 +192,10 @@ async function createCheckoutOrderDirect({ customer, items, paymentAmounts, paym
     status: "pending",
     courier_status: "pending",
     payment_method: paymentAmounts.paymentMethod,
-    payment_status: "Awaiting Payment",
-    payment_proof_status: "Awaiting Payment",
-    order_confirmation_status: "Awaiting payment verification",
-    fulfillment_status: "On hold",
+    payment_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting Payment" : "COD Pending",
+    payment_proof_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting Payment" : "COD",
+    order_confirmation_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting payment verification" : "Confirmed",
+    fulfillment_status: paymentAmounts.paymentMethod === "full_advance" ? "On hold" : "Unfulfilled",
     subtotal: paymentAmounts.productSubtotal,
     subtotal_pkr: paymentAmounts.productSubtotal,
     shipping_fee_pkr: paymentAmounts.deliveryCharges,
@@ -232,18 +232,22 @@ async function createCheckoutOrderDirect({ customer, items, paymentAmounts, paym
       color: item.color || null,
     })),
     notes: [
-      "Checkout payment verification pending.",
-      `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment" : "COD delivery charges in advance"}.`,
+      paymentAmounts.paymentMethod === "full_advance"
+        ? "Checkout advance payment verification pending."
+        : "Cash on Delivery order placed.",
+      `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment (Free Delivery)" : "Cash on Delivery (COD)"}.`,
       `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
-      `Delivery charges: Rs. ${paymentAmounts.deliveryCharges}.`,
+      `Delivery charges: ${paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges}` : "Free"}.`,
       `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
       `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
     ].join(" "),
     internal_notes: [
-      "Checkout payment verification pending.",
-      `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment" : "COD delivery charges in advance"}.`,
+      paymentAmounts.paymentMethod === "full_advance"
+        ? "Checkout advance payment verification pending."
+        : "Cash on Delivery order placed.",
+      `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment (Free Delivery)" : "Cash on Delivery (COD)"}.`,
       `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
-      `Delivery charges: Rs. ${paymentAmounts.deliveryCharges}.`,
+      `Delivery charges: ${paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges}` : "Free"}.`,
       `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
       `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
     ].join(" "),
@@ -488,34 +492,38 @@ export async function POST(request) {
         subtotal_pkr: paymentAmounts.productSubtotal,
         shipping_fee_pkr: paymentAmounts.deliveryCharges,
         total_pkr: paymentAmounts.totalOrderValue,
-        payment_status: "Awaiting Payment",
-        payment_proof_status: "Awaiting Payment",
-        order_confirmation_status: "Awaiting payment verification",
+        payment_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting Payment" : "COD Pending",
+        payment_proof_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting Payment" : "COD",
+        order_confirmation_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting payment verification" : "Confirmed",
         product_subtotal_pkr: paymentAmounts.productSubtotal,
         delivery_charges_pkr: paymentAmounts.deliveryCharges,
         total_order_value_pkr: paymentAmounts.totalOrderValue,
         amount_payable_in_advance_pkr: paymentAmounts.amountPayableInAdvance,
         amount_payable_on_delivery_pkr: paymentAmounts.amountPayableOnDelivery,
         payment_details_snapshot: paymentDetails,
-        fulfillment_status: "On hold",
+        fulfillment_status: paymentAmounts.paymentMethod === "full_advance" ? "On hold" : "Unfulfilled",
         status: "pending",
         courier_status: "pending",
         // Older Bustaniya schemas already have internal notes. Retain the
         // payment snapshot there too when the newer dedicated columns are not
         // installed, so the admin still has a complete verification record.
         internal_notes: [
-          "Checkout payment verification pending.",
-          `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment" : "COD delivery charges in advance"}.`,
+          paymentAmounts.paymentMethod === "full_advance"
+            ? "Checkout advance payment verification pending."
+            : "Cash on Delivery order placed.",
+          `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment (Free Delivery)" : "Cash on Delivery (COD)"}.`,
           `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
-          `Delivery charges: Rs. ${paymentAmounts.deliveryCharges}.`,
+          `Delivery charges: ${paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges}` : "Free"}.`,
           `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
           `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
         ].join(" "),
         notes: [
-          "Checkout payment verification pending.",
-          `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment" : "COD delivery charges in advance"}.`,
+          paymentAmounts.paymentMethod === "full_advance"
+            ? "Checkout advance payment verification pending."
+            : "Cash on Delivery order placed.",
+          `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment (Free Delivery)" : "Cash on Delivery (COD)"}.`,
           `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
-          `Delivery charges: Rs. ${paymentAmounts.deliveryCharges}.`,
+          `Delivery charges: ${paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges}` : "Free"}.`,
           `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
           `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
         ].join(" "),

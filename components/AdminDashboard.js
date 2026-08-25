@@ -1110,7 +1110,7 @@ export default function AdminDashboard() {
         deliveryCharges: Number(order.delivery_charges_pkr ?? order.delivery_pkr ?? 0),
         amountPayableInAdvance: Number(order.amount_payable_in_advance_pkr ?? 0),
         amountPayableOnDelivery: Number(order.amount_payable_on_delivery_pkr ?? order.total_pkr ?? 0),
-        paymentMethod: order.payment_method === "full_advance" || order.payment_method === "bank_deposit" ? "Full advance payment" : "COD — delivery charge in advance",
+        paymentMethod: order.payment_method === "full_advance" || order.payment_method === "bank_deposit" ? "Full advance payment" : "Cash on Delivery",
         paymentReference: order.payment_reference || "",
         confirmationStatus: order.order_confirmation_status || "Awaiting payment verification",
         paymentDetails: order.payment_details_snapshot || {},
@@ -8047,7 +8047,7 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
             />
           </div>
           <div className="paymentSettingsGrid">
-            <div className="settingsOption"><div><b>Cash on Delivery</b><span>Customer pays the delivery charge in advance; the complete product subtotal is collected by the courier at delivery.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.codEnabled !== false} onChange={(event) => updatePaymentSettings({ codEnabled: event.target.checked })} /> Enabled</label></div>
+            <div className="settingsOption"><div><b>Cash on Delivery</b><span>Customer pays the full order amount in cash to the courier upon delivery.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.codEnabled !== false} onChange={(event) => updatePaymentSettings({ codEnabled: event.target.checked })} /> Enabled</label></div>
             <div className="settingsOption"><div><b>Full advance payment</b><span>Customer pays the complete product subtotal in advance and receives free delivery.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.manualTransferEnabled !== false} onChange={(event) => updatePaymentSettings({ manualTransferEnabled: event.target.checked })} /> Enabled</label></div>
           </div>
           <div className="paymentRulesCard">
@@ -8081,7 +8081,7 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
 
           <div className="paymentRulesCard">
             <h3>Payment receiving details</h3>
-            <p className="settingsHint">These details are shown after every COD delivery-charge payment and full advance order. Customers send a screenshot to WhatsApp for manual verification.</p>
+            <p className="settingsHint">These details are shown for advance payment orders. Customers transfer funds and send a screenshot to WhatsApp for payment verification.</p>
             <div className="formRow"><label>Bank name<input value={storeSettings.paymentSettings?.bankName || ""} onChange={(event) => updatePaymentSettings({ bankName: event.target.value })} placeholder="e.g. Meezan Bank" /></label><label>Account title<input value={storeSettings.paymentSettings?.bankTitle || ""} onChange={(event) => updatePaymentSettings({ bankTitle: event.target.value })} placeholder="Account holder name" /></label></div>
             <div className="formRow"><label>Account number<input value={storeSettings.paymentSettings?.bankAccountNumber || ""} onChange={(event) => updatePaymentSettings({ bankAccountNumber: event.target.value })} placeholder="Bank account number" /></label><label>IBAN (optional)<input value={storeSettings.paymentSettings?.bankIban || ""} onChange={(event) => updatePaymentSettings({ bankIban: event.target.value })} placeholder="PK..." /></label></div>
             <div className="formRow"><label>WhatsApp support & verification number<input type="tel" value={storeSettings.paymentSettings?.whatsappNumber || ""} onChange={(event) => updatePaymentSettings({ whatsappNumber: event.target.value })} placeholder="923001234567" /><small>This number powers the website chat button and checkout payment-screenshot button.</small></label></div>
