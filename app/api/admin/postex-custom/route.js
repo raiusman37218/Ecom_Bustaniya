@@ -272,75 +272,100 @@ export async function POST(request) {
       } catch {}
     }
 
+    const directOrderRecord = {
+      id: randomUUID(),
+      order_number: orderNumber,
+      checkout_token: randomUUID(),
+      status: body?.status || "custom_order",
+      courier_status: body?.status || "pending",
+      payment_status: paymentStatus,
+      payment_method: paymentMethod,
+      order_confirmation_status: "Confirmed",
+      fulfillment_status: shouldBookPostex ? "PostEx booking pending" : "Manual delivery",
+      subtotal: productSubtotal,
+      subtotal_pkr: productSubtotal,
+      product_subtotal_pkr: productSubtotal,
+      delivery: deliveryFee,
+      delivery_pkr: deliveryFee,
+      delivery_charges_pkr: deliveryFee,
+      total,
+      total_pkr: total,
+      total_order_value_pkr: total,
+      amount_payable_in_advance_pkr: advancePaidPkr,
+      amount_payable_on_delivery_pkr: amountPayableOnDeliveryPkr,
+      payment_proof_status: paymentProofStatus,
+      shipping_full_name: customer.name.trim(),
+      shipping_phone: customer.phone.trim(),
+      shipping_line1: customer.address.trim(),
+      shipping_line2: "",
+      shipping_address: customer.address.trim(),
+      shipping_city: customer.city.trim(),
+      shipping_region: "",
+      shipping_country: "Pakistan",
+      shipping_postal_code: "",
+      guest_name: customer.name.trim(),
+      guest_phone: customer.phone.trim(),
+      customer_email: "",
+      guest_email: "",
+      items: customItems,
+      tags: ["Custom order", body?.source, body?.deliveryMethod].filter(Boolean),
+      notes: limitText([
+        `Payment option: ${paymentMethodLabel}`,
+        `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
+        `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
+        body?.notes,
+      ].filter(Boolean).join("\n"), 2000),
+      internal_notes: limitText([
+        body?.notes,
+        `Payment option: ${paymentMethodLabel}`,
+        `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
+        `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
+      ].filter(Boolean).join("\n"), 2000),
+    };
+
     if (existingOrder) {
       completedOrder = existingOrder;
     } else if (allItemsInCatalog) {
       const [firstName, ...lastNameParts] = customer.name.trim().split(/\s+/);
-      reservedOrder = await supabaseAdminRpc("create_checkout_order", {
-        p_customer: {
-          firstName,
-          lastName: lastNameParts.join(" ") || "-",
-          phone: customer.phone,
-          address: customer.address,
-          city: customer.city,
-          email: "",
-          postalCode: "",
-          paymentMethod,
-        },
-        p_items: customItems.map((item) => ({
-          article_number: item.article_number,
-          quantity: item.quantity,
-          size: item.size || null,
-          color: item.color || null,
-        })),
-      });
-      await ensureOrderItems(reservedOrder.order_id, customItems);
-      completedOrder = {
-        id: reservedOrder.order_id,
-        order_number: reservedOrder.order_number,
-        total_pkr: reservedOrder.total,
-        total: reservedOrder.total,
-        items: reservedOrder.items || customItems,
-      };
+      try {
+        reservedOrder = await supabaseAdminRpc("create_checkout_order", {
+          p_customer: {
+            firstName,
+            lastName: lastNameParts.join(" ") || "-",
+            phone: customer.phone,
+            address: customer.address,
+            city: customer.city,
+            email: "",
+            postalCode: "",
+            paymentMethod,
+          },
+          p_items: customItems.map((item) => ({
+            article_number: item.article_number,
+            quantity: item.quantity,
+            size: item.size || null,
+            color: item.color || null,
+          })),
+        });
+        await ensureOrderItems(reservedOrder.order_id, customItems);
+        completedOrder = {
+          id: reservedOrder.order_id,
+          order_number: reservedOrder.order_number,
+          total_pkr: reservedOrder.total,
+          total: reservedOrder.total,
+          items: reservedOrder.items || customItems,
+        };
+      } catch (rpcError) {
+        // Some older Supabase projects have the checkout RPC installed with
+        // an outdated orders.id default. Fall back to a direct insert with an
+        // explicit UUID so admin-created orders still save safely.
+        console.error("Admin custom order RPC unavailable; using direct insert fallback", {
+          message: rpcError?.message,
+          status: rpcError?.status,
+        });
+        completedOrder = await createCustomOrderDirect(directOrderRecord);
+      }
     } else {
-      completedOrder = await createCustomOrderDirect({
-        order_number: orderNumber,
-        checkout_token: randomUUID(),
-        status: body?.status || "custom_order",
-        payment_status: paymentStatus,
-        payment_method: paymentMethod,
-        order_confirmation_status: "Confirmed",
-        fulfillment_status: shouldBookPostex ? "PostEx booking pending" : "Manual delivery",
-        subtotal: productSubtotal,
-        subtotal_pkr: productSubtotal,
-        product_subtotal_pkr: productSubtotal,
-        delivery: deliveryFee,
-        delivery_pkr: deliveryFee,
-        delivery_charges_pkr: deliveryFee,
-        total,
-        total_pkr: total,
-        total_order_value_pkr: total,
-        amount_payable_in_advance_pkr: advancePaidPkr,
-        amount_payable_on_delivery_pkr: amountPayableOnDeliveryPkr,
-        payment_proof_status: paymentProofStatus,
-        shipping_full_name: customer.name.trim(),
-        shipping_phone: customer.phone.trim(),
-        shipping_address: customer.address.trim(),
-        shipping_city: customer.city.trim(),
-        shipping_postal_code: "",
-        guest_name: customer.name.trim(),
-        guest_phone: customer.phone.trim(),
-        customer_email: "",
-        guest_email: "",
-        items: customItems,
-        tags: ["Custom order", body?.source, body?.deliveryMethod].filter(Boolean),
-        internal_notes: limitText([
-          body?.notes,
-          `Payment option: ${paymentMethodLabel}`,
-          `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
-          `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
-        ].filter(Boolean).join("\n"), 2000),
-      });
+      completedOrder = await createCustomOrderDirect(directOrderRecord);
     }
 
     const orderTotalPkr = total;
