@@ -5215,6 +5215,7 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 .financeErrorDetail { margin:0 0 14px; padding:13px 15px; border:1px solid #e0d3b4; border-radius:7px; background:#fdfaf1; color:#5c4b22; font-size:11px; line-height:1.65; white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
 .financeVoidedRow { opacity:.5; text-decoration:line-through; }
 .financeLossRow { background:#fdf6f7; }
+.financeDeliveredRow { background:#f4faf5; }
 .financeAssignBar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
 .financeAssignBar select { padding:9px 11px; border:1px solid #d8dfd9; border-radius:5px; background:#fff; font-size:11px; }
 .financeAssignBar button { height:34px; padding:0 15px; border:0; border-radius:5px; background:var(--berry); color:#fff; font-size:9px; text-transform:uppercase; letter-spacing:.07em; }

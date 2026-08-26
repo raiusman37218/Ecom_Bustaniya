@@ -48,16 +48,43 @@ begin
       '(select p.settlement_date from public.postex_order_payments p where p.order_id = o.id)';
   end if;
 
+  -- An earlier version of this script treated "Out For Delivery" as delivered.
+  -- Clear those before refilling, so re-running actually corrects them.
+  with tagged as (
+    select o.id,
+      lower(replace(replace(coalesce(nullif(o.courier_status, ''), coalesce(o.status, '')), '_', ' '), '-', ' ')) as label
+    from public.orders o
+    where o.delivered_at is not null
+  )
+  update public.orders o
+  set delivered_at = null
+  from tagged t
+  where t.id = o.id
+    and (
+      t.label like '%out for delivery%'
+      or t.label like '%return%'
+      or t.label like '%cancel%'
+      or (t.label not like '%deliver%' and t.label not like '%complete%')
+    );
+
+  -- "Out For Delivery" also contains the word "deliver", so it is excluded
+  -- first: a parcel still with the rider is not a sale.
   execute format($fmt$
+    with tagged as (
+      select o.id,
+        lower(replace(replace(coalesce(nullif(o.courier_status, ''), coalesce(o.status, '')), '_', ' '), '-', ' ')) as label
+      from public.orders o
+      where o.delivered_at is null
+    )
     update public.orders o
     set delivered_at = coalesce(%s, %s, o.created_at)
-    where o.delivered_at is null
-      and (
-        lower(replace(replace(coalesce(o.courier_status, ''), '_', ' '), '-', ' ')) like '%%deliver%%'
-        or lower(replace(replace(coalesce(o.status, ''), '_', ' '), '-', ' ')) like '%%deliver%%'
-        or lower(replace(replace(coalesce(o.courier_status, ''), '_', ' '), '-', ' ')) like '%%complete%%'
-        or lower(replace(replace(coalesce(o.status, ''), '_', ' '), '-', ' ')) like '%%complete%%'
-      )
+    from tagged t
+    where t.id = o.id
+      and t.label not like '%%out for delivery%%'
+      and t.label not like '%%out for return%%'
+      and t.label not like '%%return%%'
+      and t.label not like '%%cancel%%'
+      and (t.label like '%%deliver%%' or t.label like '%%complete%%')
   $fmt$, settlement_expression, updated_at_expression);
   get diagnostics delivered_rows = row_count;
 

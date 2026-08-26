@@ -314,6 +314,21 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               </div>
             </Card>
           </section>
+
+          <Card
+            title="Orders kis status par hain"
+            subtitle="Sale tab ginti hai jab order 'Delivered' ho jaye. Agar sales kam lag rahi hain, wajah yahan dikhegi."
+            className="managementCard"
+          >
+            <Table head={["Status", "Orders"]} empty="Koi order nahi.">
+              {sales.statusBreakdown.map((row) => (
+                <tr key={row.status} className={row.status === "Delivered" ? "financeDeliveredRow" : ""}>
+                  <td><b>{row.status}</b>{row.status === "Delivered" ? <small className="trackingNumber"><br />Yehi sales mein ginte hain</small> : null}</td>
+                  <td>{row.count}</td>
+                </tr>
+              ))}
+            </Table>
+          </Card>
         </>
       )}
 
