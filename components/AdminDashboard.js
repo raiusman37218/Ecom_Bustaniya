@@ -4453,6 +4453,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       <article><ShoppingBag /><span><b>{money(courierDeliveryCost)}</b>Courier delivery cost</span></article>
       <article><WalletCards /><span><b>{money(availableCash)}</b>Available business cash</span></article>
       <article><Landmark /><span><b>{money(receivedCash)}</b>Manually verified PostEx receipts</span></article>
+      {totalCustomerAdvance > 0 && <article><CircleDollarSign /><span><b style={{ color: "#15803d" }}>{money(totalCustomerAdvance)}</b>Customer advance recorded</span></article>}
       <article><CircleDollarSign /><span><b>{money(otherBusinessIncome)}</b>Other business income</span></article>
       <article><CircleDollarSign /><span><b>{money(ownerInvestments)}</b>Owner funds added</span></article>
       <article className={ownerWithdrawals ? "alertMetric" : ""}><CircleDollarSign /><span><b>{money(ownerWithdrawals)}</b>Owner withdrawals</span></article>
@@ -4470,14 +4471,14 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
 
     <section className="financeGrid financeGridWide">
       <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Where money comes from</h2><p>Only verified money is treated as usable cash.</p></div></div>
+        <div className="cardHeading"><div><h2>Where money comes from</h2><p>Only verified bank entries increase Available Cash.</p></div></div>
         <div className="financeStatement">
           <div><span>Manually verified PostEx receipts</span><b>+ {money(receivedCash)}</b></div>
-          {totalCustomerAdvance > 0 && <div><span>Customer advance recorded</span><b style={{ color: "#15803d" }}>{money(totalCustomerAdvance)}</b></div>}
+          {totalCustomerAdvance > 0 && <div><span>Customer advance recorded (orders)</span><b style={{ color: "#15803d" }}>{money(totalCustomerAdvance)}</b></div>}
           <div><span>Other recorded business income</span><b>+ {money(otherBusinessIncome)}</b></div>
           <div><span>Owner funds added</span><b>+ {money(ownerInvestments)}</b></div>
           {cashResetAdjustment > 0 && <div><span>Opening balance adjustment</span><b>+ {money(cashResetAdjustment)}</b></div>}
-          <div className="statementTotal"><span>Cash received / added</span><b>{money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
+          <div className="statementTotal"><span>Verified cash received</span><b>{money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
         </div>
       </div>
       <div className="adminCard financeSummaryCard">
