@@ -3428,6 +3428,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   const [packagingExpense, setPackagingExpense] = useState(0);
   const [deliveryExpense, setDeliveryExpense] = useState(0);
   const [expenses, setExpenses] = useState([]);
+  const [cashbookCategory, setCashbookCategory] = useState("Fabric / stock");
   const [cashbookTransactions, setCashbookTransactions] = useState([]);
   const [supplierBills, setSupplierBills] = useState([]);
   const [fixedCosts, setFixedCosts] = useState(0);
@@ -4115,11 +4116,13 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const data = new FormData(formElement);
+    const selectedCategory = String(data.get("category") || "Other").trim();
+    const customCategory = String(data.get("otherCategory") || "").trim();
     const nextTransactions = [{
       id: `cash-${Date.now()}`,
       type: data.get("type"),
       title: String(data.get("title") || "Finance entry").trim(),
-      category: String(data.get("category") || "Other").trim(),
+      category: selectedCategory === "Other" && customCategory ? customCategory : selectedCategory,
       amount: Number(data.get("amount") || 0),
       date: data.get("date") || new Date().toISOString().slice(0, 10),
       counterparty: String(data.get("counterparty") || "").trim(),
@@ -4135,6 +4138,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
       if (!response.ok) throw new Error(result.error || "Unable to save cashbook entry.");
       setCashbookTransactions(result.transactions || nextTransactions);
       formElement?.reset();
+      setCashbookCategory("Fabric / stock");
     } catch (error) {
       setCashbookError(error.message);
     } finally {
@@ -4669,7 +4673,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
       <form className="adminCard financeExpenseForm" onSubmit={addCashbookTransaction}>
         <h2>Add cash movement</h2>
         <p className="trackingNumber">Har real cash movement yahan record karein. Expense, supplier/tailor payment aur withdrawal Available Cash se minus honge; income aur owner funds plus honge. PostEx settlement status khud cash nahi banata.</p>
-        <div className="formRow"><label>Money direction<select name="type"><option value="business_expense">Money paid / expense</option><option value="other_income">Other business income</option><option value="owner_investment">Owner funds added</option><option value="owner_withdrawal">Owner withdrawal</option></select></label><label>Category<select name="category"><option>Fabric / stock</option><option>Tailoring / stitching</option><option>Lace / embellishment</option><option>Packaging</option><option>Marketing</option><option>Courier / delivery</option><option>Rent &amp; utilities</option><option>Salaries &amp; labour</option><option>Operations</option><option>Other</option></select></label></div>
+        <div className="formRow"><label>Money direction<select name="type"><option value="business_expense">Money paid / expense</option><option value="other_income">Other business income</option><option value="owner_investment">Owner funds added</option><option value="owner_withdrawal">Owner withdrawal</option></select></label><label>Category<select name="category" value={cashbookCategory} onChange={(event) => setCashbookCategory(event.target.value)}><option>Fabric / stock</option><option>Tailoring / stitching</option><option>Lace / embellishment</option><option>Packaging</option><option>Marketing</option><option>Courier / delivery</option><option>Rent &amp; utilities</option><option>Salaries &amp; labour</option><option>Operations</option><option>Other</option></select></label></div>
+        {cashbookCategory === "Other" && <label>Custom category name<input name="otherCategory" required maxLength="120" placeholder="e.g. Photography, repairs, samples" /></label>}
         <label>What was it for?<input name="title" required placeholder="e.g. Stitching payment for Farshi suits" /></label>
         <div className="formRow"><label>Tailor / supplier / source<input name="counterparty" placeholder="e.g. Amina Tailors" /></label><label>Amount<input name="amount" type="number" min="0.01" step="0.01" required placeholder="0" /></label></div>
         <div className="formRow"><label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label><label>Reference (optional)<input name="reference" placeholder="Invoice, bank ref, WhatsApp ref" /></label></div>

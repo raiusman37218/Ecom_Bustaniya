@@ -675,6 +675,8 @@ function PayBillButton({ bill, accounts, busy, onPay }) {
 }
 
 function AddMovementForm({ accounts, busy, onSubmit }) {
+  const [showOtherCategory, setShowOtherCategory] = useState(false);
+
   return (
     <form
       className="adminCard financeExpenseForm"
@@ -682,10 +684,12 @@ function AddMovementForm({ accounts, busy, onSubmit }) {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
         const form = event.currentTarget;
+        const selectedCategory = String(data.get("category") || "Other").trim();
+        const customCategory = String(data.get("otherCategory") || "").trim();
         const saved = await onSubmit({
           entryType: data.get("entryType"),
           accountId: data.get("accountId") || null,
-          category: data.get("category"),
+          category: selectedCategory === "Other" && customCategory ? customCategory : selectedCategory,
           title: data.get("title"),
           counterparty: data.get("counterparty"),
           amountPkr: Number(data.get("amount") || 0),
@@ -693,7 +697,10 @@ function AddMovementForm({ accounts, busy, onSubmit }) {
           reference: data.get("reference"),
           note: data.get("note"),
         });
-        if (saved) form.reset();
+        if (saved) {
+          form.reset();
+          setShowOtherCategory(false);
+        }
       }}
     >
       <h2>Add cash movement</h2>
@@ -717,7 +724,7 @@ function AddMovementForm({ accounts, busy, onSubmit }) {
       </div>
       <div className="formRow">
         <label>Category
-          <select name="category">
+          <select name="category" defaultValue="Fabric / stock" onChange={(event) => setShowOtherCategory(event.target.value === "Other")}>
             <option>Fabric / stock</option>
             <option>Tailoring / stitching</option>
             <option>Lace / embellishment</option>
@@ -732,6 +739,7 @@ function AddMovementForm({ accounts, busy, onSubmit }) {
         </label>
         <label>Amount<input name="amount" type="number" min="0.01" step="0.01" required placeholder="0" /></label>
       </div>
+      {showOtherCategory ? <label>Custom category name<input name="otherCategory" required maxLength="120" placeholder="e.g. Photography, repairs, samples" /></label> : null}
       <label>What was it for?<input name="title" required placeholder="e.g. Stitching payment for Farshi suits" /></label>
       <div className="formRow">
         <label>Tailor / supplier / source<input name="counterparty" placeholder="e.g. Amina Tailors" /></label>
