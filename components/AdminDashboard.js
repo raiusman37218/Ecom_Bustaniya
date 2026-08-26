@@ -3446,7 +3446,44 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const [resettingCash, setResettingCash] = useState(false);
   const [cprTrackingText, setCprTrackingText] = useState("");
   const [showAdvancedPostex, setShowAdvancedPostex] = useState(false);
+  const [financeSetup, setFinanceSetup] = useState(null);
+  const [migratingFinance, setMigratingFinance] = useState(false);
+  const [migrationResult, setMigrationResult] = useState(null);
   const [financeTab, setFinanceTab] = useState(["overview","settlements","pnl","cashbook","suppliers","marketing","reports"].includes(initialTab) ? initialTab : "overview");
+
+  // Finance is moving out of the store_settings JSON blob into its own tables.
+  // Until the owner has run the SQL and imported the old rows, this tells them
+  // exactly what is still pending instead of failing silently.
+  useEffect(() => {
+    if (!isOwnerFinance) return;
+    let active = true;
+    fetch("/api/admin/finance/setup", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((result) => { if (active) setFinanceSetup(result); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [isOwnerFinance]);
+
+  async function runFinanceMigration() {
+    setMigratingFinance(true);
+    setMigrationResult(null);
+    try {
+      const response = await fetch("/api/admin/finance/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "migrate_legacy" }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to import finance data.");
+      setMigrationResult(result);
+      const status = await fetch("/api/admin/finance/setup", { cache: "no-store" }).then((next) => next.json()).catch(() => null);
+      if (status) setFinanceSetup(status);
+    } catch (error) {
+      setMigrationResult({ error: error.message });
+    } finally {
+      setMigratingFinance(false);
+    }
+  }
 
   useEffect(() => {
     if (!isOwnerFinance) {
@@ -4175,6 +4212,42 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     </nav>
 
     {cashbookError && <div className="adminErrorBanner financeErrorBanner">{cashbookError}</div>}
+
+    {financeSetup && financeSetup.tablesReady === false && (
+      <div className="financeSetupBanner financeSetupBannerPending">
+        <div>
+          <b>Finance database setup pending</b>
+          <span>Finance tables abhi Supabase mein nahi bane. <code>scripts/supabase-finance.sql</code> ko Supabase SQL editor mein run karein, phir ye page refresh karein.</span>
+        </div>
+      </div>
+    )}
+
+    {financeSetup?.tablesReady && !financeSetup.legacyMigratedAt && (
+      <div className="financeSetupBanner">
+        <div>
+          <b>Purana finance data import karein</b>
+          <span>Aap ka finance data abhi purane storage mein hai. Import karne se har entry nayi tables mein chali jayegi — purana data delete nahi hota, aur dobara import karne se duplicate nahi bante.</span>
+        </div>
+        <button type="button" onClick={runFinanceMigration} disabled={migratingFinance} aria-busy={migratingFinance}>
+          {migratingFinance ? "Importing..." : "Import old finance data"}
+        </button>
+      </div>
+    )}
+
+    {migrationResult?.error && <div className="adminErrorBanner financeErrorBanner">{migrationResult.error}</div>}
+    {migrationResult?.success && (
+      <div className="financeSetupBanner financeSetupBannerDone">
+        <div>
+          <b>Import complete</b>
+          <span>
+            {migrationResult.migrated
+              ? `${migrationResult.counts?.transactions || 0} cash movements, ${migrationResult.counts?.supplierBills || 0} supplier bills aur ${migrationResult.counts?.marketingCampaigns || 0} campaigns import ho gaye.`
+              : "Ye data pehle hi import ho chuka tha."}
+            {migrationResult.skipped?.length ? ` ${migrationResult.skipped.length} entries skip hui — check karein: ${migrationResult.skipped.slice(0, 3).map((item) => item.legacyId).join(", ")}.` : ""}
+          </span>
+        </div>
+      </div>
+    )}
 
     {financeTab === "settlements" && <section className="postexSettlementPanel">
       <div className="settlementIntro">
