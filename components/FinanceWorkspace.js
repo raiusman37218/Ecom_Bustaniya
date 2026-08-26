@@ -428,21 +428,31 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
             <Kpi icon={CircleDollarSign} label="Advance verified" value={money(advances.verifiedPkr)} help={`${money(advances.pendingPkr)} pending verification`} />
           </div>
 
-          {(advances.notInCashCount > 0 || pnl.estimatedCogsOrderCount > 0) && (
-            <div className="financeSetupBanner">
-              <div>
-                <b>Purane orders ka finance data adhoora hai</b>
-                <span>
-                  {pnl.estimatedCogsOrderCount ? `${pnl.estimatedCogsOrderCount} delivered orders ki product cost abhi lock nahi hui. ` : ""}
-                  {advances.notInCashCount ? `${advances.notInCashCount} verified advance abhi cash mein nahi gaya. ` : ""}
-                  Backfill chalane se ye sab ek baar mein theek ho jayega — dobara chalane se kuch double nahi hoga.
-                </span>
-              </div>
-              <button type="button" onClick={() => post({ action: "backfill" }, (result) => `${result.cogs?.snapshotted || 0} orders ki cost lock hui, ${result.advances?.recorded || 0} advance cash mein aaye.`)} disabled={busy}>
-                {busy ? "Chal raha hai..." : "Run backfill"}
-              </button>
+          {/* Always shown: the owner needs to see that nothing is pending just
+              as much as they need the button when something is. */}
+          <div className={`financeSetupBanner ${advances.notInCashCount || pnl.estimatedCogsOrderCount ? "" : "financeSetupBannerDone"}`}>
+            <div>
+              <b>Purane orders ka finance data</b>
+              <span>
+                {pnl.estimatedCogsOrderCount || advances.notInCashCount ? (
+                  <>
+                    {pnl.estimatedCogsOrderCount ? `${pnl.estimatedCogsOrderCount} delivered orders ki product cost abhi lock nahi hui. ` : ""}
+                    {advances.notInCashCount ? `${advances.notInCashCount} verified advance abhi cash mein nahi gaya. ` : ""}
+                    Backfill chalane se ye ek baar mein theek ho jayega — dobara chalane se kuch double nahi hoga.
+                  </>
+                ) : (
+                  <>Sab kuch up to date hai: {sales.deliveredOrders} delivered orders ki cost locked hai aur har verified advance cash mein ja chuka hai. Backfill phir bhi chala sakte hain — is se kuch kharab nahi hota.</>
+                )}
+              </span>
             </div>
-          )}
+            <button
+              type="button"
+              onClick={() => post({ action: "backfill" }, (result) => `Scan: ${result.cogs?.delivered ?? 0} delivered orders, ${result.advances?.scanned ?? 0} advance orders. Locked: ${result.cogs?.snapshotted || 0} costs. Cash mein aaye: ${result.advances?.recorded || 0} advances.`)}
+              disabled={busy}
+            >
+              {busy ? "Chal raha hai..." : "Run backfill"}
+            </button>
+          </div>
 
           <Card title="Customer advance receipts" subtitle="Verified advance NayaPay account mein cash ban jata hai. Unverified sirf pending dikhta hai." className="managementCard">
             <Table head={["Customer", "Order", "City", "Advance", "COD baqi", "Status"]} empty="Is period mein koi advance nahi.">
