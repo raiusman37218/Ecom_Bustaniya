@@ -3594,6 +3594,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const cashGstTaxReserve = 0;
   const deliveryCollected = grossRevenue - deliveredProductRevenue;
   const profitAfterProductCost = grossRevenue - deliveredCogs;
+  const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - profitExpenseTotal - gstTaxTotal;
   const totalCustomerAdvance = safeOrders.reduce((sum, order) => sum + Number(order.amount_payable_in_advance_pkr ?? order.amountPayableInAdvance ?? 0), 0);
   // PostEx bank receipts are already net of courier deductions. Delivered
   // revenue remains in P&L, but it becomes spendable cash only after a CPR
