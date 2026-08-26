@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, products as initialProducts, slugifyCategory } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
+import FinanceWorkspace from "./FinanceWorkspace";
 import { apparelSizes, fashionColors } from "../data/variantOptions";
 import AdminLogin from "./AdminLogin";
 
@@ -3449,7 +3450,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const [financeSetup, setFinanceSetup] = useState(null);
   const [migratingFinance, setMigratingFinance] = useState(false);
   const [migrationResult, setMigrationResult] = useState(null);
-  const [financeTab, setFinanceTab] = useState(["overview","settlements","pnl","cashbook","suppliers","marketing","reports"].includes(initialTab) ? initialTab : "overview");
+  const [financeTab, setFinanceTab] = useState(["engine","overview","settlements","pnl","cashbook","suppliers","marketing","reports"].includes(initialTab) ? initialTab : "engine");
 
   // Finance is moving out of the store_settings JSON blob into its own tables.
   // Until the owner has run the SQL and imported the old rows, this tells them
@@ -3520,13 +3521,16 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
 
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
   const financeTabs = [
-    ["overview", "Overview"],
+    // The new engine runs beside the old tabs so its numbers can be compared
+    // against them before the old screens are removed.
+    ["engine", "New finance ✨"],
+    ["overview", "Overview (old)"],
     ["settlements", "PostEx Wallet"],
-    ["pnl", "P&L"],
-    ["cashbook", "Cashbook"],
-    ["suppliers", "Suppliers"],
+    ["pnl", "P&L (old)"],
+    ["cashbook", "Cashbook (old)"],
+    ["suppliers", "Suppliers (old)"],
     ["marketing", "Marketing"],
-    ["reports", "Reports"],
+    ["reports", "Reports (old)"],
   ];
   const periodMatches = (order) => {
     if (financePeriod === "all") return true;
@@ -4248,6 +4252,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
         </div>
       </div>
     )}
+
+    {financeTab === "engine" && <FinanceWorkspace currentAdminUser={currentAdminUser} showTitle={false} />}
 
     {financeTab === "settlements" && <section className="postexSettlementPanel">
       <div className="settlementIntro">
