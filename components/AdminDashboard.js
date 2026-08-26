@@ -3040,20 +3040,31 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
     }
   }, [allRows, initialSelectedId, onInitialSelectionHandled]);
 
-  const orderStatusCounts = useMemo(() => orderCategoryLabels.map((label) => ({
-    label,
-    count: label === "Total Orders"
-      ? allRows.length
-      : allRows.filter((order) => normalizePostexCategory(order.postexStatus || order.status) === label).length,
-  })), [allRows]);
+  const orderStatusCounts = useMemo(() => [
+    ...orderCategoryLabels.map((label) => ({
+      label,
+      count: label === "Total Orders"
+        ? allRows.length
+        : allRows.filter((order) => normalizePostexCategory(order.postexStatus || order.status) === label).length,
+    })),
+    {
+      label: "Advance Paid",
+      count: allRows.filter((order) => Number(order.amountPayableInAdvance || 0) > 0).length,
+    },
+  ], [allRows]);
   useEffect(() => {
-    if (!orderCategoryLabels.includes(activeTab)) setActiveTab("Total Orders");
+    const validTabs = [...orderCategoryLabels, "Advance Paid"];
+    if (!validTabs.includes(activeTab)) setActiveTab("Total Orders");
   }, [activeTab]);
   const selectedOrder = allRows.find((order) => order.id === selectedId);
   const visibleRows = allRows.filter((order) => {
     const statusLabel = normalizePostexCategory(order.postexStatus || order.status);
     const query = orderSearch.toLowerCase();
-    const matchesTab = activeTab === "Total Orders" || statusLabel === activeTab;
+    const matchesTab = activeTab === "Total Orders"
+      ? true
+      : activeTab === "Advance Paid"
+      ? Number(order.amountPayableInAdvance || 0) > 0
+      : statusLabel === activeTab;
     const matchesSearch = [order.id, order.customer, order.city, order.tracking, order.phone, order.postexStatus, order.deliveryMethod, order.source]
       .filter(Boolean)
       .join(" ")
@@ -3212,6 +3223,37 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       <VisualDonut title="Order pipeline" subtitle="Live fulfilment health — booked, in-transit, delivered and returned." centerValue={allRows.length} centerLabel="total" items={orderStatusVisual} />
       <VisualBars title="Revenue by city" subtitle="Top shipping destinations ranked by delivered order value." format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`} items={cityVisual} />
     </div>
+
+    {(() => {
+      const ordersWithAdvance = allRows.filter((r) => Number(r.amountPayableInAdvance || 0) > 0);
+      const totalAdvanceCollected = ordersWithAdvance.reduce((sum, r) => sum + Number(r.amountPayableInAdvance || 0), 0);
+      const totalCodPending = allRows.reduce((sum, r) => sum + Math.max(0, Number(r.total || 0) - Number(r.amountPayableInAdvance || 0)), 0);
+
+      return (
+        <section className="orderPeriodGrid" style={{ marginTop: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+          <article className="adminCard orderPeriodCard" style={{ borderLeft: "4px solid #166534", background: "#f0fdf4" }}>
+            <p style={{ color: "#166534", fontWeight: 700, margin: 0 }}>🟢 Advance Received (Total)</p>
+            <div style={{ marginTop: "4px" }}>
+              <b style={{ color: "#15803d", fontSize: "20px" }}>Rs. {totalAdvanceCollected.toLocaleString()}</b>
+              <span style={{ fontSize: "12px", marginLeft: "6px", color: "#166534" }}>({ordersWithAdvance.length} order(s) advance collected)</span>
+            </div>
+            {ordersWithAdvance.length > 0 && (
+              <small style={{ color: "#15803d", display: "block", marginTop: "6px", fontSize: "11px", fontWeight: 600 }}>
+                {ordersWithAdvance.map((o) => `${o.customer}: Rs. ${Number(o.amountPayableInAdvance).toLocaleString()}`).join(" · ")}
+              </small>
+            )}
+          </article>
+
+          <article className="adminCard orderPeriodCard" style={{ borderLeft: "4px solid #1e40af", background: "#eff6ff" }}>
+            <p style={{ color: "#1e40af", fontWeight: 700, margin: 0 }}>🚚 Remaining PostEx COD Collection</p>
+            <div style={{ marginTop: "4px" }}>
+              <b style={{ color: "#1d4ed8", fontSize: "20px" }}>Rs. {totalCodPending.toLocaleString()}</b>
+              <span style={{ fontSize: "12px", marginLeft: "6px", color: "#1e40af" }}>(PostEx COD receivable from delivery)</span>
+            </div>
+          </article>
+        </section>
+      );
+    })()}
     <section className="adminCard managementCard">
       <div className="ordersToolbar">
         <label className="orderStatusFilter">Order status<select value={activeTab} onChange={(event) => setActiveTab(event.target.value)}>{orderStatusCounts.map((category) => <option key={category.label} value={category.label}>{category.label} ({category.count})</option>)}</select></label>
