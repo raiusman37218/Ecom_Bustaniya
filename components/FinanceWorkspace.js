@@ -113,7 +113,11 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
   }, [period, customFrom, customTo]);
 
   const load = useCallback(async ({ withTrend = false } = {}) => {
-    if (period === "custom" && (!customFrom || !customTo)) return;
+    if (period === "custom" && (!customFrom || !customTo)) {
+      setLoading(false);
+      setError("");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -193,7 +197,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
             <h1>Finances</h1>
             <span>{report.period.label} — har number isi period ka hai: sales, expenses, cashbook, suppliers, sab.</span>
           </div>
-          <button type="button" onClick={() => load({ withTrend: true })} disabled={loading}>
+          <button type="button" onClick={() => load({ withTrend: true })} disabled={loading} aria-busy={loading}>
             <RefreshCw /> {loading ? "Refreshing..." : "Refresh"}
           </button>
         </div>
@@ -209,6 +213,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
           <div className="financeRangePicker">
             <label>From<input type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} /></label>
             <label>To<input type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} /></label>
+            {(!customFrom || !customTo) && <small className="trackingNumber">Report dekhne ke liye dono dates select karein.</small>}
           </div>
         )}
       </div>
@@ -629,12 +634,13 @@ function VoidButton({ entry, busy, onVoid }) {
       type="button"
       className="removeProductButton"
       disabled={busy}
+      aria-busy={busy}
       onClick={() => {
         const confirmation = window.prompt(`Ye entry void karne ke liye likhein:\nVOID ${entry.id}`, "");
         if (confirmation) onVoid(confirmation.trim());
       }}
     >
-      Void
+      {busy ? "Voiding..." : "Void"}
     </button>
   );
 }
@@ -645,16 +651,18 @@ function PayBillButton({ bill, accounts, busy, onPay }) {
       type="button"
       className="editProductButton"
       disabled={busy}
+      aria-busy={busy}
       onClick={() => {
         const remaining = Number(bill.remaining_pkr || 0);
         const amount = Number(window.prompt(`${bill.supplier} ko payment. Baqi: Rs. ${remaining.toLocaleString()}`, String(remaining)) || 0);
-        if (!amount) return;
+        if (!(amount > 0) || amount > remaining) return;
         const accountName = window.prompt(`Kis account se? (${accounts.map((row) => row.name).join(" / ")})`, accounts[0]?.name || "");
         const account = accounts.find((row) => row.name.toLowerCase() === String(accountName || "").trim().toLowerCase());
-        onPay(amount, account?.id || null);
+        if (!account) return;
+        onPay(amount, account.id);
       }}
     >
-      Pay
+      {busy ? "Processing..." : "Pay"}
     </button>
   );
 }
@@ -663,11 +671,11 @@ function AddMovementForm({ accounts, busy, onSubmit }) {
   return (
     <form
       className="adminCard financeExpenseForm"
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
         const form = event.currentTarget;
-        onSubmit({
+        const saved = await onSubmit({
           entryType: data.get("entryType"),
           accountId: data.get("accountId") || null,
           category: data.get("category"),
@@ -678,7 +686,7 @@ function AddMovementForm({ accounts, busy, onSubmit }) {
           reference: data.get("reference"),
           note: data.get("note"),
         });
-        form.reset();
+        if (saved) form.reset();
       }}
     >
       <h2>Add cash movement</h2>
@@ -694,7 +702,7 @@ function AddMovementForm({ accounts, busy, onSubmit }) {
           </select>
         </label>
         <label>Account
-          <select name="accountId">
+          <select name="accountId" required>
             <option value="">Select account</option>
             {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
           </select>
@@ -735,11 +743,11 @@ function TransferForm({ accounts, busy, onSubmit }) {
   return (
     <form
       className="adminCard financeExpenseForm"
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
         const form = event.currentTarget;
-        onSubmit({
+        const saved = await onSubmit({
           fromAccountId: data.get("fromAccountId"),
           toAccountId: data.get("toAccountId"),
           amountPkr: Number(data.get("amount") || 0),
@@ -747,7 +755,7 @@ function TransferForm({ accounts, busy, onSubmit }) {
           reference: data.get("reference"),
           title: data.get("title") || "Account transfer",
         });
-        form.reset();
+        if (saved) form.reset();
       }}
     >
       <h2><ArrowLeftRight size={16} /> Transfer between accounts</h2>
@@ -780,11 +788,11 @@ function SupplierBillForm({ accounts, busy, onSubmit }) {
   return (
     <form
       className="adminCard financeExpenseForm"
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
         const form = event.currentTarget;
-        onSubmit({
+        const saved = await onSubmit({
           supplier: data.get("supplier"),
           reference: data.get("reference"),
           totalPkr: Number(data.get("total") || 0),
@@ -794,11 +802,11 @@ function SupplierBillForm({ accounts, busy, onSubmit }) {
           note: data.get("note"),
           accountId: data.get("accountId") || null,
         });
-        form.reset();
+        if (saved) form.reset();
       }}
     >
       <h2>Add supplier bill</h2>
-      <p className="trackingNumber">Poora bill likhein aur jitna already de chuke hain woh bhi. Jo diya hua hai woh khud cash se minus ho jayega.</p>
+      <p className="trackingNumber">Poora bill likhein aur jitna already de chuke hain woh bhi. Jo diya hua hai woh khud cash se minus ho jayega — agar payment pehle ho chuki hai to account zaroor select karein.</p>
       <label>Supplier<input name="supplier" required placeholder="e.g. Main fabric supplier" /></label>
       <div className="formRow">
         <label>Reference<input name="reference" placeholder="Invoice / WhatsApp ref" /></label>
@@ -853,9 +861,10 @@ function UnassignedFixer({ accounts, transactions, busy, onAssign }) {
         <button
           type="button"
           disabled={busy || !accountId || !selected.length}
+          aria-busy={busy}
           onClick={() => onAssign(selected, accountId).then?.(() => setSelected([]))}
         >
-          {selected.length ? `${selected.length} entries assign karein` : "Entries select karein"}
+          {busy ? "Assigning..." : selected.length ? `${selected.length} entries assign karein` : "Entries select karein"}
         </button>
         <button type="button" className="editProductButton" onClick={() => setSelected(transactions.map((entry) => entry.id))}>Sab select</button>
       </div>

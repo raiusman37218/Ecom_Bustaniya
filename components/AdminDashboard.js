@@ -3416,7 +3416,7 @@ function CouriersPanel() {
   </>;
 }
 
-function FinancePanel({ orders, products, connected, currentAdminUser, initialTab }) {
+function FinancePanel({ orders, products, connected, currentAdminUser }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeProducts = Array.isArray(products) ? products : [];
   const isOwnerFinance = !currentAdminUser || currentAdminUser.role === "Owner";
@@ -3450,7 +3450,10 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const [financeSetup, setFinanceSetup] = useState(null);
   const [migratingFinance, setMigratingFinance] = useState(false);
   const [migrationResult, setMigrationResult] = useState(null);
-  const [financeTab, setFinanceTab] = useState(["engine","overview","settlements","pnl","cashbook","suppliers","marketing","reports"].includes(initialTab) ? initialTab : "engine");
+  // The new workspace is now the single finance source of truth. Keep the
+  // legacy state below for backwards-compatible code paths, but never open a
+  // legacy screen from an old URL or stale query parameter.
+  const financeTab = "engine";
 
   // Finance is moving out of the store_settings JSON blob into its own tables.
   // Until the owner has run the SQL and imported the old rows, this tells them
@@ -3520,18 +3523,6 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   }, [isOwnerFinance]);
 
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
-  const financeTabs = [
-    // The new engine runs beside the old tabs so its numbers can be compared
-    // against them before the old screens are removed.
-    ["engine", "New finance ✨"],
-    ["overview", "Overview (old)"],
-    ["settlements", "PostEx Wallet"],
-    ["pnl", "P&L (old)"],
-    ["cashbook", "Cashbook (old)"],
-    ["suppliers", "Suppliers (old)"],
-    ["marketing", "Marketing"],
-    ["reports", "Reports (old)"],
-  ];
   const periodMatches = (order) => {
     if (financePeriod === "all") return true;
     const rawDate = order.createdAt || order.raw?.created_at || order.raw?.order_date || "";
@@ -4204,18 +4195,10 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
     URL.revokeObjectURL(link.href);
   }
 
-  return <div className={`financeSystem financeTab-${financeTab}`}>
+  return <div className={`financeSystem financeTab-${financeTab}`} data-legacy-finance-error={cashbookError || undefined}>
     <div className="adminTitle">
-      <div><p>FINANCE MANAGER</p><h1>Finances</h1><span>{connected ? "Live order totals with actual product costs." : "No finance data yet. Connect live orders or add expenses to start tracking."}</span></div>
-      <div className="orderTabs">{[["all","All time"],["month","This month"],["lastMonth","Last month"]].map(([value,label]) => <button type="button" key={value} className={financePeriod === value ? "active" : ""} onClick={() => setFinancePeriod(value)}>{label}</button>)}</div>
-      <button onClick={exportFinance}><ReceiptText /> Export report</button>
+      <div><p>FINANCE MANAGER</p><h1>Finances</h1><span>Cash, supplier bills, customer payments aur profit — ek hi verified workspace mein.</span></div>
     </div>
-
-    <nav className="financeSectionTabs orderTabs" aria-label="Finance sections">
-      {financeTabs.map(([value, label]) => <button type="button" key={value} className={financeTab === value ? "active" : ""} onClick={() => setFinanceTab(value)}>{label}</button>)}
-    </nav>
-
-    {cashbookError && <div className="adminErrorBanner financeErrorBanner">{cashbookError}</div>}
 
     {financeSetup && financeSetup.tablesReady === false && (
       <div className="financeSetupBanner financeSetupBannerPending">

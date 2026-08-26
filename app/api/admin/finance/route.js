@@ -18,6 +18,14 @@ import { supabaseAdminRequest } from "../../../../lib/supabaseRest";
 
 const SETUP_HINT = "Run scripts/supabase-finance.sql and scripts/supabase-finance-phase2.sql in Supabase, then reload.";
 
+async function refreshSupplierBillStatus(billId) {
+  const bills = await listSupplierBills();
+  const bill = bills.find((row) => String(row.id) === String(billId));
+  if (!bill) return null;
+  const status = Number(bill.remaining_pkr || 0) > 0 ? "open" : "paid";
+  return updateSupplierBillStatus(billId, status);
+}
+
 function failure(error) {
   if (error?.status === 401 || error?.status === 403) {
     const authError = adminAuthErrorResponse(error);
@@ -76,7 +84,10 @@ export async function POST(request) {
 
     switch (body.action) {
       case "add_transaction": {
-        const [created] = await insertFinanceTransactions([{ ...body.entry, createdBy: actorName, source: "manual" }]);
+        const entry = body.entry || {};
+        if (!entry.accountId) return NextResponse.json({ error: "Paisa kis account mein hai, woh select karein." }, { status: 422 });
+        if (!(Number(entry.amountPkr || 0) > 0)) return NextResponse.json({ error: "Amount 0 se zyada hona chahiye." }, { status: 422 });
+        const [created] = await insertFinanceTransactions([{ ...entry, createdBy: actorName, source: "manual" }]);
         if (!created) return NextResponse.json({ error: "Amount zaroori hai." }, { status: 422 });
         return NextResponse.json({ success: true, transaction: created });
       }
@@ -126,16 +137,23 @@ export async function POST(request) {
           : [{ id: transaction.id }];
         for (const target of targets) await voidFinanceTransaction(target.id, { voidedBy: actorName });
         if (transaction.supplier_bill_id) {
-          await updateSupplierBillStatus(transaction.supplier_bill_id, "open").catch(() => {});
+          // Recalculate from the remaining non-voided payments. A bill that
+          // still has another payment remains paid; otherwise it reopens.
+          await refreshSupplierBillStatus(transaction.supplier_bill_id).catch(() => {});
         }
         return NextResponse.json({ success: true, voided: targets.length });
       }
 
       case "add_supplier_bill": {
-        const bill = await insertSupplierBill(body.bill || {});
+        const billInput = body.bill || {};
+        const total = Number(billInput.totalPkr || 0);
+        const paid = Number(billInput.paid || 0);
+        if (!Number.isFinite(total) || !(total > 0)) return NextResponse.json({ error: "Bill amount 0 se zyada hona chahiye." }, { status: 422 });
+        if (!Number.isFinite(paid) || paid < 0 || paid > total) return NextResponse.json({ error: "Already paid amount bill total se zyada nahi ho sakta." }, { status: 422 });
+        if (paid > 0 && !billInput.accountId) return NextResponse.json({ error: "Already paid amount ke liye account select karein." }, { status: 422 });
+        const bill = await insertSupplierBill(billInput);
         if (!bill) return NextResponse.json({ error: "Supplier aur bill amount zaroori hain." }, { status: 422 });
         // Money already handed over is a real cash movement, not just a payable.
-        const paid = Number(body.bill?.paid || 0);
         let payment = null;
         if (paid > 0) {
           [payment] = await insertFinanceTransactions([{
@@ -143,7 +161,7 @@ export async function POST(request) {
             entryType: "supplier_payment",
             title: `Supplier payment: ${bill.supplier}`,
             category: "Supplier payable",
-            amountPkr: Math.min(paid, Number(bill.total_pkr)),
+            amountPkr: paid,
             occurredOn: bill.bill_date,
             reference: bill.reference,
             counterparty: bill.supplier,
@@ -163,6 +181,7 @@ export async function POST(request) {
         if (!bill) return NextResponse.json({ error: "Bill nahi mila." }, { status: 404 });
         const remaining = Number(bill.remaining_pkr || 0);
         const amount = Number(body.amountPkr || 0);
+        if (!body.accountId) return NextResponse.json({ error: "Payment account select karein." }, { status: 422 });
         if (!(amount > 0) || amount > remaining) {
           return NextResponse.json({ error: `Amount 1 se Rs. ${remaining.toLocaleString()} ke darmiyan hona chahiye.` }, { status: 422 });
         }
