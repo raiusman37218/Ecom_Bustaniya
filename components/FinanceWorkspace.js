@@ -121,7 +121,9 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
       if (withTrend) params.set("trend", "1");
       const response = await fetch(`/api/admin/finance?${params}`, { cache: "no-store" });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Finance report load nahi ho saka.");
+      if (!response.ok) {
+        throw new Error([result.error, result.detail, result.hint].filter(Boolean).join("\n\nDatabase ne kaha: "));
+      }
       setReport(result.report);
       if (result.trend) setTrend(result.trend);
     } catch (loadError) {
@@ -171,7 +173,8 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
   if (error && !report) {
     return (
       <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Finance</h2><p>{error}</p></div></div>
+        <div className="cardHeading"><div><h2>Finance setup adhoora hai</h2></div></div>
+        <pre className="financeErrorDetail">{error}</pre>
         <button type="button" onClick={() => load()}>Dobara koshish karein</button>
       </div>
     );

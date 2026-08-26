@@ -24,7 +24,16 @@ function failure(error) {
     return NextResponse.json({ error: authError.error }, { status: authError.status });
   }
   if (error?.setupRequired || isMissingTableError(error)) {
-    return NextResponse.json({ error: SETUP_HINT, setupRequired: true }, { status: 409 });
+    // Carry the database's own words through: "table X not found" and
+    // "column Y does not exist" need very different fixes, and a generic
+    // hint sends people back to SQL they have already run.
+    console.error("Finance setup incomplete", { message: error?.message, details: error?.details });
+    return NextResponse.json({
+      error: SETUP_HINT,
+      detail: error?.message || "",
+      hint: error?.details?.hint || "",
+      setupRequired: true,
+    }, { status: 409 });
   }
   return null;
 }

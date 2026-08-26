@@ -5212,6 +5212,7 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 .financeAlert-warning svg { color:#c78b2b; }
 .financeAlert-info { border-left-color:#4777a8; background:#f5f8fc; }
 .financeAlert-info svg { color:#4777a8; }
+.financeErrorDetail { margin:0 0 14px; padding:13px 15px; border:1px solid #e0d3b4; border-radius:7px; background:#fdfaf1; color:#5c4b22; font-size:11px; line-height:1.65; white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
 .financeVoidedRow { opacity:.5; text-decoration:line-through; }
 .financeLossRow { background:#fdf6f7; }
 .financeAssignBar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
