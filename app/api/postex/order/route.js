@@ -194,7 +194,10 @@ async function createCheckoutOrderDirect({ customer, items, paymentAmounts, paym
     payment_method: paymentAmounts.paymentMethod,
     payment_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting Payment" : "COD Pending",
     payment_proof_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting Payment" : "COD",
-    order_confirmation_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting payment verification" : "Confirmed",
+    // Order confirmation is independent from payment proof. Customers may
+    // place and confirm an order even when they have not transferred advance
+    // funds yet; payment verification remains a separate operational status.
+    order_confirmation_status: "Confirmed",
     fulfillment_status: paymentAmounts.paymentMethod === "full_advance" ? "On hold" : "Unfulfilled",
     subtotal: paymentAmounts.productSubtotal,
     subtotal_pkr: paymentAmounts.productSubtotal,
@@ -233,8 +236,8 @@ async function createCheckoutOrderDirect({ customer, items, paymentAmounts, paym
     })),
     notes: [
       paymentAmounts.paymentMethod === "full_advance"
-        ? "Checkout advance payment verification pending."
-        : "Cash on Delivery order placed.",
+        ? "Order confirmed; full advance payment verification is tracked separately."
+        : "Cash on Delivery order placed and confirmed.",
       `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment (Free Delivery)" : "Cash on Delivery (COD)"}.`,
       `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
       `Delivery charges: ${paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges}` : "Free"}.`,
@@ -243,8 +246,8 @@ async function createCheckoutOrderDirect({ customer, items, paymentAmounts, paym
     ].join(" "),
     internal_notes: [
       paymentAmounts.paymentMethod === "full_advance"
-        ? "Checkout advance payment verification pending."
-        : "Cash on Delivery order placed.",
+        ? "Order confirmed; full advance payment verification is tracked separately."
+        : "Cash on Delivery order placed and confirmed.",
       `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment (Free Delivery)" : "Cash on Delivery (COD)"}.`,
       `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
       `Delivery charges: ${paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges}` : "Free"}.`,
@@ -494,7 +497,9 @@ export async function POST(request) {
         total_pkr: paymentAmounts.totalOrderValue,
         payment_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting Payment" : "COD Pending",
         payment_proof_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting Payment" : "COD",
-        order_confirmation_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting payment verification" : "Confirmed",
+        // Confirmation no longer waits for an advance transfer. Keep the
+        // payment proof status above so finance can still verify it later.
+        order_confirmation_status: "Confirmed",
         product_subtotal_pkr: paymentAmounts.productSubtotal,
         delivery_charges_pkr: paymentAmounts.deliveryCharges,
         total_order_value_pkr: paymentAmounts.totalOrderValue,
@@ -509,8 +514,8 @@ export async function POST(request) {
         // installed, so the admin still has a complete verification record.
         internal_notes: [
           paymentAmounts.paymentMethod === "full_advance"
-            ? "Checkout advance payment verification pending."
-            : "Cash on Delivery order placed.",
+            ? "Order confirmed; full advance payment verification is tracked separately."
+            : "Cash on Delivery order placed and confirmed.",
           `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment (Free Delivery)" : "Cash on Delivery (COD)"}.`,
           `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
           `Delivery charges: ${paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges}` : "Free"}.`,
@@ -519,8 +524,8 @@ export async function POST(request) {
         ].join(" "),
         notes: [
           paymentAmounts.paymentMethod === "full_advance"
-            ? "Checkout advance payment verification pending."
-            : "Cash on Delivery order placed.",
+            ? "Order confirmed; full advance payment verification is tracked separately."
+            : "Cash on Delivery order placed and confirmed.",
           `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment (Free Delivery)" : "Cash on Delivery (COD)"}.`,
           `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
           `Delivery charges: ${paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges}` : "Free"}.`,
@@ -604,6 +609,7 @@ export async function POST(request) {
       trackingNumber: "",
       paymentMethod: paymentAmounts.paymentMethod,
       paymentStatus: "Awaiting Payment",
+      orderConfirmationStatus: "Confirmed",
       productSubtotal: paymentAmounts.productSubtotal,
       deliveryCharges: paymentAmounts.deliveryCharges,
       totalOrderValue: paymentAmounts.totalOrderValue,
@@ -613,7 +619,7 @@ export async function POST(request) {
       postexCollectionAmount: paymentAmounts.courierCollectionAmount,
       paymentDetails,
       courierBooked: false,
-      courierMessage: "Courier booking will start after payment verification.",
+      courierMessage: "Order confirmation is complete. Courier booking remains subject to payment verification for advance-payment orders.",
       emailSent: true,
       items: verifiedItems,
       order: {
@@ -627,6 +633,7 @@ export async function POST(request) {
         amountPayableOnDelivery: paymentAmounts.amountPayableOnDelivery,
         paymentMethod: paymentAmounts.paymentMethod,
         paymentStatus: "Awaiting Payment",
+        confirmationStatus: "Confirmed",
         customer: normalizedCustomer,
         items: verifiedItems,
       },

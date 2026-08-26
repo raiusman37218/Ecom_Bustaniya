@@ -787,7 +787,7 @@ function OrderConfirmation({ order, items }) {
     <main className="checkoutPage">
       <header className="checkoutHeader">
         <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
-        <span><Lock size={14} /> {isFullAdvance ? "Order Placed — Verification Pending" : "Order Placed Successfully"}</span>
+        <span><Lock size={14} /> Order Confirmed</span>
       </header>
       
       <div className="confirmationContainer">
@@ -798,7 +798,7 @@ function OrderConfirmation({ order, items }) {
             <p className="eyebrow">ORDER #{order.orderRef}</p>
             <h1>Thank you, {order.customer?.fullName || "there"}!</h1>
             {isFullAdvance ? (
-              <p>Your order is saved. Please transfer <b>Rs.&nbsp;{paymentAmount.toLocaleString()}</b> and send your payment screenshot on WhatsApp to confirm your order.</p>
+              <p>Your order is confirmed. If you selected Full Advance, transfer <b>Rs.&nbsp;{paymentAmount.toLocaleString()}</b> and send the screenshot on WhatsApp for payment verification. This verification is tracked separately from order confirmation.</p>
             ) : (
               <p>Your order has been placed via <b>Cash on Delivery</b>! We will process and dispatch your parcel soon. Please keep <b>Rs.&nbsp;{payableOnDelivery.toLocaleString()}</b> ready for the courier rider.</p>
             )}
@@ -832,7 +832,7 @@ function OrderConfirmation({ order, items }) {
                 <span className="stepNumber">1</span>
                 <div>
                   <h2>Transfer Full Payment</h2>
-                  <p>Transfer <b>Rs. {paymentAmount.toLocaleString()}</b> using the account details below:</p>
+                  <p>Transfer <b>Rs. {paymentAmount.toLocaleString()}</b> using the account details below. Your order is already confirmed.</p>
                 </div>
               </div>
               <div className="bankPaymentDetails">
@@ -850,7 +850,7 @@ function OrderConfirmation({ order, items }) {
                   <span className="stepNumber step2Number">2</span>
                   <div>
                     <h2>Send Payment Screenshot on WhatsApp</h2>
-                    <p>Tap below to open WhatsApp with your order reference, then attach your screenshot for quick verification.</p>
+                    <p>Tap below to open WhatsApp with your order reference, then attach your screenshot for payment verification.</p>
                   </div>
                 </div>
                 <a className="whatsappPrimaryConfirmBtn" href={whatsappHref} target="_blank" rel="noreferrer">

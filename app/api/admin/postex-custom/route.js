@@ -282,6 +282,7 @@ export async function POST(request) {
         status: body?.status || "custom_order",
         payment_status: body?.paymentStatus || "COD pending",
         payment_method: paymentMethod,
+        order_confirmation_status: "Confirmed",
         fulfillment_status: shouldBookPostex ? "PostEx booking pending" : "Manual delivery",
         subtotal: productSubtotal,
         subtotal_pkr: productSubtotal,
@@ -401,12 +402,19 @@ export async function POST(request) {
         p_tracking_number: trackingNumber,
         p_response: postexResponse,
       });
+      // Manual/admin-created orders follow the same policy as checkout:
+      // confirmation is immediate and payment proof is tracked separately.
+      const confirmedOrder = await patchCustomOrder(completedOrder?.id || reservedOrder.order_id, {
+        order_confirmation_status: "Confirmed",
+      }).catch(() => completedOrder);
+      completedOrder = confirmedOrder || completedOrder;
       reservedOrder = null;
     } else {
       const updatedOrder = await patchCustomOrder(completedOrder.id, {
         courier_tracking_number: trackingNumber,
         tracking_number: trackingNumber,
         courier_status: courierStatus,
+        order_confirmation_status: "Confirmed",
         fulfillment_status: courierBooked ? "Booked with PostEx" : (shouldBookPostex ? "PostEx booking failed" : "Manual delivery"),
         courier_response: postexResponse,
         postex_response: postexResponse,

@@ -30,8 +30,9 @@ export default async function TermsAndConditionsPage() {
           </p>
           <h2>Orders and payment</h2>
           <p>
-            Orders are accepted after checkout details are submitted and any required confirmation
-            payment is completed. Prices are listed in Pakistani Rupees.
+            Orders are accepted and confirmed after valid checkout details are submitted. Payment
+            verification is tracked separately, and full advance payment remains optional unless a
+            customer chooses the free-delivery option. Prices are listed in Pakistani Rupees.
           </p>
           <h2>Policy links</h2>
           <p>

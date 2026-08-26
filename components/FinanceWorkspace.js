@@ -636,7 +636,14 @@ function VoidButton({ entry, busy, onVoid }) {
       disabled={busy}
       aria-busy={busy}
       onClick={() => {
-        const confirmation = window.prompt(`Ye entry void karne ke liye likhein:\nVOID ${entry.id}`, "");
+        // Pre-fill the exact confirmation token so the owner does not have to
+        // copy/paste a long UUID from the ledger row. It still remains an
+        // explicit confirmation step and the API validates the same token.
+        const expectedConfirmation = `VOID ${entry.id}`;
+        const confirmation = window.prompt(
+          `Ye entry void karne ke liye OK press karein.\nConfirmation: ${expectedConfirmation}`,
+          expectedConfirmation
+        );
         if (confirmation) onVoid(confirmation.trim());
       }}
     >

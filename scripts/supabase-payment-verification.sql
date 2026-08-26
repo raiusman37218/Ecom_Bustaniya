@@ -14,9 +14,15 @@ alter table public.orders
   add column if not exists amount_payable_on_delivery_pkr numeric(12,2),
   add column if not exists payment_reference text,
   add column if not exists payment_proof_status text not null default 'Awaiting Payment',
-  add column if not exists order_confirmation_status text not null default 'Awaiting payment verification',
+  add column if not exists order_confirmation_status text not null default 'Confirmed',
   add column if not exists payment_details_snapshot jsonb not null default '{}'::jsonb,
   add column if not exists fulfillment_status text not null default 'On hold';
+
+-- Existing columns keep their old default when `add column if not exists`
+-- does nothing, so explicitly move the confirmation default to the current
+-- policy as well.
+alter table public.orders
+  alter column order_confirmation_status set default 'Confirmed';
 
 -- Preserve sensible values for historical orders without changing their totals.
 update public.orders
@@ -28,7 +34,7 @@ set
   amount_payable_on_delivery_pkr = coalesce(amount_payable_on_delivery_pkr, total_pkr, 0),
   payment_status = coalesce(nullif(payment_status, ''), 'Awaiting Payment'),
   payment_proof_status = coalesce(nullif(payment_proof_status, ''), 'Awaiting Payment'),
-  order_confirmation_status = coalesce(nullif(order_confirmation_status, ''), 'Awaiting payment verification'),
+  order_confirmation_status = coalesce(nullif(order_confirmation_status, ''), 'Confirmed'),
   fulfillment_status = coalesce(nullif(fulfillment_status, ''), 'On hold')
 where product_subtotal_pkr is null
    or delivery_charges_pkr is null
@@ -39,6 +45,20 @@ where product_subtotal_pkr is null
    or payment_proof_status is null
    or order_confirmation_status is null
    or fulfillment_status is null;
+
+-- The current policy confirms every submitted order. Payment proof (including
+-- a rejected proof) remains in payment_proof_status and does not unconfirm it.
+-- Only legacy "waiting" labels are migrated here; cancelled/closed orders
+-- must keep their terminal lifecycle state.
+update public.orders
+set order_confirmation_status = 'Confirmed'
+where lower(trim(coalesce(order_confirmation_status, ''))) in (
+  'awaiting payment verification',
+  'awaiting payment',
+  'pending',
+  'pending confirmation',
+  'unconfirmed'
+);
 
 create index if not exists orders_payment_proof_status_idx
   on public.orders (payment_proof_status, created_at desc);

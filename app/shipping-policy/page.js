@@ -6,7 +6,7 @@ import { getStoreSettings } from "../../lib/storeSettings";
 export const metadata = buildMetadata({
   title: "Shipping Policy",
   description:
-    "Read Bustaniya's shipping policy for Pakistani clothing orders, delivery charges, courier handling and confirmation payments.",
+    "Read Bustaniya's shipping policy for Pakistani clothing orders, delivery charges, courier handling and payment options.",
   path: "/shipping-policy",
 });
 

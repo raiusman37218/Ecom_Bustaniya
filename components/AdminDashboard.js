@@ -1200,7 +1200,10 @@ export default function AdminDashboard() {
         amountPayableOnDelivery: Number(order.amount_payable_on_delivery_pkr ?? order.total_pkr ?? 0),
         paymentMethod: order.payment_method === "full_advance" || order.payment_method === "bank_deposit" ? "Full advance payment" : "Cash on Delivery",
         paymentReference: order.payment_reference || "",
-        confirmationStatus: order.order_confirmation_status || "Awaiting payment verification",
+        // Payment verification no longer controls confirmation. Every
+        // historical/new submitted order is confirmed until an operator
+        // cancels it; proof remains visible in paymentStatus.
+        confirmationStatus: "Confirmed",
         paymentDetails: order.payment_details_snapshot || {},
         status: formatOrderStatus(order.courier_normalized_status || order.courier_status || order.status || "pending"),
         postexStatus: formatOrderStatus(order.courier_status || order.status || "pending"),
@@ -2983,6 +2986,8 @@ function formatSavedCustomOrder(order, fallback = {}) {
     status: formatOrderStatus(order.courier_status || order.status || fallback.status || "Un-Assigned By Me"),
     postexStatus: formatOrderStatus(order.courier_status || order.status || fallback.postexStatus || "Un-Assigned By Me"),
     paymentStatus: order.payment_status || fallback.paymentStatus || "COD pending",
+    confirmationStatus: "Confirmed",
+    paymentReference: order.payment_reference || fallback.paymentReference || "",
     fulfillmentStatus: order.fulfillment_status || fallback.fulfillmentStatus || "Manual delivery",
     tracking: order.courier_tracking_number || order.tracking_number || fallback.tracking || "",
     phone: order.shipping_phone || order.guest_phone || fallback.phone || "",
@@ -5780,7 +5785,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
         <div className="inventoryListHead">
           <div>
             <h3>Payment &amp; Advance Verification</h3>
-            <span>{order.confirmationStatus || "Awaiting payment verification"}</span>
+            <span>{order.confirmationStatus || "Confirmed"}</span>
           </div>
           <span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`}>
             {paymentStatus}
@@ -5864,6 +5869,19 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
               <div className="orderActionRow" style={{ marginTop: "8px" }}>
                 <button
                   type="button"
+                  onClick={() => saveChanges({
+                    paymentReference,
+                    amountPayableInAdvance: Number(advancePaidAmount || 0),
+                    confirmationStatus: "Confirmed",
+                  })}
+                  disabled={saving}
+                  aria-busy={saving}
+                >
+                  Confirm order (payment optional)
+                </button>
+                <button
+                  type="button"
+                  className="editProductButton"
                   onClick={() => {
                     setPaymentStatus("Payment Verified");
                     setFulfillmentStatus("Packing");
@@ -5878,7 +5896,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
                   disabled={saving}
                   aria-busy={saving}
                 >
-                  Verify &amp; confirm advance
+                  Verify payment &amp; move to packing
                 </button>
                 <button
                   type="button"
@@ -5888,7 +5906,9 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
                     saveChanges({
                       paymentStatus: "Payment Rejected",
                       paymentReference,
-                      confirmationStatus: "Payment rejected",
+                      // A rejected proof does not cancel the order under the
+                      // current policy; it only updates payment verification.
+                      confirmationStatus: "Confirmed",
                     });
                   }}
                   disabled={saving}
@@ -5898,6 +5918,8 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
                 </button>
               </div>
               <p className="shippingRuleHint">
+                Order confirmation is immediate and does not require an advance. Payment proof is tracked separately; verify it before dispatching Full Advance orders.
+                <br />
                 PostEx courier will automatically collect exactly <b>Rs. {currentCod.toLocaleString()}</b> on delivery.
                 {currentCod === 0 && " (Order is 100% prepaid — PostEx label will print with Rs. 0 COD collection)"}
               </p>
