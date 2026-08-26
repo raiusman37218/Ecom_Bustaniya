@@ -304,7 +304,15 @@ export async function POST(request) {
       });
     }
 
-    const postexCollectionAmount = paymentMethod === "bank_deposit" ? 0 : Number(reservedOrder?.total ?? total);
+    const orderTotalPkr = Number(reservedOrder?.total ?? total);
+    const advancePaidPkr = Number(
+      body?.advancePaid ??
+      existingOrder?.amount_payable_in_advance_pkr ??
+      (body?.paymentStatus === "Payment Verified" || body?.paymentStatus === "Paid" ? orderTotalPkr : 0)
+    ) || 0;
+    const postexCollectionAmount = paymentMethod === "bank_deposit" || body?.paymentStatus === "Paid" || advancePaidPkr >= orderTotalPkr
+      ? 0
+      : Math.max(0, orderTotalPkr - advancePaidPkr);
     const totalItemsCount = Array.isArray(customItems)
       ? customItems.reduce((sum, item) => sum + Math.max(1, Number(item.quantity || 1)), 0)
       : 1;

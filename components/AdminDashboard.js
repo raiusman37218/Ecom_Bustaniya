@@ -5394,6 +5394,9 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
   const [orderStage, setOrderStage] = useState(order.postexStatus || order.status || "Un-Assigned By Me");
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || "COD pending");
   const [paymentReference, setPaymentReference] = useState(order.paymentReference || "");
+  const isFullPaidInitially = (String(order.paymentStatus).toLowerCase().includes("verified") || String(order.paymentStatus).toLowerCase().includes("paid") || String(order.paymentMethod).toLowerCase().includes("advance") || String(order.paymentMethod) === "bank_deposit") && Number(order.amountPayableInAdvance || 0) === 0;
+  const initialAdvancePaid = isFullPaidInitially ? Number(order.total || 0) : Number(order.amountPayableInAdvance || 0);
+  const [advancePaidAmount, setAdvancePaidAmount] = useState(initialAdvancePaid);
   const [fulfillmentStatus, setFulfillmentStatus] = useState(order.fulfillmentStatus || "Unfulfilled");
   const [deliveryMethod, setDeliveryMethod] = useState(order.deliveryMethod || (order.tracking ? "PostEx" : "Rider / same city"));
   const [risk, setRisk] = useState(order.risk || "Standard COD");
@@ -5448,6 +5451,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
       postexStatus: orderStage,
       paymentStatus,
       paymentReference,
+      amountPayableInAdvance: Number(advancePaidAmount || 0),
       confirmationStatus: order.confirmationStatus,
       fulfillmentStatus,
       deliveryMethod,
@@ -5637,13 +5641,133 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
       </section>
 
       <section className="adminCard orderOpsCard paymentVerificationWorkspace">
-        <div className="inventoryListHead"><div><h3>Payment verification</h3><span>{order.confirmationStatus || "Awaiting payment verification"}</span></div><span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`}>{paymentStatus}</span></div>
-        <div className="paymentOrderBreakdown">
-          <span>Method <b>{order.paymentMethod || "COD — delivery charge in advance"}</b></span><span>Product subtotal <b>Rs. {Number(order.productSubtotal ?? order.total ?? 0).toLocaleString()}</b></span><span>Delivery charges <b>{Number(order.deliveryCharges || 0) ? `Rs. ${Number(order.deliveryCharges).toLocaleString()}` : "Free"}</b></span><span>Total order value <b>Rs. {Number(order.total || 0).toLocaleString()}</b></span><span>Required in advance <b>Rs. {Number(order.amountPayableInAdvance || 0).toLocaleString()}</b></span><span>Payable on delivery <b>Rs. {Number(order.amountPayableOnDelivery ?? order.total ?? 0).toLocaleString()}</b></span>
+        <div className="inventoryListHead">
+          <div>
+            <h3>Payment &amp; Advance Verification</h3>
+            <span>{order.confirmationStatus || "Awaiting payment verification"}</span>
+          </div>
+          <span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`}>
+            {paymentStatus}
+          </span>
         </div>
-        <div className="formRow"><label>Transaction / reference ID<input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder="Bank transfer reference, if provided" /></label><label>Verification status<select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Awaiting Payment</option><option>Proof Submitted</option><option>Payment Verified</option><option>Payment Rejected</option></select></label></div>
-        <div className="orderActionRow"><button type="button" onClick={() => { setPaymentStatus("Proof Submitted"); saveChanges({ paymentStatus: "Proof Submitted", paymentReference }); }} disabled={saving} aria-busy={saving}>Mark proof submitted</button><button type="button" onClick={() => { setPaymentStatus("Payment Verified"); setFulfillmentStatus("Packing"); saveChanges({ paymentStatus: "Payment Verified", paymentReference, fulfillmentStatus: "Packing", confirmationStatus: "Confirmed" }); }} disabled={saving} aria-busy={saving}>Verify & confirm</button><button type="button" className="dangerButton" onClick={() => { setPaymentStatus("Payment Rejected"); saveChanges({ paymentStatus: "Payment Rejected", paymentReference, confirmationStatus: "Payment rejected" }); }} disabled={saving} aria-busy={saving}>Reject payment</button></div>
-        <p className="shippingRuleHint">Verify only after checking the bank or wallet transfer. The courier must collect exactly the payable-on-delivery amount shown above.</p>
+
+        {(() => {
+          const currentAdvance = Number(advancePaidAmount || 0);
+          const currentCod = Math.max(0, Number(order.total || 0) - currentAdvance);
+          return (
+            <>
+              <div className="paymentOrderBreakdown">
+                <span>Method <b>{order.paymentMethod || "COD — delivery charge in advance"}</b></span>
+                <span>Product subtotal <b>Rs. {Number(order.productSubtotal ?? order.total ?? 0).toLocaleString()}</b></span>
+                <span>Delivery charges <b>{Number(order.deliveryCharges || 0) ? `Rs. ${Number(order.deliveryCharges).toLocaleString()}` : "Free"}</b></span>
+                <span>Total order value <b>Rs. {Number(order.total || 0).toLocaleString()}</b></span>
+                <span style={{ color: "#15803d" }}>Advance Received <b>Rs. {currentAdvance.toLocaleString()}</b></span>
+                <span style={{ color: currentCod === 0 ? "#15803d" : "#1e40af" }}>
+                  PostEx COD Collection <b>{currentCod === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${currentCod.toLocaleString()}`}</b>
+                </span>
+              </div>
+
+              <div className="formRow" style={{ marginTop: "12px" }}>
+                <label>
+                  Advance Received (PKR)
+                  <input
+                    type="number"
+                    min="0"
+                    max={order.total}
+                    value={advancePaidAmount}
+                    onChange={(event) => setAdvancePaidAmount(event.target.value)}
+                    placeholder="250 or 9498..."
+                  />
+                </label>
+                <label>
+                  Transaction / reference ID
+                  <input
+                    value={paymentReference}
+                    onChange={(event) => setPaymentReference(event.target.value)}
+                    placeholder="Bank transfer reference, if provided"
+                  />
+                </label>
+              </div>
+
+              <div className="formRow">
+                <label>
+                  Verification status
+                  <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
+                    <option>Awaiting Payment</option>
+                    <option>Proof Submitted</option>
+                    <option>Payment Verified</option>
+                    <option>Payment Rejected</option>
+                  </select>
+                </label>
+                <div style={{ display: "flex", gap: "6px", alignItems: "flex-end", paddingBottom: "2px" }}>
+                  <button
+                    type="button"
+                    className="editProductButton"
+                    style={{ fontSize: "11px", padding: "6px 10px", background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }}
+                    onClick={() => {
+                      setAdvancePaidAmount(Number(order.total || 0));
+                      setPaymentStatus("Payment Verified");
+                    }}
+                  >
+                    🟢 Set 100% Full Advance
+                  </button>
+                  <button
+                    type="button"
+                    className="editProductButton"
+                    style={{ fontSize: "11px", padding: "6px 10px", background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}
+                    onClick={() => {
+                      setAdvancePaidAmount(250);
+                      setPaymentStatus("Payment Verified");
+                    }}
+                  >
+                    🔵 Set Rs. 250 Advance
+                  </button>
+                </div>
+              </div>
+
+              <div className="orderActionRow" style={{ marginTop: "8px" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentStatus("Payment Verified");
+                    setFulfillmentStatus("Packing");
+                    saveChanges({
+                      paymentStatus: "Payment Verified",
+                      paymentReference,
+                      amountPayableInAdvance: Number(advancePaidAmount || 0),
+                      fulfillmentStatus: "Packing",
+                      confirmationStatus: "Confirmed",
+                    });
+                  }}
+                  disabled={saving}
+                  aria-busy={saving}
+                >
+                  Verify &amp; confirm advance
+                </button>
+                <button
+                  type="button"
+                  className="dangerButton"
+                  onClick={() => {
+                    setPaymentStatus("Payment Rejected");
+                    saveChanges({
+                      paymentStatus: "Payment Rejected",
+                      paymentReference,
+                      confirmationStatus: "Payment rejected",
+                    });
+                  }}
+                  disabled={saving}
+                  aria-busy={saving}
+                >
+                  Reject payment
+                </button>
+              </div>
+              <p className="shippingRuleHint">
+                PostEx courier will automatically collect exactly <b>Rs. {currentCod.toLocaleString()}</b> on delivery.
+                {currentCod === 0 && " (Order is 100% prepaid — PostEx label will print with Rs. 0 COD collection)"}
+              </p>
+            </>
+          );
+        })()}
       </section>
 
       <section className="adminCard orderOpsCard metaCapiOrderSection" style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}>
@@ -5724,7 +5848,29 @@ function OrderTable({ rows, onSelect, density = "comfortable" }) {
                 {order.customer}
                 <small className="trackingNumber"><br />{order.city}</small>
               </td>
-              <td><b>Rs. {Number(order.total || 0).toLocaleString()}</b><small className="trackingNumber"><br />Advance: Rs. {Number(order.amountPayableInAdvance || 0).toLocaleString()}</small></td>
+              {(() => {
+                const isFullPaid = (String(order.paymentStatus).toLowerCase().includes("verified") || String(order.paymentStatus).toLowerCase().includes("paid") || String(order.paymentMethod).toLowerCase().includes("advance") || String(order.paymentMethod) === "bank_deposit") && Number(order.amountPayableInAdvance || 0) === 0;
+                const advancePaid = isFullPaid ? Number(order.total || 0) : Number(order.amountPayableInAdvance || 0);
+                const codCollectible = Math.max(0, Number(order.total || 0) - advancePaid);
+                return (
+                  <td>
+                    <b>Rs. {Number(order.total || 0).toLocaleString()}</b>
+                    <small className="trackingNumber" style={{ display: "block", marginTop: "2px", lineHeight: "1.3" }}>
+                      {advancePaid > 0 ? (
+                        <span style={{ color: "#15803d", fontWeight: 700 }}>
+                          {isFullPaid ? "🟢 Full Advance (100%)" : `🟢 Advance: Rs. ${advancePaid.toLocaleString()}`}
+                        </span>
+                      ) : (
+                        <span style={{ color: "#9a3412" }}>⭕ 0 Advance</span>
+                      )}
+                      <br />
+                      <span style={{ color: codCollectible === 0 ? "#15803d" : "#1e40af", fontWeight: 800 }}>
+                        🚚 PostEx COD: {codCollectible === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${codCollectible.toLocaleString()}`}
+                      </span>
+                    </small>
+                  </td>
+                );
+              })()}
               <td><b>{order.paymentMethod || "COD"}</b><small className="trackingNumber"><br />{order.paymentStatus || "Awaiting Payment"}</small></td>
               <td>
                 <span className={`statusBadge ${orderStatus(order).replaceAll(" ", "").replaceAll("-", "").toLowerCase()}`}>
