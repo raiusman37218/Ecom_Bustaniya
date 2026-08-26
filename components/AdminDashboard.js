@@ -5531,6 +5531,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
   const [tracking, setTracking] = useState(order.tracking || "");
   const [orderStage, setOrderStage] = useState(order.postexStatus || order.status || "Un-Assigned By Me");
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || "COD pending");
+  const [paymentReference, setPaymentReference] = useState(order.paymentReference || order.raw?.payment_reference || "");
   const [advancePaidAmount, setAdvancePaidAmount] = useState(Number(order.amountPayableInAdvance || 0));
   const [fulfillmentStatus, setFulfillmentStatus] = useState(order.fulfillmentStatus || "Unfulfilled");
   const [deliveryMethod, setDeliveryMethod] = useState(order.deliveryMethod || (order.tracking ? "PostEx" : "Rider / same city"));
