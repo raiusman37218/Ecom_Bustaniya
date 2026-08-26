@@ -3594,12 +3594,11 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const cashGstTaxReserve = 0;
   const deliveryCollected = grossRevenue - deliveredProductRevenue;
   const profitAfterProductCost = grossRevenue - deliveredCogs;
-  const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - profitExpenseTotal - gstTaxTotal;
-  const totalCustomerAdvance = allRows.reduce((sum, order) => sum + Number(order.amountPayableInAdvance || 0), 0);
+  const totalCustomerAdvance = safeOrders.reduce((sum, order) => sum + Number(order.amount_payable_in_advance_pkr ?? order.amountPayableInAdvance ?? 0), 0);
   // PostEx bank receipts are already net of courier deductions. Delivered
   // revenue remains in P&L, but it becomes spendable cash only after a CPR
-  // receipt is verified. Customer advance payments are received directly.
-  const availableCash = receivedCash + totalCustomerAdvance + ownerInvestments + otherBusinessIncome + cashResetAdjustment - cashOutflowTotal - ownerWithdrawals;
+  // receipt is verified. Customer advance payments are verified manually by owner.
+  const availableCash = receivedCash + ownerInvestments + otherBusinessIncome + cashResetAdjustment - cashOutflowTotal - ownerWithdrawals;
   const allocatableProfit = Math.max(0, netProfit);
   const marketingAllocation = Math.round(allocatableProfit * Number(profitAllocation.marketingPercent || 0) / 100);
   const ownerAllocation = Math.round(allocatableProfit * Number(profitAllocation.ownerPercent || 0) / 100);
@@ -4394,11 +4393,11 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
         <div className="cardHeading"><div><h2>Where money comes from</h2><p>Only verified money is treated as usable cash.</p></div></div>
         <div className="financeStatement">
           <div><span>Manually verified PostEx receipts</span><b>+ {money(receivedCash)}</b></div>
-          {totalCustomerAdvance > 0 && <div><span>Customer advance receipts</span><b style={{ color: "#15803d" }}>+ {money(totalCustomerAdvance)}</b></div>}
+          {totalCustomerAdvance > 0 && <div><span>Customer advance recorded</span><b style={{ color: "#15803d" }}>{money(totalCustomerAdvance)}</b></div>}
           <div><span>Other recorded business income</span><b>+ {money(otherBusinessIncome)}</b></div>
           <div><span>Owner funds added</span><b>+ {money(ownerInvestments)}</b></div>
           {cashResetAdjustment > 0 && <div><span>Opening balance adjustment</span><b>+ {money(cashResetAdjustment)}</b></div>}
-          <div className="statementTotal"><span>Cash received / added</span><b>{money(receivedCash + totalCustomerAdvance + otherBusinessIncome + ownerInvestments)}</b></div>
+          <div className="statementTotal"><span>Cash received / added</span><b>{money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
         </div>
       </div>
       <div className="adminCard financeSummaryCard">
@@ -4421,7 +4420,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
       <div className="inventoryListHead">
         <div>
           <h2>🟢 Customer Advance Receipts</h2>
-          <span>All advance confirmation fees (e.g. Rs. 250) and prepaid order payments received directly from customers.</span>
+          <span>All advance confirmation fees (e.g. Rs. 250) and prepaid order payments recorded for customers.</span>
         </div>
         <b style={{ color: "#15803d", fontSize: "16px" }}>
           Total Advance: {money(totalCustomerAdvance)}
@@ -4434,41 +4433,41 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
               <th>Customer</th>
               <th>Order Ref</th>
               <th>City</th>
-              <th>Advance Received</th>
+              <th>Advance Recorded</th>
               <th>Remaining PostEx COD</th>
               <th>Payment Status</th>
-              <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {allRows.filter((order) => Number(order.amountPayableInAdvance || 0) > 0).map((order) => {
-              const advance = Number(order.amountPayableInAdvance || 0);
-              const cod = Math.max(0, Number(order.total || 0) - advance);
+            {safeOrders.filter((order) => Number(order.amount_payable_in_advance_pkr ?? order.amountPayableInAdvance ?? 0) > 0).map((order) => {
+              const advance = Number(order.amount_payable_in_advance_pkr ?? order.amountPayableInAdvance ?? 0);
+              const totalVal = Number(order.total_pkr ?? order.total ?? 0);
+              const cod = Math.max(0, totalVal - advance);
+              const refNum = order.order_number ? `#${order.order_number}` : (order.id ? (String(order.id).startsWith("#") ? order.id : `#${order.id}`) : "—");
+              const custName = order.shipping_full_name || order.guest_name || order.customer || "Guest";
+              const custPhone = order.shipping_phone || order.guest_phone || order.phone || "—";
+              const custCity = order.shipping_city || order.city || "—";
+              const pStatus = order.payment_proof_status || order.payment_status || order.paymentStatus || "Awaiting Payment";
               return (
-                <tr key={order.id}>
-                  <td><b>{order.customer}</b><small className="trackingNumber"><br />{order.phone || "—"}</small></td>
-                  <td><b>{order.id}</b></td>
-                  <td>{order.city}</td>
+                <tr key={String(order.id || order.order_number || Math.random())}>
+                  <td><b>{custName}</b><small className="trackingNumber"><br />{custPhone}</small></td>
+                  <td><b>{refNum}</b></td>
+                  <td>{custCity}</td>
                   <td className="incomeAmount"><b>+ {money(advance)}</b></td>
                   <td style={{ color: cod === 0 ? "#15803d" : "#1e40af", fontWeight: 700 }}>
                     {cod === 0 ? "Rs. 0 (Prepaid)" : money(cod)}
                   </td>
                   <td>
-                    <span className={`statusBadge ${String(order.paymentStatus).replaceAll(" ", "").toLowerCase()}`}>
-                      {order.paymentStatus}
+                    <span className={`statusBadge ${String(pStatus).replaceAll(" ", "").toLowerCase()}`}>
+                      {pStatus}
                     </span>
-                  </td>
-                  <td>
-                    <button type="button" className="editProductButton" onClick={() => setSelectedId(order.id)}>
-                      View Order
-                    </button>
                   </td>
                 </tr>
               );
             })}
-            {!allRows.filter((order) => Number(order.amountPayableInAdvance || 0) > 0).length && (
+            {!safeOrders.filter((order) => Number(order.amount_payable_in_advance_pkr ?? order.amountPayableInAdvance ?? 0) > 0).length && (
               <tr>
-                <td colSpan="7" className="emptyFinanceCell">No customer advance receipts recorded yet.</td>
+                <td colSpan="6" className="emptyFinanceCell">No customer advance receipts recorded yet.</td>
               </tr>
             )}
           </tbody>
