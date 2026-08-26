@@ -1197,8 +1197,17 @@ export default function AdminDashboard() {
         productSubtotal: Number(order.product_subtotal_pkr ?? order.subtotal_pkr ?? order.total_pkr ?? 0),
         deliveryCharges: Number(order.delivery_charges_pkr ?? order.delivery_pkr ?? 0),
         amountPayableInAdvance: Number(order.amount_payable_in_advance_pkr ?? 0),
-        amountPayableOnDelivery: Number(order.amount_payable_on_delivery_pkr ?? order.total_pkr ?? 0),
-        paymentMethod: order.payment_method === "full_advance" || order.payment_method === "bank_deposit" ? "Full advance payment" : "Cash on Delivery",
+        amountPayableOnDelivery: Number(order.amount_payable_on_delivery_pkr ?? Math.max(0, Number(order.total_order_value_pkr ?? order.total_pkr ?? 0) - Number(order.amount_payable_in_advance_pkr ?? 0))),
+        paymentMethod: (() => {
+          const method = String(order.payment_method || "").toLowerCase();
+          const advance = Number(order.amount_payable_in_advance_pkr ?? 0);
+          const totalOrderValue = Number(order.total_order_value_pkr ?? order.total_pkr ?? 0);
+          return method === "full_advance" || method === "bank_deposit" || (totalOrderValue > 0 && advance >= totalOrderValue && Number(order.delivery_charges_pkr ?? order.delivery_pkr ?? 0) === 0)
+            ? "Full advance payment"
+            : advance > 0
+              ? "COD — delivery advance"
+              : "Cash on Delivery";
+        })(),
         paymentReference: order.payment_reference || "",
         // Payment verification no longer controls confirmation. Every
         // historical/new submitted order is confirmed until an operator
@@ -2943,7 +2952,19 @@ function createDraftOrderFromForm(form, products = []) {
     };
   }).filter((item) => item.name);
   const productTotal = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
-  const total = productTotal + 200;
+  const paymentOption = String(form.get("paymentOption") || "cod").trim().toLowerCase();
+  const isFullAdvance = paymentOption === "full_advance";
+  const isDeliveryAdvance = paymentOption === "cod_delivery_advance";
+  const deliveryFee = isFullAdvance ? 0 : Math.max(0, Number(form.get("deliveryCharges") || 250));
+  const total = productTotal + deliveryFee;
+  const requestedAdvance = Number(form.get("advancePaid"));
+  const advancePaid = Math.min(
+    total,
+    Math.max(0, Number.isFinite(requestedAdvance)
+      ? requestedAdvance
+      : (isFullAdvance ? total : isDeliveryAdvance ? deliveryFee : 0))
+  );
+  const amountPayableOnDelivery = Math.max(0, total - advancePaid);
   const deliveryMethod = String(form.get("deliveryMethod") || "Rider / same city").trim();
   const status = String(form.get("status") || "Un-Assigned By Me").trim();
   const source = String(form.get("source") || "Manual").trim();
@@ -2954,9 +2975,15 @@ function createDraftOrderFromForm(form, products = []) {
     customer,
     city: String(form.get("city") || "").trim() || "DM",
     total,
+    productSubtotal: productTotal,
+    deliveryCharges: deliveryFee,
+    amountPayableInAdvance: advancePaid,
+    amountPayableOnDelivery,
+    paymentOption,
+    paymentMethod: isFullAdvance ? "Full advance payment" : isDeliveryAdvance ? "COD — delivery advance" : "Cash on Delivery",
     status,
     postexStatus: status,
-    paymentStatus: form.get("paymentStatus") || "COD pending",
+    paymentStatus: form.get("paymentStatus") || (advancePaid > 0 ? "Payment Verified" : "Awaiting Payment"),
     fulfillmentStatus: form.get("fulfillmentStatus") || "Manual delivery",
     deliveryMethod,
     source,
@@ -2975,6 +3002,17 @@ function createDraftOrderFromForm(form, products = []) {
 
 function formatSavedCustomOrder(order, fallback = {}) {
   if (!order?.order_number) return fallback;
+  const totalOrderValue = Number(order.total_order_value_pkr ?? order.total_pkr ?? order.total ?? fallback.total ?? 0);
+  const productSubtotal = Number(order.product_subtotal_pkr ?? order.subtotal_pkr ?? fallback.productSubtotal ?? totalOrderValue ?? 0);
+  const deliveryCharges = Number(order.delivery_charges_pkr ?? order.delivery_pkr ?? fallback.deliveryCharges ?? 0);
+  const amountPayableInAdvance = Number(order.amount_payable_in_advance_pkr ?? fallback.amountPayableInAdvance ?? 0);
+  const amountPayableOnDelivery = Number(order.amount_payable_on_delivery_pkr ?? fallback.amountPayableOnDelivery ?? Math.max(0, totalOrderValue - amountPayableInAdvance));
+  const normalizedPaymentMethod = String(order.payment_method || fallback.paymentOption || "cod").trim().toLowerCase();
+  const paymentMethod = normalizedPaymentMethod === "full_advance" || normalizedPaymentMethod === "bank_deposit" || (totalOrderValue > 0 && amountPayableInAdvance >= totalOrderValue && deliveryCharges === 0)
+    ? "Full advance payment"
+    : amountPayableInAdvance > 0
+      ? "COD — delivery advance"
+      : "Cash on Delivery";
   return {
     ...fallback,
     rawId: order.id || fallback.rawId,
@@ -2982,10 +3020,16 @@ function formatSavedCustomOrder(order, fallback = {}) {
     id: `#${order.order_number}`,
     customer: order.shipping_full_name || order.guest_name || fallback.customer,
     city: order.shipping_city || fallback.city,
-    total: Number(order.total_pkr ?? order.total ?? fallback.total ?? 0),
+    total: totalOrderValue,
+    productSubtotal,
+    deliveryCharges,
+    amountPayableInAdvance,
+    amountPayableOnDelivery,
+    paymentMethod,
+    paymentOption: normalizedPaymentMethod,
     status: formatOrderStatus(order.courier_status || order.status || fallback.status || "Un-Assigned By Me"),
     postexStatus: formatOrderStatus(order.courier_status || order.status || fallback.postexStatus || "Un-Assigned By Me"),
-    paymentStatus: order.payment_status || fallback.paymentStatus || "COD pending",
+    paymentStatus: order.payment_proof_status || order.payment_status || fallback.paymentStatus || "Awaiting Payment",
     confirmationStatus: "Confirmed",
     paymentReference: order.payment_reference || fallback.paymentReference || "",
     fulfillmentStatus: order.fulfillment_status || fallback.fulfillmentStatus || "Manual delivery",
@@ -3138,6 +3182,9 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
         body: JSON.stringify({
           orderRef: order.id,
           total: order.total,
+          paymentOption: order.paymentOption,
+          advancePaid: order.amountPayableInAdvance,
+          deliveryCharges: order.deliveryCharges,
           paymentStatus: order.paymentStatus,
           status: order.status,
           deliveryMethod: order.deliveryMethod,
@@ -5467,6 +5514,9 @@ function DialogHead({title,onClose}) { return <div className="dialogHead"><h2>{t
 function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) {
   const makeItem = () => ({ key: `${Date.now()}-${Math.random()}`, productId: products[0]?.id ? String(products[0].id) : "__custom__", quantity: 1, size: "", color: "", customName: "", unitPrice: "" });
   const [draftItems, setDraftItems] = useState(() => [makeItem()]);
+  const [paymentOption, setPaymentOption] = useState("cod");
+  const [paymentStatus, setPaymentStatus] = useState("Awaiting Payment");
+  const [advanceAmount, setAdvanceAmount] = useState(0);
   const [postexCities, setPostexCities] = useState([]);
   const [citiesLoading, setCitiesLoading] = useState(false);
   const [citiesError, setCitiesError] = useState("");
@@ -5486,9 +5536,17 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
     };
   });
   const productSubtotal = preparedItems.reduce((sum, item) => sum + item.quantity * item.price, 0);
-  const deliveryFee = 200;
+  const deliveryFee = paymentOption === "full_advance" ? 0 : 250;
   const orderTotal = productSubtotal + deliveryFee;
+  const amountPayableInAdvance = Math.min(orderTotal, Math.max(0, Number(advanceAmount) || 0));
+  const amountPayableOnDelivery = Math.max(0, orderTotal - amountPayableInAdvance);
   const updateItem = (key, changes) => setDraftItems((items) => items.map((item) => item.key === key ? { ...item, ...changes } : item));
+
+  useEffect(() => {
+    const nextAdvance = paymentOption === "full_advance" ? orderTotal : paymentOption === "cod_delivery_advance" ? deliveryFee : 0;
+    setAdvanceAmount(nextAdvance);
+    setPaymentStatus(paymentOption === "cod" ? "Awaiting Payment" : "Payment Verified");
+  }, [paymentOption, orderTotal, deliveryFee]);
 
   useEffect(() => {
     let active = true;
@@ -5515,7 +5573,9 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
     <DialogHead title="Custom order" onClose={onClose} />
     <div className="formRow"><label>Customer<input name="customer" required placeholder="Instagram customer name" /></label><label>Phone<input name="phone" required placeholder="03xx xxxxxxx" /></label></div>
     <div className="formRow"><label>PostEx city<input name="city" required list="postex-city-options" placeholder={citiesLoading ? "Loading PostEx cities..." : "Start typing city name"} autoComplete="off" />{postexCities.length > 0 && <><datalist id="postex-city-options">{postexCities.map((city) => <option key={city} value={city} />)}</datalist><small className="trackingNumber">Type to search and select a PostEx city.</small></>}{citiesError && <small className="trackingNumber">{citiesError}</small>}</label><label>Source<select name="source"><option>Manual</option><option>Instagram DM</option><option>WhatsApp</option><option>Phone call</option><option>Walk-in</option></select></label></div>
-    <div className="formRow"><label>Payment<select name="paymentStatus"><option>COD pending</option><option>Advance pending</option><option>Paid</option></select></label><label>Delivery method<select name="deliveryMethod"><option>Rider / same city</option><option>PostEx</option><option>Customer pickup</option><option>Staff delivery</option><option>Manual courier</option><option>PostEx later</option></select></label></div>
+    <div className="formRow"><label>Payment option<select name="paymentOption" value={paymentOption} onChange={(event) => setPaymentOption(event.target.value)}><option value="cod">Cash on delivery — no advance</option><option value="cod_delivery_advance">COD — delivery advance received</option><option value="full_advance">Full advance — free delivery</option></select><small className="trackingNumber">Choose “delivery advance received” when the customer has already sent the delivery amount.</small></label><label>Payment status<select name="paymentStatus" value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Awaiting Payment</option><option>Proof Submitted</option><option>Payment Verified</option><option>Payment Rejected</option></select></label></div>
+    <div className="formRow"><label>Advance amount received (PKR)<input name="advancePaid" type="number" min="0" max={orderTotal} step="0.01" value={amountPayableInAdvance} onChange={(event) => setAdvanceAmount(event.target.value)} readOnly={paymentOption !== "cod_delivery_advance"} /><small className="trackingNumber">{paymentOption === "full_advance" ? "Complete product subtotal is paid; delivery is free." : paymentOption === "cod_delivery_advance" ? "Editable — this is delivery advance only, not product payment." : "No advance for this order."}</small></label><label>Delivery charges (PKR)<input name="deliveryCharges" type="number" min="0" step="0.01" value={deliveryFee} readOnly /><small className="trackingNumber">Full advance orders automatically use free delivery.</small></label></div>
+    <div className="formRow"><label>Delivery method<select name="deliveryMethod"><option>Rider / same city</option><option>PostEx</option><option>Customer pickup</option><option>Staff delivery</option><option>Manual courier</option><option>PostEx later</option></select></label><div className="adminCard" style={{ padding: "12px", margin: 0 }}><span>Product subtotal <b>Rs. {productSubtotal.toLocaleString()}</b></span><br /><span>Pay on delivery <b>Rs. {amountPayableOnDelivery.toLocaleString()}</b></span></div></div>
     <div className="formRow"><label>Order status<select name="status">{customOrderStatusOptions.map((status) => <option key={status}>{status}</option>)}</select></label><label>Fulfillment<select name="fulfillmentStatus"><option>Manual delivery</option><option>Rider assigned</option><option>Ready for pickup</option><option>Booked with PostEx</option><option>Delivered</option><option>On hold</option></select></label></div>
     <label>Shipping address<textarea name="address" rows="3" required placeholder="Full delivery address from DM" /></label>
     <div className="inventoryListHead"><div><h3>Order items</h3><span>Add as many different products as needed.</span></div><button type="button" onClick={() => setDraftItems((items) => [...items, makeItem()])}>Add another item</button></div>
@@ -5531,7 +5591,7 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
       </div>;
     })}
     <input type="hidden" name="itemsJson" value={JSON.stringify(preparedItems)} />
-    <div className="adminCard" style={{ padding: "16px", marginBottom: "12px" }}><div className="formRow"><span>Products subtotal: <b>Rs. {productSubtotal.toLocaleString()}</b></span><span>Delivery (once per order): <b>Rs. {deliveryFee.toLocaleString()}</b></span></div><b>Order total: Rs. {orderTotal.toLocaleString()}</b></div>
+    <div className="adminCard" style={{ padding: "16px", marginBottom: "12px" }}><div className="formRow"><span>Products subtotal: <b>Rs. {productSubtotal.toLocaleString()}</b></span><span>Delivery charges: <b>{deliveryFee ? `Rs. ${deliveryFee.toLocaleString()}` : "Free"}</b></span></div><div className="formRow"><span>Advance received: <b>Rs. {amountPayableInAdvance.toLocaleString()}</b></span><span>Pay on delivery: <b>Rs. {amountPayableOnDelivery.toLocaleString()}</b></span></div><b>Total order value: Rs. {orderTotal.toLocaleString()}</b></div>
     <label>Internal note<textarea name="notes" rows="3" placeholder="Rider name, pickup timing, DM link, customer request" /></label>
     <button className="dialogSave" disabled={saving} aria-busy={saving}>{saving ? "Creating order..." : "Create custom order"}</button>
   </form></>;

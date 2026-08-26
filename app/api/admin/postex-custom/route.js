@@ -210,12 +210,39 @@ export async function POST(request) {
 
     const products = await getCatalogProducts();
     const customItems = normalizeCustomItems(items, products);
-    const paymentMethod = body?.paymentStatus === "Paid" ? "bank_deposit" : "cod";
+    const requestedPaymentOption = normalizeText(body?.paymentOption || body?.paymentMethod);
+    const paymentStatusInput = limitText(body?.paymentStatus, 80);
+    // Keep the stored payment_method compatible with checkout/RPC values while
+    // using paymentOption to distinguish COD with a delivery advance.
+    const legacyPaid = !requestedPaymentOption && ["paid", "payment verified"].includes(normalizeText(paymentStatusInput));
+    const isFullAdvance = requestedPaymentOption === "full_advance" || requestedPaymentOption === "bank_deposit" || requestedPaymentOption === "advance" || legacyPaid;
+    const isDeliveryAdvance = requestedPaymentOption === "cod_delivery_advance" || requestedPaymentOption === "delivery_advance" || requestedPaymentOption === "cod_advance_delivery";
+    const paymentMethod = isFullAdvance ? "bank_deposit" : "cod";
     const productSubtotal = normalizeMoney(
       customItems.reduce((sum, item) => sum + Number(item.total_pkr || 0), 0)
     );
-    const deliveryFee = 200;
+    const deliveryFee = isFullAdvance
+      ? 0
+      : normalizeMoney(body?.deliveryCharges ?? body?.deliveryFee ?? 250, 250);
     const total = normalizeMoney(productSubtotal + deliveryFee);
+    const requestedAdvance = body?.advancePaid ?? body?.deliveryAdvanceAmount;
+    const defaultAdvance = isFullAdvance ? total : isDeliveryAdvance ? deliveryFee : legacyPaid ? total : 0;
+    const advancePaidPkr = normalizeMoney(requestedAdvance ?? defaultAdvance);
+    if (advancePaidPkr > total) {
+      throw validationError("Advance amount cannot be greater than the total order value.");
+    }
+    if (isDeliveryAdvance && advancePaidPkr <= 0) {
+      throw validationError("Enter the delivery advance amount received before saving this order.");
+    }
+    const amountPayableOnDeliveryPkr = Math.max(0, total - advancePaidPkr);
+    const paymentStatus = paymentStatusInput || (advancePaidPkr > 0 ? "Payment Verified" : "Awaiting Payment");
+    const normalizedPaymentStatus = normalizeText(paymentStatus);
+    const paymentProofStatus = normalizedPaymentStatus === "paid" ? "Payment Verified" : paymentStatus;
+    const paymentMethodLabel = isFullAdvance
+      ? "Full advance payment"
+      : isDeliveryAdvance || advancePaidPkr > 0
+        ? "COD — delivery advance"
+        : "Cash on Delivery";
     const orderNumber = makeCustomOrderNumber();
     const allItemsInCatalog = customItems.every((item) => !item.custom);
     let completedOrder;
@@ -280,16 +307,22 @@ export async function POST(request) {
         order_number: orderNumber,
         checkout_token: randomUUID(),
         status: body?.status || "custom_order",
-        payment_status: body?.paymentStatus || "COD pending",
+        payment_status: paymentStatus,
         payment_method: paymentMethod,
         order_confirmation_status: "Confirmed",
         fulfillment_status: shouldBookPostex ? "PostEx booking pending" : "Manual delivery",
         subtotal: productSubtotal,
         subtotal_pkr: productSubtotal,
+        product_subtotal_pkr: productSubtotal,
         delivery: deliveryFee,
         delivery_pkr: deliveryFee,
+        delivery_charges_pkr: deliveryFee,
         total,
         total_pkr: total,
+        total_order_value_pkr: total,
+        amount_payable_in_advance_pkr: advancePaidPkr,
+        amount_payable_on_delivery_pkr: amountPayableOnDeliveryPkr,
+        payment_proof_status: paymentProofStatus,
         shipping_full_name: customer.name.trim(),
         shipping_phone: customer.phone.trim(),
         shipping_address: customer.address.trim(),
@@ -301,19 +334,17 @@ export async function POST(request) {
         guest_email: "",
         items: customItems,
         tags: ["Custom order", body?.source, body?.deliveryMethod].filter(Boolean),
-        internal_notes: limitText(body?.notes, 2000),
+        internal_notes: limitText([
+          body?.notes,
+          `Payment option: ${paymentMethodLabel}`,
+          `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
+          `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
+        ].filter(Boolean).join("\n"), 2000),
       });
     }
 
-    const orderTotalPkr = Number(reservedOrder?.total ?? total);
-    const advancePaidPkr = Number(
-      body?.advancePaid ??
-      existingOrder?.amount_payable_in_advance_pkr ??
-      (body?.paymentStatus === "Payment Verified" || body?.paymentStatus === "Paid" ? orderTotalPkr : 0)
-    ) || 0;
-    const postexCollectionAmount = paymentMethod === "bank_deposit" || body?.paymentStatus === "Paid" || advancePaidPkr >= orderTotalPkr
-      ? 0
-      : Math.max(0, orderTotalPkr - advancePaidPkr);
+    const orderTotalPkr = total;
+    const postexCollectionAmount = Math.max(0, orderTotalPkr - advancePaidPkr);
     const totalItemsCount = Array.isArray(customItems)
       ? customItems.reduce((sum, item) => sum + Math.max(1, Number(item.quantity || 1)), 0)
       : 1;
@@ -330,7 +361,10 @@ export async function POST(request) {
       customerPhone: courierPhone,
       deliveryAddress: customer.address.trim(),
       transactionNotes: [
-        body?.paymentStatus ? `Payment: ${body.paymentStatus}` : "Payment: COD pending",
+        `Payment option: ${paymentMethodLabel}`,
+        `Payment status: ${paymentStatus}`,
+        `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
+        `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
         body?.source ? `Source: ${body.source}` : "Source: Custom order",
         body?.notes ? `Notes: ${limitText(body.notes, 300)}` : "",
       ].filter(Boolean).join(" | "),
@@ -395,6 +429,39 @@ export async function POST(request) {
       throw new Error(courierMessage || "PostEx booking failed.");
     }
 
+    const paymentSnapshot = {
+      paymentMethod: paymentMethodLabel,
+      paymentOption: isFullAdvance ? "full_advance" : isDeliveryAdvance ? "cod_delivery_advance" : "cod",
+      productSubtotalPkr: productSubtotal,
+      deliveryChargesPkr: deliveryFee,
+      totalOrderValuePkr: orderTotalPkr,
+      amountPayableInAdvancePkr: advancePaidPkr,
+      amountPayableOnDeliveryPkr,
+      advanceType: isDeliveryAdvance ? "delivery_charges" : isFullAdvance ? "full_order" : "none",
+    };
+    const paymentFields = {
+      payment_method: paymentMethod,
+      payment_status: paymentStatus,
+      payment_proof_status: paymentProofStatus,
+      product_subtotal_pkr: productSubtotal,
+      subtotal_pkr: productSubtotal,
+      delivery_charges_pkr: deliveryFee,
+      delivery_pkr: deliveryFee,
+      total_order_value_pkr: orderTotalPkr,
+      total_pkr: orderTotalPkr,
+      amount_payable_in_advance_pkr: advancePaidPkr,
+      amount_payable_on_delivery_pkr: amountPayableOnDeliveryPkr,
+      payment_details_snapshot: paymentSnapshot,
+      order_confirmation_status: "Confirmed",
+      internal_notes: limitText([
+        body?.notes,
+        `Payment option: ${paymentMethodLabel}`,
+        `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
+        `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
+        courierMessage ? `PostEx: ${courierMessage}` : "",
+      ].filter(Boolean).join("\n"), 2000),
+    };
+
     if (reservedOrder) {
       completedOrder = await supabaseAdminRpc("complete_postex_booking", {
         p_order_id: reservedOrder.order_id,
@@ -404,13 +471,12 @@ export async function POST(request) {
       });
       // Manual/admin-created orders follow the same policy as checkout:
       // confirmation is immediate and payment proof is tracked separately.
-      const confirmedOrder = await patchCustomOrder(completedOrder?.id || reservedOrder.order_id, {
-        order_confirmation_status: "Confirmed",
-      }).catch(() => completedOrder);
+      const confirmedOrder = await patchCustomOrder(completedOrder?.id || reservedOrder.order_id, paymentFields).catch(() => completedOrder);
       completedOrder = confirmedOrder || completedOrder;
       reservedOrder = null;
     } else {
       const updatedOrder = await patchCustomOrder(completedOrder.id, {
+        ...paymentFields,
         courier_tracking_number: trackingNumber,
         tracking_number: trackingNumber,
         courier_status: courierStatus,
@@ -423,7 +489,7 @@ export async function POST(request) {
       completedOrder = updatedOrder || { ...completedOrder, courier_tracking_number: trackingNumber, courier_status: courierStatus };
     }
 
-    await recordShipmentState({ orderId: completedOrder?.id, courier: courierBooked ? courier : null, trackingNumber, rawStatus: courierStatus, serviceType: paymentMethod === "bank_deposit" ? "prepaid" : "COD", manual: !courierBooked });
+    await recordShipmentState({ orderId: completedOrder?.id, courier: courierBooked ? courier : null, trackingNumber, rawStatus: courierStatus, serviceType: amountPayableOnDeliveryPkr > 0 ? "COD" : "prepaid", manual: !courierBooked });
 
     // Courier status is persisted above. Do not call the legacy RPC here: it
     // required a browser-supplied access key, which is no longer accepted.
