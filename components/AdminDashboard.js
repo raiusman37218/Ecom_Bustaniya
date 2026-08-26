@@ -3224,36 +3224,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       <VisualBars title="Revenue by city" subtitle="Top shipping destinations ranked by delivered order value." format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`} items={cityVisual} />
     </div>
 
-    {(() => {
-      const ordersWithAdvance = allRows.filter((r) => Number(r.amountPayableInAdvance || 0) > 0);
-      const totalAdvanceCollected = ordersWithAdvance.reduce((sum, r) => sum + Number(r.amountPayableInAdvance || 0), 0);
-      const totalCodPending = allRows.reduce((sum, r) => sum + Math.max(0, Number(r.total || 0) - Number(r.amountPayableInAdvance || 0)), 0);
 
-      return (
-        <section className="orderPeriodGrid" style={{ marginTop: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-          <article className="adminCard orderPeriodCard" style={{ borderLeft: "4px solid #166534", background: "#f0fdf4" }}>
-            <p style={{ color: "#166534", fontWeight: 700, margin: 0 }}>🟢 Advance Received (Total)</p>
-            <div style={{ marginTop: "4px" }}>
-              <b style={{ color: "#15803d", fontSize: "20px" }}>Rs. {totalAdvanceCollected.toLocaleString()}</b>
-              <span style={{ fontSize: "12px", marginLeft: "6px", color: "#166534" }}>({ordersWithAdvance.length} order(s) advance collected)</span>
-            </div>
-            {ordersWithAdvance.length > 0 && (
-              <small style={{ color: "#15803d", display: "block", marginTop: "6px", fontSize: "11px", fontWeight: 600 }}>
-                {ordersWithAdvance.map((o) => `${o.customer}: Rs. ${Number(o.amountPayableInAdvance).toLocaleString()}`).join(" · ")}
-              </small>
-            )}
-          </article>
-
-          <article className="adminCard orderPeriodCard" style={{ borderLeft: "4px solid #1e40af", background: "#eff6ff" }}>
-            <p style={{ color: "#1e40af", fontWeight: 700, margin: 0 }}>🚚 Remaining PostEx COD Collection</p>
-            <div style={{ marginTop: "4px" }}>
-              <b style={{ color: "#1d4ed8", fontSize: "20px" }}>Rs. {totalCodPending.toLocaleString()}</b>
-              <span style={{ fontSize: "12px", marginLeft: "6px", color: "#1e40af" }}>(PostEx COD receivable from delivery)</span>
-            </div>
-          </article>
-        </section>
-      );
-    })()}
     <section className="adminCard managementCard">
       <div className="ordersToolbar">
         <label className="orderStatusFilter">Order status<select value={activeTab} onChange={(event) => setActiveTab(event.target.value)}>{orderStatusCounts.map((category) => <option key={category.label} value={category.label}>{category.label} ({category.count})</option>)}</select></label>
@@ -3624,10 +3595,11 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
   const deliveryCollected = grossRevenue - deliveredProductRevenue;
   const profitAfterProductCost = grossRevenue - deliveredCogs;
   const netProfit = grossRevenue - deliveredCogs - courierDeliveryCost - returnCourierCost - profitExpenseTotal - gstTaxTotal;
+  const totalCustomerAdvance = allRows.reduce((sum, order) => sum + Number(order.amountPayableInAdvance || 0), 0);
   // PostEx bank receipts are already net of courier deductions. Delivered
   // revenue remains in P&L, but it becomes spendable cash only after a CPR
-  // receipt is verified.
-  const availableCash = receivedCash + ownerInvestments + otherBusinessIncome + cashResetAdjustment - cashOutflowTotal - ownerWithdrawals;
+  // receipt is verified. Customer advance payments are received directly.
+  const availableCash = receivedCash + totalCustomerAdvance + ownerInvestments + otherBusinessIncome + cashResetAdjustment - cashOutflowTotal - ownerWithdrawals;
   const allocatableProfit = Math.max(0, netProfit);
   const marketingAllocation = Math.round(allocatableProfit * Number(profitAllocation.marketingPercent || 0) / 100);
   const ownerAllocation = Math.round(allocatableProfit * Number(profitAllocation.ownerPercent || 0) / 100);
@@ -4422,10 +4394,11 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
         <div className="cardHeading"><div><h2>Where money comes from</h2><p>Only verified money is treated as usable cash.</p></div></div>
         <div className="financeStatement">
           <div><span>Manually verified PostEx receipts</span><b>+ {money(receivedCash)}</b></div>
+          {totalCustomerAdvance > 0 && <div><span>Customer advance receipts</span><b style={{ color: "#15803d" }}>+ {money(totalCustomerAdvance)}</b></div>}
           <div><span>Other recorded business income</span><b>+ {money(otherBusinessIncome)}</b></div>
           <div><span>Owner funds added</span><b>+ {money(ownerInvestments)}</b></div>
           {cashResetAdjustment > 0 && <div><span>Opening balance adjustment</span><b>+ {money(cashResetAdjustment)}</b></div>}
-          <div className="statementTotal"><span>Cash received / added</span><b>{money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
+          <div className="statementTotal"><span>Cash received / added</span><b>{money(receivedCash + totalCustomerAdvance + otherBusinessIncome + ownerInvestments)}</b></div>
         </div>
       </div>
       <div className="adminCard financeSummaryCard">
@@ -4440,6 +4413,66 @@ function FinancePanel({ orders, products, connected, currentAdminUser, initialTa
           {cashResetAdjustment < 0 && <div><span>Opening balance reset</span><b>- {money(Math.abs(cashResetAdjustment))}</b></div>}
           <div className="statementTotal"><span>Available business cash</span><b>{money(availableCash)}</b></div>
         </div>
+      </div>
+    </section>
+
+    {/* Customer Advance Receipts Breakdown Table Section */}
+    <section className="adminCard managementCard" style={{ marginTop: "16px" }}>
+      <div className="inventoryListHead">
+        <div>
+          <h2>🟢 Customer Advance Receipts</h2>
+          <span>All advance confirmation fees (e.g. Rs. 250) and prepaid order payments received directly from customers.</span>
+        </div>
+        <b style={{ color: "#15803d", fontSize: "16px" }}>
+          Total Advance: {money(totalCustomerAdvance)}
+        </b>
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable financeTable">
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th>Order Ref</th>
+              <th>City</th>
+              <th>Advance Received</th>
+              <th>Remaining PostEx COD</th>
+              <th>Payment Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {allRows.filter((order) => Number(order.amountPayableInAdvance || 0) > 0).map((order) => {
+              const advance = Number(order.amountPayableInAdvance || 0);
+              const cod = Math.max(0, Number(order.total || 0) - advance);
+              return (
+                <tr key={order.id}>
+                  <td><b>{order.customer}</b><small className="trackingNumber"><br />{order.phone || "—"}</small></td>
+                  <td><b>{order.id}</b></td>
+                  <td>{order.city}</td>
+                  <td className="incomeAmount"><b>+ {money(advance)}</b></td>
+                  <td style={{ color: cod === 0 ? "#15803d" : "#1e40af", fontWeight: 700 }}>
+                    {cod === 0 ? "Rs. 0 (Prepaid)" : money(cod)}
+                  </td>
+                  <td>
+                    <span className={`statusBadge ${String(order.paymentStatus).replaceAll(" ", "").toLowerCase()}`}>
+                      {order.paymentStatus}
+                    </span>
+                  </td>
+                  <td>
+                    <button type="button" className="editProductButton" onClick={() => setSelectedId(order.id)}>
+                      View Order
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+            {!allRows.filter((order) => Number(order.amountPayableInAdvance || 0) > 0).length && (
+              <tr>
+                <td colSpan="7" className="emptyFinanceCell">No customer advance receipts recorded yet.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </section>
 
