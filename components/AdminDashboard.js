@@ -5393,10 +5393,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
   const [tracking, setTracking] = useState(order.tracking || "");
   const [orderStage, setOrderStage] = useState(order.postexStatus || order.status || "Un-Assigned By Me");
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || "COD pending");
-  const [paymentReference, setPaymentReference] = useState(order.paymentReference || "");
-  const isFullPaidInitially = (String(order.paymentStatus).toLowerCase().includes("verified") || String(order.paymentStatus).toLowerCase().includes("paid") || String(order.paymentMethod).toLowerCase().includes("advance") || String(order.paymentMethod) === "bank_deposit") && Number(order.amountPayableInAdvance || 0) === 0;
-  const initialAdvancePaid = isFullPaidInitially ? Number(order.total || 0) : Number(order.amountPayableInAdvance || 0);
-  const [advancePaidAmount, setAdvancePaidAmount] = useState(initialAdvancePaid);
+  const [advancePaidAmount, setAdvancePaidAmount] = useState(Number(order.amountPayableInAdvance || 0));
   const [fulfillmentStatus, setFulfillmentStatus] = useState(order.fulfillmentStatus || "Unfulfilled");
   const [deliveryMethod, setDeliveryMethod] = useState(order.deliveryMethod || (order.tracking ? "PostEx" : "Rider / same city"));
   const [risk, setRisk] = useState(order.risk || "Standard COD");
@@ -5849,19 +5846,20 @@ function OrderTable({ rows, onSelect, density = "comfortable" }) {
                 <small className="trackingNumber"><br />{order.city}</small>
               </td>
               {(() => {
-                const isFullPaid = (String(order.paymentStatus).toLowerCase().includes("verified") || String(order.paymentStatus).toLowerCase().includes("paid") || String(order.paymentMethod).toLowerCase().includes("advance") || String(order.paymentMethod) === "bank_deposit") && Number(order.amountPayableInAdvance || 0) === 0;
-                const advancePaid = isFullPaid ? Number(order.total || 0) : Number(order.amountPayableInAdvance || 0);
-                const codCollectible = Math.max(0, Number(order.total || 0) - advancePaid);
+                const totalOrderVal = Number(order.total || 0);
+                const advancePaid = Number(order.amountPayableInAdvance || 0);
+                const isFullPaid = advancePaid >= totalOrderVal && totalOrderVal > 0;
+                const codCollectible = Math.max(0, totalOrderVal - advancePaid);
                 return (
                   <td>
-                    <b>Rs. {Number(order.total || 0).toLocaleString()}</b>
+                    <b>Rs. {totalOrderVal.toLocaleString()}</b>
                     <small className="trackingNumber" style={{ display: "block", marginTop: "2px", lineHeight: "1.3" }}>
                       {advancePaid > 0 ? (
                         <span style={{ color: "#15803d", fontWeight: 700 }}>
                           {isFullPaid ? "🟢 Full Advance (100%)" : `🟢 Advance: Rs. ${advancePaid.toLocaleString()}`}
                         </span>
                       ) : (
-                        <span style={{ color: "#9a3412" }}>⭕ 0 Advance</span>
+                        <span style={{ color: "#475569", fontWeight: 500 }}>⭕ Advance: Rs. 0</span>
                       )}
                       <br />
                       <span style={{ color: codCollectible === 0 ? "#15803d" : "#1e40af", fontWeight: 800 }}>
