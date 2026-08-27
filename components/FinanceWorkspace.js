@@ -245,7 +245,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
             <Kpi icon={CircleDollarSign} label="Sales (delivered)" value={money(sales.grossRevenuePkr)} help={`${sales.deliveredOrders} orders`} />
             <Kpi icon={TrendingUp} label="Net profit" value={money(pnl.netProfitPkr)} help={`${percent(pnl.marginPercent)} margin`} tone={pnl.netProfitPkr < 0 ? "alertMetric" : ""} />
             <Kpi icon={Landmark} label="PostEx receivable" value={money(postex.receivablePkr)} help="Deliver ho chuka, bank mein abhi nahi aaya" tone={postex.receivablePkr ? "alertMetric" : ""} />
-            <Kpi icon={CircleDollarSign} label="Advance received" value={money(advances.verifiedPkr)} help={`${money(advances.pendingPkr)} abhi unverified`} />
+            <Kpi icon={CircleDollarSign} label="Advance cash received" value={money(advances.cashPostedPkr || 0)} help={`${money(advances.verifiedPkr)} verified orders · ${money(advances.notInCashPkr || 0)} Amina NayaPay mein pending`} />
             <Kpi icon={Package} label="Units sold" value={sales.unitsSold} help={`${money(sales.averageOrderValuePkr)} average order`} />
             <Kpi icon={ShoppingBag} label="Returned orders" value={sales.returnedOrders} help={`${percent(sales.returnRatePercent)} return rate`} tone={sales.returnedOrders ? "alertMetric" : ""} />
             <Kpi icon={Landmark} label="Supplier payable" value={money(suppliers.payablePkr)} help={suppliers.overdue.length ? `${suppliers.overdue.length} overdue` : "Koi overdue nahi"} tone={suppliers.overdue.length ? "alertMetric" : ""} />
@@ -449,6 +449,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
             <Kpi icon={WalletCards} label="Bank mein confirm hua" value={money(postex.receivedPkr)} help="Aap ne khud verify kiya" />
             <Kpi icon={AlertTriangle} label="Abhi milna baaki" value={money(postex.receivablePkr)} tone={postex.receivablePkr ? "alertMetric" : ""} />
             <Kpi icon={CircleDollarSign} label="Advance verified" value={money(advances.verifiedPkr)} help={`${money(advances.pendingPkr)} pending verification`} />
+            <Kpi icon={WalletCards} label="Advance in Amina NayaPay" value={money(advances.cashPostedPkr || 0)} help={advances.notInCashPkr ? `${money(advances.notInCashPkr)} verified but not posted` : "All verified advances posted"} tone={advances.notInCashPkr ? "alertMetric" : ""} />
           </div>
 
           {/* Always shown: the owner needs to see that nothing is pending just
@@ -460,7 +461,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
                 {pnl.estimatedCogsOrderCount || advances.notInCashCount ? (
                   <>
                     {pnl.estimatedCogsOrderCount ? `${pnl.estimatedCogsOrderCount} delivered orders ki product cost abhi lock nahi hui. ` : ""}
-                    {advances.notInCashCount ? `${advances.notInCashCount} verified advance abhi cash mein nahi gaya. ` : ""}
+                    {advances.notInCashCount ? `${advances.notInCashCount} verified advance (${money(advances.notInCashPkr || 0)}) abhi Amina NayaPay mein post nahi hua. ` : ""}
                     Backfill chalane se ye ek baar mein theek ho jayega — dobara chalane se kuch double nahi hoga.
                   </>
                 ) : (
@@ -486,7 +487,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
                   <td>{row.city || "—"}</td>
                   <td className="incomeAmount"><b>+ {money(row.advancePkr)}</b></td>
                   <td>{row.codRemainingPkr === 0 ? "Rs. 0 (prepaid)" : money(row.codRemainingPkr)}</td>
-                  <td><span className={`statusBadge ${row.verified ? "verified" : "pending"}`}>{row.verified ? "Verified — cash" : row.paymentStatus}</span></td>
+                  <td><span className={`statusBadge ${row.verified && row.cashPosted ? "verified" : "pending"}`}>{row.verified ? (row.cashPosted ? "Verified — Amina NayaPay" : "Verified — posting pending") : row.paymentStatus}</span></td>
                 </tr>
               ))}
             </Table>

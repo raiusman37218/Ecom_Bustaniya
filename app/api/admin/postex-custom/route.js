@@ -5,6 +5,7 @@ import { getCatalogProducts } from "../../../../lib/catalog";
 import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabaseRest";
 import { getCourierAdapter, postexTrackingNumberFromBooking } from "../../../../lib/courierAdapters";
 import { recordShipmentState } from "../../../../lib/shipments";
+import { recordVerifiedAdvance } from "../../../../lib/financeOrders";
 
 async function ensureOrderItems(orderId, items) {
   if (!orderId || !items.length) return;
@@ -514,6 +515,25 @@ export async function POST(request) {
       completedOrder = updatedOrder || { ...completedOrder, courier_tracking_number: trackingNumber, courier_status: courierStatus };
     }
 
+    // A verified admin-created advance is real money received in the owner's
+    // designated Amina NayaPay account. recordVerifiedAdvance is idempotent,
+    // so retries or repeated saves cannot create a duplicate cash entry.
+    let financeAdvance = null;
+    if (paymentProofStatus === "Payment Verified" && advancePaidPkr > 0) {
+      try {
+        financeAdvance = await recordVerifiedAdvance(
+          { ...completedOrder, ...paymentFields, id: completedOrder?.id, order_number: completedOrder?.order_number || orderNumber },
+          {}
+        );
+      } catch (financeError) {
+        console.error("Admin custom order advance could not be posted to Amina NayaPay", {
+          orderId: completedOrder?.id,
+          message: financeError?.message,
+        });
+        financeAdvance = { recorded: false, reason: "finance_post_failed" };
+      }
+    }
+
     await recordShipmentState({ orderId: completedOrder?.id, courier: courierBooked ? courier : null, trackingNumber, rawStatus: courierStatus, serviceType: amountPayableOnDeliveryPkr > 0 ? "COD" : "prepaid", manual: !courierBooked });
 
     // Courier status is persisted above. Do not call the legacy RPC here: it
@@ -527,6 +547,7 @@ export async function POST(request) {
       courierStatus,
       courierBooked,
       courierMessage,
+      financeAdvance,
       postexResponse,
     });
   } catch (error) {
