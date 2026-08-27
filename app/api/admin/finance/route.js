@@ -10,6 +10,7 @@ import {
   updateSupplierBillStatus,
   insertMarketingCampaign,
   updateFinanceSettings,
+  listFinanceAccounts,
   listSupplierBills,
   isMissingTableError,
 } from "../../../../lib/financeStore";
@@ -17,6 +18,29 @@ import { backfillDeliveredOrderCogs, backfillVerifiedAdvances } from "../../../.
 import { supabaseAdminRequest } from "../../../../lib/supabaseRest";
 
 const SETUP_HINT = "Run scripts/supabase-finance.sql and scripts/supabase-finance-phase2.sql in Supabase, then reload.";
+
+/**
+ * Account ids come from the browser, so never write one until it has been
+ * checked against the active finance accounts. The FK protects the database,
+ * while this gives the owner a useful validation message and prevents an
+ * inactive account being used for a new movement.
+ */
+async function findActiveFinanceAccount(accountId) {
+  const requestedId = String(accountId || "").trim();
+  if (!requestedId) return null;
+  const accounts = await listFinanceAccounts();
+  return accounts.find((account) => String(account.id) === requestedId && account.is_active !== false) || null;
+}
+
+async function validateFinanceAccounts(accountIds) {
+  const requestedIds = [...new Set((Array.isArray(accountIds) ? accountIds : [accountIds])
+    .map((value) => String(value || "").trim())
+    .filter(Boolean))];
+  if (!requestedIds.length) return false;
+  const accounts = await listFinanceAccounts();
+  const activeIds = new Set(accounts.filter((account) => account.is_active !== false).map((account) => String(account.id)));
+  return requestedIds.every((id) => activeIds.has(id));
+}
 
 async function refreshSupplierBillStatus(billId) {
   const bills = await listSupplierBills();
@@ -85,9 +109,13 @@ export async function POST(request) {
     switch (body.action) {
       case "add_transaction": {
         const entry = body.entry || {};
-        if (!entry.accountId) return NextResponse.json({ error: "Paisa kis account mein hai, woh select karein." }, { status: 422 });
+        const accountId = String(entry.accountId || "").trim();
+        if (!accountId) return NextResponse.json({ error: "Paisa kis account mein hai, woh select karein." }, { status: 422 });
+        if (!(await findActiveFinanceAccount(accountId))) {
+          return NextResponse.json({ error: "Selected finance account valid ya active nahi hai. Account dobara select karein." }, { status: 422 });
+        }
         if (!(Number(entry.amountPkr || 0) > 0)) return NextResponse.json({ error: "Amount 0 se zyada hona chahiye." }, { status: 422 });
-        const [created] = await insertFinanceTransactions([{ ...entry, createdBy: actorName, source: "manual" }]);
+        const [created] = await insertFinanceTransactions([{ ...entry, accountId, createdBy: actorName, source: "manual" }]);
         if (!created) return NextResponse.json({ error: "Amount zaroori hai." }, { status: 422 });
         return NextResponse.json({ success: true, transaction: created });
       }
@@ -99,6 +127,9 @@ export async function POST(request) {
         if (!(amount > 0)) return NextResponse.json({ error: "Transfer amount zaroori hai." }, { status: 422 });
         if (!fromAccountId || !toAccountId) return NextResponse.json({ error: "Dono accounts select karein." }, { status: 422 });
         if (fromAccountId === toAccountId) return NextResponse.json({ error: "Ek hi account mein transfer nahi ho sakta." }, { status: 422 });
+        if (!(await validateFinanceAccounts([fromAccountId, toAccountId]))) {
+          return NextResponse.json({ error: "From aur To dono active finance accounts hone chahiye." }, { status: 422 });
+        }
         // Both legs share a group id so a transfer always reverses as a pair.
         const transferGroupId = randomUUID();
         const shared = {
@@ -151,6 +182,9 @@ export async function POST(request) {
         if (!Number.isFinite(total) || !(total > 0)) return NextResponse.json({ error: "Bill amount 0 se zyada hona chahiye." }, { status: 422 });
         if (!Number.isFinite(paid) || paid < 0 || paid > total) return NextResponse.json({ error: "Already paid amount bill total se zyada nahi ho sakta." }, { status: 422 });
         if (paid > 0 && !billInput.accountId) return NextResponse.json({ error: "Already paid amount ke liye account select karein." }, { status: 422 });
+        if (paid > 0 && !(await findActiveFinanceAccount(billInput.accountId))) {
+          return NextResponse.json({ error: "Already paid amount ke liye selected account valid ya active nahi hai." }, { status: 422 });
+        }
         const bill = await insertSupplierBill(billInput);
         if (!bill) return NextResponse.json({ error: "Supplier aur bill amount zaroori hain." }, { status: 422 });
         // Money already handed over is a real cash movement, not just a payable.
@@ -182,6 +216,9 @@ export async function POST(request) {
         const remaining = Number(bill.remaining_pkr || 0);
         const amount = Number(body.amountPkr || 0);
         if (!body.accountId) return NextResponse.json({ error: "Payment account select karein." }, { status: 422 });
+        if (!(await findActiveFinanceAccount(body.accountId))) {
+          return NextResponse.json({ error: "Selected payment account valid ya active nahi hai." }, { status: 422 });
+        }
         if (!(amount > 0) || amount > remaining) {
           return NextResponse.json({ error: `Amount 1 se Rs. ${remaining.toLocaleString()} ke darmiyan hona chahiye.` }, { status: 422 });
         }
@@ -218,6 +255,9 @@ export async function POST(request) {
         const ids = (Array.isArray(body.transactionIds) ? body.transactionIds : []).map(String).filter(Boolean);
         if (!ids.length || !body.accountId) {
           return NextResponse.json({ error: "Entries aur account dono select karein." }, { status: 422 });
+        }
+        if (!(await findActiveFinanceAccount(body.accountId))) {
+          return NextResponse.json({ error: "Selected account valid ya active nahi hai." }, { status: 422 });
         }
         const updated = await supabaseAdminRequest(
           `finance_transactions?id=in.(${ids.map((id) => `"${id}"`).join(",")})`,

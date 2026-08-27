@@ -27,6 +27,48 @@ function money(value) {
   return `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`;
 }
 
+// Keep the three operating accounts together in every money movement control.
+// Cash in hand remains available as a fourth option for local payments.
+const ACCOUNT_PRIORITY = ["nayapay_amina", "alfalah_owner", "postex_wallet", "cash_in_hand"];
+
+function sortFinanceAccounts(accounts = []) {
+  return [...accounts]
+    .filter((account) => account && account.isActive !== false)
+    .sort((left, right) => {
+      const leftIndex = ACCOUNT_PRIORITY.indexOf(left.slug);
+      const rightIndex = ACCOUNT_PRIORITY.indexOf(right.slug);
+      const leftRank = leftIndex === -1 ? ACCOUNT_PRIORITY.length : leftIndex;
+      const rightRank = rightIndex === -1 ? ACCOUNT_PRIORITY.length : rightIndex;
+      return leftRank - rightRank || String(left.name).localeCompare(String(right.name));
+    });
+}
+
+function AccountOptions({ accounts = [] }) {
+  return sortFinanceAccounts(accounts).map((account) => (
+    <option key={account.id} value={account.id}>
+      {account.name} · {money(account.balancePkr)} current
+    </option>
+  ));
+}
+
+function AccountSelect({ accounts, name = "accountId", required = false, label = "Account", defaultValue = "", value, onChange }) {
+  const isControlled = value !== undefined;
+  return (
+    <label>{label}
+      <select
+        name={name}
+        required={required}
+        value={isControlled ? value : undefined}
+        defaultValue={isControlled ? undefined : defaultValue}
+        onChange={onChange}
+      >
+        <option value="">Select account</option>
+        <AccountOptions accounts={accounts} />
+      </select>
+    </label>
+  );
+}
+
 function percent(value) {
   return `${Math.round(Number(value || 0))}%`;
 }
@@ -654,21 +696,50 @@ function VoidButton({ entry, busy, onVoid }) {
 }
 
 function PayBillButton({ bill, accounts, busy, onPay }) {
+  const remaining = Number(bill.remaining_pkr || 0);
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState(String(remaining));
+  const [accountId, setAccountId] = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      setAmount(String(remaining));
+      setAccountId("");
+    }
+  }, [open, remaining]);
+
+  if (open) {
+    return (
+      <form
+        className="financeInlinePay"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const parsedAmount = Number(amount || 0);
+          if (!(parsedAmount > 0) || parsedAmount > remaining || !accountId) return;
+          const saved = await onPay(parsedAmount, accountId);
+          if (saved) setOpen(false);
+        }}
+      >
+        <input aria-label="Supplier payment amount" type="number" min="0.01" max={remaining} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} />
+        <select aria-label="Supplier payment account" value={accountId} onChange={(event) => setAccountId(event.target.value)} required>
+          <option value="">Account select karein</option>
+          <AccountOptions accounts={accounts} />
+        </select>
+        <div>
+          <button type="submit" disabled={busy || !accountId || !(Number(amount) > 0) || Number(amount) > remaining} aria-busy={busy}>{busy ? "Processing..." : "Save payment"}</button>
+          <button type="button" className="editProductButton" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
+        </div>
+      </form>
+    );
+  }
+
   return (
     <button
       type="button"
       className="editProductButton"
       disabled={busy}
       aria-busy={busy}
-      onClick={() => {
-        const remaining = Number(bill.remaining_pkr || 0);
-        const amount = Number(window.prompt(`${bill.supplier} ko payment. Baqi: Rs. ${remaining.toLocaleString()}`, String(remaining)) || 0);
-        if (!(amount > 0) || amount > remaining) return;
-        const accountName = window.prompt(`Kis account se? (${accounts.map((row) => row.name).join(" / ")})`, accounts[0]?.name || "");
-        const account = accounts.find((row) => row.name.toLowerCase() === String(accountName || "").trim().toLowerCase());
-        if (!account) return;
-        onPay(amount, account.id);
-      }}
+      onClick={() => setOpen(true)}
     >
       {busy ? "Processing..." : "Pay"}
     </button>
@@ -705,7 +776,7 @@ function AddMovementForm({ accounts, busy, onSubmit }) {
       }}
     >
       <h2>Add cash movement</h2>
-      <p className="trackingNumber">Har asli cash movement yahan likhein. Expense, supplier payment aur withdrawal cash kam karte hain; income aur owner funds barhate hain.</p>
+      <p className="trackingNumber">Har asli cash movement yahan likhein. NayaPay, Bank Alfalah, PostEx Wallet (ya Cash in hand) mein se woh account select karein jahan paisa aaya ya jis se payment hui. Is se har account ka balance aur ledger alag rahega.</p>
       <div className="formRow">
         <label>Money direction
           <select name="entryType">
@@ -716,12 +787,7 @@ function AddMovementForm({ accounts, busy, onSubmit }) {
             <option value="postex_bank_receipt">PostEx bank receipt</option>
           </select>
         </label>
-        <label>Account
-          <select name="accountId" required>
-            <option value="">Select account</option>
-            {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-          </select>
-        </label>
+        <AccountSelect accounts={accounts} required label="Account — paisa kahan se / kahan aaya" />
       </div>
       <div className="formRow">
         <label>Category
@@ -779,14 +845,14 @@ function TransferForm({ accounts, busy, onSubmit }) {
       <div className="formRow">
         <label>From
           <select name="fromAccountId" required>
-            <option value="">Select</option>
-            {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+            <option value="">Select account</option>
+            <AccountOptions accounts={accounts} />
           </select>
         </label>
         <label>To
           <select name="toAccountId" required>
-            <option value="">Select</option>
-            {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+            <option value="">Select account</option>
+            <AccountOptions accounts={accounts} />
           </select>
         </label>
       </div>
@@ -801,6 +867,8 @@ function TransferForm({ accounts, busy, onSubmit }) {
 }
 
 function SupplierBillForm({ accounts, busy, onSubmit }) {
+  const [paidAmount, setPaidAmount] = useState("0");
+
   return (
     <form
       className="adminCard financeExpenseForm"
@@ -818,7 +886,10 @@ function SupplierBillForm({ accounts, busy, onSubmit }) {
           note: data.get("note"),
           accountId: data.get("accountId") || null,
         });
-        if (saved) form.reset();
+        if (saved) {
+          form.reset();
+          setPaidAmount("0");
+        }
       }}
     >
       <h2>Add supplier bill</h2>
@@ -830,16 +901,11 @@ function SupplierBillForm({ accounts, busy, onSubmit }) {
       </div>
       <div className="formRow">
         <label>Total bill<input name="total" type="number" min="1" required /></label>
-        <label>Already paid<input name="paid" type="number" min="0" defaultValue="0" /></label>
+        <label>Already paid<input name="paid" type="number" min="0" value={paidAmount} onChange={(event) => setPaidAmount(event.target.value)} /></label>
       </div>
       <div className="formRow">
         <label>Due date<input name="dueDate" type="date" /></label>
-        <label>Paid from
-          <select name="accountId">
-            <option value="">Select account</option>
-            {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-          </select>
-        </label>
+        <AccountSelect accounts={accounts} name="accountId" required={Number(paidAmount) > 0} label="Paid from (required when already paid)" />
       </div>
       <label>Note<input name="note" placeholder="Kya khareeda" /></label>
       <button disabled={busy}>{busy ? "Saving..." : "Save payable"}</button>
@@ -870,10 +936,7 @@ function UnassignedFixer({ accounts, transactions, busy, onAssign }) {
       className="managementCard"
     >
       <div className="financeAssignBar">
-        <select value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-          <option value="">Account chunein</option>
-          {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-        </select>
+        <AccountSelect accounts={accounts} label="Assign to account" value={accountId} onChange={(event) => setAccountId(event.target.value)} />
         <button
           type="button"
           disabled={busy || !accountId || !selected.length}
@@ -915,8 +978,9 @@ function downloadCsv(kind, rows, report) {
     header = ["Product", "SKU", "Category", "Units sold", "Revenue", "Cost", "Profit", "Margin %", "Stock"];
     body = rows.map((row) => [row.name, row.sku, row.category, row.units, row.revenuePkr, row.costPkr, row.profitPkr, row.marginPercent, row.stock]);
   } else {
-    header = ["Date", "Type", "Direction", "Title", "Counterparty", "Category", "Amount", "Reference", "Voided"];
-    body = rows.map((row) => [row.occurred_on, row.entry_type, row.cash_direction, row.title, row.counterparty, row.category, row.amount_pkr, row.reference, row.voided ? "yes" : "no"]);
+    const accountNames = new Map((report.accounts || []).map((account) => [String(account.id), account.name]));
+    header = ["Date", "Type", "Direction", "Account", "Title", "Counterparty", "Category", "Amount", "Reference", "Voided"];
+    body = rows.map((row) => [row.occurred_on, row.entry_type, row.cash_direction, accountNames.get(String(row.account_id)) || "Unassigned", row.title, row.counterparty, row.category, row.amount_pkr, row.reference, row.voided ? "yes" : "no"]);
   }
   const csv = [header, ...body].map((line) => line.map(escape).join(",")).join("\n");
   const link = document.createElement("a");
