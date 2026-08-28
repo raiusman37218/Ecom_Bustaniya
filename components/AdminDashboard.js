@@ -2932,17 +2932,18 @@ function normalizeOrderItems(order) {
   if (rawItems.length) {
     return rawItems.map((item, index) => ({
       id: item.id || item.product_id || `item-${index + 1}`,
-      productId: item.product_id || item.productId || item.id || "",
-      name: item.product_name || item.name || item.title || `Item ${index + 1}`,
+      productId: item.product_id || item.productId || "",
+      name: item.title || item.name || item.product_name || `Item ${index + 1}`,
+      title: item.title || item.name || item.product_name || `Item ${index + 1}`,
       sku: item.article_number || item.sku || item.articleNumber || "",
       quantity: Math.max(1, Number(item.quantity || item.qty || 1)),
       price: Number(item.unit_price_pkr || item.price || item.price_pkr || (item.line_total_pkr && item.quantity ? item.line_total_pkr / item.quantity : item.total_pkr) || 0),
       size: String(item.size || "").trim(),
       color: String(item.color || "").trim(),
-      imageUrl: item.image_url || item.image || "",
+      imageUrl: item.image_url || item.image || item.imageUrl || "",
     }));
   }
-  return [{ id: "fallback", name: "Order items", sku: order?.id || "", quantity: 1, price: Number(order?.total || 0), size: "", color: "" }];
+  return [{ id: "fallback", name: "Order items", title: "Order items", sku: order?.id || "", quantity: 1, price: Number(order?.total || 0), size: "", color: "" }];
 }
 
 function legacyArticleNumber(id) {
