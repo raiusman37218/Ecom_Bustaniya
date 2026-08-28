@@ -19,9 +19,10 @@ export default function WhatsAppSupportButton({ phoneNumber, storeName = "Bustan
   const number = normaliseWhatsAppNumber(phoneNumber);
   if (!number) return null;
 
-  // Completely remove floating WhatsApp button on checkout and order confirmation pages
+  // Completely remove floating WhatsApp button on checkout and admin pages
   const isCheckout = pathname === "/checkout" || pathname?.startsWith("/checkout");
-  if (isCheckout) return null;
+  const isAdmin = pathname === "/admin" || pathname?.startsWith("/admin");
+  if (isCheckout || isAdmin) return null;
 
   const message = `Assalam-o-Alaikum, I need help with ${storeName}.`;
   const href = `https://wa.me/${number}?text=${encodeURIComponent(message)}`;

@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, Bell, Boxes, ChevronDown, CircleDollarSign, Info, Landmark, LayoutDashboard,
-  LogOut, Menu, Minus, MoreHorizontal, Package, Plus,
-  ReceiptText, RefreshCw, Search, Settings, ShoppingBag, Store, Tags, TrendingUp, Truck, Users,
-  WalletCards, X
+  Activity, AlertCircle, Bell, Boxes, Check, CheckCircle2, ChevronDown, ChevronUp, CircleDollarSign,
+  Copy, ExternalLink, Eye, FileText, Info, Landmark, LayoutDashboard, LogOut, Menu, MessageSquare,
+  Minus, MoreHorizontal, Package, Phone, Plus, ReceiptText, RefreshCw, Search, Settings,
+  ShoppingBag, Store, Tags, TrendingUp, Truck, Users, WalletCards, X
 } from "lucide-react";
 import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, products as initialProducts, slugifyCategory } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
@@ -1188,58 +1188,73 @@ export default function AdminDashboard() {
         error.status = response.status;
         throw error;
       }
-      const formatted = (result.data || []).map((order) => ({
-        rawId: order.id,
-        raw: order,
-        id: `#${order.order_number}`,
-        customer: order.shipping_full_name || order.guest_name || "Guest",
-        city: order.shipping_city || "—",
-        total: Number(order.total_order_value_pkr ?? order.total_pkr ?? 0),
-        productSubtotal: Number(order.product_subtotal_pkr ?? order.subtotal_pkr ?? order.total_pkr ?? 0),
-        deliveryCharges: Number(order.delivery_charges_pkr ?? order.delivery_pkr ?? 0),
-        amountPayableInAdvance: Number(order.amount_payable_in_advance_pkr ?? 0),
-        amountPayableOnDelivery: Number(order.amount_payable_on_delivery_pkr ?? Math.max(0, Number(order.total_order_value_pkr ?? order.total_pkr ?? 0) - Number(order.amount_payable_in_advance_pkr ?? 0))),
-        paymentMethod: (() => {
-          const method = String(order.payment_method || "").toLowerCase();
-          const advance = Number(order.amount_payable_in_advance_pkr ?? 0);
-          const totalOrderValue = Number(order.total_order_value_pkr ?? order.total_pkr ?? 0);
-          return method === "full_advance" || method === "bank_deposit" || (totalOrderValue > 0 && advance >= totalOrderValue && Number(order.delivery_charges_pkr ?? order.delivery_pkr ?? 0) === 0)
-            ? "Full advance payment"
-            : advance > 0
-              ? "COD — delivery advance"
-              : "Cash on Delivery";
-        })(),
-        paymentReference: order.payment_reference || "",
-        // Payment verification no longer controls confirmation. Every
-        // historical/new submitted order is confirmed until an operator
-        // cancels it; proof remains visible in paymentStatus.
-        confirmationStatus: "Confirmed",
-        paymentDetails: order.payment_details_snapshot || {},
-        status: formatOrderStatus(order.courier_normalized_status || order.courier_status || order.status || "pending"),
-        postexStatus: formatOrderStatus(order.courier_status || order.status || "pending"),
-        courierRawStatus: order.courier_raw_status || order.courier_status || "",
-        courierNormalizedStatus: order.courier_normalized_status || "unassigned",
-        courierServiceType: order.courier_service_type || "",
-        paymentStatus: order.payment_proof_status || order.payment_status || "Awaiting Payment",
-        fulfillmentStatus: order.fulfillment_status || (order.courier_tracking_number || order.tracking_number ? "Booked with PostEx" : "Unfulfilled"),
-        tracking: order.courier_tracking_number || order.tracking_number || "",
-        phone: order.shipping_phone || order.guest_phone || "",
-        address: [order.shipping_address, order.shipping_city, order.shipping_postal_code].filter(Boolean).join(", "),
-        items: Array.isArray(order.items) ? order.items : [],
-        notes: order.internal_notes || "",
-        tags: Array.isArray(order.tags) ? order.tags : [],
-        risk: order.risk || "Standard COD",
-        operation: order.operation || null,
-        operationStorageAvailable: order.operation_storage_available !== false,
-        operationEvents: Array.isArray(order.operation_events) ? order.operation_events : [],
-        createdAt: order.created_at,
-        date: new Date(order.created_at).toLocaleString("en-PK", {
-          day: "numeric",
-          month: "short",
-          hour: "numeric",
-          minute: "2-digit",
-        }),
-      }));
+      const formatted = (result.data || []).map((order) => {
+        const total = Number(order.total_order_value_pkr ?? order.total_pkr ?? order.total ?? 0);
+        const subtotal = Number(order.product_subtotal_pkr ?? order.subtotal_pkr ?? order.total_pkr ?? order.total ?? 0);
+        const delivery = Number(order.delivery_charges_pkr ?? order.delivery_pkr ?? 0);
+        const advance = Number(order.amount_payable_in_advance_pkr ?? 0);
+        const onDelivery = Number(order.amount_payable_on_delivery_pkr ?? Math.max(0, total - advance));
+        const tagsList = Array.isArray(order.tags) ? order.tags : [];
+        const detectedSource = tagsList.find((t) => ["Instagram DM", "WhatsApp", "Phone call", "Walk-in", "Facebook", "Manual"].includes(t)) || (tagsList.includes("Custom order") ? "Admin Custom" : "Storefront");
+        const detectedDeliveryMethod = tagsList.find((t) => ["PostEx", "Rider / same city", "Customer pickup", "Staff delivery", "Manual courier", "PostEx later"].includes(t)) || (order.courier_tracking_number ? "PostEx" : "Manual / Rider");
+        const orderItems = Array.isArray(order.items) && order.items.length
+          ? order.items
+          : (Array.isArray(order.order_items) && order.order_items.length ? order.order_items : []);
+        const orderNotes = order.internal_notes || order.notes || "";
+
+        return {
+          rawId: order.id,
+          raw: order,
+          id: `#${order.order_number}`,
+          customer: order.shipping_full_name || order.guest_name || "Guest",
+          city: order.shipping_city || "—",
+          total,
+          productSubtotal: subtotal,
+          deliveryCharges: delivery,
+          amountPayableInAdvance: advance,
+          amountPayableOnDelivery: onDelivery,
+          paymentMethod: (() => {
+            const method = String(order.payment_method || "").toLowerCase();
+            return method === "full_advance" || method === "bank_deposit" || (total > 0 && advance >= total && delivery === 0)
+              ? "Full advance payment"
+              : advance > 0
+                ? "COD — delivery advance"
+                : "Cash on Delivery";
+          })(),
+          paymentReference: order.payment_reference || "",
+          confirmationStatus: "Confirmed",
+          paymentDetails: order.payment_details_snapshot || {},
+          status: formatOrderStatus(order.courier_normalized_status || order.courier_status || order.status || "pending"),
+          postexStatus: formatOrderStatus(order.courier_status || order.status || "pending"),
+          courierRawStatus: order.courier_raw_status || order.courier_status || "",
+          courierNormalizedStatus: order.courier_normalized_status || "unassigned",
+          courierServiceType: order.courier_service_type || "",
+          paymentStatus: order.payment_proof_status || order.payment_status || "Awaiting Payment",
+          fulfillmentStatus: order.fulfillment_status || (order.courier_tracking_number || order.tracking_number ? "Booked with PostEx" : "Unfulfilled"),
+          tracking: order.courier_tracking_number || order.tracking_number || "",
+          phone: order.shipping_phone || order.guest_phone || "",
+          address: [order.shipping_address || order.shipping_line1, order.shipping_city, order.shipping_postal_code].filter(Boolean).join(", "),
+          email: order.customer_email || order.guest_email || "",
+          items: orderItems,
+          order_items: orderItems,
+          notes: orderNotes,
+          internalNotes: order.internal_notes || orderNotes,
+          source: detectedSource,
+          deliveryMethod: detectedDeliveryMethod,
+          tags: tagsList,
+          risk: order.risk || "Standard COD",
+          operation: order.operation || null,
+          operationStorageAvailable: order.operation_storage_available !== false,
+          operationEvents: Array.isArray(order.operation_events) ? order.operation_events : [],
+          createdAt: order.created_at,
+          date: new Date(order.created_at).toLocaleString("en-PK", {
+            day: "numeric",
+            month: "short",
+            hour: "numeric",
+            minute: "2-digit",
+          }),
+        };
+      });
       setOrders(formatted);
       setOrdersPagination(result.pagination || { page, pageSize: ordersPagination.pageSize, total: formatted.length, totalPages: formatted.length ? 1 : 0 });
       setOrdersConnected(true);
@@ -2905,20 +2920,29 @@ function formatFinanceDate(value) {
 }
 
 function normalizeOrderItems(order) {
-  const items = Array.isArray(order.items) ? order.items : [];
-  if (items.length) {
-    return items.map((item, index) => ({
-      id: item.id || item.product_id || index,
-      productId: item.product_id || item.productId || "",
+  const rawItems = Array.isArray(order?.items) && order.items.length
+    ? order.items
+    : (Array.isArray(order?.order_items) && order.order_items.length
+      ? order.order_items
+      : (Array.isArray(order?.raw?.items) && order.raw.items.length
+        ? order.raw.items
+        : (Array.isArray(order?.raw?.order_items) && order.raw.order_items.length
+          ? order.raw.order_items
+          : [])));
+  if (rawItems.length) {
+    return rawItems.map((item, index) => ({
+      id: item.id || item.product_id || `item-${index + 1}`,
+      productId: item.product_id || item.productId || item.id || "",
       name: item.product_name || item.name || item.title || `Item ${index + 1}`,
       sku: item.article_number || item.sku || item.articleNumber || "",
-      quantity: Number(item.quantity || item.qty || 1),
-      price: Number(item.unit_price_pkr || item.price || item.total_pkr || 0),
-      size: item.size || "",
-      color: item.color || "",
+      quantity: Math.max(1, Number(item.quantity || item.qty || 1)),
+      price: Number(item.unit_price_pkr || item.price || item.price_pkr || (item.line_total_pkr && item.quantity ? item.line_total_pkr / item.quantity : item.total_pkr) || 0),
+      size: String(item.size || "").trim(),
+      color: String(item.color || "").trim(),
+      imageUrl: item.image_url || item.image || "",
     }));
   }
-  return [{ id: "fallback", name: "Order items", sku: order.id, quantity: 1, price: Number(order.total || 0), size: "", color: "" }];
+  return [{ id: "fallback", name: "Order items", sku: order?.id || "", quantity: 1, price: Number(order?.total || 0), size: "", color: "" }];
 }
 
 function legacyArticleNumber(id) {
@@ -2970,9 +2994,11 @@ function createDraftOrderFromForm(form, products = []) {
   const status = String(form.get("status") || "Un-Assigned By Me").trim();
   const source = String(form.get("source") || "Manual").trim();
   const now = new Date();
+  const notes = String(form.get("notes") || "").trim();
   return {
     rawId: `draft-${Date.now()}`,
     id: `#BST-${String(Date.now()).slice(-6)}`,
+    order_number: `BST-${String(Date.now()).slice(-6)}`,
     customer,
     city: String(form.get("city") || "").trim() || "DM",
     total,
@@ -2993,7 +3019,9 @@ function createDraftOrderFromForm(form, products = []) {
     phone: String(form.get("phone") || "").trim(),
     address: String(form.get("address") || "").trim(),
     items,
-    notes: String(form.get("notes") || "").trim(),
+    order_items: items,
+    notes,
+    internalNotes: notes,
     tags: ["Custom order", source, deliveryMethod].filter(Boolean),
     risk: "Standard COD",
     createdAt: now.toISOString(),
@@ -3002,25 +3030,36 @@ function createDraftOrderFromForm(form, products = []) {
 }
 
 function formatSavedCustomOrder(order, fallback = {}) {
-  if (!order?.order_number) return fallback;
-  const totalOrderValue = Number(order.total_order_value_pkr ?? order.total_pkr ?? order.total ?? fallback.total ?? 0);
-  const productSubtotal = Number(order.product_subtotal_pkr ?? order.subtotal_pkr ?? fallback.productSubtotal ?? totalOrderValue ?? 0);
-  const deliveryCharges = Number(order.delivery_charges_pkr ?? order.delivery_pkr ?? fallback.deliveryCharges ?? 0);
-  const amountPayableInAdvance = Number(order.amount_payable_in_advance_pkr ?? fallback.amountPayableInAdvance ?? 0);
-  const amountPayableOnDelivery = Number(order.amount_payable_on_delivery_pkr ?? fallback.amountPayableOnDelivery ?? Math.max(0, totalOrderValue - amountPayableInAdvance));
-  const normalizedPaymentMethod = String(order.payment_method || fallback.paymentOption || "cod").trim().toLowerCase();
+  if (!order?.order_number && !fallback?.order_number && !fallback?.id) return fallback;
+  const totalOrderValue = Number(order?.total_order_value_pkr ?? order?.total_pkr ?? order?.total ?? fallback.total ?? 0);
+  const productSubtotal = Number(order?.product_subtotal_pkr ?? order?.subtotal_pkr ?? fallback.productSubtotal ?? totalOrderValue ?? 0);
+  const deliveryCharges = Number(order?.delivery_charges_pkr ?? order?.delivery_pkr ?? fallback.deliveryCharges ?? 0);
+  const amountPayableInAdvance = Number(order?.amount_payable_in_advance_pkr ?? fallback.amountPayableInAdvance ?? 0);
+  const amountPayableOnDelivery = Number(order?.amount_payable_on_delivery_pkr ?? fallback.amountPayableOnDelivery ?? Math.max(0, totalOrderValue - amountPayableInAdvance));
+  const normalizedPaymentMethod = String(order?.payment_method || fallback.paymentOption || "cod").trim().toLowerCase();
   const paymentMethod = normalizedPaymentMethod === "full_advance" || normalizedPaymentMethod === "bank_deposit" || (totalOrderValue > 0 && amountPayableInAdvance >= totalOrderValue && deliveryCharges === 0)
     ? "Full advance payment"
     : amountPayableInAdvance > 0
       ? "COD — delivery advance"
       : "Cash on Delivery";
+  const orderItems = (Array.isArray(order?.items) && order.items.length)
+    ? order.items
+    : (Array.isArray(order?.order_items) && order.order_items.length)
+      ? order.order_items
+      : (fallback.items || []);
+  const notesText = order?.internal_notes || order?.notes || fallback.notes || fallback.internalNotes || "";
+  const tagsList = Array.isArray(order?.tags) && order.tags.length ? order.tags : (fallback.tags || ["Custom order"]);
+  const source = fallback.source || tagsList.find((t) => ["Instagram DM", "WhatsApp", "Phone call", "Walk-in", "Facebook", "Manual"].includes(t)) || "Manual";
+  const deliveryMethod = fallback.deliveryMethod || order?.delivery_method || tagsList.find((t) => ["PostEx", "Rider / same city", "Customer pickup", "Staff delivery", "Manual courier"].includes(t)) || "Rider / same city";
+
   return {
     ...fallback,
-    rawId: order.id || fallback.rawId,
+    rawId: order?.id || fallback.rawId,
     raw: order,
-    id: `#${order.order_number}`,
-    customer: order.shipping_full_name || order.guest_name || fallback.customer,
-    city: order.shipping_city || fallback.city,
+    id: order?.order_number ? `#${order.order_number}` : (fallback.id || `#${Date.now()}`),
+    order_number: order?.order_number || fallback.order_number || String(fallback.id || "").replace(/^#/, ""),
+    customer: order?.shipping_full_name || order?.guest_name || fallback.customer,
+    city: order?.shipping_city || fallback.city,
     total: totalOrderValue,
     productSubtotal,
     deliveryCharges,
@@ -3028,21 +3067,25 @@ function formatSavedCustomOrder(order, fallback = {}) {
     amountPayableOnDelivery,
     paymentMethod,
     paymentOption: normalizedPaymentMethod,
-    status: formatOrderStatus(order.courier_status || order.status || fallback.status || "Un-Assigned By Me"),
-    postexStatus: formatOrderStatus(order.courier_status || order.status || fallback.postexStatus || "Un-Assigned By Me"),
-    paymentStatus: order.payment_proof_status || order.payment_status || fallback.paymentStatus || "Awaiting Payment",
+    status: formatOrderStatus(order?.courier_status || order?.status || fallback.status || "Un-Assigned By Me"),
+    postexStatus: formatOrderStatus(order?.courier_status || order?.status || fallback.postexStatus || "Un-Assigned By Me"),
+    paymentStatus: order?.payment_proof_status || order?.payment_status || fallback.paymentStatus || "Awaiting Payment",
     confirmationStatus: "Confirmed",
-    paymentReference: order.payment_reference || fallback.paymentReference || "",
-    fulfillmentStatus: order.fulfillment_status || fallback.fulfillmentStatus || "Manual delivery",
-    tracking: order.courier_tracking_number || order.tracking_number || fallback.tracking || "",
-    phone: order.shipping_phone || order.guest_phone || fallback.phone || "",
-    address: [order.shipping_address, order.shipping_city, order.shipping_postal_code].filter(Boolean).join(", ") || fallback.address || "",
-    items: Array.isArray(order.items) ? order.items : fallback.items || [],
-    notes: order.internal_notes || fallback.notes || "",
-    tags: Array.isArray(order.tags) ? order.tags : fallback.tags || ["Custom order"],
+    paymentReference: order?.payment_reference || fallback.paymentReference || "",
+    fulfillmentStatus: order?.fulfillment_status || fallback.fulfillmentStatus || "Manual delivery",
+    tracking: order?.courier_tracking_number || order?.tracking_number || fallback.tracking || "",
+    phone: order?.shipping_phone || order?.guest_phone || fallback.phone || "",
+    address: [order?.shipping_address, order?.shipping_city, order?.shipping_postal_code].filter(Boolean).join(", ") || fallback.address || "",
+    items: orderItems,
+    order_items: orderItems,
+    notes: notesText,
+    internalNotes: order?.internal_notes || notesText,
+    source,
+    deliveryMethod,
+    tags: tagsList,
     risk: fallback.risk || "Standard COD",
-    createdAt: order.created_at || fallback.createdAt || new Date().toISOString(),
-    date: order.created_at ? new Date(order.created_at).toLocaleString("en-PK", {
+    createdAt: order?.created_at || fallback.createdAt || new Date().toISOString(),
+    date: order?.created_at ? new Date(order.created_at).toLocaleString("en-PK", {
       day: "numeric",
       month: "short",
       hour: "numeric",
@@ -3148,15 +3191,17 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        orderId: order.rawId,
+        orderId: order.rawId || order.raw?.id || order.id || order.order_number,
         orderStage: changes.postexStatus || changes.status,
         paymentStatus: changes.paymentStatus,
         paymentReference: changes.paymentReference,
+        amountPayableInAdvance: changes.amountPayableInAdvance,
         confirmationStatus: changes.confirmationStatus,
         fulfillmentStatus: changes.fulfillmentStatus,
         tracking: changes.tracking,
         notes: changes.notes,
         tags: changes.tags,
+        items: changes.items,
         operation: changes.operation,
       }),
     });
@@ -3289,7 +3334,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       {pagination?.totalPages > 1 && <div className="ordersPagination"><button disabled={loading || pagination.page <= 1} aria-busy={loading} onClick={() => onPageChange(pagination.page - 1)}>Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button disabled={loading || pagination.page >= pagination.totalPages} aria-busy={loading} onClick={() => onPageChange(pagination.page + 1)}>Next</button></div>}
     </section>
     {showDraft && <DraftOrderDialog products={products} onClose={() => setShowDraft(false)} onCreate={createDraft} saving={creatingDraft} />}
-    {selectedOrder && <OrderDetailDrawer order={selectedOrder} onClose={() => setSelectedId("")} onUpdate={persistOrderUpdate} canRecordRefund={currentAdminUser?.role === "Owner"} onNavigateToEvents={onNavigateToEvents} />}
+    {selectedOrder && <OrderDetailDrawer order={selectedOrder} catalogProducts={products} onClose={() => setSelectedId("")} onUpdate={persistOrderUpdate} canRecordRefund={currentAdminUser?.role === "Owner"} onNavigateToEvents={onNavigateToEvents} />}
     </>}
   </>;
 }
@@ -5570,35 +5615,267 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
     return () => { active = false; };
   }, []);
 
-  return <><div className="adminOverlay" onClick={onClose} /><form className="orderDialog" onSubmit={onCreate}>
-    <DialogHead title="Custom order" onClose={onClose} />
-    <div className="formRow"><label>Customer<input name="customer" required placeholder="Instagram customer name" /></label><label>Phone<input name="phone" required placeholder="03xx xxxxxxx" /></label></div>
-    <div className="formRow"><label>PostEx city<input name="city" required list="postex-city-options" placeholder={citiesLoading ? "Loading PostEx cities..." : "Start typing city name"} autoComplete="off" />{postexCities.length > 0 && <><datalist id="postex-city-options">{postexCities.map((city) => <option key={city} value={city} />)}</datalist><small className="trackingNumber">Type to search and select a PostEx city.</small></>}{citiesError && <small className="trackingNumber">{citiesError}</small>}</label><label>Source<select name="source"><option>Manual</option><option>Instagram DM</option><option>WhatsApp</option><option>Phone call</option><option>Walk-in</option></select></label></div>
-    <div className="formRow"><label>Payment option<select name="paymentOption" value={paymentOption} onChange={(event) => setPaymentOption(event.target.value)}><option value="cod">Cash on delivery — no advance</option><option value="cod_delivery_advance">COD — delivery advance received</option><option value="full_advance">Full advance — free delivery</option></select><small className="trackingNumber">Choose “delivery advance received” when the customer has already sent the delivery amount.</small></label><label>Payment status<select name="paymentStatus" value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Awaiting Payment</option><option>Proof Submitted</option><option>Payment Verified</option><option>Payment Rejected</option></select></label></div>
-    <div className="formRow"><label>Advance amount received (PKR)<input name="advancePaid" type="number" min="0" max={orderTotal} step="0.01" value={amountPayableInAdvance} onChange={(event) => setAdvanceAmount(event.target.value)} readOnly={paymentOption !== "cod_delivery_advance"} /><small className="trackingNumber">{paymentOption === "full_advance" ? "Complete product subtotal is paid; delivery is free." : paymentOption === "cod_delivery_advance" ? "Editable — this is delivery advance only, not product payment." : "No advance for this order."}</small></label><label>Delivery charges (PKR)<input name="deliveryCharges" type="number" min="0" step="0.01" value={deliveryFee} readOnly /><small className="trackingNumber">Full advance orders automatically use free delivery.</small></label></div>
-    <div className="formRow"><label>Delivery method<select name="deliveryMethod"><option>Rider / same city</option><option>PostEx</option><option>Customer pickup</option><option>Staff delivery</option><option>Manual courier</option><option>PostEx later</option></select></label><div className="adminCard" style={{ padding: "12px", margin: 0 }}><span>Product subtotal <b>Rs. {productSubtotal.toLocaleString()}</b></span><br /><span>Pay on delivery <b>Rs. {amountPayableOnDelivery.toLocaleString()}</b></span></div></div>
-    <div className="formRow"><label>Order status<select name="status">{customOrderStatusOptions.map((status) => <option key={status}>{status}</option>)}</select></label><label>Fulfillment<select name="fulfillmentStatus"><option>Manual delivery</option><option>Rider assigned</option><option>Ready for pickup</option><option>Booked with PostEx</option><option>Delivered</option><option>On hold</option></select></label></div>
-    <label>Shipping address<textarea name="address" rows="3" required placeholder="Full delivery address from DM" /></label>
-    <div className="inventoryListHead"><div><h3>Order items</h3><span>Add as many different products as needed.</span></div><button type="button" onClick={() => setDraftItems((items) => [...items, makeItem()])}>Add another item</button></div>
-    {draftItems.map((entry, index) => {
-      const selectedProduct = products.find((product) => String(product.id) === entry.productId);
-      const sizes = Array.isArray(selectedProduct?.sizes) && selectedProduct.sizes.length ? selectedProduct.sizes : ["S", "M", "L"];
-      const colors = Array.isArray(selectedProduct?.colors) && selectedProduct.colors.length ? selectedProduct.colors : ["Default"];
-      return <div className="adminCard" key={entry.key} style={{ padding: "16px", marginBottom: "12px" }}>
-        <div className="inventoryListHead"><b>Item {index + 1}</b>{draftItems.length > 1 && <button type="button" onClick={() => setDraftItems((items) => items.filter((item) => item.key !== entry.key))}>Remove</button>}</div>
-        <label>Product<select value={entry.productId} onChange={(event) => updateItem(entry.key, { productId: event.target.value, size: "", color: "" })}>{products.map((product) => <option key={product.id} value={product.id}>{product.name} - Rs. {Number(product.price || 0).toLocaleString()}</option>)}<option value="__custom__">Custom item</option></select></label>
-        {selectedProduct ? <div className="formRow"><label>Size<select value={entry.size} onChange={(event) => updateItem(entry.key, { size: event.target.value })}>{sizes.map((size) => <option key={size}>{size}</option>)}</select></label><label>Color<select value={entry.color} onChange={(event) => updateItem(entry.key, { color: event.target.value })}>{colors.map((color) => <option key={color}>{color}</option>)}</select></label></div> : <label>Custom item<input required value={entry.customName} onChange={(event) => updateItem(entry.key, { customName: event.target.value })} placeholder="Product, size, color" /></label>}
-        <div className="formRow"><label>Quantity<input type="number" min="1" value={entry.quantity} onChange={(event) => updateItem(entry.key, { quantity: event.target.value })} /></label><label>Unit price<input type="number" min="0" value={selectedProduct ? Number(selectedProduct.price || 0) : entry.unitPrice} onChange={(event) => updateItem(entry.key, { unitPrice: event.target.value })} readOnly={!!selectedProduct} /></label></div>
-      </div>;
-    })}
-    <input type="hidden" name="itemsJson" value={JSON.stringify(preparedItems)} />
-    <div className="adminCard" style={{ padding: "16px", marginBottom: "12px" }}><div className="formRow"><span>Products subtotal: <b>Rs. {productSubtotal.toLocaleString()}</b></span><span>Delivery charges: <b>{deliveryFee ? `Rs. ${deliveryFee.toLocaleString()}` : "Free"}</b></span></div><div className="formRow"><span>Advance received: <b>Rs. {amountPayableInAdvance.toLocaleString()}</b></span><span>Pay on delivery: <b>Rs. {amountPayableOnDelivery.toLocaleString()}</b></span></div><b>Total order value: Rs. {orderTotal.toLocaleString()}</b></div>
-    <label>Internal note<textarea name="notes" rows="3" placeholder="Rider name, pickup timing, DM link, customer request" /></label>
-    <button className="dialogSave" disabled={saving} aria-busy={saving}>{saving ? "Creating order..." : "Create custom order"}</button>
-  </form></>;
+  return (
+    <>
+      <div className="adminOverlay" onClick={onClose} />
+      <form className="orderDialog" onSubmit={onCreate} style={{ maxWidth: "720px", width: "95%" }}>
+        <DialogHead title="Create Custom Order" onClose={onClose} />
+        
+        <div className="formRow">
+          <label>
+            Customer Full Name
+            <input name="customer" required placeholder="e.g. Ayesha Khan" />
+          </label>
+          <label>
+            Phone Number
+            <input name="phone" required placeholder="03XXXXXXXXX" />
+          </label>
+        </div>
+
+        <div className="formRow">
+          <label>
+            PostEx City
+            <input
+              name="city"
+              required
+              list="postex-city-options"
+              placeholder={citiesLoading ? "Loading PostEx cities..." : "Type city name (e.g. Lahore)"}
+              autoComplete="off"
+            />
+            {postexCities.length > 0 && (
+              <datalist id="postex-city-options">
+                {postexCities.map((city) => <option key={city} value={city} />)}
+              </datalist>
+            )}
+            {citiesError && <small className="trackingNumber">{citiesError}</small>}
+          </label>
+          <label>
+            Order Source
+            <select name="source">
+              <option value="Instagram DM">Instagram DM</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Phone call">Phone call</option>
+              <option value="Walk-in">Walk-in</option>
+              <option value="Manual">Manual</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="formRow">
+          <label>
+            Payment Option
+            <select name="paymentOption" value={paymentOption} onChange={(event) => setPaymentOption(event.target.value)}>
+              <option value="cod">Cash on Delivery (COD) — no advance</option>
+              <option value="cod_delivery_advance">COD — delivery advance received</option>
+              <option value="full_advance">Full Advance — free delivery</option>
+            </select>
+          </label>
+          <label>
+            Payment Status
+            <select name="paymentStatus" value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
+              <option>Awaiting Payment</option>
+              <option>Proof Submitted</option>
+              <option>Payment Verified</option>
+              <option>Payment Rejected</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="formRow">
+          <label>
+            Advance Amount Received (PKR)
+            <input
+              name="advancePaid"
+              type="number"
+              min="0"
+              max={orderTotal}
+              step="0.01"
+              value={amountPayableInAdvance}
+              onChange={(event) => setAdvanceAmount(event.target.value)}
+              readOnly={paymentOption !== "cod_delivery_advance"}
+            />
+          </label>
+          <label>
+            Delivery Charges (PKR)
+            <input name="deliveryCharges" type="number" min="0" step="0.01" value={deliveryFee} readOnly />
+          </label>
+        </div>
+
+        <div className="formRow">
+          <label>
+            Delivery Method
+            <select name="deliveryMethod">
+              <option>PostEx</option>
+              <option>Rider / same city</option>
+              <option>Customer pickup</option>
+              <option>Staff delivery</option>
+              <option>Manual courier</option>
+              <option>PostEx later</option>
+            </select>
+          </label>
+          <label>
+            Order Status
+            <select name="status">
+              {customOrderStatusOptions.map((status) => <option key={status}>{status}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <label>
+          Full Shipping Address
+          <textarea name="address" rows="2" required placeholder="House/Flat number, Street, Area, Landmark, City" />
+        </label>
+
+        <div className="inventoryListHead" style={{ marginTop: "12px" }}>
+          <div>
+            <h3>Order Items &amp; Products</h3>
+            <span>Add catalog products or custom items</span>
+          </div>
+          <button type="button" onClick={() => setDraftItems((items) => [...items, makeItem()])}>+ Add another item</button>
+        </div>
+
+        {draftItems.map((entry, index) => {
+          const selectedProduct = products.find((product) => String(product.id) === entry.productId);
+          const rawSizes = selectedProduct?.sizes || selectedProduct?.size;
+          const parsedSizes = Array.isArray(rawSizes) ? rawSizes : typeof rawSizes === "string" ? (() => { try { return JSON.parse(rawSizes); } catch { return [rawSizes]; } })() : [];
+          const sizes = parsedSizes.length ? [...parsedSizes, "Custom"] : ["XS", "S", "M", "L", "XL", "XXL", "Free Size", "Custom"];
+          const rawColors = selectedProduct?.colors || selectedProduct?.color;
+          const parsedColors = Array.isArray(rawColors) ? rawColors : typeof rawColors === "string" ? (() => { try { return JSON.parse(rawColors); } catch { return [rawColors]; } })() : [];
+          const colors = parsedColors.length ? [...parsedColors, "Custom"] : ["Default", "Custom"];
+          const isCustomSize = entry.size === "Custom" || (entry.size && !sizes.filter((s) => s !== "Custom").includes(entry.size));
+
+          return (
+            <div className="adminCard" key={entry.key} style={{ padding: "14px", marginBottom: "10px", background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+              <div className="inventoryListHead">
+                <b>Item {index + 1}</b>
+                {draftItems.length > 1 && (
+                  <button type="button" onClick={() => setDraftItems((items) => items.filter((item) => item.key !== entry.key))} style={{ color: "#ef4444" }}>
+                    Remove
+                  </button>
+                )}
+              </div>
+              <label>
+                Product
+                <select value={entry.productId} onChange={(event) => updateItem(entry.key, { productId: event.target.value, size: "", color: "" })}>
+                  {products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} - Rs. {Number(product.price || 0).toLocaleString()}
+                    </option>
+                  ))}
+                  <option value="__custom__">✏️ Custom / Other Suit Name</option>
+                </select>
+              </label>
+              {selectedProduct ? (
+                <div className="formRow">
+                  <label>
+                    Size
+                    <select
+                      value={sizes.includes(entry.size) ? entry.size : (entry.size ? "Custom" : "")}
+                      onChange={(event) => updateItem(entry.key, { size: event.target.value })}
+                    >
+                      <option value="">Select Size</option>
+                      {sizes.map((size) => <option key={size} value={size}>{size}</option>)}
+                    </select>
+                    {isCustomSize && (
+                      <input
+                        type="text"
+                        value={entry.size === "Custom" ? "" : entry.size}
+                        onChange={(event) => updateItem(entry.key, { size: event.target.value })}
+                        placeholder="Type custom size (e.g. 38, M)"
+                        style={{ marginTop: "4px" }}
+                      />
+                    )}
+                  </label>
+                  <label>
+                    Color
+                    <select value={entry.color} onChange={(event) => updateItem(entry.key, { color: event.target.value })}>
+                      <option value="">Select Color</option>
+                      {colors.map((color) => <option key={color} value={color}>{color}</option>)}
+                    </select>
+                    {entry.color === "Custom" && (
+                      <input
+                        type="text"
+                        onChange={(event) => updateItem(entry.key, { color: event.target.value })}
+                        placeholder="Type color name..."
+                        style={{ marginTop: "4px" }}
+                      />
+                    )}
+                  </label>
+                </div>
+              ) : (
+                <div className="formRow">
+                  <label>
+                    Custom Item Name
+                    <input required value={entry.customName} onChange={(event) => updateItem(entry.key, { customName: event.target.value })} placeholder="e.g. Lawn Embroidered 3-Piece" />
+                  </label>
+                  <label>
+                    Variant / Size / Color
+                    <input value={entry.size} onChange={(event) => updateItem(entry.key, { size: event.target.value })} placeholder="e.g. Medium / Maroon" />
+                  </label>
+                </div>
+              )}
+              <div className="formRow">
+                <label>
+                  Quantity
+                  <input type="number" min="1" max="50" value={entry.quantity} onChange={(event) => updateItem(entry.key, { quantity: event.target.value })} />
+                </label>
+                <label>
+                  Unit Price (PKR)
+                  <input
+                    type="number"
+                    min="0"
+                    value={selectedProduct ? Number(selectedProduct.price || 0) : entry.unitPrice}
+                    onChange={(event) => updateItem(entry.key, { unitPrice: event.target.value })}
+                    readOnly={!!selectedProduct}
+                  />
+                </label>
+              </div>
+            </div>
+          );
+        })}
+
+        <input type="hidden" name="itemsJson" value={JSON.stringify(preparedItems)} />
+
+        <div className="adminCard" style={{ padding: "14px", marginBottom: "12px", background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+          <div className="formRow" style={{ marginBottom: "6px" }}>
+            <span>Products Subtotal: <b>Rs. {productSubtotal.toLocaleString()}</b></span>
+            <span>Delivery: <b>{deliveryFee ? `Rs. ${deliveryFee.toLocaleString()}` : "Free"}</b></span>
+          </div>
+          <div className="formRow" style={{ marginBottom: "6px" }}>
+            <span style={{ color: "#15803d" }}>Advance Received: <b>Rs. {amountPayableInAdvance.toLocaleString()}</b></span>
+            <span style={{ color: amountPayableOnDelivery === 0 ? "#15803d" : "#1e40af" }}>
+              Pay on Delivery (COD): <b>Rs. {amountPayableOnDelivery.toLocaleString()}</b>
+            </span>
+          </div>
+          <div style={{ fontSize: "15px", fontWeight: 700, color: "#166534", borderTop: "1px solid #dcfce7", paddingTop: "6px" }}>
+            Total Order Value: Rs. {orderTotal.toLocaleString()}
+          </div>
+        </div>
+
+        <div className="adminCard" style={{ padding: "14px", marginBottom: "12px", background: "#fefce8", border: "1px solid #fde047" }}>
+          <label style={{ margin: 0 }}>
+            <b style={{ color: "#854d0e" }}>📝 Internal Notes &amp; Special Instructions</b>
+            <textarea
+              name="notes"
+              rows="3"
+              placeholder="Enter Instagram DM link, customer phone verification note, rider instructions, custom sizing remarks..."
+              style={{ background: "#fff", border: "1px solid #facc15", marginTop: "6px" }}
+            />
+            <small style={{ color: "#a16207", display: "block", marginTop: "4px" }}>
+              These internal notes will be saved and permanently shown on the order details card and list.
+            </small>
+          </label>
+        </div>
+
+        <button className="dialogSave" disabled={saving} aria-busy={saving} style={{ width: "100%", padding: "12px", fontSize: "14px" }}>
+          {saving ? "Saving & Creating Order..." : "Create Custom Order"}
+        </button>
+      </form>
+    </>
+  );
 }
 
-function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNavigateToEvents }) {
+function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, canRecordRefund, onNavigateToEvents }) {
   const [tracking, setTracking] = useState(order.tracking || "");
   const [orderStage, setOrderStage] = useState(order.postexStatus || order.status || "Un-Assigned By Me");
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || "COD pending");
@@ -5608,7 +5885,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
   const [deliveryMethod, setDeliveryMethod] = useState(order.deliveryMethod || (order.tracking ? "PostEx" : "Rider / same city"));
   const [risk, setRisk] = useState(order.risk || "Standard COD");
   const [tags, setTags] = useState((order.tags || []).join(", "));
-  const [notes, setNotes] = useState(order.notes || "");
+  const [notes, setNotes] = useState(order.notes || order.internalNotes || "");
   const [returnStatus, setReturnStatus] = useState(order.operation?.returnStatus || "No return");
   const [returnReason, setReturnReason] = useState(order.operation?.returnReason || "");
   const [returnResolution, setReturnResolution] = useState(order.operation?.returnResolution || "");
@@ -5619,9 +5896,82 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
   const [resyncingCapi, setResyncingCapi] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
-  const items = normalizeOrderItems(order);
+  const [copiedTracking, setCopiedTracking] = useState(false);
+  const [orderItems, setOrderItems] = useState(() => normalizeOrderItems(order));
+  const items = orderItems;
   const returnStatusOptions = returnWorkflowTransitions[order.operation?.returnStatus || "No return"] || [returnStatus];
   const restoringReturnedStock = order.operation?.returnStatus !== "Return received" && returnStatus === "Return received";
+
+  function updateItemField(index, field, value) {
+    setOrderItems((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+  }
+
+  function handleSelectProduct(index, productName) {
+    const foundProduct = catalogProducts.find((p) => p.name === productName);
+    if (foundProduct) {
+      const parsedSizes = Array.isArray(foundProduct.size) ? foundProduct.size : typeof foundProduct.size === "string" ? (() => { try { return JSON.parse(foundProduct.size); } catch { return [foundProduct.size]; } })() : [];
+      const parsedColors = Array.isArray(foundProduct.color) ? foundProduct.color : typeof foundProduct.color === "string" ? (() => { try { return JSON.parse(foundProduct.color); } catch { return [foundProduct.color]; } })() : [];
+
+      setOrderItems((prev) => {
+        const copy = [...prev];
+        copy[index] = {
+          ...copy[index],
+          name: foundProduct.name,
+          title: foundProduct.name,
+          sku: foundProduct.article_number || foundProduct.stock_id || copy[index].sku || "",
+          price: Number(foundProduct.price || copy[index].price || 0),
+          imageUrl: foundProduct.img || foundProduct.images?.[0] || copy[index].imageUrl || "",
+          size: parsedSizes[0] || copy[index].size || "M",
+          color: parsedColors[0] || copy[index].color || "",
+          productId: foundProduct.id || null,
+        };
+        return copy;
+      });
+    } else if (productName === "__custom__") {
+      setOrderItems((prev) => {
+        const copy = [...prev];
+        copy[index] = {
+          ...copy[index],
+          name: "Custom Product",
+          title: "Custom Product",
+          productId: null,
+        };
+        return copy;
+      });
+    }
+  }
+
+  function handleAddProductItem() {
+    const defaultProduct = catalogProducts[0];
+    const newItem = {
+      id: `manual-${Date.now()}`,
+      name: defaultProduct ? defaultProduct.name : "Custom Product",
+      title: defaultProduct ? defaultProduct.name : "Custom Product",
+      sku: defaultProduct ? (defaultProduct.article_number || defaultProduct.stock_id || "") : "",
+      price: defaultProduct ? Number(defaultProduct.price || 0) : 3000,
+      quantity: 1,
+      size: "M",
+      color: "",
+      imageUrl: defaultProduct?.img || defaultProduct?.images?.[0] || "",
+      productId: defaultProduct?.id || null,
+    };
+    setOrderItems((prev) => [...prev, newItem]);
+  }
+
+  function handleRemoveProductItem(index) {
+    if (orderItems.length <= 1) {
+      alert("An order must have at least one product.");
+      return;
+    }
+    setOrderItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  const rawPhoneDigits = String(order.phone || "").replace(/\D/g, "");
+  const waPhone = rawPhoneDigits.startsWith("0") ? `92${rawPhoneDigits.slice(1)}` : rawPhoneDigits.startsWith("92") ? rawPhoneDigits : `92${rawPhoneDigits}`;
 
   async function resyncOrderMetaPurchase() {
     if (resyncingCapi || saving) return;
@@ -5665,6 +6015,7 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
       risk,
       tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
       notes,
+      items: orderItems,
       operation: {
         returnStatus,
         returnReason,
@@ -5682,12 +6033,12 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
     setSaveMessage("");
     try {
       const saved = await onUpdate(order, changes(overrides));
-      if (saved.inventoryRestore?.restored) {
+      if (saved?.inventoryRestore?.restored) {
         setSaveMessage(`Order changes saved. ${saved.inventoryRestore.restoredItems} item(s) restored to inventory.`);
-      } else if (saved.operationPersistence === "unavailable" || saved.operationPersistence === "failed") {
+      } else if (saved?.operationPersistence === "unavailable" || saved?.operationPersistence === "failed") {
         setSaveMessage(saved.operationError || "Core order details saved, but return/refund workflow data was not saved.");
       } else {
-        setSaveMessage("Order changes saved.");
+        setSaveMessage("Order changes and notes saved successfully!");
       }
       return saved;
     } catch (error) {
@@ -5748,6 +6099,13 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
       setBookingPostex(false);
       setSaving(false);
     }
+  }
+
+  function copyTrackingToClipboard() {
+    if (!tracking) return;
+    navigator.clipboard?.writeText(tracking);
+    setCopiedTracking(true);
+    setTimeout(() => setCopiedTracking(false), 2000);
   }
 
   function escapePrintText(value = "") {
@@ -5817,234 +6175,697 @@ function OrderDetailDrawer({ order, onClose, onUpdate, canRecordRefund, onNaviga
     });
   }
 
-  return <><div className="adminOverlay" onClick={onClose} /><aside className="orderDetailDrawer">
-    <header><div><p>{order.postexStatus || order.status}</p><h2>{order.id}</h2><span>{order.customer} - Rs. {Number(order.total || 0).toLocaleString()}</span></div><button onClick={onClose}><X /></button></header>
-    <div className="orderDetailBody">
-      <section className="orderDetailGrid">
-        <article className="adminCard orderDetailCard"><h3>Customer</h3><b>{order.customer}</b><span>{order.phone || "No phone saved"}</span><p>{order.address || order.city || "No address saved"}</p></article>
-        <article className="adminCard orderDetailCard"><h3>Status</h3><select value={orderStage} onChange={(event) => setOrderStage(event.target.value)}>{customOrderStatusOptions.map((status) => <option key={status}>{status}</option>)}</select></article>
-        <article className="adminCard orderDetailCard"><h3>Payment</h3><select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option>Awaiting Payment</option><option>Proof Submitted</option><option>Payment Verified</option><option>Payment Rejected</option><option>COD pending</option><option>Advance pending</option><option>Verification due</option><option>Paid</option><option>Refunded</option></select></article>
-        <article className="adminCard orderDetailCard"><h3>Fulfillment</h3><select value={fulfillmentStatus} onChange={(event) => setFulfillmentStatus(event.target.value)}><option>Unfulfilled</option><option>Packing</option><option>Booked with PostEx</option><option>Shipped</option><option>Delivered</option><option>On hold</option></select></article>
-        <article className="adminCard orderDetailCard"><h3>Delivery</h3><select value={deliveryMethod} onChange={(event) => setDeliveryMethod(event.target.value)}><option>PostEx</option><option>Rider / same city</option><option>Customer pickup</option><option>Staff delivery</option><option>Manual courier</option><option>PostEx later</option></select></article>
-        <article className="adminCard orderDetailCard"><h3>Risk</h3><select value={risk} onChange={(event) => setRisk(event.target.value)}><option>Standard COD</option><option>High risk COD</option><option>Repeat customer</option></select></article>
-      </section>
+  const calculatedItemsTotal = orderItems.reduce((sum, it) => sum + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
+  const deliveryChargeVal = Number(order.deliveryCharges ?? order.raw?.delivery_charges_pkr ?? 250);
+  const calculatedOrderTotal = calculatedItemsTotal > 0 ? calculatedItemsTotal + deliveryChargeVal : Number(order.total || 0);
+  const currentAdvance = Number(advancePaidAmount || 0);
+  const currentCod = Math.max(0, calculatedOrderTotal - currentAdvance);
 
-      <section className="adminCard orderItemsCard"><div className="inventoryListHead"><div><h2>Items</h2><span>{items.length} line items</span></div><div className="orderActionRow"><button type="button" onClick={printInvoice}>Print invoice</button><button type="button" onClick={printPackingSlip}>Packing slip</button></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Item</th><th>SKU</th><th>Variant</th><th>Qty</th><th>Unit</th><th>Line total</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><b>{item.name}</b></td><td>{item.sku || "-"}</td><td>{[item.size,item.color].filter(Boolean).join(" / ") || "-"}</td><td>{item.quantity}</td><td>Rs. {Number(item.price || 0).toLocaleString()}</td><td>Rs. {(Number(item.price || 0) * Number(item.quantity || 0)).toLocaleString()}</td></tr>)}</tbody></table></div></section>
-
-      <section className="adminCard orderOpsCard">
-        <h3>Fulfill order</h3>
-        <div className="formRow"><label>Tracking number<input value={tracking} onChange={(event) => setTracking(event.target.value)} placeholder="PostEx tracking number" /></label></div>
-        <div className="orderActionRow"><button type="button" onClick={printInvoice}>Print invoice</button><button type="button" onClick={printPackingSlip}>Print packing slip</button>{!order.postexBooked && !tracking && <button type="button" className="editProductButton" onClick={bookWithPostex} disabled={saving || bookingPostex}>{bookingPostex ? "Booking with PostEx..." : "⚡ Book with PostEx"}</button>}{tracking && <button type="button" onClick={() => saveChanges({ fulfillmentStatus: "Booked with PostEx" })} disabled={saving} aria-busy={saving}>{saving ? "Saving..." : "Save tracking"}</button>}</div>
-      </section>
-
-      <section className="adminCard orderOpsCard">
-        <h3>Returns, exchanges, refunds</h3>
-        <div className="formRow"><label>Status<select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)}>{returnStatusOptions.map((status) => <option key={status}>{status}</option>)}</select></label><label>Reason<input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Size, defect, incorrect item..." /></label></div>
-        <div className="formRow"><label>Resolution<textarea value={returnResolution} onChange={(event) => setReturnResolution(event.target.value)} rows="2" placeholder="Approved replacement, customer contacted..." /></label><label>Tags<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Urgent, DM, Exchange" /></label></div>
-        <div className="formRow"><label>Refund amount (PKR)<input type="number" min="0" max={order.total} step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} /></label><label>Refund method<select value={refundMethod} onChange={(event) => setRefundMethod(event.target.value)} disabled={!canRecordRefund}><option value="">Select method</option><option>Bank transfer</option><option>Easypaisa</option><option>JazzCash</option><option>Card reversal</option><option>Cash</option><option>Other</option></select></label></div>
-        {!canRecordRefund && <p className="shippingRuleHint">Only an Owner can approve or record refund details.</p>}
-        {restoringReturnedStock ? <p className="checkoutError">Final check: this will restore {items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} item(s) to stock once. Only continue after the returned parcel has been physically inspected.</p> : <p className="shippingRuleHint">Refund entries are internal records only; they do not send money. Finance uses the actual PostEx CPR return, shipping, GST and tax deductions. Stock changes only when an inspected return is marked <b>Return received</b>.</p>}
-        <button type="button" onClick={() => saveChanges()} disabled={saving} aria-busy={saving}>{saving ? "Saving..." : restoringReturnedStock ? "Confirm inspection & restore stock" : "Save return workflow"}</button>
-      </section>
-
-      <section className="adminCard orderOpsCard paymentVerificationWorkspace">
-        <div className="inventoryListHead">
+  return (
+    <>
+      <div className="adminOverlay" onClick={onClose} />
+      <aside className="orderDetailDrawer">
+        <header>
           <div>
-            <h3>Payment &amp; Advance Verification</h3>
-            <span>{order.confirmationStatus || "Confirmed"}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+              <span className={`statusBadge ${String(orderStage).replaceAll(" ", "").replaceAll("-", "").toLowerCase()}`}>
+                {orderStage}
+              </span>
+              <span className="statusBadge" style={{ background: "#f1f5f9", color: "#334155", fontSize: "11px" }}>
+                {order.source || "Storefront"}
+              </span>
+            </div>
+            <h2>{order.id}</h2>
+            <span>{order.customer} · Rs. {calculatedOrderTotal.toLocaleString()} · {order.date}</span>
           </div>
-          <span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`}>
-            {paymentStatus}
-          </span>
-        </div>
+          <button onClick={onClose} aria-label="Close details"><X /></button>
+        </header>
 
-        {(() => {
-          const currentAdvance = Number(advancePaidAmount || 0);
-          const currentCod = Math.max(0, Number(order.total || 0) - currentAdvance);
-          return (
-            <>
-              <div className="paymentOrderBreakdown">
-                <span>Method <b>{order.paymentMethod || "COD — delivery charge in advance"}</b></span>
-                <span>Product subtotal <b>Rs. {Number(order.productSubtotal ?? order.total ?? 0).toLocaleString()}</b></span>
-                <span>Delivery charges <b>{Number(order.deliveryCharges || 0) ? `Rs. ${Number(order.deliveryCharges).toLocaleString()}` : "Free"}</b></span>
-                <span>Total order value <b>Rs. {Number(order.total || 0).toLocaleString()}</b></span>
-                <span style={{ color: "#15803d" }}>Advance Received <b>Rs. {currentAdvance.toLocaleString()}</b></span>
-                <span style={{ color: currentCod === 0 ? "#15803d" : "#1e40af" }}>
-                  PostEx COD Collection <b>{currentCod === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${currentCod.toLocaleString()}`}</b>
+        <div className="orderDetailBody">
+          {/* Customer & Contact Card */}
+          <section className="adminCard orderDetailCard" style={{ padding: "18px", background: "#fff" }}>
+            <div className="inventoryListHead" style={{ marginBottom: "10px" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#173d29" }}>Customer &amp; Delivery Details</h3>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>Shipping and direct contact options</span>
+              </div>
+              <div style={{ display: "flex", gap: "6px" }}>
+                {rawPhoneDigits && (
+                  <a
+                    href={`https://wa.me/${waPhone}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      background: "#22c55e",
+                      color: "#fff",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      textDecoration: "none"
+                    }}
+                    title="Open WhatsApp Chat with customer"
+                  >
+                    💬 WhatsApp
+                  </a>
+                )}
+                {rawPhoneDigits && (
+                  <a
+                    href={`tel:${order.phone}`}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      background: "#f1f5f9",
+                      color: "#334155",
+                      padding: "6px 10px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      textDecoration: "none"
+                    }}
+                  >
+                    📞 Call
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", fontSize: "13px", color: "#334155" }}>
+              <div>
+                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Customer Name</span>
+                <b>{order.customer}</b>
+                {order.email && <div style={{ color: "#64748b", fontSize: "12px" }}>{order.email}</div>}
+              </div>
+              <div>
+                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Phone Number</span>
+                <b>{order.phone || "No phone saved"}</b>
+              </div>
+              <div>
+                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>City &amp; Region</span>
+                <b>📍 {order.city || "—"}</b>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Complete Delivery Address</span>
+                <p style={{ margin: "2px 0 0", lineHeight: 1.4, color: "#1e293b" }}>{order.address || order.city || "No address saved"}</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Internal Notes & Special Instructions Card (PROMINENT) */}
+          <section className="adminCard orderOpsCard" style={{ background: "#fefce8", border: "1px solid #fde047", padding: "18px" }}>
+            <div className="inventoryListHead" style={{ marginBottom: "10px" }}>
+              <div>
+                <h3 style={{ color: "#854d0e", display: "flex", alignItems: "center", gap: "6px", margin: 0, fontSize: "15px" }}>
+                  📝 Internal Notes &amp; Special Remarks
+                </h3>
+                <span style={{ color: "#a16207", fontSize: "12px" }}>
+                  Admin notes, DM context, customer requests, rider timing &amp; instructions
                 </span>
               </div>
+              {notes && (
+                <span className="statusBadge" style={{ background: "#fef08a", color: "#854d0e", fontWeight: 700 }}>
+                  Notes Active
+                </span>
+              )}
+            </div>
 
-              <div className="formRow" style={{ marginTop: "12px" }}>
-                <label>
-                  Advance Received (PKR)
-                  <input
-                    type="number"
-                    min="0"
-                    max={order.total}
-                    value={advancePaidAmount}
-                    onChange={(event) => setAdvancePaidAmount(event.target.value)}
-                    placeholder="250 or 9498..."
-                  />
-                </label>
-                <label>
-                  Transaction / reference ID
-                  <input
-                    value={paymentReference}
-                    onChange={(event) => setPaymentReference(event.target.value)}
-                    placeholder="Bank transfer reference, if provided"
-                  />
-                </label>
+            {notes && (
+              <div style={{
+                background: "#fff",
+                padding: "12px 14px",
+                borderRadius: "8px",
+                border: "1px solid #fef08a",
+                color: "#713f12",
+                fontSize: "13px",
+                lineHeight: "1.6",
+                whiteSpace: "pre-wrap",
+                marginBottom: "12px"
+              }}>
+                {notes}
               </div>
+            )}
 
-              <div className="formRow">
-                <label>
-                  Verification status
-                  <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
-                    <option>Awaiting Payment</option>
-                    <option>Proof Submitted</option>
-                    <option>Payment Verified</option>
-                    <option>Payment Rejected</option>
-                  </select>
-                </label>
-                <div style={{ display: "flex", gap: "6px", alignItems: "flex-end", paddingBottom: "2px" }}>
-                  <button
-                    type="button"
-                    className="editProductButton"
-                    style={{ fontSize: "11px", padding: "6px 10px", background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }}
-                    onClick={() => {
-                      setAdvancePaidAmount(Number(order.total || 0));
-                      setPaymentStatus("Payment Verified");
-                    }}
-                  >
-                    🟢 Set 100% Full Advance
-                  </button>
-                  <button
-                    type="button"
-                    className="editProductButton"
-                    style={{ fontSize: "11px", padding: "6px 10px", background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}
-                    onClick={() => {
-                      setAdvancePaidAmount(250);
-                      setPaymentStatus("Payment Verified");
-                    }}
-                  >
-                    🔵 Set Rs. 250 Advance
-                  </button>
-                </div>
+            <label style={{ margin: 0 }}>
+              <span style={{ fontSize: "12px", color: "#854d0e", fontWeight: 700 }}>
+                {notes ? "Edit / Append Internal Notes:" : "Add Internal Notes:"}
+              </span>
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows="3"
+                placeholder="Write customer request, DM context, phone verification, rider instructions, custom sizes..."
+                style={{ background: "#fff", border: "1px solid #facc15", marginTop: "6px", width: "100%" }}
+              />
+            </label>
+
+            {saveError && <p className="checkoutError" role="alert" style={{ marginTop: "8px" }}>{saveError}</p>}
+            {saveMessage && <p className="adminSuccessBanner" role="status" style={{ marginTop: "8px" }}>{saveMessage}</p>}
+
+            <div className="orderActionRow" style={{ marginTop: "10px" }}>
+              <button
+                type="button"
+                className="editProductButton"
+                onClick={() => saveChanges({ notes })}
+                disabled={saving}
+                aria-busy={saving}
+                style={{ background: "#ca8a04", color: "#fff", border: "none", fontWeight: 700 }}
+              >
+                {saving ? "Saving Note..." : "💾 Save Internal Note"}
+              </button>
+            </div>
+          </section>
+
+          {/* Quick Selectors Grid */}
+          <section className="orderDetailGrid">
+            <article className="adminCard orderDetailCard">
+              <h3>Order Stage</h3>
+              <select value={orderStage} onChange={(event) => setOrderStage(event.target.value)}>
+                {customOrderStatusOptions.map((status) => <option key={status}>{status}</option>)}
+              </select>
+            </article>
+            <article className="adminCard orderDetailCard">
+              <h3>Payment Status</h3>
+              <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
+                <option>Awaiting Payment</option>
+                <option>Proof Submitted</option>
+                <option>Payment Verified</option>
+                <option>Payment Rejected</option>
+                <option>COD pending</option>
+                <option>Advance pending</option>
+                <option>Verification due</option>
+                <option>Paid</option>
+                <option>Refunded</option>
+              </select>
+            </article>
+            <article className="adminCard orderDetailCard">
+              <h3>Fulfillment</h3>
+              <select value={fulfillmentStatus} onChange={(event) => setFulfillmentStatus(event.target.value)}>
+                <option>Unfulfilled</option>
+                <option>Packing</option>
+                <option>Booked with PostEx</option>
+                <option>Shipped</option>
+                <option>Delivered</option>
+                <option>On hold</option>
+              </select>
+            </article>
+            <article className="adminCard orderDetailCard">
+              <h3>Delivery Method</h3>
+              <select value={deliveryMethod} onChange={(event) => setDeliveryMethod(event.target.value)}>
+                <option>PostEx</option>
+                <option>Rider / same city</option>
+                <option>Customer pickup</option>
+                <option>Staff delivery</option>
+                <option>Manual courier</option>
+                <option>PostEx later</option>
+              </select>
+            </article>
+            <article className="adminCard orderDetailCard">
+              <h3>Risk Level</h3>
+              <select value={risk} onChange={(event) => setRisk(event.target.value)}>
+                <option>Standard COD</option>
+                <option>High risk COD</option>
+                <option>Repeat customer</option>
+              </select>
+            </article>
+          </section>
+
+          {/* Order Items & Product Editor Section */}
+          <section className="adminCard orderItemsCard" style={{ padding: "18px", background: "#fff" }}>
+            <div className="inventoryListHead" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+              <div>
+                <h2 style={{ fontSize: "16px", margin: 0, fontWeight: 700, color: "#173d29" }}>Ordered Items &amp; Product Settings</h2>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>Change products, sizes, colors, or quantities and save directly</span>
               </div>
-
-              <div className="orderActionRow" style={{ marginTop: "8px" }}>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                 <button
                   type="button"
-                  onClick={() => saveChanges({
-                    paymentReference,
-                    amountPayableInAdvance: Number(advancePaidAmount || 0),
-                    confirmationStatus: "Confirmed",
-                  })}
-                  disabled={saving}
-                  aria-busy={saving}
+                  onClick={handleAddProductItem}
+                  style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontWeight: 700, padding: "7px 12px", fontSize: "12px", borderRadius: "6px", cursor: "pointer" }}
                 >
-                  Confirm order (payment optional)
+                  + Add Product to Order
                 </button>
                 <button
                   type="button"
                   className="editProductButton"
-                  onClick={() => {
-                    setPaymentStatus("Payment Verified");
-                    setFulfillmentStatus("Packing");
-                    saveChanges({
-                      paymentStatus: "Payment Verified",
-                      paymentReference,
-                      amountPayableInAdvance: Number(advancePaidAmount || 0),
-                      fulfillmentStatus: "Packing",
-                      confirmationStatus: "Confirmed",
-                    });
-                  }}
+                  onClick={() => saveChanges({ items: orderItems })}
                   disabled={saving}
-                  aria-busy={saving}
+                  style={{ background: "#166534", color: "#fff", border: "none", fontWeight: 700, padding: "7px 14px", fontSize: "12px", borderRadius: "6px" }}
                 >
-                  Verify payment &amp; move to packing
+                  {saving ? "Saving Changes..." : "💾 Save Items & Changes"}
+                </button>
+                <button type="button" onClick={printInvoice} style={{ padding: "6px 10px", fontSize: "12px" }}>📄 Print Invoice</button>
+                <button type="button" onClick={printPackingSlip} style={{ padding: "6px 10px", fontSize: "12px" }}>📦 Packing Slip</button>
+              </div>
+            </div>
+
+            <div className="adminTableWrap" style={{ marginTop: "14px", overflowX: "auto" }}>
+              <table className="adminTable" style={{ minWidth: "680px" }}>
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: "220px" }}>Product Name (Change / Select)</th>
+                    <th style={{ minWidth: "140px" }}>Size (Edit)</th>
+                    <th style={{ minWidth: "120px" }}>Color (Edit)</th>
+                    <th style={{ width: "65px" }}>Qty</th>
+                    <th style={{ width: "110px" }}>Unit Price (PKR)</th>
+                    <th>Line Total</th>
+                    <th style={{ width: "40px" }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderItems.map((item, index) => {
+                    const standardSizes = ["XS", "S", "M", "L", "XL", "XXL", "Free Size"];
+                    const isCustom = item.size && !standardSizes.includes(item.size);
+
+                    return (
+                      <tr key={item.id || index}>
+                        <td>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              {item.imageUrl && (
+                                <img src={item.imageUrl} alt={item.name} style={{ width: "36px", height: "36px", objectFit: "cover", borderRadius: "4px", flexShrink: 0 }} />
+                              )}
+                              <select
+                                value={catalogProducts.some((p) => p.name === item.name) ? item.name : "__custom__"}
+                                onChange={(e) => handleSelectProduct(index, e.target.value)}
+                                style={{ padding: "5px 8px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "#f8fafc", fontWeight: 700, color: "#1e293b", width: "100%" }}
+                              >
+                                <optgroup label="Store Catalog Products">
+                                  {catalogProducts.map((p) => (
+                                    <option key={p.id || p.name} value={p.name}>
+                                      {p.name} (Rs. {Number(p.price || 0).toLocaleString()})
+                                    </option>
+                                  ))}
+                                </optgroup>
+                                <option value="__custom__">✏️ Custom / Other Suit Name</option>
+                              </select>
+                            </div>
+                            {(!catalogProducts.some((p) => p.name === item.name) || item.name === "Custom Product") && (
+                              <input
+                                type="text"
+                                value={item.name || ""}
+                                onChange={(e) => updateItemField(index, "name", e.target.value)}
+                                placeholder="Enter custom suit / product title..."
+                                style={{ padding: "4px 8px", fontSize: "11px", borderRadius: "4px", border: "1px solid #94a3b8", background: "#fff" }}
+                              />
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            <select
+                              value={standardSizes.includes(item.size) ? item.size : "Custom"}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                updateItemField(index, "size", val === "Custom" ? (item.size || "Custom") : val);
+                              }}
+                              style={{ padding: "5px 8px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "#f8fafc", fontWeight: 700, color: "#1e293b" }}
+                            >
+                              <option value="XS">XS (Extra Small)</option>
+                              <option value="S">S (Small)</option>
+                              <option value="M">M (Medium)</option>
+                              <option value="L">L (Large)</option>
+                              <option value="XL">XL (Extra Large)</option>
+                              <option value="XXL">XXL (Double Extra Large)</option>
+                              <option value="Free Size">Free Size / Unstitched</option>
+                              <option value="Custom">Custom / Other Size...</option>
+                            </select>
+                            {(isCustom || item.size === "Custom") && (
+                              <input
+                                type="text"
+                                value={item.size || ""}
+                                onChange={(e) => updateItemField(index, "size", e.target.value)}
+                                placeholder="Size (e.g. 38, Custom size)"
+                                style={{ padding: "4px 8px", fontSize: "11px", borderRadius: "4px", border: "1px solid #94a3b8", background: "#fff" }}
+                              />
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            value={item.color || ""}
+                            onChange={(e) => updateItemField(index, "color", e.target.value)}
+                            placeholder="Color (e.g. Olive, Pink)"
+                            style={{ padding: "5px 8px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "#f8fafc", width: "100%" }}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min="1"
+                            max="99"
+                            value={item.quantity || 1}
+                            onChange={(e) => updateItemField(index, "quantity", Math.max(1, Number(e.target.value) || 1))}
+                            style={{ width: "48px", padding: "4px 6px", fontSize: "12px", textAlign: "center", borderRadius: "6px", border: "1px solid #cbd5e1" }}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            value={item.price || 0}
+                            onChange={(e) => updateItemField(index, "price", Math.max(0, Number(e.target.value) || 0))}
+                            style={{ width: "90px", padding: "4px 6px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1" }}
+                          />
+                        </td>
+                        <td style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
+                          <b>Rs. {(Number(item.price || 0) * Number(item.quantity || 1)).toLocaleString()}</b>
+                        </td>
+                        <td>
+                          {orderItems.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveProductItem(index)}
+                              style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px", padding: "4px" }}
+                              title="Remove item"
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end", gap: "16px", fontSize: "13px", color: "#334155", borderTop: "1px solid #f1f5f9", paddingTop: "10px" }}>
+              <span>Items Subtotal: <b>Rs. {calculatedItemsTotal.toLocaleString()}</b></span>
+              <span>Delivery Charges: <b>Rs. {deliveryChargeVal.toLocaleString()}</b></span>
+              <span style={{ color: "#166534", fontWeight: 700 }}>Total Order Value: <b>Rs. {calculatedOrderTotal.toLocaleString()}</b></span>
+            </div>
+          </section>
+
+          {/* Payment & Advance Verification Card */}
+          <section className="adminCard orderOpsCard paymentVerificationWorkspace" style={{ padding: "18px" }}>
+            <div className="inventoryListHead">
+              <div>
+                <h3 style={{ margin: 0, fontSize: "16px" }}>Financial Breakdown &amp; Advance Verification</h3>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>Payment tracking, advance received, and remaining COD collection</span>
+              </div>
+              <span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`}>
+                {paymentStatus}
+              </span>
+            </div>
+
+            <div className="paymentOrderBreakdown" style={{ marginTop: "12px" }}>
+              <span>Method: <b>{order.paymentMethod || "Cash on Delivery"}</b></span>
+              <span>Product Subtotal: <b>Rs. {calculatedItemsTotal.toLocaleString()}</b></span>
+              <span>Delivery Charges: <b>Rs. {deliveryChargeVal.toLocaleString()}</b></span>
+              <span>Total Order Value: <b>Rs. {calculatedOrderTotal.toLocaleString()}</b></span>
+              <span style={{ color: "#15803d" }}>Advance Received: <b>Rs. {currentAdvance.toLocaleString()}</b></span>
+              <span style={{ color: currentCod === 0 ? "#15803d" : "#1e40af" }}>
+                PostEx COD Collection: <b>{currentCod === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${currentCod.toLocaleString()}`}</b>
+              </span>
+            </div>
+
+            <div className="formRow" style={{ marginTop: "12px" }}>
+              <label>
+                Advance Received (PKR)
+                <input
+                  type="number"
+                  min="0"
+                  max={order.total}
+                  value={advancePaidAmount}
+                  onChange={(event) => setAdvancePaidAmount(event.target.value)}
+                  placeholder="250, 500, or full total..."
+                />
+              </label>
+              <label>
+                Payment Reference ID / Transaction ID
+                <input
+                  value={paymentReference}
+                  onChange={(event) => setPaymentReference(event.target.value)}
+                  placeholder="Bank transfer / NayaPay / JazzCash reference"
+                />
+              </label>
+            </div>
+
+            <div className="formRow">
+              <label>
+                Payment Proof Status
+                <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
+                  <option>Awaiting Payment</option>
+                  <option>Proof Submitted</option>
+                  <option>Payment Verified</option>
+                  <option>Payment Rejected</option>
+                </select>
+              </label>
+              <div style={{ display: "flex", gap: "6px", alignItems: "flex-end", paddingBottom: "2px" }}>
+                <button
+                  type="button"
+                  className="editProductButton"
+                  style={{ fontSize: "11px", padding: "6px 10px", background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }}
+                  onClick={() => {
+                    setAdvancePaidAmount(Number(order.total || 0));
+                    setPaymentStatus("Payment Verified");
+                  }}
+                >
+                  🟢 Set 100% Full Advance
                 </button>
                 <button
                   type="button"
-                  className="dangerButton"
+                  className="editProductButton"
+                  style={{ fontSize: "11px", padding: "6px 10px", background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}
                   onClick={() => {
-                    setPaymentStatus("Payment Rejected");
-                    saveChanges({
-                      paymentStatus: "Payment Rejected",
-                      paymentReference,
-                      // A rejected proof does not cancel the order under the
-                      // current policy; it only updates payment verification.
-                      confirmationStatus: "Confirmed",
-                    });
+                    setAdvancePaidAmount(250);
+                    setPaymentStatus("Payment Verified");
                   }}
+                >
+                  🔵 Set Rs. 250 Advance
+                </button>
+              </div>
+            </div>
+
+            <div className="orderActionRow" style={{ marginTop: "12px" }}>
+              <button
+                type="button"
+                onClick={() => saveChanges({
+                  paymentReference,
+                  amountPayableInAdvance: Number(advancePaidAmount || 0),
+                  confirmationStatus: "Confirmed",
+                })}
+                disabled={saving}
+                aria-busy={saving}
+              >
+                Save Payment Details
+              </button>
+              <button
+                type="button"
+                className="editProductButton"
+                onClick={() => {
+                  setPaymentStatus("Payment Verified");
+                  setFulfillmentStatus("Packing");
+                  saveChanges({
+                    paymentStatus: "Payment Verified",
+                    paymentReference,
+                    amountPayableInAdvance: Number(advancePaidAmount || 0),
+                    fulfillmentStatus: "Packing",
+                    confirmationStatus: "Confirmed",
+                  });
+                }}
+                disabled={saving}
+                aria-busy={saving}
+              >
+                ✅ Verify Payment &amp; Move to Packing
+              </button>
+              <button
+                type="button"
+                className="dangerButton"
+                onClick={() => {
+                  setPaymentStatus("Payment Rejected");
+                  saveChanges({
+                    paymentStatus: "Payment Rejected",
+                    paymentReference,
+                    confirmationStatus: "Confirmed",
+                  });
+                }}
+                disabled={saving}
+                aria-busy={saving}
+              >
+                ❌ Reject Payment
+              </button>
+            </div>
+          </section>
+
+          {/* Fulfillment & Courier Operations Card */}
+          <section className="adminCard orderOpsCard" style={{ padding: "18px" }}>
+            <div className="inventoryListHead">
+              <div>
+                <h3 style={{ margin: 0, fontSize: "16px" }}>Courier &amp; Delivery Tracking</h3>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>PostEx shipment booking and tracking numbers</span>
+              </div>
+            </div>
+
+            <div className="formRow" style={{ marginTop: "12px" }}>
+              <label>
+                Tracking Number
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <input
+                    value={tracking}
+                    onChange={(event) => setTracking(event.target.value)}
+                    placeholder="PostEx tracking number (e.g. 123456789)"
+                  />
+                  {tracking && (
+                    <button
+                      type="button"
+                      onClick={copyTrackingToClipboard}
+                      className="editProductButton"
+                      style={{ whiteSpace: "nowrap", padding: "0 12px" }}
+                      title="Copy tracking number"
+                    >
+                      {copiedTracking ? "Copied!" : "Copy"}
+                    </button>
+                  )}
+                </div>
+              </label>
+            </div>
+
+            {tracking && !tracking.startsWith("MANUAL-") && (
+              <div style={{ marginTop: "6px", fontSize: "12px" }}>
+                <a
+                  href={`https://postex.pk/tracking?cn=${tracking}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#2563eb", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                >
+                  🔗 Open live tracking page on PostEx.pk
+                </a>
+              </div>
+            )}
+
+            <div className="orderActionRow" style={{ marginTop: "12px" }}>
+              {!order.postexBooked && !tracking && (
+                <button
+                  type="button"
+                  className="editProductButton"
+                  onClick={bookWithPostex}
+                  disabled={saving || bookingPostex}
+                  style={{ background: "#2563eb", color: "#fff", border: "none", fontWeight: 700 }}
+                >
+                  {bookingPostex ? "Booking with PostEx..." : "⚡ Book with PostEx Courier"}
+                </button>
+              )}
+              {tracking && (
+                <button
+                  type="button"
+                  onClick={() => saveChanges({ fulfillmentStatus: "Booked with PostEx", tracking })}
                   disabled={saving}
                   aria-busy={saving}
                 >
-                  Reject payment
+                  {saving ? "Saving..." : "Save Tracking Number"}
                 </button>
-              </div>
-              <p className="shippingRuleHint">
-                Order confirmation is immediate and does not require an advance. Payment proof is tracked separately; verify it before dispatching Full Advance orders.
-                <br />
-                PostEx courier will automatically collect exactly <b>Rs. {currentCod.toLocaleString()}</b> on delivery.
-                {currentCod === 0 && " (Order is 100% prepaid — PostEx label will print with Rs. 0 COD collection)"}
-              </p>
-            </>
-          );
-        })()}
-      </section>
+              )}
+            </div>
+          </section>
 
-      <section className="adminCard orderOpsCard metaCapiOrderSection" style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-        <div className="inventoryListHead">
-          <div>
-            <h3>Meta Pixel &amp; Conversions API (CAPI)</h3>
-            <span>Ad conversion tracking &amp; deduplication status</span>
-          </div>
-          <span className="statusBadge activeStatus" style={{ background: "#dcfce7", color: "#166534" }}>
-            CAPI Linked
-          </span>
-        </div>
-        <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#334155" }}>
-          <div><b>Shared Event ID:</b> <code>{order.order_number || String(order.id).replace(/^#/, "")}</code></div>
-          <div><b>Tracking Trigger:</b> Qualifying order created at checkout</div>
-          <div><b>Deduplication:</b> Browser Pixel + Server CAPI matched on <code>event_id</code></div>
-          <div><b>Conversion Value:</b> Rs. {Number(order.total || 0).toLocaleString()} (PKR)</div>
-          <div><b>Customer Identifiers:</b> Hashed Pakistani mobile (923...), city, province, browser cookie (_fbp)</div>
-        </div>
-        <div className="orderActionRow" style={{ marginTop: "12px" }}>
-          {onNavigateToEvents && (
-            <button type="button" onClick={() => onNavigateToEvents(order.order_number || order.id)}>
-              🔍 View in Events log
+          {/* Returns, Exchanges & Refunds */}
+          <section className="adminCard orderOpsCard" style={{ padding: "18px" }}>
+            <h3>Returns, Exchanges &amp; Refunds</h3>
+            <div className="formRow">
+              <label>
+                Status
+                <select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)}>
+                  {returnStatusOptions.map((status) => <option key={status}>{status}</option>)}
+                </select>
+              </label>
+              <label>
+                Reason
+                <input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Size, defect, incorrect item..." />
+              </label>
+            </div>
+            <div className="formRow">
+              <label>
+                Resolution
+                <textarea value={returnResolution} onChange={(event) => setReturnResolution(event.target.value)} rows="2" placeholder="Approved replacement, customer contacted..." />
+              </label>
+              <label>
+                Tags
+                <input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Urgent, DM, Exchange" />
+              </label>
+            </div>
+            <div className="formRow">
+              <label>
+                Refund Amount (PKR)
+                <input type="number" min="0" max={order.total} step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} />
+              </label>
+              <label>
+                Refund Method
+                <select value={refundMethod} onChange={(event) => setRefundMethod(event.target.value)} disabled={!canRecordRefund}>
+                  <option value="">Select method</option>
+                  <option>Bank transfer</option>
+                  <option>Easypaisa</option>
+                  <option>JazzCash</option>
+                  <option>Card reversal</option>
+                  <option>Cash</option>
+                  <option>Other</option>
+                </select>
+              </label>
+            </div>
+            {!canRecordRefund && <p className="shippingRuleHint">Only an Owner can approve or record refund details.</p>}
+            {restoringReturnedStock ? (
+              <p className="checkoutError">Final check: this will restore {items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} item(s) to stock once.</p>
+            ) : null}
+            <button type="button" onClick={() => saveChanges()} disabled={saving} aria-busy={saving}>
+              {saving ? "Saving..." : restoringReturnedStock ? "Confirm inspection & restore stock" : "Save return workflow"}
             </button>
-          )}
-          <button type="button" className="editProductButton" onClick={resyncOrderMetaPurchase} disabled={resyncingCapi || saving}>
-            {resyncingCapi ? "Dispatching..." : "⚡ Re-sync Meta Purchase"}
-          </button>
-        </div>
-      </section>
+          </section>
 
-      <section className="adminCard orderOpsCard">
-        <h3>Internal notes</h3>
-        <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows="5" placeholder="Team notes, DM context, phone verification result" />
-        {saveError && <p className="checkoutError" role="alert">{saveError}</p>}
-        {saveMessage && <p className="adminSuccessBanner" role="status">{saveMessage}</p>}
-        <button onClick={() => saveChanges()} disabled={saving} aria-busy={saving}>{saving ? "Saving..." : "Save order changes"}</button>
-      </section>
+          {/* Meta Pixel & Conversions API (CAPI) */}
+          <section className="adminCard orderOpsCard metaCapiOrderSection" style={{ background: "#f8fafc", border: "1px solid #e2e8f0", padding: "18px" }}>
+            <div className="inventoryListHead">
+              <div>
+                <h3 style={{ margin: 0, fontSize: "15px" }}>Meta Pixel &amp; Conversions API (CAPI)</h3>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>Conversion tracking and event deduplication</span>
+              </div>
+              <span className="statusBadge activeStatus" style={{ background: "#dcfce7", color: "#166534" }}>
+                CAPI Linked
+              </span>
+            </div>
+            <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#334155", marginTop: "8px" }}>
+              <div><b>Shared Event ID:</b> <code>{order.order_number || String(order.id).replace(/^#/, "")}</code></div>
+              <div><b>Conversion Value:</b> Rs. {Number(order.total || 0).toLocaleString()} (PKR)</div>
+            </div>
+            <div className="orderActionRow" style={{ marginTop: "10px" }}>
+              {onNavigateToEvents && (
+                <button type="button" onClick={() => onNavigateToEvents(order.order_number || order.id)}>
+                  🔍 View in Events Log
+                </button>
+              )}
+              <button type="button" className="editProductButton" onClick={resyncOrderMetaPurchase} disabled={resyncingCapi || saving}>
+                {resyncingCapi ? "Dispatching..." : "⚡ Re-sync Meta Purchase"}
+              </button>
+            </div>
+          </section>
 
-      <section className="adminCard orderOpsCard">
-        <h3>Order timeline</h3>
-        <div className="orderTimeline">
-          <div><b>Order created</b><span>{order.date}</span></div>
-          {order.tracking && <div><b>Tracking assigned</b><span>{order.tracking}</span></div>}
-          {(order.operationEvents || []).map((event, index) => <div key={`${event.created_at || "event"}-${index}`}><b>{event.event_type === "order_operation_updated" ? "Return / refund workflow updated" : formatOrderStatus(event.event_type)}</b><span>{event.created_at ? new Date(event.created_at).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Just now"}</span>{event.new_value?.operation?.returnStatus && <small>{event.new_value.operation.returnStatus}{Number(event.new_value.operation.refundAmount || 0) ? ` · Refund Rs. ${Number(event.new_value.operation.refundAmount).toLocaleString()}` : ""}</small>}</div>)}
-          {!order.operationStorageAvailable && <p className="shippingRuleHint">The audit timeline will be retained after the order-operations SQL migration is applied.</p>}
+          {/* Order Timeline */}
+          <section className="adminCard orderOpsCard" style={{ padding: "18px" }}>
+            <h3>Order Timeline</h3>
+            <div className="orderTimeline">
+              <div><b>Order Created</b><span>{order.date}</span></div>
+              {order.tracking && <div><b>Tracking Assigned</b><span>{order.tracking}</span></div>}
+              {(order.operationEvents || []).map((event, index) => (
+                <div key={`${event.created_at || "event"}-${index}`}>
+                  <b>{event.event_type === "order_operation_updated" ? "Return / refund workflow updated" : formatOrderStatus(event.event_type)}</b>
+                  <span>{event.created_at ? new Date(event.created_at).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Just now"}</span>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
-      </section>
-    </div>
-  </aside></>;
+      </aside>
+    </>
+  );
 }
 
 function OrderTable({ rows, onSelect, density = "comfortable" }) {
+  const [expandedId, setExpandedId] = useState(null);
+
   return (
     <div className={`adminTableWrap ${density === "compact" ? "compactTable" : ""}`}>
       <table className="adminTable orderTable">
@@ -6052,74 +6873,253 @@ function OrderTable({ rows, onSelect, density = "comfortable" }) {
           <tr>
             <th>Order</th>
             <th>Customer</th>
-            <th>Amount</th>
+            <th>Ordered Items &amp; Notes</th>
+            <th>Amount &amp; Advance</th>
             <th>Payment</th>
             <th>PostEx status</th>
             <th>Date</th>
-            <th>Risk</th>
-            <th />
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((order) => (
-            <tr key={order.id}>
-              <td>
-                <b>{order.id}</b>
-                {order.tracking && <small className="trackingNumber"><br />{order.tracking}</small>}
-                {order.deliveryMethod && <small className="trackingNumber"><br />{order.deliveryMethod}</small>}
-              </td>
-              <td>
-                {order.customer}
-                <small className="trackingNumber"><br />{order.city}</small>
-              </td>
-              {(() => {
-                const totalOrderVal = Number(order.total || 0);
-                const advancePaid = Number(order.amountPayableInAdvance || 0);
-                const isFullPaid = advancePaid >= totalOrderVal && totalOrderVal > 0;
-                const codCollectible = Math.max(0, totalOrderVal - advancePaid);
-                return (
-                  <td>
-                    <b>Rs. {totalOrderVal.toLocaleString()}</b>
-                    <small className="trackingNumber" style={{ display: "block", marginTop: "2px", lineHeight: "1.3" }}>
-                      {advancePaid > 0 ? (
-                        <span style={{ color: "#15803d", fontWeight: 700 }}>
-                          {isFullPaid ? "🟢 Full Advance (100%)" : `🟢 Advance: Rs. ${advancePaid.toLocaleString()}`}
-                        </span>
-                      ) : (
-                        <span style={{ color: "#475569", fontWeight: 500 }}>⭕ Advance: Rs. 0</span>
+          {rows.map((order) => {
+            const orderItems = normalizeOrderItems(order);
+            const totalOrderVal = Number(order.total || 0);
+            const advancePaid = Number(order.amountPayableInAdvance || 0);
+            const isFullPaid = advancePaid >= totalOrderVal && totalOrderVal > 0;
+            const codCollectible = Math.max(0, totalOrderVal - advancePaid);
+            const rawPhoneDigits = String(order.phone || "").replace(/\D/g, "");
+            const waPhone = rawPhoneDigits.startsWith("0") ? `92${rawPhoneDigits.slice(1)}` : rawPhoneDigits.startsWith("92") ? rawPhoneDigits : `92${rawPhoneDigits}`;
+            const isExpanded = expandedId === order.id;
+            const hasNotes = Boolean(order.notes || order.internalNotes);
+
+            return (
+              <Fragment key={order.id}>
+                <tr style={{ background: isExpanded ? "#f8fafc" : undefined }}>
+                <td>
+                  <b>{order.id}</b>
+                  <span
+                    className="statusBadge"
+                    style={{
+                      display: "block",
+                      marginTop: "4px",
+                      fontSize: "10px",
+                      padding: "2px 6px",
+                      background: "#f1f5f9",
+                      color: "#334155",
+                      width: "fit-content"
+                    }}
+                  >
+                    {order.source || "Storefront"}
+                  </span>
+                  {order.tracking && (
+                    <small className="trackingNumber" style={{ display: "block", marginTop: "2px" }}>
+                      🚚 {order.tracking}
+                    </small>
+                  )}
+                </td>
+                <td>
+                  <b>{order.customer}</b>
+                  {order.phone && (
+                    <div style={{ fontSize: "11px", color: "#475569", marginTop: "2px", display: "flex", alignItems: "center", gap: "4px" }}>
+                      <span>📞 {order.phone}</span>
+                      {rawPhoneDigits && (
+                        <a
+                          href={`https://wa.me/${waPhone}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: "#16a34a",
+                            fontWeight: 700,
+                            textDecoration: "none",
+                            background: "#dcfce7",
+                            padding: "1px 5px",
+                            borderRadius: "4px",
+                            fontSize: "10px"
+                          }}
+                          title="Chat on WhatsApp"
+                        >
+                          💬 WA
+                        </a>
                       )}
-                      <br />
-                      <span style={{ color: codCollectible === 0 ? "#15803d" : "#1e40af", fontWeight: 800 }}>
-                        🚚 PostEx COD: {codCollectible === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${codCollectible.toLocaleString()}`}
+                    </div>
+                  )}
+                  <small className="trackingNumber" style={{ display: "block", marginTop: "2px" }}>
+                    📍 {order.city || "—"}
+                  </small>
+                </td>
+                <td style={{ maxWidth: "260px" }}>
+                  <div style={{ fontSize: "12px", color: "#1e293b", fontWeight: 600, lineHeight: 1.4 }}>
+                    {orderItems.map((it) => (
+                      <div key={it.id} style={{ marginBottom: "2px" }}>
+                        • {it.name} {[it.size, it.color].filter(Boolean).length ? `(${[it.size, it.color].filter(Boolean).join("/")})` : ""} × {it.quantity}
+                      </div>
+                    ))}
+                  </div>
+                  {hasNotes && (
+                    <div
+                      style={{
+                        marginTop: "6px",
+                        padding: "4px 8px",
+                        background: "#fef9c3",
+                        border: "1px solid #fef08a",
+                        borderRadius: "6px",
+                        fontSize: "11px",
+                        color: "#854d0e",
+                        lineHeight: "1.3"
+                      }}
+                      title={order.notes || order.internalNotes}
+                    >
+                      📝 <b>Note:</b> {String(order.notes || order.internalNotes).length > 60 ? `${String(order.notes || order.internalNotes).slice(0, 60)}...` : (order.notes || order.internalNotes)}
+                    </div>
+                  )}
+                </td>
+                <td>
+                  <b>Rs. {totalOrderVal.toLocaleString()}</b>
+                  <div style={{ marginTop: "3px", lineHeight: "1.3", fontSize: "11px" }}>
+                    {advancePaid > 0 ? (
+                      <span style={{ color: "#15803d", fontWeight: 700 }}>
+                        {isFullPaid ? "🟢 Full Advance (100%)" : `🟢 Advance: Rs. ${advancePaid.toLocaleString()}`}
+                      </span>
+                    ) : (
+                      <span style={{ color: "#475569", fontWeight: 500 }}>⭕ Advance: Rs. 0</span>
+                    )}
+                    <br />
+                    <span style={{ color: codCollectible === 0 ? "#15803d" : "#1e40af", fontWeight: 800 }}>
+                      🚚 PostEx COD: {codCollectible === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${codCollectible.toLocaleString()}`}
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <b>{order.paymentMethod || "COD"}</b>
+                  <small className="trackingNumber" style={{ display: "block", marginTop: "2px" }}>
+                    {order.paymentStatus || "Awaiting Payment"}
+                  </small>
+                </td>
+                <td>
+                  <span className={`statusBadge ${orderStatus(order).replaceAll(" ", "").replaceAll("-", "").toLowerCase()}`}>
+                    {order.postexStatus || order.status}
+                  </span>
+                  {order.confirmationStatus && !["confirmed", "payment verified", "verified"].includes(String(order.confirmationStatus).toLowerCase()) && (
+                    <small className="trackingNumber" style={{ display: "block", marginTop: "4px" }}>
+                      <span className="statusBadge unconfirmed" style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "10px" }}>
+                        ⚠️ {order.confirmationStatus}
                       </span>
                     </small>
+                  )}
+                </td>
+                <td style={{ fontSize: "12px", whiteSpace: "nowrap" }}>{order.date}</td>
+                <td>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    {onSelect && (
+                      <button
+                        type="button"
+                        className="editProductButton"
+                        onClick={() => onSelect(order)}
+                        aria-label={`Open order ${order.id}`}
+                        style={{ whiteSpace: "nowrap" }}
+                      >
+                        👁️ View
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                      style={{
+                        background: isExpanded ? "#e2e8f0" : "#f1f5f9",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "4px",
+                        padding: "4px 6px",
+                        cursor: "pointer",
+                        fontSize: "10px",
+                        fontWeight: 700
+                      }}
+                      title="Toggle quick inline details"
+                    >
+                      {isExpanded ? "▲" : "▼"}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {isExpanded && (
+                <tr key={`${order.id}-expanded`} className="expandedOrderRow" style={{ background: "#f8fafc" }}>
+                  <td colSpan={8} style={{ padding: "14px 18px", borderBottom: "2px solid #cbd5e1" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", fontSize: "13px" }}>
+                      <div>
+                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Full Delivery Address</span>
+                        <p style={{ margin: "4px 0", color: "#1e293b", lineHeight: 1.4 }}>{order.address || order.city || "No address saved"}</p>
+                        {rawPhoneDigits && (
+                          <div style={{ marginTop: "6px" }}>
+                            <a
+                              href={`https://wa.me/${waPhone}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                background: "#22c55e",
+                                color: "#fff",
+                                padding: "4px 10px",
+                                borderRadius: "6px",
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                textDecoration: "none"
+                              }}
+                            >
+                              💬 Open WhatsApp Chat ({order.phone})
+                            </a>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Order Breakdown</span>
+                        <div style={{ marginTop: "4px", color: "#334155", lineHeight: 1.5 }}>
+                          <div>Products Subtotal: <b>Rs. {Number(order.productSubtotal || order.total || 0).toLocaleString()}</b></div>
+                          <div>Delivery Charges: <b>{Number(order.deliveryCharges || 0) ? `Rs. ${Number(order.deliveryCharges).toLocaleString()}` : "Free"}</b></div>
+                          <div style={{ color: "#15803d" }}>Advance Paid: <b>Rs. {advancePaid.toLocaleString()}</b></div>
+                          <div style={{ color: codCollectible === 0 ? "#15803d" : "#1e40af", fontWeight: 700 }}>
+                            PostEx COD to Collect: <b>{codCollectible === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${codCollectible.toLocaleString()}`}</b>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#854d0e", textTransform: "uppercase" }}>📝 Internal Notes &amp; Instructions</span>
+                        <div style={{
+                          marginTop: "4px",
+                          background: "#fefce8",
+                          border: "1px solid #fde047",
+                          padding: "8px 10px",
+                          borderRadius: "6px",
+                          color: "#713f12",
+                          lineHeight: 1.4,
+                          whiteSpace: "pre-wrap"
+                        }}>
+                          {order.notes || order.internalNotes || "No internal notes added yet."}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "flex-end" }}>
+                        {onSelect && (
+                          <button
+                            type="button"
+                            className="editProductButton"
+                            onClick={() => onSelect(order)}
+                            style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 700 }}
+                          >
+                            👁️ Open Full Details &amp; Edit
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </td>
-                );
-              })()}
-              <td><b>{order.paymentMethod || "COD"}</b><small className="trackingNumber"><br />{order.paymentStatus || "Awaiting Payment"}</small></td>
-              <td>
-                <span className={`statusBadge ${orderStatus(order).replaceAll(" ", "").replaceAll("-", "").toLowerCase()}`}>
-                  {order.postexStatus || order.status}
-                </span>
-                {order.confirmationStatus && !["confirmed", "payment verified", "verified"].includes(String(order.confirmationStatus).toLowerCase()) && (
-                  <small className="trackingNumber" style={{ display: "block", marginTop: "4px" }}>
-                    <span className="statusBadge unconfirmed" style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "10px" }}>
-                      ⚠️ {order.confirmationStatus}
-                    </span>
-                  </small>
-                )}
-              </td>
-              <td>{order.date}</td>
-              <td>{order.risk || "Standard COD"}</td>
-              <td>
-                {onSelect && (
-                  <button type="button" className="editProductButton" onClick={() => onSelect(order)} aria-label={`Open order ${order.id}`}>
-                    Open
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
+                </tr>
+              )}
+            </Fragment>
+          );
+        })}
         </tbody>
       </table>
       {!rows.length && (

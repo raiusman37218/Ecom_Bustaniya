@@ -11,23 +11,41 @@ async function ensureOrderItems(orderId, items) {
   if (!orderId || !items.length) return;
   const existing = await supabaseAdminRequest(
     `order_items?select=id&order_id=eq.${encodeURIComponent(orderId)}&limit=1`
-  );
+  ).catch(() => []);
   if (existing?.length) return;
-  await supabaseAdminRequest("order_items", {
-    method: "POST",
-    prefer: "return=minimal",
-    body: items.map((item) => ({
+
+  let rows = items.map((item) => {
+    const unitPrice = Number(item.unit_price_pkr || item.price || 0);
+    const quantity = Number(item.quantity || 1);
+    const lineTotal = Number(item.total_pkr || (unitPrice * quantity) || 0);
+    return {
       order_id: orderId,
-      product_id: item.product_id || item.id || null,
-      title: item.product_name || item.name || "Product",
-      unit_price_pkr: Number(item.unit_price_pkr || 0),
-      quantity: Number(item.quantity || 1),
-      line_total_pkr: Number(item.total_pkr || 0),
+      product_id: item.product_id || item.productId || item.id || null,
+      title: item.product_name || item.name || item.title || "Custom item",
+      price_pkr: unitPrice,
+      unit_price_pkr: unitPrice,
+      quantity,
+      line_total_pkr: lineTotal,
       size: item.size || null,
       color: item.color || null,
       image_url: item.image_url || null,
-    })),
+    };
   });
+
+  for (let attempt = 0; attempt < 12 && rows[0] && Object.keys(rows[0]).length; attempt += 1) {
+    try {
+      await supabaseAdminRequest("order_items", {
+        method: "POST",
+        prefer: "return=minimal",
+        body: rows,
+      });
+      return;
+    } catch (error) {
+      const column = removableColumnFromError(error);
+      if (!column || !(column in rows[0])) break;
+      rows = rows.map(({ [column]: _unsupported, ...supportedRow }) => supportedRow);
+    }
+  }
 }
 
 function normalizePhone(value = "") {
@@ -364,9 +382,11 @@ export async function POST(request) {
           status: rpcError?.status,
         });
         completedOrder = await createCustomOrderDirect(directOrderRecord);
+        await ensureOrderItems(completedOrder.id, customItems);
       }
     } else {
       completedOrder = await createCustomOrderDirect(directOrderRecord);
+      await ensureOrderItems(completedOrder.id, customItems);
     }
 
     const orderTotalPkr = total;
@@ -465,6 +485,16 @@ export async function POST(request) {
       amountPayableOnDeliveryPkr,
       advanceType: isDeliveryAdvance ? "delivery_charges" : isFullAdvance ? "full_order" : "none",
     };
+    const internalNotesFormatted = limitText([
+      body?.notes,
+      `Payment option: ${paymentMethodLabel}`,
+      `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
+      `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
+      body?.source ? `Source: ${body.source}` : "",
+      body?.deliveryMethod ? `Delivery: ${body.deliveryMethod}` : "",
+      courierMessage ? `PostEx: ${courierMessage}` : "",
+    ].filter(Boolean).join("\n"), 2000);
+
     const paymentFields = {
       payment_method: paymentMethod,
       payment_status: paymentStatus,
@@ -479,13 +509,21 @@ export async function POST(request) {
       amount_payable_on_delivery_pkr: amountPayableOnDeliveryPkr,
       payment_details_snapshot: paymentSnapshot,
       order_confirmation_status: "Confirmed",
-      internal_notes: limitText([
-        body?.notes,
-        `Payment option: ${paymentMethodLabel}`,
-        `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
-        `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
-        courierMessage ? `PostEx: ${courierMessage}` : "",
-      ].filter(Boolean).join("\n"), 2000),
+      shipping_full_name: customer.name.trim(),
+      shipping_phone: customer.phone.trim(),
+      shipping_address: customer.address.trim(),
+      shipping_line1: customer.address.trim(),
+      shipping_city: customer.city.trim(),
+      guest_name: customer.name.trim(),
+      guest_phone: customer.phone.trim(),
+      courier_tracking_number: trackingNumber,
+      tracking_number: trackingNumber,
+      courier_status: courierStatus,
+      status: body?.status || courierStatus,
+      fulfillment_status: courierBooked ? "Booked with PostEx" : (body?.fulfillmentStatus || "Manual delivery"),
+      tags: ["Custom order", body?.source, body?.deliveryMethod].filter(Boolean),
+      notes: internalNotesFormatted,
+      internal_notes: internalNotesFormatted,
     };
 
     if (reservedOrder) {
@@ -503,16 +541,10 @@ export async function POST(request) {
     } else {
       const updatedOrder = await patchCustomOrder(completedOrder.id, {
         ...paymentFields,
-        courier_tracking_number: trackingNumber,
-        tracking_number: trackingNumber,
-        courier_status: courierStatus,
-        order_confirmation_status: "Confirmed",
-        fulfillment_status: courierBooked ? "Booked with PostEx" : (shouldBookPostex ? "PostEx booking failed" : "Manual delivery"),
         courier_response: postexResponse,
         postex_response: postexResponse,
-        internal_notes: [body?.notes, courierMessage ? `PostEx: ${courierMessage}` : ""].filter(Boolean).join("\n"),
       }).catch(() => null);
-      completedOrder = updatedOrder || { ...completedOrder, courier_tracking_number: trackingNumber, courier_status: courierStatus };
+      completedOrder = updatedOrder || { ...completedOrder, ...paymentFields };
     }
 
     // A verified admin-created advance is real money received in the owner's
@@ -541,8 +573,15 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      orderRef: completedOrder.order_number,
-      supabaseOrder: completedOrder,
+      orderRef: completedOrder.order_number || orderNumber,
+      supabaseOrder: {
+        ...completedOrder,
+        ...paymentFields,
+        items: customItems,
+        order_items: customItems,
+        id: completedOrder.id,
+        order_number: completedOrder.order_number || orderNumber,
+      },
       trackingNumber,
       courierStatus,
       courierBooked,
