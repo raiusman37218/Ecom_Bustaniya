@@ -2930,18 +2930,22 @@ function normalizeOrderItems(order) {
           ? order.raw.order_items
           : [])));
   if (rawItems.length) {
-    return rawItems.map((item, index) => ({
-      id: item.id || item.product_id || `item-${index + 1}`,
-      productId: item.product_id || item.productId || "",
-      name: item.title || item.name || item.product_name || `Item ${index + 1}`,
-      title: item.title || item.name || item.product_name || `Item ${index + 1}`,
-      sku: item.article_number || item.sku || item.articleNumber || "",
-      quantity: Math.max(1, Number(item.quantity || item.qty || 1)),
-      price: Number(item.unit_price_pkr || item.price || item.price_pkr || (item.line_total_pkr && item.quantity ? item.line_total_pkr / item.quantity : item.total_pkr) || 0),
-      size: String(item.size || "").trim(),
-      color: String(item.color || "").trim(),
-      imageUrl: item.image_url || item.image || item.imageUrl || "",
-    }));
+    return rawItems.map((item, index) => {
+      const itemTitle = item.title || item.name || item.product_name || `Item ${index + 1}`;
+      return {
+        id: item.id || item.product_id || `item-${index + 1}`,
+        productId: item.product_id || item.productId || "",
+        product_id: item.product_id || item.productId || "",
+        name: itemTitle,
+        title: itemTitle,
+        sku: item.article_number || item.sku || item.articleNumber || "",
+        quantity: Math.max(1, Number(item.quantity || item.qty || 1)),
+        price: Number(item.unit_price_pkr || item.price || item.price_pkr || (item.line_total_pkr && item.quantity ? item.line_total_pkr / item.quantity : item.total_pkr) || 0),
+        size: String(item.size || "").trim(),
+        color: String(item.color || "").trim(),
+        imageUrl: item.image_url || item.image || item.imageUrl || "",
+      };
+    });
   }
   return [{ id: "fallback", name: "Order items", title: "Order items", sku: order?.id || "", quantity: 1, price: Number(order?.total || 0), size: "", color: "" }];
 }
@@ -3095,7 +3099,7 @@ function formatSavedCustomOrder(order, fallback = {}) {
   };
 }
 
-function generateBulkOrdersPdf({ orders = [], type = "invoice" }) {
+function generateBulkOrdersPdf({ orders = [], type = "stitching" }) {
   if (!orders.length) return;
   const printWindow = window.open("", "_blank", "width=850,height=950");
   if (!printWindow) {
@@ -3113,7 +3117,265 @@ function generateBulkOrdersPdf({ orders = [], type = "invoice" }) {
 
   let htmlContent = "";
 
-  if (type === "manifest") {
+  if (type === "stitching") {
+    // Specialized Stitching Unit Production Job Cards (1 A4 Card per Order)
+    htmlContent = orders.map((order, orderIndex) => {
+      const items = normalizeOrderItems(order);
+      const totalSuits = items.reduce((sum, it) => sum + Number(it.quantity || 1), 0);
+      const notesText = (order.notes || order.internalNotes || "").trim();
+
+      const itemsHtml = items.map((item, itIdx) => {
+        const qty = Number(item.quantity || 1);
+        const rawSize = String(item.size || "Custom").trim();
+        const rawColor = String(item.color || "Standard / As Picture").trim();
+        const sku = String(item.sku || "").trim();
+        const isCustom = !["XS", "S", "M", "L", "XL", "XXL", "Free Size"].includes(rawSize) || rawSize.toLowerCase().includes("custom");
+
+        return `
+          <div class="stitchingItemCard">
+            <div class="itemTitleBar">
+              <div style="flex:1;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                  <span class="itemBadge">SUIT #${itIdx + 1}</span>
+                  ${sku ? `<span class="skuPill">SKU: ${escapeHtml(sku)}</span>` : ""}
+                </div>
+                <h2 class="suitName">${escapeHtml(item.name || item.title)}</h2>
+              </div>
+              <div class="sizeHighlightBadge ${isCustom ? 'customSizeBadge' : ''}">
+                <span class="sizeLabel">${isCustom ? 'CUSTOM SIZE' : 'STITCHING SIZE'}</span>
+                <b class="sizeValue">${escapeHtml(rawSize)}</b>
+              </div>
+            </div>
+
+            <div class="suitSpecsGrid">
+              <div class="specBox">
+                <span class="specLabel">Color / Fabric:</span>
+                <b class="specValue">${escapeHtml(rawColor)}</b>
+              </div>
+              <div class="specBox">
+                <span class="specLabel">Quantity to Stitch:</span>
+                <b class="specValue" style="color:#166534;font-size:15px;">${qty} Suit${qty > 1 ? 's' : ''}</b>
+              </div>
+              <div class="specBox">
+                <span class="specLabel">Sizing Spec:</span>
+                <b class="specValue" style="color:${isCustom ? '#b45309' : '#1e40af'};">${isCustom ? '✂️ Custom Measurements' : '📏 Standard Pattern'}</b>
+              </div>
+            </div>
+
+            <div class="measurementsTableWrap">
+              <div class="measurementsHead">Standard Pattern Reference [Size: ${escapeHtml(rawSize)}]:</div>
+              <div class="measurementsGrid">
+                ${rawSize === "XS" ? `
+                  <div class="measItem"><span>Chest</span><b>18"</b></div>
+                  <div class="measItem"><span>Shirt Length</span><b>37"</b></div>
+                  <div class="measItem"><span>Shoulder</span><b>14"</b></div>
+                  <div class="measItem"><span>Sleeves</span><b>21"</b></div>
+                  <div class="measItem"><span>Waist</span><b>16"</b></div>
+                  <div class="measItem"><span>Trouser Length</span><b>37"</b></div>
+                ` : rawSize === "S" ? `
+                  <div class="measItem"><span>Chest</span><b>19"</b></div>
+                  <div class="measItem"><span>Shirt Length</span><b>38"</b></div>
+                  <div class="measItem"><span>Shoulder</span><b>14.5"</b></div>
+                  <div class="measItem"><span>Sleeves</span><b>21.5"</b></div>
+                  <div class="measItem"><span>Waist</span><b>17"</b></div>
+                  <div class="measItem"><span>Trouser Length</span><b>38"</b></div>
+                ` : rawSize === "M" ? `
+                  <div class="measItem"><span>Chest</span><b>20"</b></div>
+                  <div class="measItem"><span>Shirt Length</span><b>39"</b></div>
+                  <div class="measItem"><span>Shoulder</span><b>15"</b></div>
+                  <div class="measItem"><span>Sleeves</span><b>22"</b></div>
+                  <div class="measItem"><span>Waist</span><b>18.5"</b></div>
+                  <div class="measItem"><span>Trouser Length</span><b>38.5"</b></div>
+                ` : rawSize === "L" ? `
+                  <div class="measItem"><span>Chest</span><b>21.5"</b></div>
+                  <div class="measItem"><span>Shirt Length</span><b>40"</b></div>
+                  <div class="measItem"><span>Shoulder</span><b>15.5"</b></div>
+                  <div class="measItem"><span>Sleeves</span><b>22.5"</b></div>
+                  <div class="measItem"><span>Waist</span><b>20"</b></div>
+                  <div class="measItem"><span>Trouser Length</span><b>39"</b></div>
+                ` : rawSize === "XL" ? `
+                  <div class="measItem"><span>Chest</span><b>23"</b></div>
+                  <div class="measItem"><span>Shirt Length</span><b>40"</b></div>
+                  <div class="measItem"><span>Shoulder</span><b>16"</b></div>
+                  <div class="measItem"><span>Sleeves</span><b>22.5"</b></div>
+                  <div class="measItem"><span>Waist</span><b>21.5"</b></div>
+                  <div class="measItem"><span>Trouser Length</span><b>40"</b></div>
+                ` : rawSize === "XXL" ? `
+                  <div class="measItem"><span>Chest</span><b>24.5"</b></div>
+                  <div class="measItem"><span>Shirt Length</span><b>41"</b></div>
+                  <div class="measItem"><span>Shoulder</span><b>16.5"</b></div>
+                  <div class="measItem"><span>Sleeves</span><b>23"</b></div>
+                  <div class="measItem"><span>Waist</span><b>23"</b></div>
+                  <div class="measItem"><span>Trouser Length</span><b>40"</b></div>
+                ` : isCustom ? `
+                  <div style="grid-column: span 6; color:#92400e; font-weight:700; font-size:12px;">
+                    ✂️ Custom Measurements / Sizing Details Given in Master Instructions Box Below
+                  </div>
+                ` : `
+                  <div style="grid-column: span 6; color:#475569; font-size:12px;">
+                    Free Size / Standard Unstitched Pattern
+                  </div>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      return `
+        <div class="stitchingPage ${orderIndex < orders.length - 1 ? 'pageBreak' : ''}">
+          <!-- Slip Header -->
+          <header class="stitchingHeader">
+            <div class="brandCol">
+              <h1 class="brandLogo">BUSTANIYA</h1>
+              <span class="unitTitle">🧵 WORKSHOP STITCHING PRODUCTION SLIP</span>
+            </div>
+            <div class="orderMetaCol">
+              <div class="orderNumberBadge">${escapeHtml(order.id)}</div>
+              <div class="orderDateText"><b>Order Date:</b> ${escapeHtml(order.date || "")}</div>
+              <div class="orderSourceText"><b>Source:</b> ${escapeHtml(order.source || "Customer Order")}</div>
+            </div>
+          </header>
+
+          <!-- Customer & Destination Banner -->
+          <div class="customerStitchingBar">
+            <div class="custCol">
+              <span class="labelM">Customer Name:</span>
+              <b class="valM" style="font-size:15px;color:#0f172a;">${escapeHtml(order.customer || "—")}</b>
+              ${order.phone ? `<span class="subValM">📞 ${escapeHtml(order.phone)}</span>` : ""}
+            </div>
+            <div class="custCol">
+              <span class="labelM">Destination City:</span>
+              <b class="valM" style="font-size:14px;">📍 ${escapeHtml(order.city || "—")}</b>
+            </div>
+            <div class="custCol">
+              <span class="labelM">Total Quantity:</span>
+              <b class="valM" style="color:#166534;font-size:16px;">${totalSuits} Suit${totalSuits > 1 ? 's' : ''}</b>
+            </div>
+            <div class="custCol">
+              <span class="labelM">Production Order:</span>
+              <b class="valM" style="color:#1e40af;">Made-to-Order Workshop</b>
+            </div>
+          </div>
+
+          <!-- Line Items Section -->
+          <div class="suitsSectionTitle">
+            <span>✂️ SUITS / ARTICLES SPECIFICATIONS</span>
+          </div>
+          ${itemsHtml}
+
+          <!-- Master Customization & Tailor Notes Callout Box -->
+          <div class="tailorNotesBox">
+            <div class="tailorNotesHead">
+              <b>⚠️ MASTER CUTTER &amp; TAILOR SPECIAL INSTRUCTIONS / CUSTOMIZATION:</b>
+            </div>
+            <div class="tailorNotesBody">
+              ${notesText ? `
+                <p class="customNotesContent">${escapeHtml(notesText)}</p>
+              ` : `
+                <p class="customNotesContent" style="color:#64748b;font-style:italic;font-weight:500;">
+                  No extra customization requested. Stitch as per standard brand pattern, neckline, and sizing specs.
+                </p>
+              `}
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <footer class="stitchingFooter">
+            <span>Bustaniya Production Management · Order <b>${escapeHtml(order.id)}</b> · Generated on ${new Date().toLocaleString("en-PK")}</span>
+          </footer>
+        </div>
+      `;
+    }).join("");
+  } else if (type === "batch_sheet") {
+    // Consolidated Master Cutting & Production Batch Sheet
+    const totalSuits = orders.reduce((sum, o) => {
+      const items = normalizeOrderItems(o);
+      return sum + items.reduce((s, it) => s + Number(it.quantity || 1), 0);
+    }, 0);
+
+    const rowsHtml = orders.flatMap((o, orderIdx) => {
+      const items = normalizeOrderItems(o);
+      const notes = (o.notes || o.internalNotes || "").trim();
+
+      return items.map((it, itIdx) => {
+        const rawSize = String(it.size || "Custom").trim();
+        const isCustom = !["XS", "S", "M", "L", "XL", "XXL", "Free Size"].includes(rawSize) || rawSize.toLowerCase().includes("custom");
+
+        return `<tr>
+          <td style="text-align:center;font-weight:bold;">${orderIdx + 1}.${itIdx + 1}</td>
+          <td><b>${escapeHtml(o.id)}</b><br/><small style="color:#64748b;">${escapeHtml(o.date || "")}</small></td>
+          <td><b>${escapeHtml(o.customer)}</b><br/><small style="color:#475569;">📍 ${escapeHtml(o.city || "—")}</small></td>
+          <td>
+            <b style="font-size:14px;color:#0f172a;">${escapeHtml(it.name)}</b>
+            ${it.sku ? `<br/><code style="font-size:10px;color:#64748b;">${escapeHtml(it.sku)}</code>` : ""}
+          </td>
+          <td style="text-align:center;">
+            <span class="batchSizeBadge ${isCustom ? 'customBadge' : ''}">${escapeHtml(rawSize)}</span>
+          </td>
+          <td>${escapeHtml(it.color || "Standard")}</td>
+          <td style="text-align:center;font-weight:bold;font-size:14px;">${Number(it.quantity || 1)}</td>
+          <td style="font-size:12px;color:#713f12;background:#fefce8;max-width:240px;line-height:1.35;">
+            ${notes ? `<b>⚠️</b> ${escapeHtml(notes)}` : `<span style="color:#94a3b8;">Standard stitch</span>`}
+          </td>
+          <td style="text-align:center;font-size:11px;">[ &nbsp; ] Cut<br/>[ &nbsp; ] Stitch</td>
+        </tr>`;
+      });
+    }).join("");
+
+    htmlContent = `
+      <div class="manifestContainer">
+        <header class="manifestHeader">
+          <div>
+            <h1>BUSTANIYA</h1>
+            <p>🧵 DAILY PRODUCTION CUTTING &amp; STITCHING BATCH SHEET</p>
+          </div>
+          <div style="text-align:right;">
+            <p><b>Batch Date:</b> ${new Date().toLocaleString("en-PK")}</p>
+            <p><b>Total Orders:</b> ${orders.length} &nbsp;|&nbsp; <b>Total Suits to Stitch:</b> ${totalSuits}</p>
+          </div>
+        </header>
+
+        <div class="manifestSummary" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="statBox"><span>Total Selected Orders</span><b>${orders.length} Orders</b></div>
+          <div class="statBox" style="background:#ecfdf5;border-color:#a7f3d0;">
+            <span style="color:#065f46;">Total Production Suits</span>
+            <b style="color:#065f46;font-size:20px;">${totalSuits} Suits</b>
+          </div>
+          <div class="statBox">
+            <span>Production Master</span>
+            <b>Workshop Master Cut</b>
+          </div>
+        </div>
+
+        <table class="manifestTable">
+          <thead>
+            <tr>
+              <th style="width:35px;text-align:center;">#</th>
+              <th style="width:90px;">Order Ref</th>
+              <th style="width:120px;">Customer</th>
+              <th>Suit / Article Title</th>
+              <th style="width:75px;text-align:center;">Size</th>
+              <th style="width:90px;">Color</th>
+              <th style="width:45px;text-align:center;">Qty</th>
+              <th>Master Tailor Customization Instructions</th>
+              <th style="width:85px;text-align:center;">Workshop Sign</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div style="margin-top:40px;display:flex;justify-content:space-between;font-size:13px;color:#475569;border-top:1px dashed #cbd5e1;padding-top:20px;">
+          <div>Master Cutter Signature: ___________________</div>
+          <div>Stitching Incharge Signature: ___________________</div>
+          <div>Final QA Approval: ___________________</div>
+        </div>
+      </div>
+    `;
+  } else if (type === "manifest") {
+    // Courier Dispatch Manifest
     const totalCod = orders.reduce((sum, o) => {
       const total = Number(o.total || 0);
       const adv = Number(o.amountPayableInAdvance || 0);
@@ -3322,11 +3584,11 @@ function generateBulkOrdersPdf({ orders = [], type = "invoice" }) {
     <html>
       <head>
         <meta charset="utf-8" />
-        <title>${type === "manifest" ? "Dispatch Manifest" : type === "packing_slip" ? "Packing Slips" : "Invoices"} (${orders.length} Orders) - Bustaniya</title>
+        <title>${type === "stitching" ? "Stitching Production Slips" : type === "batch_sheet" ? "Cutting Batch Sheet" : type === "manifest" ? "Dispatch Manifest" : "Invoices"} (${orders.length} Orders) - Bustaniya</title>
         <style>
           @page {
             size: A4;
-            margin: 12mm 15mm;
+            margin: 10mm 12mm;
           }
           * {
             box-sizing: border-box;
@@ -3344,6 +3606,279 @@ function generateBulkOrdersPdf({ orders = [], type = "invoice" }) {
             page-break-after: always;
             break-after: page;
           }
+          
+          /* Stitching Card Styles */
+          .stitchingPage {
+            padding: 20px 24px;
+            max-width: 820px;
+            margin: 0 auto;
+          }
+          .stitchingHeader {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #166534;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+          }
+          .brandLogo {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            color: #173d29;
+          }
+          .unitTitle {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 800;
+            color: #166534;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            background: #dcfce7;
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-top: 4px;
+          }
+          .orderNumberBadge {
+            font-size: 22px;
+            font-weight: 900;
+            color: #1e293b;
+            background: #f1f5f9;
+            border: 2px solid #cbd5e1;
+            padding: 4px 12px;
+            border-radius: 6px;
+            text-align: right;
+            display: inline-block;
+          }
+          .orderDateText {
+            font-size: 12px;
+            color: #475569;
+            margin-top: 4px;
+            text-align: right;
+          }
+          .orderSourceText {
+            font-size: 11px;
+            color: #64748b;
+            text-align: right;
+          }
+
+          .customerStitchingBar {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr 1fr 1.2fr;
+            gap: 10px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+          }
+          .custCol .labelM {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+            font-weight: 700;
+            margin-bottom: 2px;
+          }
+          .custCol .valM {
+            font-size: 14px;
+            color: #0f172a;
+            font-weight: 700;
+          }
+          .custCol .subValM {
+            display: block;
+            font-size: 11px;
+            color: #15803d;
+            font-weight: 600;
+            margin-top: 2px;
+          }
+
+          .suitsSectionTitle {
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            color: #1e293b;
+            margin-bottom: 10px;
+            border-left: 4px solid #166534;
+            padding-left: 8px;
+          }
+          .stitchingItemCard {
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 14px;
+            background: #fff;
+          }
+          .itemTitleBar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px dashed #cbd5e1;
+            padding-bottom: 12px;
+            margin-bottom: 12px;
+            gap: 12px;
+          }
+          .itemBadge {
+            font-size: 10px;
+            font-weight: 800;
+            background: #1e293b;
+            color: #fff;
+            padding: 3px 7px;
+            border-radius: 4px;
+            display: inline-block;
+          }
+          .skuPill {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+          }
+          .suitName {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 900;
+            color: #0f172a;
+            line-height: 1.2;
+          }
+          .sizeHighlightBadge {
+            background: #1e40af;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 110px;
+            box-shadow: 0 2px 4px rgba(30, 64, 175, 0.15);
+          }
+          .customSizeBadge {
+            background: #b45309 !important;
+            box-shadow: 0 2px 4px rgba(180, 83, 9, 0.15);
+          }
+          .sizeLabel {
+            display: block;
+            font-size: 9px;
+            letter-spacing: 0.08em;
+            opacity: 0.95;
+            font-weight: 700;
+          }
+          .sizeValue {
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: 0.05em;
+          }
+
+          .suitSpecsGrid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            background: #f1f5f9;
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+          }
+          .specBox .specLabel {
+            display: block;
+            font-size: 10px;
+            color: #64748b;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+          }
+          .specBox .specValue {
+            font-size: 14px;
+            color: #0f172a;
+            font-weight: 700;
+          }
+
+          .measurementsTableWrap {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 12px;
+          }
+          .measurementsHead {
+            font-weight: 800;
+            color: #334155;
+            margin-bottom: 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+          }
+          .measurementsGrid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+            color: #334155;
+          }
+          .measItem {
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 6px 8px;
+            text-align: center;
+          }
+          .measItem span {
+            display: block;
+            font-size: 10px;
+            color: #64748b;
+            margin-bottom: 2px;
+          }
+          .measItem b {
+            font-size: 13px;
+            color: #0f172a;
+          }
+
+          .tailorNotesBox {
+            background: #fefce8;
+            border: 2px solid #eab308;
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin: 16px 0;
+          }
+          .tailorNotesHead b {
+            font-size: 12px;
+            color: #854d0e;
+            letter-spacing: 0.05em;
+          }
+          .customNotesContent {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #713f12;
+            line-height: 1.5;
+            white-space: pre-wrap;
+          }
+
+          .stitchingFooter {
+            margin-top: 20px;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 8px;
+            text-align: center;
+            font-size: 11px;
+            color: #64748b;
+          }
+
+          /* Batch Cut Sheet Styles */
+          .batchSizeBadge {
+            background: #dbeafe;
+            color: #1e40af;
+            font-weight: 900;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: inline-block;
+          }
+          .batchSizeBadge.customBadge {
+            background: #fef3c7 !important;
+            color: #92400e !important;
+          }
+
+          /* Invoice & Manifest Styles */
           .orderPage {
             padding: 24px 28px;
             max-width: 800px;
@@ -3439,7 +3974,7 @@ function generateBulkOrdersPdf({ orders = [], type = "invoice" }) {
           /* Manifest Styles */
           .manifestContainer {
             padding: 24px;
-            max-width: 900px;
+            max-width: 950px;
             margin: 0 auto;
           }
           .manifestHeader {
@@ -3525,6 +4060,9 @@ function generateBulkOrdersPdf({ orders = [], type = "invoice" }) {
           @media print {
             .printControls {
               display: none !important;
+            }
+            .stitchingPage {
+              padding: 0;
             }
             .orderPage {
               padding: 0;
@@ -3834,21 +4372,34 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
               type="button"
               onClick={() => {
                 const selectedList = allRows.filter((o) => selectedOrderIds.includes(o.id));
-                generateBulkOrdersPdf({ orders: selectedList, type: "invoice" });
+                generateBulkOrdersPdf({ orders: selectedList, type: "stitching" });
               }}
               style={{ background: "#166534", color: "#fff", border: "none", fontWeight: 700, padding: "8px 14px", fontSize: "12px", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+              title="Print specialized stitching and production job cards for workshop tailor"
             >
-              📄 Print Full Invoices PDF ({selectedOrderIds.length})
+              🧵 Stitching Slips PDF ({selectedOrderIds.length})
             </button>
             <button
               type="button"
               onClick={() => {
                 const selectedList = allRows.filter((o) => selectedOrderIds.includes(o.id));
-                generateBulkOrdersPdf({ orders: selectedList, type: "packing_slip" });
+                generateBulkOrdersPdf({ orders: selectedList, type: "batch_sheet" });
               }}
               style={{ background: "#0f766e", color: "#fff", border: "none", fontWeight: 700, padding: "8px 14px", fontSize: "12px", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+              title="Print master cutting & stitching batch sheet for workshop"
             >
-              📦 Packing Slips PDF
+              📋 Master Cutting Sheet PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const selectedList = allRows.filter((o) => selectedOrderIds.includes(o.id));
+                generateBulkOrdersPdf({ orders: selectedList, type: "invoice" });
+              }}
+              style={{ background: "#2563eb", color: "#fff", border: "none", fontWeight: 700, padding: "8px 14px", fontSize: "12px", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+              title="Print customer invoices"
+            >
+              📄 Customer Invoices PDF
             </button>
             <button
               type="button"
@@ -3856,9 +4407,10 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
                 const selectedList = allRows.filter((o) => selectedOrderIds.includes(o.id));
                 generateBulkOrdersPdf({ orders: selectedList, type: "manifest" });
               }}
-              style={{ background: "#3b82f6", color: "#fff", border: "none", fontWeight: 700, padding: "8px 14px", fontSize: "12px", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+              style={{ background: "#475569", color: "#fff", border: "none", fontWeight: 700, padding: "8px 14px", fontSize: "12px", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+              title="Print courier dispatch handover sheet"
             >
-              📋 Dispatch Manifest PDF
+              🚚 Courier Manifest PDF
             </button>
             <button
               type="button"
@@ -3886,6 +4438,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
           selectedOrderIds={selectedOrderIds}
           onToggleSelectOrder={toggleSelectOrder}
           onToggleSelectAll={toggleSelectAll}
+          onPrintStitchingOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
           onPrintSingleOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "invoice" })}
         />
       )}
@@ -6460,10 +7013,16 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   const returnStatusOptions = returnWorkflowTransitions[order.operation?.returnStatus || "No return"] || [returnStatus];
   const restoringReturnedStock = order.operation?.returnStatus !== "Return received" && returnStatus === "Return received";
 
+  useEffect(() => {
+    setOrderItems(normalizeOrderItems(order));
+  }, [order.id, order.rawId, order.order_number, JSON.stringify(order.items), JSON.stringify(order.order_items)]);
+
   function updateItemField(index, field, value) {
     setOrderItems((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [field]: value };
+      if (field === "name") copy[index].title = value;
+      if (field === "title") copy[index].name = value;
       return copy;
     });
   }
@@ -6486,17 +7045,21 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
           size: parsedSizes[0] || copy[index].size || "M",
           color: parsedColors[0] || copy[index].color || "",
           productId: foundProduct.id || null,
+          product_id: foundProduct.id || null,
         };
         return copy;
       });
     } else if (productName === "__custom__") {
       setOrderItems((prev) => {
         const copy = [...prev];
+        const existingName = copy[index].name || copy[index].title || "";
+        const customTitle = existingName && existingName !== "Custom Product" && !catalogProducts.some((p) => p.name === existingName) ? existingName : "Custom Product";
         copy[index] = {
           ...copy[index],
-          name: "Custom Product",
-          title: "Custom Product",
+          name: customTitle,
+          title: customTitle,
           productId: null,
+          product_id: null,
         };
         return copy;
       });
@@ -6590,13 +7153,19 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
     setSaveError("");
     setSaveMessage("");
     try {
-      const saved = await onUpdate(order, changes(overrides));
-      if (saved?.inventoryRestore?.restored) {
-        setSaveMessage(`Order changes saved. ${saved.inventoryRestore.restoredItems} item(s) restored to inventory.`);
-      } else if (saved?.operationPersistence === "unavailable" || saved?.operationPersistence === "failed") {
-        setSaveMessage(saved.operationError || "Core order details saved, but return/refund workflow data was not saved.");
-      } else {
-        setSaveMessage("Order changes and notes saved successfully!");
+      const payload = changes(overrides);
+      const saved = await onUpdate(order, payload);
+      if (saved) {
+        if (saved.items) {
+          setOrderItems(normalizeOrderItems({ ...order, items: saved.items, order_items: saved.items }));
+        }
+        if (saved?.inventoryRestore?.restored) {
+          setSaveMessage(`Order changes saved. ${saved.inventoryRestore.restoredItems} item(s) restored to inventory.`);
+        } else if (saved?.operationPersistence === "unavailable" || saved?.operationPersistence === "failed") {
+          setSaveMessage(saved.operationError || "Core order details saved, but return/refund workflow data was not saved.");
+        } else {
+          setSaveMessage("Order changes, items and notes saved successfully!");
+        }
       }
       return saved;
     } catch (error) {
@@ -7007,7 +7576,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                                 <img src={item.imageUrl} alt={item.name} style={{ width: "36px", height: "36px", objectFit: "cover", borderRadius: "4px", flexShrink: 0 }} />
                               )}
                               <select
-                                value={catalogProducts.some((p) => p.name === item.name) ? item.name : "__custom__"}
+                                value={catalogProducts.some((p) => p.name === (item.name || item.title)) ? (item.name || item.title) : "__custom__"}
                                 onChange={(e) => handleSelectProduct(index, e.target.value)}
                                 style={{ padding: "5px 8px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "#f8fafc", fontWeight: 700, color: "#1e293b", width: "100%" }}
                               >
@@ -7021,13 +7590,13 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                                 <option value="__custom__">✏️ Custom / Other Suit Name</option>
                               </select>
                             </div>
-                            {(!catalogProducts.some((p) => p.name === item.name) || item.name === "Custom Product") && (
+                            {(!catalogProducts.some((p) => p.name === (item.name || item.title)) || item.name === "Custom Product" || item.title === "Custom Product") && (
                               <input
                                 type="text"
-                                value={item.name || ""}
+                                value={item.name || item.title || ""}
                                 onChange={(e) => updateItemField(index, "name", e.target.value)}
                                 placeholder="Enter custom suit / product title..."
-                                style={{ padding: "4px 8px", fontSize: "11px", borderRadius: "4px", border: "1px solid #94a3b8", background: "#fff" }}
+                                style={{ padding: "5px 8px", fontSize: "12px", borderRadius: "4px", border: "1.5px solid #2563eb", background: "#fff", fontWeight: 600 }}
                               />
                             )}
                           </div>
@@ -7428,6 +7997,7 @@ function OrderTable({
   selectedOrderIds = [],
   onToggleSelectOrder,
   onToggleSelectAll,
+  onPrintStitchingOrder,
   onPrintSingleOrder,
 }) {
   const [expandedId, setExpandedId] = useState(null);
@@ -7611,10 +8181,10 @@ function OrderTable({
                         👁️ View
                       </button>
                     )}
-                    {onPrintSingleOrder && (
+                    {onPrintStitchingOrder && (
                       <button
                         type="button"
-                        onClick={() => onPrintSingleOrder(order)}
+                        onClick={() => onPrintStitchingOrder(order)}
                         style={{
                           background: "#f0fdf4",
                           color: "#166534",
@@ -7626,9 +8196,29 @@ function OrderTable({
                           fontWeight: 700,
                           whiteSpace: "nowrap"
                         }}
-                        title="Print / PDF Invoice for this order"
+                        title="Print Stitching Production Slip for Workshop"
                       >
-                        📄 PDF
+                        🧵 Stitch Slip
+                      </button>
+                    )}
+                    {onPrintSingleOrder && (
+                      <button
+                        type="button"
+                        onClick={() => onPrintSingleOrder(order)}
+                        style={{
+                          background: "#eff6ff",
+                          color: "#1e40af",
+                          border: "1px solid #bfdbfe",
+                          borderRadius: "4px",
+                          padding: "4px 8px",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          whiteSpace: "nowrap"
+                        }}
+                        title="Print Customer Invoice for this order"
+                      >
+                        📄 Invoice
                       </button>
                     )}
                     <button

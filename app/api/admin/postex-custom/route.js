@@ -18,11 +18,12 @@ async function ensureOrderItems(orderId, items) {
     const unitPrice = Number(item.unit_price_pkr || item.price || 0);
     const quantity = Number(item.quantity || 1);
     const lineTotal = Number(item.total_pkr || (unitPrice * quantity) || 0);
+    const candidateId = String(item.product_id || item.productId || item.id || "");
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateId);
     return {
       order_id: orderId,
-      product_id: item.product_id || item.productId || item.id || null,
+      product_id: isUuid ? candidateId : null,
       title: item.product_name || item.name || item.title || "Custom item",
-      price_pkr: unitPrice,
       unit_price_pkr: unitPrice,
       quantity,
       line_total_pkr: lineTotal,
