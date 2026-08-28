@@ -4423,10 +4423,107 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
         </div>
       )}
 
-      <div className="ordersToolbar">
-        <label className="orderStatusFilter">Order status<select value={activeTab} onChange={(event) => setActiveTab(event.target.value)}>{orderStatusCounts.map((category) => <option key={category.label} value={category.label}>{category.label} ({category.count})</option>)}</select></label>
-        <TableDensityToggle density={tableDensity} onChange={setTableDensity} />
-        <div className="inlineSearch"><Search /><input value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Search order, customer, tracking..." /></div>
+      {/* Interactive Status Pills Navigation */}
+      <div
+        className="orderStatusPillsBar"
+        style={{
+          display: "flex",
+          gap: "6px",
+          alignItems: "center",
+          overflowX: "auto",
+          padding: "12px 16px",
+          borderBottom: "1px solid #e2e8f0",
+          background: "#f8fafc",
+          scrollbarWidth: "thin",
+        }}
+      >
+        {orderStatusCounts.map((category) => {
+          const isActive = activeTab === category.label;
+          const isAdvance = category.label === "Advance Paid";
+          const isDelivered = category.label === "Delivered";
+          const isBooked = category.label === "Booked";
+          const isUnbooked = category.label === "Unbooked";
+          const isReturned = category.label === "Returned";
+
+          let activeBg = "#166534";
+          if (isAdvance) activeBg = "#15803d";
+          if (isBooked) activeBg = "#1e40af";
+          if (isUnbooked) activeBg = "#b45309";
+          if (isReturned) activeBg = "#b91c1c";
+
+          return (
+            <button
+              key={category.label}
+              type="button"
+              onClick={() => setActiveTab(category.label)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 14px",
+                borderRadius: "20px",
+                fontSize: "12px",
+                fontWeight: isActive ? 800 : 600,
+                cursor: "pointer",
+                border: isActive ? `1.5px solid ${activeBg}` : "1px solid #cbd5e1",
+                background: isActive ? activeBg : "#ffffff",
+                color: isActive ? "#ffffff" : isAdvance ? "#15803d" : "#334155",
+                boxShadow: isActive ? "0 2px 5px rgba(0,0,0,0.15)" : "0 1px 2px rgba(0,0,0,0.03)",
+                whiteSpace: "nowrap",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <span>
+                {isDelivered && "🟢 "}
+                {isBooked && "🔵 "}
+                {isUnbooked && "🟡 "}
+                {isAdvance && "💵 "}
+                {isReturned && "🔴 "}
+                {category.label}
+              </span>
+              <span
+                style={{
+                  background: isActive ? "rgba(255,255,255,0.25)" : (isAdvance ? "#dcfce7" : "#f1f5f9"),
+                  color: isActive ? "#fff" : (isAdvance ? "#166534" : "#475569"),
+                  padding: "1px 7px",
+                  borderRadius: "10px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                }}
+              >
+                {category.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="ordersToolbar" style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", background: "#fff", borderBottom: "1px solid #e2e8f0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <span style={{ fontSize: "13px", fontWeight: 700, color: "#475569" }}>
+            Showing <b>{visibleRows.length}</b> {visibleRows.length === 1 ? "order" : "orders"} {activeTab !== "Total Orders" ? `in ${activeTab}` : ""}
+          </span>
+          <TableDensityToggle density={tableDensity} onChange={setTableDensity} />
+        </div>
+        <div className="inlineSearch" style={{ position: "relative", minWidth: "260px" }}>
+          <Search style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", width: "16px", height: "16px", color: "#94a3b8" }} />
+          <input
+            value={orderSearch}
+            onChange={(event) => setOrderSearch(event.target.value)}
+            placeholder="Search order #, customer, phone, city, tracking..."
+            style={{ paddingLeft: "32px", paddingRight: orderSearch ? "28px" : "12px", width: "100%", height: "36px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "12px" }}
+          />
+          {orderSearch && (
+            <button
+              type="button"
+              onClick={() => setOrderSearch("")}
+              style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "14px", padding: 0 }}
+              title="Clear search"
+            >
+              ✖
+            </button>
+          )}
+        </div>
       </div>
       {allRows.length === 0 ? (
         <EmptyState icon={ShoppingBag} title="No orders received" description="There are no orders in your store database yet." />
@@ -8002,30 +8099,39 @@ function OrderTable({
 }) {
   const [expandedId, setExpandedId] = useState(null);
 
+  const getSourceBadge = (source = "") => {
+    const s = String(source || "").toLowerCase();
+    if (s.includes("instagram")) return { label: "📸 Instagram DM", bg: "#fdf2f8", color: "#db2777", border: "#fbcfe8" };
+    if (s.includes("whatsapp")) return { label: "💬 WhatsApp", bg: "#f0fdf4", color: "#16a34a", border: "#bbf7d0" };
+    if (s.includes("walk-in") || s.includes("manual")) return { label: "🏬 Manual", bg: "#fefce8", color: "#ca8a04", border: "#fef08a" };
+    if (s.includes("phone")) return { label: "📞 Phone Call", bg: "#f5f3ff", color: "#7c3aed", border: "#ddd6fe" };
+    return { label: "🌐 Storefront", bg: "#f1f5f9", color: "#475569", border: "#e2e8f0" };
+  };
+
   return (
     <div className={`adminTableWrap ${density === "compact" ? "compactTable" : ""}`}>
       <table className="adminTable orderTable">
         <thead>
-          <tr>
+          <tr style={{ background: "#f8fafc" }}>
             {onToggleSelectOrder && (
-              <th style={{ width: "36px", textAlign: "center", padding: "8px 4px" }}>
+              <th style={{ width: "40px", textAlign: "center", padding: "10px 6px" }}>
                 <input
                   type="checkbox"
                   aria-label="Select all orders"
                   checked={rows.length > 0 && rows.every((r) => selectedOrderIds.includes(r.id))}
                   onChange={onToggleSelectAll}
-                  style={{ cursor: "pointer", width: "16px", height: "16px", verticalAlign: "middle" }}
+                  style={{ cursor: "pointer", width: "16px", height: "16px", verticalAlign: "middle", accentColor: "#166534" }}
                 />
               </th>
             )}
-            <th>Order</th>
-            <th>Customer</th>
-            <th>Ordered Items &amp; Notes</th>
-            <th>Amount &amp; Advance</th>
-            <th>Payment</th>
-            <th>PostEx status</th>
-            <th>Date</th>
-            <th>Actions</th>
+            <th style={{ minWidth: "120px" }}>Order ID</th>
+            <th style={{ minWidth: "160px" }}>Customer Details</th>
+            <th style={{ minWidth: "220px" }}>Ordered Suits &amp; Notes</th>
+            <th style={{ minWidth: "150px" }}>Amount &amp; Advance</th>
+            <th style={{ minWidth: "130px" }}>Payment</th>
+            <th style={{ minWidth: "120px" }}>PostEx Status</th>
+            <th style={{ minWidth: "100px" }}>Date</th>
+            <th style={{ minWidth: "200px" }}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -8040,47 +8146,58 @@ function OrderTable({
             const waPhone = rawPhoneDigits.startsWith("0") ? `92${rawPhoneDigits.slice(1)}` : rawPhoneDigits.startsWith("92") ? rawPhoneDigits : `92${rawPhoneDigits}`;
             const isExpanded = expandedId === order.id;
             const hasNotes = Boolean(order.notes || order.internalNotes);
+            const sourceInfo = getSourceBadge(order.source);
 
             return (
               <Fragment key={order.id}>
-                <tr style={{ background: isSelected ? "#eff6ff" : (isExpanded ? "#f8fafc" : undefined) }}>
+                <tr
+                  style={{
+                    background: isSelected ? "#eff6ff" : (isExpanded ? "#f8fafc" : undefined),
+                    borderLeft: isSelected ? "3px solid #2563eb" : undefined,
+                    transition: "background 0.15s ease",
+                  }}
+                >
                 {onToggleSelectOrder && (
-                  <td style={{ textAlign: "center", verticalAlign: "middle", padding: "8px 4px" }} onClick={(e) => e.stopPropagation()}>
+                  <td style={{ textAlign: "center", verticalAlign: "middle", padding: "10px 6px" }} onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       aria-label={`Select order ${order.id}`}
                       checked={isSelected}
                       onChange={() => onToggleSelectOrder(order.id)}
-                      style={{ cursor: "pointer", width: "16px", height: "16px", verticalAlign: "middle" }}
+                      style={{ cursor: "pointer", width: "16px", height: "16px", verticalAlign: "middle", accentColor: "#166534" }}
                     />
                   </td>
                 )}
                 <td>
-                  <b>{order.id}</b>
-                  <span
-                    className="statusBadge"
-                    style={{
-                      display: "block",
-                      marginTop: "4px",
-                      fontSize: "10px",
-                      padding: "2px 6px",
-                      background: "#f1f5f9",
-                      color: "#334155",
-                      width: "fit-content"
-                    }}
-                  >
-                    {order.source || "Storefront"}
-                  </span>
+                  <span style={{ fontSize: "14px", fontWeight: 800, color: "#0f172a" }}>{order.id}</span>
+                  <div style={{ marginTop: "4px" }}>
+                    <span
+                      style={{
+                        background: sourceInfo.bg,
+                        color: sourceInfo.color,
+                        border: `1px solid ${sourceInfo.border}`,
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        padding: "2px 6px",
+                        borderRadius: "12px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "3px",
+                      }}
+                    >
+                      {sourceInfo.label}
+                    </span>
+                  </div>
                   {order.tracking && (
-                    <small className="trackingNumber" style={{ display: "block", marginTop: "2px" }}>
+                    <small className="trackingNumber" style={{ display: "block", marginTop: "4px", fontSize: "11px", color: "#2563eb", fontWeight: 600 }}>
                       🚚 {order.tracking}
                     </small>
                   )}
                 </td>
                 <td>
-                  <b>{order.customer}</b>
+                  <b style={{ fontSize: "13px", color: "#0f172a" }}>{order.customer}</b>
                   {order.phone && (
-                    <div style={{ fontSize: "11px", color: "#475569", marginTop: "2px", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <div style={{ fontSize: "11px", color: "#475569", marginTop: "3px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                       <span>📞 {order.phone}</span>
                       {rawPhoneDigits && (
                         <a
@@ -8088,44 +8205,66 @@ function OrderTable({
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{
-                            color: "#16a34a",
+                            color: "#166534",
                             fontWeight: 700,
                             textDecoration: "none",
                             background: "#dcfce7",
-                            padding: "1px 5px",
-                            borderRadius: "4px",
-                            fontSize: "10px"
+                            border: "1px solid #bbf7d0",
+                            padding: "1px 6px",
+                            borderRadius: "10px",
+                            fontSize: "10px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "2px",
                           }}
-                          title="Chat on WhatsApp"
+                          title="Chat with Customer on WhatsApp"
                         >
                           💬 WA
                         </a>
                       )}
                     </div>
                   )}
-                  <small className="trackingNumber" style={{ display: "block", marginTop: "2px" }}>
+                  <small style={{ display: "block", marginTop: "3px", fontSize: "11px", color: "#64748b" }}>
                     📍 {order.city || "—"}
                   </small>
                 </td>
                 <td style={{ maxWidth: "260px" }}>
                   <div style={{ fontSize: "12px", color: "#1e293b", fontWeight: 600, lineHeight: 1.4 }}>
-                    {orderItems.map((it) => (
-                      <div key={it.id} style={{ marginBottom: "2px" }}>
-                        • {it.name} {[it.size, it.color].filter(Boolean).length ? `(${[it.size, it.color].filter(Boolean).join("/")})` : ""} × {it.quantity}
-                      </div>
-                    ))}
+                    {orderItems.map((it, i) => {
+                      const rawSize = it.size || "Custom";
+                      const isCustom = !["XS", "S", "M", "L", "XL", "XXL", "Free Size"].includes(rawSize) || rawSize.toLowerCase().includes("custom");
+                      return (
+                        <div key={it.id || i} style={{ marginBottom: "3px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                          <span>• <b>{it.name || it.title}</b></span>
+                          <span
+                            style={{
+                              background: isCustom ? "#fef3c7" : "#dbeafe",
+                              color: isCustom ? "#92400e" : "#1e40af",
+                              padding: "1px 5px",
+                              borderRadius: "4px",
+                              fontSize: "10px",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {rawSize}
+                          </span>
+                          {it.color && <span style={{ color: "#64748b", fontSize: "11px" }}>({it.color})</span>}
+                          <span style={{ color: "#166534", fontWeight: 700 }}>× {it.quantity}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                   {hasNotes && (
                     <div
                       style={{
                         marginTop: "6px",
-                        padding: "4px 8px",
-                        background: "#fef9c3",
-                        border: "1px solid #fef08a",
+                        padding: "5px 8px",
+                        background: "#fefce8",
+                        border: "1px solid #fde047",
                         borderRadius: "6px",
                         fontSize: "11px",
                         color: "#854d0e",
-                        lineHeight: "1.3"
+                        lineHeight: "1.3",
                       }}
                       title={order.notes || order.internalNotes}
                     >
@@ -8134,26 +8273,38 @@ function OrderTable({
                   )}
                 </td>
                 <td>
-                  <b>Rs. {totalOrderVal.toLocaleString()}</b>
-                  <div style={{ marginTop: "3px", lineHeight: "1.3", fontSize: "11px" }}>
+                  <b style={{ fontSize: "14px", color: "#0f172a" }}>Rs. {totalOrderVal.toLocaleString()}</b>
+                  <div style={{ marginTop: "4px", lineHeight: "1.3", fontSize: "11px" }}>
                     {advancePaid > 0 ? (
                       <span style={{ color: "#15803d", fontWeight: 700 }}>
                         {isFullPaid ? "🟢 Full Advance (100%)" : `🟢 Advance: Rs. ${advancePaid.toLocaleString()}`}
                       </span>
                     ) : (
-                      <span style={{ color: "#475569", fontWeight: 500 }}>⭕ Advance: Rs. 0</span>
+                      <span style={{ color: "#64748b", fontWeight: 500 }}>⭕ Advance: Rs. 0</span>
                     )}
                     <br />
-                    <span style={{ color: codCollectible === 0 ? "#15803d" : "#1e40af", fontWeight: 800 }}>
+                    <span style={{ color: codCollectible === 0 ? "#15803d" : "#1e40af", fontWeight: 800, marginTop: "2px", display: "inline-block" }}>
                       🚚 PostEx COD: {codCollectible === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${codCollectible.toLocaleString()}`}
                     </span>
                   </div>
                 </td>
                 <td>
-                  <b>{order.paymentMethod || "COD"}</b>
-                  <small className="trackingNumber" style={{ display: "block", marginTop: "2px" }}>
+                  <b style={{ fontSize: "12px", color: "#1e293b" }}>{order.paymentMethod || "COD"}</b>
+                  <span
+                    className="statusBadge"
+                    style={{
+                      display: "block",
+                      marginTop: "3px",
+                      fontSize: "10px",
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      width: "fit-content",
+                      background: String(order.paymentStatus).toLowerCase().includes("verified") ? "#dcfce7" : "#fef3c7",
+                      color: String(order.paymentStatus).toLowerCase().includes("verified") ? "#166534" : "#92400e",
+                    }}
+                  >
                     {order.paymentStatus || "Awaiting Payment"}
-                  </small>
+                  </span>
                 </td>
                 <td>
                   <span className={`statusBadge ${orderStatus(order).replaceAll(" ", "").replaceAll("-", "").toLowerCase()}`}>
@@ -8167,16 +8318,25 @@ function OrderTable({
                     </small>
                   )}
                 </td>
-                <td style={{ fontSize: "12px", whiteSpace: "nowrap" }}>{order.date}</td>
+                <td style={{ fontSize: "12px", color: "#475569", whiteSpace: "nowrap" }}>{order.date}</td>
                 <td>
-                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px", flexWrap: "wrap" }}>
                     {onSelect && (
                       <button
                         type="button"
-                        className="editProductButton"
                         onClick={() => onSelect(order)}
                         aria-label={`Open order ${order.id}`}
-                        style={{ whiteSpace: "nowrap" }}
+                        style={{
+                          background: "#166534",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "6px",
+                          padding: "5px 10px",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          whiteSpace: "nowrap",
+                        }}
                       >
                         👁️ View
                       </button>
@@ -8189,12 +8349,12 @@ function OrderTable({
                           background: "#f0fdf4",
                           color: "#166534",
                           border: "1px solid #bbf7d0",
-                          borderRadius: "4px",
-                          padding: "4px 8px",
+                          borderRadius: "6px",
+                          padding: "5px 8px",
                           cursor: "pointer",
                           fontSize: "11px",
                           fontWeight: 700,
-                          whiteSpace: "nowrap"
+                          whiteSpace: "nowrap",
                         }}
                         title="Print Stitching Production Slip for Workshop"
                       >
@@ -8209,12 +8369,12 @@ function OrderTable({
                           background: "#eff6ff",
                           color: "#1e40af",
                           border: "1px solid #bfdbfe",
-                          borderRadius: "4px",
-                          padding: "4px 8px",
+                          borderRadius: "6px",
+                          padding: "5px 8px",
                           cursor: "pointer",
                           fontSize: "11px",
                           fontWeight: 700,
-                          whiteSpace: "nowrap"
+                          whiteSpace: "nowrap",
                         }}
                         title="Print Customer Invoice for this order"
                       >
@@ -8225,13 +8385,14 @@ function OrderTable({
                       type="button"
                       onClick={() => setExpandedId(isExpanded ? null : order.id)}
                       style={{
-                        background: isExpanded ? "#e2e8f0" : "#f1f5f9",
+                        background: isExpanded ? "#cbd5e1" : "#f1f5f9",
                         border: "1px solid #cbd5e1",
-                        borderRadius: "4px",
-                        padding: "4px 6px",
+                        borderRadius: "6px",
+                        padding: "5px 7px",
                         cursor: "pointer",
                         fontSize: "10px",
-                        fontWeight: 700
+                        fontWeight: 800,
+                        color: "#334155",
                       }}
                       title="Toggle quick inline details"
                     >
@@ -8242,73 +8403,94 @@ function OrderTable({
               </tr>
               {isExpanded && (
                 <tr key={`${order.id}-expanded`} className="expandedOrderRow" style={{ background: "#f8fafc" }}>
-                  <td colSpan={onToggleSelectOrder ? 9 : 8} style={{ padding: "14px 18px", borderBottom: "2px solid #cbd5e1" }}>
+                  <td colSpan={onToggleSelectOrder ? 9 : 8} style={{ padding: "16px 20px", borderBottom: "2px solid #cbd5e1" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", fontSize: "13px" }}>
-                      <div>
-                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Full Delivery Address</span>
-                        <p style={{ margin: "4px 0", color: "#1e293b", lineHeight: 1.4 }}>{order.address || order.city || "No address saved"}</p>
+                      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>📍 Full Delivery Address</span>
+                        <p style={{ margin: "6px 0", color: "#1e293b", lineHeight: 1.4, fontWeight: 500 }}>{order.address || order.city || "No address saved"}</p>
                         {rawPhoneDigits && (
-                          <div style={{ marginTop: "6px" }}>
+                          <div style={{ marginTop: "8px" }}>
                             <a
                               href={`https://wa.me/${waPhone}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{
+                                color: "#166534",
+                                fontWeight: 700,
+                                textDecoration: "none",
+                                fontSize: "12px",
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: "4px",
-                                background: "#22c55e",
-                                color: "#fff",
-                                padding: "4px 10px",
-                                borderRadius: "6px",
-                                fontSize: "11px",
-                                fontWeight: 700,
-                                textDecoration: "none"
+                                background: "#dcfce7",
+                                border: "1px solid #bbf7d0",
+                                padding: "3px 8px",
+                                borderRadius: "6px"
                               }}
                             >
-                              💬 Open WhatsApp Chat ({order.phone})
+                              💬 Chat on WhatsApp ({order.phone})
                             </a>
                           </div>
                         )}
                       </div>
 
-                      <div>
-                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Order Breakdown</span>
-                        <div style={{ marginTop: "4px", color: "#334155", lineHeight: 1.5 }}>
-                          <div>Products Subtotal: <b>Rs. {Number(order.productSubtotal || order.total || 0).toLocaleString()}</b></div>
-                          <div>Delivery Charges: <b>{Number(order.deliveryCharges || 0) ? `Rs. ${Number(order.deliveryCharges).toLocaleString()}` : "Free"}</b></div>
-                          <div style={{ color: "#15803d" }}>Advance Paid: <b>Rs. {advancePaid.toLocaleString()}</b></div>
-                          <div style={{ color: codCollectible === 0 ? "#15803d" : "#1e40af", fontWeight: 700 }}>
-                            PostEx COD to Collect: <b>{codCollectible === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${codCollectible.toLocaleString()}`}</b>
+                      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>✂️ Ordered Suits / Items</span>
+                        <ul style={{ margin: "6px 0", paddingLeft: "16px", color: "#1e293b", lineHeight: 1.5 }}>
+                          {orderItems.map((it, idx) => (
+                            <li key={it.id || idx}>
+                              <b>{it.name || it.title}</b> — Size: <b>{it.size || "Standard"}</b> {it.color ? `(${it.color})` : ""} × <b>{it.quantity}</b>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>💰 Financial Breakdown</span>
+                        <div style={{ margin: "6px 0", fontSize: "12px", color: "#334155", lineHeight: 1.6 }}>
+                          <div>Total Order Value: <b>Rs. {totalOrderVal.toLocaleString()}</b></div>
+                          <div>Advance Paid: <b style={{ color: "#15803d" }}>Rs. {advancePaid.toLocaleString()}</b></div>
+                          <div style={{ fontWeight: 800, color: codCollectible === 0 ? "#15803d" : "#1e40af" }}>
+                            PostEx COD to Collect: Rs. {codCollectible.toLocaleString()}
                           </div>
                         </div>
                       </div>
 
-                      <div>
-                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#854d0e", textTransform: "uppercase" }}>📝 Internal Notes &amp; Instructions</span>
-                        <div style={{
-                          marginTop: "4px",
-                          background: "#fefce8",
-                          border: "1px solid #fde047",
-                          padding: "8px 10px",
-                          borderRadius: "6px",
-                          color: "#713f12",
-                          lineHeight: 1.4,
-                          whiteSpace: "pre-wrap"
-                        }}>
-                          {order.notes || order.internalNotes || "No internal notes added yet."}
+                      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                        <div>
+                          <span style={{ fontSize: "11px", fontWeight: 800, color: "#854d0e", textTransform: "uppercase", letterSpacing: "0.05em" }}>📝 Workshop Notes</span>
+                          <div style={{
+                            marginTop: "6px",
+                            background: "#fefce8",
+                            border: "1px solid #fde047",
+                            padding: "8px 10px",
+                            borderRadius: "6px",
+                            color: "#713f12",
+                            fontSize: "12px",
+                            lineHeight: 1.4,
+                            whiteSpace: "pre-wrap"
+                          }}>
+                            {order.notes || order.internalNotes || "No special tailor instructions."}
+                          </div>
                         </div>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "flex-end" }}>
                         {onSelect && (
                           <button
                             type="button"
-                            className="editProductButton"
                             onClick={() => onSelect(order)}
-                            style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 700 }}
+                            style={{
+                              marginTop: "10px",
+                              background: "#166534",
+                              color: "#fff",
+                              border: "none",
+                              padding: "7px 12px",
+                              borderRadius: "6px",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              textAlign: "center"
+                            }}
                           >
-                            👁️ Open Full Details &amp; Edit
+                            👁️ Open Order Editor
                           </button>
                         )}
                       </div>
