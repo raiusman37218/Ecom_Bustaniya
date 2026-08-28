@@ -5040,8 +5040,8 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 .drawerActions>button:active { transform:translateY(1px) scale(.99); }
 .drawerActions>button:disabled { cursor:not-allowed; opacity:.62; }
 .drawerActions .saveProduct { width:auto; margin:0; border:0; background:var(--berry); justify-content:center; box-shadow:0 8px 18px #c5164d1f; }
-.drawerActions .saveProduct.saving { min-width:148px; background:#8f163b; box-shadow:0 0 0 3px #c5164d1b; }
 .buttonSpinner { width:12px; height:12px; border:2px solid #ffffff66; border-top-color:#fff; border-radius:50%; animation:buttonSpin .75s linear infinite; }
+.animate-spin { animation:buttonSpin .75s linear infinite; }
 @keyframes buttonSpin { to { transform:rotate(360deg); } }
 .workspaceDrawer { position:fixed; inset:0 0 0 auto; z-index:80; width:min(760px,100%); background:#f5f6f3; overflow:auto; }
 .workspaceDrawer>header { position:sticky; top:0; z-index:3; min-height:82px; padding:16px 25px; background:#fff; border-bottom:1px solid #e0e5e0; display:flex; align-items:center; justify-content:space-between; }

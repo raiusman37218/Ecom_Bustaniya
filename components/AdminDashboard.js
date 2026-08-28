@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity, AlertCircle, Bell, Boxes, Check, CheckCircle2, ChevronDown, ChevronUp, CircleDollarSign,
-  Copy, ExternalLink, Eye, FileText, Info, Landmark, LayoutDashboard, LogOut, Menu, MessageSquare,
+  Copy, ExternalLink, Eye, FileText, Info, Landmark, LayoutDashboard, Loader2, LogOut, Menu, MessageSquare,
   Minus, MoreHorizontal, Package, Phone, Plus, ReceiptText, RefreshCw, Search, Settings,
   ShoppingBag, Store, Tags, TrendingUp, Truck, Users, WalletCards, X
 } from "lucide-react";
@@ -1918,8 +1918,26 @@ export default function AdminDashboard() {
 
             <div className="drawerActions">
               <button type="button" onClick={closeProductForm} disabled={productSaving}>Discard</button>
-              <button className={productSaving ? "saveProduct saving" : "saveProduct"} disabled={productSaving}>
-                {productSaving ? <><span className="buttonSpinner" /> Saving product...</> : editingProduct ? "Update product" : "Save product"}
+              <button
+                type="submit"
+                className={productSaving ? "saveProduct saving" : "saveProduct"}
+                disabled={productSaving}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  cursor: productSaving ? "not-allowed" : "pointer"
+                }}
+              >
+                {productSaving ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Saving Product...</span>
+                  </>
+                ) : (
+                  editingProduct ? "Update Product" : "Save Product"
+                )}
               </button>
             </div>
           </form>
@@ -2517,9 +2535,9 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
       seoDescription: form.get("seoDescription") || "",
       imageAlt: form.get("imageAlt") || name,
     });
-    if (!saved) return;
-    if (!editing?.id) event.currentTarget.reset();
-    setEditing(null);
+    if (saved) {
+      setEditing(null);
+    }
   }
 
   function addImagePreview() {
@@ -2577,8 +2595,8 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
       </div>
     </section>
 
-    {editing && <><div className="adminOverlay" onClick={() => setEditing(null)} /><form className="inventoryDialog categoryDialog" onSubmit={saveCategory}>
-      <DialogHead title={editing.id ? "Edit category" : "Add category"} onClose={() => setEditing(null)} />
+    {editing && <><div className="adminOverlay" onClick={() => !saving && setEditing(null)} /><form className="inventoryDialog categoryDialog" onSubmit={saveCategory}>
+      <DialogHead title={editing.id ? "Edit category" : "Add category"} onClose={() => !saving && setEditing(null)} />
       <label>Name<input name="name" required defaultValue={editing.name || ""} placeholder="Summer Collection" /></label>
       <div className="formRow"><label>Slug<input name="slug" defaultValue={editing.slug || ""} placeholder="summer-collection" /></label><label>Sort order<input name="sortOrder" type="number" defaultValue={editing.sortOrder || 100} /></label></div>
       <label>Parent<select name="parentSlug" defaultValue={editing.parentSlug || ""}><option value="">Main category</option>{mainCategories.filter((category) => category.id !== editing.id).map((category) => <option value={category.slug} key={category.slug}>{category.name}</option>)}</select></label>
@@ -2590,7 +2608,27 @@ function CategoriesPanel({ categories, products, onSave, onArchive, saving, need
       <div className="categoryVisibility"><b>Storefront visibility</b><label><input type="checkbox" name="showInHeader" defaultChecked={editing.showInHeader ?? true} /> Header menu</label><label><input type="checkbox" name="showOnHomepage" defaultChecked={editing.showOnHomepage ?? true} /> Homepage</label><label><input type="checkbox" name="showInFooter" defaultChecked={editing.showInFooter ?? false} /> Footer</label><label><input type="checkbox" name="showInSearch" defaultChecked={editing.showInSearch ?? true} /> Search & filters</label></div>
       <details className="categorySeo"><summary>SEO settings</summary><label>SEO title<input name="seoTitle" maxLength="60" defaultValue={editing.seoTitle || ""} placeholder="Category title for Google" /></label><label>Meta description<textarea name="seoDescription" rows="3" maxLength="160" defaultValue={editing.seoDescription || ""} placeholder="Short search-result description" /></label></details>
       <label>Status<select name="status" defaultValue={editing.status || "Active"}><option>Active</option><option>Draft</option><option>Archived</option></select></label>
-      <button disabled={saving}>{saving ? "Saving..." : "Save category"}</button>
+      <button
+        type="submit"
+        disabled={saving}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+          minWidth: "150px",
+          cursor: saving ? "not-allowed" : "pointer"
+        }}
+      >
+        {saving ? (
+          <>
+            <Loader2 size={16} className="animate-spin" />
+            <span>Saving Category...</span>
+          </>
+        ) : (
+          editing.id ? "Update Category" : "Save Category"
+        )}
+      </button>
     </form></>}
   </>;
 }
@@ -6117,8 +6155,27 @@ function ProductionBatchModal({ isOpen, onClose, onSubmit, products, saving }) {
           <textarea name="note" rows="2" placeholder="Supplier, stitching unit or batch reference" />
         </label>
 
-        <button className="dialogSave" disabled={saving}>
-          {saving ? "Saving batch..." : "Save batch, add stock & record cost"}
+        <button
+          type="submit"
+          className="dialogSave"
+          disabled={saving}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            width: "100%",
+            cursor: saving ? "not-allowed" : "pointer"
+          }}
+        >
+          {saving ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              <span>Saving batch, adding stock &amp; recording cost...</span>
+            </>
+          ) : (
+            "Save batch, add stock & record cost"
+          )}
         </button>
       </form>
     </>
@@ -6670,8 +6727,26 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       <p className="trackingNumber">Batch: {batchCostBatch.productName} · {Number(batchCostBatch.quantity || 0)} suits. Yeh amount isi batch ke total aur per-suit cost mein add hogi; Finance Cashbook mein bhi ek hi linked entry banegi.</p>
       <div className="formRow"><label>Cost type<select name="costKey" defaultValue="stitching"><option value="fabric">Fabric</option><option value="stitching">Stitching / tailor</option><option value="stitchingMaterial">Lace / embellishment</option><option value="packaging">Packaging</option><option value="travel">Travel / transport</option><option value="other">Other production cost</option></select></label><label>Amount<input name="amount" type="number" min="0.01" step="0.01" required autoFocus /></label></div>
       <div className="formRow"><label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label><label>Tailor / supplier<input name="counterparty" placeholder="e.g. Amina Tailors" /></label></div>
-      <div className="formRow"><label>Reference<input name="reference" placeholder="Invoice / bank / WhatsApp ref" /></label><label>Note<input name="note" placeholder="e.g. Final stitching for 8 suits" /></label></div>
-      <button disabled={batchCostSaving}>{batchCostSaving ? "Adding cost..." : "Add to this batch"}</button>
+      <button
+        type="submit"
+        disabled={batchCostSaving}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+          cursor: batchCostSaving ? "not-allowed" : "pointer"
+        }}
+      >
+        {batchCostSaving ? (
+          <>
+            <Loader2 size={16} className="animate-spin" />
+            <span>Adding cost...</span>
+          </>
+        ) : (
+          "Add to this batch"
+        )}
+      </button>
     </form></>}
     <ProductionBatchModal isOpen={productionOpen} onClose={() => setProductionOpen(false)} onSubmit={saveProductionBatch} products={products} saving={productionSaving} />
   </div>;
@@ -7075,8 +7150,29 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
           </label>
         </div>
 
-        <button className="dialogSave" disabled={saving} aria-busy={saving} style={{ width: "100%", padding: "12px", fontSize: "14px" }}>
-          {saving ? "Saving & Creating Order..." : "Create Custom Order"}
+        <button
+          className="dialogSave"
+          disabled={saving}
+          aria-busy={saving}
+          style={{
+            width: "100%",
+            padding: "12px",
+            fontSize: "14px",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            cursor: saving ? "not-allowed" : "pointer"
+          }}
+        >
+          {saving ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              <span>Saving &amp; Creating Order...</span>
+            </>
+          ) : (
+            "Create Custom Order"
+          )}
         </button>
       </form>
     </>
@@ -7556,9 +7652,25 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 onClick={() => saveChanges({ notes })}
                 disabled={saving}
                 aria-busy={saving}
-                style={{ background: "#ca8a04", color: "#fff", border: "none", fontWeight: 700 }}
+                style={{
+                  background: "#ca8a04",
+                  color: "#fff",
+                  border: "none",
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  cursor: saving ? "not-allowed" : "pointer"
+                }}
               >
-                {saving ? "Saving Note..." : "💾 Save Internal Note"}
+                {saving ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Saving Note...</span>
+                  </>
+                ) : (
+                  "💾 Save Internal Note"
+                )}
               </button>
             </div>
           </section>
@@ -7637,9 +7749,28 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                   className="editProductButton"
                   onClick={() => saveChanges({ items: orderItems })}
                   disabled={saving}
-                  style={{ background: "#166534", color: "#fff", border: "none", fontWeight: 700, padding: "7px 14px", fontSize: "12px", borderRadius: "6px" }}
+                  style={{
+                    background: "#166534",
+                    color: "#fff",
+                    border: "none",
+                    fontWeight: 700,
+                    padding: "7px 14px",
+                    fontSize: "12px",
+                    borderRadius: "6px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: saving ? "not-allowed" : "pointer"
+                  }}
                 >
-                  {saving ? "Saving Changes..." : "💾 Save Items & Changes"}
+                  {saving ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Saving Changes...</span>
+                    </>
+                  ) : (
+                    "💾 Save Items & Changes"
+                  )}
                 </button>
                 <button type="button" onClick={printInvoice} style={{ padding: "6px 10px", fontSize: "12px" }}>📄 Print Invoice</button>
                 <button type="button" onClick={printPackingSlip} style={{ padding: "6px 10px", fontSize: "12px" }}>📦 Packing Slip</button>
@@ -7970,9 +8101,25 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                   className="editProductButton"
                   onClick={bookWithPostex}
                   disabled={saving || bookingPostex}
-                  style={{ background: "#2563eb", color: "#fff", border: "none", fontWeight: 700 }}
+                  style={{
+                    background: "#2563eb",
+                    color: "#fff",
+                    border: "none",
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: (saving || bookingPostex) ? "not-allowed" : "pointer"
+                  }}
                 >
-                  {bookingPostex ? "Booking with PostEx..." : "⚡ Book with PostEx Courier"}
+                  {bookingPostex ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Booking with PostEx...</span>
+                    </>
+                  ) : (
+                    "⚡ Book with PostEx Courier"
+                  )}
                 </button>
               )}
               {tracking && (
@@ -7981,8 +8128,21 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                   onClick={() => saveChanges({ fulfillmentStatus: "Booked with PostEx", tracking })}
                   disabled={saving}
                   aria-busy={saving}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: saving ? "not-allowed" : "pointer"
+                  }}
                 >
-                  {saving ? "Saving..." : "Save Tracking Number"}
+                  {saving ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    "Save Tracking Number"
+                  )}
                 </button>
               )}
             </div>
@@ -8035,8 +8195,28 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
             {restoringReturnedStock ? (
               <p className="checkoutError">Final check: this will restore {items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} item(s) to stock once.</p>
             ) : null}
-            <button type="button" onClick={() => saveChanges()} disabled={saving} aria-busy={saving}>
-              {saving ? "Saving..." : restoringReturnedStock ? "Confirm inspection & restore stock" : "Save return workflow"}
+            <button
+              type="button"
+              onClick={() => saveChanges()}
+              disabled={saving}
+              aria-busy={saving}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                cursor: saving ? "not-allowed" : "pointer"
+              }}
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : restoringReturnedStock ? (
+                "Confirm inspection & restore stock"
+              ) : (
+                "Save return workflow"
+              )}
             </button>
           </section>
 
@@ -9283,7 +9463,26 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
           <div className="formRow"><label>Support email<input defaultValue="hello@bustaniya.pk" /></label><label>Customer phone<input placeholder="+92 3xx xxxxxxx" /></label></div>
           <label>Business address<textarea rows="3" placeholder="Warehouse / office address" /></label>
           <div className="formRow"><label>Currency<select defaultValue="PKR"><option>PKR</option></select></label><label>Timezone<select defaultValue="Asia/Karachi"><option>Asia/Karachi</option></select></label></div>
-          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save store settings"}</button>
+          <button
+            type="submit"
+            disabled={storeSettingsLoading}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
+            }}
+          >
+            {storeSettingsLoading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Saving Store Settings...</span>
+              </>
+            ) : (
+              "Save store settings"
+            )}
+          </button>
         </form>}
 
         {activeTab === "Sections" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
@@ -9393,7 +9592,26 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
               </div>
             );
           })()}
-          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save sections"}</button>
+          <button
+            type="submit"
+            disabled={storeSettingsLoading}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
+            }}
+          >
+            {storeSettingsLoading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Saving sections...</span>
+              </>
+            ) : (
+              "Save sections"
+            )}
+          </button>
         </form>}
 
 
@@ -9456,7 +9674,26 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
               </article>
             ))}
           </section>
-          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save theme settings"}</button>
+          <button
+            type="submit"
+            disabled={storeSettingsLoading}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
+            }}
+          >
+            {storeSettingsLoading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Saving theme settings...</span>
+              </>
+            ) : (
+              "Save theme settings"
+            )}
+          </button>
         </form>}
 
         {activeTab === "Payments" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
@@ -9520,7 +9757,26 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
             <div className="formRow"><label>Account number<input value={storeSettings.paymentSettings?.bankAccountNumber || ""} onChange={(event) => updatePaymentSettings({ bankAccountNumber: event.target.value })} placeholder="Bank account number" /></label><label>IBAN (optional)<input value={storeSettings.paymentSettings?.bankIban || ""} onChange={(event) => updatePaymentSettings({ bankIban: event.target.value })} placeholder="PK..." /></label></div>
             <div className="formRow"><label>WhatsApp support & verification number<input type="tel" value={storeSettings.paymentSettings?.whatsappNumber || ""} onChange={(event) => updatePaymentSettings({ whatsappNumber: event.target.value })} placeholder="923001234567" /><small>This number powers the website chat button and checkout payment-screenshot button.</small></label></div>
           </div>
-          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save payment settings"}</button>
+          <button
+            type="submit"
+            disabled={storeSettingsLoading}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
+            }}
+          >
+            {storeSettingsLoading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Saving payment settings...</span>
+              </>
+            ) : (
+              "Save payment settings"
+            )}
+          </button>
         </form>}
 
         {activeTab === "Shipping" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
@@ -9634,7 +9890,26 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
             </div>
           </div>
 
-          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save shipping settings"}</button>
+          <button
+            type="submit"
+            disabled={storeSettingsLoading}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
+            }}
+          >
+            {storeSettingsLoading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Saving shipping settings...</span>
+              </>
+            ) : (
+              "Save shipping settings"
+            )}
+          </button>
         </form>}
 
         {activeTab === "Users" && <div className="settingsStack">
@@ -9663,7 +9938,26 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
           <label>Email template<textarea rows="6" value={storeSettings.notificationSettings?.orderConfirmationTemplate || ""} onChange={(event) => updateSettingsGroup("notificationSettings", { orderConfirmationTemplate: event.target.value })} /></label>
           <div className="settingsOption"><div><b>Fulfillment update</b><span>Used when tracking number or PostEx status changes.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.notificationSettings?.fulfillmentUpdateEnabled !== false} onChange={(event) => updateSettingsGroup("notificationSettings", { fulfillmentUpdateEnabled: event.target.checked })} /> Enabled</label></div>
           <div className="settingsOption"><div><b>COD phone verification reminder</b><span>Internal reminder for risky COD orders.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.notificationSettings?.codVerificationReminderEnabled !== false} onChange={(event) => updateSettingsGroup("notificationSettings", { codVerificationReminderEnabled: event.target.checked })} /> Enabled</label></div>
-          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save notification settings"}</button>
+          <button
+            type="submit"
+            disabled={storeSettingsLoading}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
+            }}
+          >
+            {storeSettingsLoading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Saving notification settings...</span>
+              </>
+            ) : (
+              "Save notification settings"
+            )}
+          </button>
         </form>}
 
         {activeTab === "Tracking" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
@@ -9685,7 +9979,26 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
             </div>
           </div>
           <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
-            <button type="submit" disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save Tracking Settings"}</button>
+            <button
+              type="submit"
+              disabled={storeSettingsLoading}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                cursor: storeSettingsLoading ? "not-allowed" : "pointer"
+              }}
+            >
+              {storeSettingsLoading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Saving Tracking Settings...</span>
+                </>
+              ) : (
+                "Save Tracking Settings"
+              )}
+            </button>
             <button
               type="button"
               onClick={testCapiConnection}
@@ -9716,7 +10029,26 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
           <label>Primary domain<input value={storeSettings.domainSettings?.primaryDomain || ""} onChange={(event) => updateSettingsGroup("domainSettings", { primaryDomain: event.target.value })} /></label>
           <div className="settingsOption"><div><b>www redirect</b><span>Keep the preferred public domain recorded for SEO and support links.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.domainSettings?.wwwRedirect !== false} onChange={(event) => updateSettingsGroup("domainSettings", { wwwRedirect: event.target.checked })} /> Enabled</label></div>
           <label>SEO title<input value={storeSettings.domainSettings?.seoTitle || ""} onChange={(event) => updateSettingsGroup("domainSettings", { seoTitle: event.target.value })} /></label>
-          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save domain settings"}</button>
+          <button
+            type="submit"
+            disabled={storeSettingsLoading}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
+            }}
+          >
+            {storeSettingsLoading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Saving domain settings...</span>
+              </>
+            ) : (
+              "Save domain settings"
+            )}
+          </button>
         </form>}
 
         {activeTab === "SizeChart" && (
@@ -9843,8 +10175,26 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
               </div>
             </div>
 
-            <button disabled={storeSettingsLoading} style={{ marginTop: "20px" }}>
-              {storeSettingsLoading ? "Saving..." : "Save size chart settings"}
+            <button
+              type="submit"
+              disabled={storeSettingsLoading}
+              style={{
+                marginTop: "20px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                cursor: storeSettingsLoading ? "not-allowed" : "pointer"
+              }}
+            >
+              {storeSettingsLoading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Saving size chart settings...</span>
+                </>
+              ) : (
+                "Save size chart settings"
+              )}
             </button>
           </form>
         )}
@@ -9855,7 +10205,26 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
           <div className="settingsOption"><div><b>Phone required</b><span>Required for PostEx booking and COD verification.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.checkoutSettings?.phoneRequired !== false} onChange={(event) => updateSettingsGroup("checkoutSettings", { phoneRequired: event.target.checked })} /> Enabled</label></div>
           <div className="formRow"><label>Default payment<select value={storeSettings.checkoutSettings?.defaultPayment || "cod"} onChange={(event) => updateSettingsGroup("checkoutSettings", { defaultPayment: event.target.value })}><option value="cod">COD — delivery charge in advance</option><option value="full_advance">Full advance — free delivery</option></select></label><label>Address fields<select value={storeSettings.checkoutSettings?.addressMode || "detailed"} onChange={(event) => updateSettingsGroup("checkoutSettings", { addressMode: event.target.value })}><option value="detailed">Full address required</option><option value="simple">Simple city/address only</option></select></label></div>
           <label>Checkout note<textarea rows="3" value={storeSettings.checkoutSettings?.checkoutNote || ""} onChange={(event) => updateSettingsGroup("checkoutSettings", { checkoutNote: event.target.value })} /></label>
-          <button disabled={storeSettingsLoading}>{storeSettingsLoading ? "Saving..." : "Save checkout settings"}</button>
+          <button
+            type="submit"
+            disabled={storeSettingsLoading}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
+            }}
+          >
+            {storeSettingsLoading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Saving checkout settings...</span>
+              </>
+            ) : (
+              "Save checkout settings"
+            )}
+          </button>
         </form>}
 
         {activeTab === "System" && <BackendHealthPanel />}

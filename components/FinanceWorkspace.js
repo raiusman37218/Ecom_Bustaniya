@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowLeftRight, CircleDollarSign, Landmark, Package,
+  AlertTriangle, ArrowLeftRight, CircleDollarSign, Landmark, Loader2, Package,
   ReceiptText, RefreshCw, ShoppingBag, TrendingUp, WalletCards,
 } from "lucide-react";
 
@@ -816,7 +816,26 @@ function AddMovementForm({ accounts, busy, onSubmit }) {
         <label>Reference<input name="reference" placeholder="Invoice, bank ref, CPR" /></label>
         <label>Note<input name="note" placeholder="Extra detail" /></label>
       </div>
-      <button disabled={busy}>{busy ? "Saving..." : "Save cash movement"}</button>
+      <button
+        type="submit"
+        disabled={busy}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+          cursor: busy ? "not-allowed" : "pointer"
+        }}
+      >
+        {busy ? (
+          <>
+            <Loader2 size={16} className="animate-spin" />
+            <span>Saving cash movement...</span>
+          </>
+        ) : (
+          "Save cash movement"
+        )}
+      </button>
     </form>
   );
 }
@@ -861,7 +880,26 @@ function TransferForm({ accounts, busy, onSubmit }) {
         <label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
       </div>
       <label>Reference<input name="reference" placeholder="Bank ref / screenshot id" /></label>
-      <button disabled={busy}>{busy ? "Saving..." : "Record transfer"}</button>
+      <button
+        type="submit"
+        disabled={busy}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+          cursor: busy ? "not-allowed" : "pointer"
+        }}
+      >
+        {busy ? (
+          <>
+            <Loader2 size={16} className="animate-spin" />
+            <span>Recording transfer...</span>
+          </>
+        ) : (
+          "Record transfer"
+        )}
+      </button>
     </form>
   );
 }
@@ -908,7 +946,26 @@ function SupplierBillForm({ accounts, busy, onSubmit }) {
         <AccountSelect accounts={accounts} name="accountId" required={Number(paidAmount) > 0} label="Paid from (required when already paid)" />
       </div>
       <label>Note<input name="note" placeholder="Kya khareeda" /></label>
-      <button disabled={busy}>{busy ? "Saving..." : "Save payable"}</button>
+      <button
+        type="submit"
+        disabled={busy}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+          cursor: busy ? "not-allowed" : "pointer"
+        }}
+      >
+        {busy ? (
+          <>
+            <Loader2 size={16} className="animate-spin" />
+            <span>Saving payable...</span>
+          </>
+        ) : (
+          "Save payable"
+        )}
+      </button>
     </form>
   );
 }
@@ -921,7 +978,27 @@ function FixedCostForm({ value, busy, onSave }) {
       <label>Monthly fixed costs
         <input type="number" min="0" value={amount} onChange={(event) => setAmount(event.target.value)} />
       </label>
-      <button type="button" disabled={busy} onClick={() => onSave(Number(amount || 0))}>{busy ? "Saving..." : "Save"}</button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onSave(Number(amount || 0))}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "6px",
+          cursor: busy ? "not-allowed" : "pointer"
+        }}
+      >
+        {busy ? (
+          <>
+            <Loader2 size={14} className="animate-spin" />
+            <span>Saving...</span>
+          </>
+        ) : (
+          "Save"
+        )}
+      </button>
     </div>
   );
 }
