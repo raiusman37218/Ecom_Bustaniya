@@ -3095,9 +3095,468 @@ function formatSavedCustomOrder(order, fallback = {}) {
   };
 }
 
+function generateBulkOrdersPdf({ orders = [], type = "invoice" }) {
+  if (!orders.length) return;
+  const printWindow = window.open("", "_blank", "width=850,height=950");
+  if (!printWindow) {
+    alert("Please allow popups to generate and print PDF.");
+    return;
+  }
+
+  const escapeHtml = (str = "") =>
+    String(str || "").replace(/[&<>"]/g, (char) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+    }[char]));
+
+  let htmlContent = "";
+
+  if (type === "manifest") {
+    const totalCod = orders.reduce((sum, o) => {
+      const total = Number(o.total || 0);
+      const adv = Number(o.amountPayableInAdvance || 0);
+      return sum + Math.max(0, total - adv);
+    }, 0);
+    const totalAdvance = orders.reduce((sum, o) => sum + Number(o.amountPayableInAdvance || 0), 0);
+    const totalValue = orders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+    const rowsHtml = orders.map((o, idx) => {
+      const items = normalizeOrderItems(o);
+      const itemsText = items.map((it) => `${escapeHtml(it.name)} ${[it.size, it.color].filter(Boolean).length ? `(${escapeHtml([it.size, it.color].filter(Boolean).join("/"))})` : ""} × ${it.quantity}`).join("<br/>");
+      const total = Number(o.total || 0);
+      const adv = Number(o.amountPayableInAdvance || 0);
+      const cod = Math.max(0, total - adv);
+
+      return `<tr>
+        <td style="text-align:center;">${idx + 1}</td>
+        <td><b>${escapeHtml(o.id)}</b><br/><small style="color:#64748b;">${escapeHtml(o.date || "")}</small></td>
+        <td><b>${escapeHtml(o.customer)}</b><br/><small style="color:#2563eb;">📞 ${escapeHtml(o.phone || "")}</small></td>
+        <td><b>${escapeHtml(o.city || "—")}</b><br/><small style="color:#475569;font-size:11px;">${escapeHtml(o.address || "")}</small></td>
+        <td style="font-size:12px;">${itemsText}</td>
+        <td><b>${escapeHtml(o.deliveryMethod || "PostEx")}</b>${o.tracking ? `<br/><code style="background:#f1f5f9;padding:2px 4px;border-radius:3px;font-size:11px;">${escapeHtml(o.tracking)}</code>` : ""}</td>
+        <td style="text-align:right;">Rs. ${adv.toLocaleString()}</td>
+        <td style="text-align:right;font-weight:bold;color:#166534;">Rs. ${cod.toLocaleString()}</td>
+      </tr>`;
+    }).join("");
+
+    htmlContent = `
+      <div class="manifestContainer">
+        <header class="manifestHeader">
+          <div>
+            <h1>Bustaniya</h1>
+            <p>Dispatch Manifest &amp; Courier Handover Sheet</p>
+          </div>
+          <div style="text-align:right;">
+            <p><b>Date:</b> ${new Date().toLocaleString("en-PK")}</p>
+            <p><b>Total Orders:</b> ${orders.length}</p>
+          </div>
+        </header>
+
+        <div class="manifestSummary">
+          <div class="statBox"><span>Selected Orders</span><b>${orders.length}</b></div>
+          <div class="statBox"><span>Total Order Value</span><b>Rs. ${totalValue.toLocaleString()}</b></div>
+          <div class="statBox"><span>Advance Paid</span><b>Rs. ${totalAdvance.toLocaleString()}</b></div>
+          <div class="statBox" style="background:#ecfdf5;border-color:#a7f3d0;">
+            <span style="color:#065f46;">Total COD To Collect</span>
+            <b style="color:#065f46;font-size:18px;">Rs. ${totalCod.toLocaleString()}</b>
+          </div>
+        </div>
+
+        <table class="manifestTable">
+          <thead>
+            <tr>
+              <th style="width:30px;">#</th>
+              <th>Order Ref</th>
+              <th>Customer</th>
+              <th>Destination</th>
+              <th>Ordered Items</th>
+              <th>Courier &amp; Tracking</th>
+              <th style="text-align:right;">Advance</th>
+              <th style="text-align:right;">COD Collectible</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+          <tfoot>
+            <tr style="background:#f8fafc;font-weight:bold;">
+              <td colspan="6" style="text-align:right;">GRAND TOTAL:</td>
+              <td style="text-align:right;">Rs. ${totalAdvance.toLocaleString()}</td>
+              <td style="text-align:right;color:#166534;font-size:15px;">Rs. ${totalCod.toLocaleString()}</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div style="margin-top:40px;display:flex;justify-content:space-between;font-size:13px;color:#475569;border-top:1px dashed #cbd5e1;padding-top:20px;">
+          <div>Handed Over By: ___________________</div>
+          <div>Courier Rider Signature: ___________________</div>
+          <div>Rider Name &amp; Phone: ___________________</div>
+        </div>
+      </div>
+    `;
+  } else {
+    // Multi-page Invoices or Packing Slips
+    const isCompact = type === "packing_slip";
+
+    htmlContent = orders.map((order, orderIndex) => {
+      const items = normalizeOrderItems(order);
+      const total = Number(order.total || 0);
+      const subtotal = Number(order.productSubtotal || order.subtotal || total);
+      const delivery = Number(order.deliveryCharges ?? order.raw?.delivery_charges_pkr ?? 250);
+      const advance = Number(order.amountPayableInAdvance || 0);
+      const cod = Math.max(0, total - advance);
+
+      const itemsRows = items.map((item) => {
+        const qty = Number(item.quantity || 1);
+        const price = Number(item.price || 0);
+        const lineTotal = qty * price;
+        const variantDetails = [item.sku, item.size ? `Size: ${item.size}` : "", item.color ? `Color: ${item.color}` : ""].filter(Boolean).join(" | ");
+
+        return `<tr>
+          <td>
+            <b style="font-size:14px;">${escapeHtml(item.name)}</b>
+            ${variantDetails ? `<small style="display:block;color:#64748b;font-size:12px;margin-top:3px;">${escapeHtml(variantDetails)}</small>` : ""}
+          </td>
+          <td style="text-align:center;font-weight:bold;font-size:14px;">${qty}</td>
+          ${!isCompact ? `<td style="text-align:right;">Rs. ${price.toLocaleString()}</td><td style="text-align:right;font-weight:bold;font-size:14px;">Rs. ${lineTotal.toLocaleString()}</td>` : ""}
+        </tr>`;
+      }).join("");
+
+      return `
+        <div class="orderPage ${orderIndex < orders.length - 1 ? 'pageBreak' : ''}">
+          <header class="orderHeader">
+            <div>
+              <h1>Bustaniya</h1>
+              <p style="margin:2px 0 0 0;font-size:12px;color:#64748b;">Luxury Ready to Wear · Official Store</p>
+              <p style="margin:4px 0 0 0;font-size:12px;color:#166534;font-weight:bold;letter-spacing:0.05em;">${isCompact ? "📦 WAREHOUSE PACKING SLIP" : "📄 CUSTOMER INVOICE / ORDER RECEIPT"}</p>
+            </div>
+            <div style="text-align:right;">
+              <h2 style="margin:0;color:#173d29;font-size:22px;">${escapeHtml(order.id)}</h2>
+              <p style="margin:2px 0;font-size:12px;color:#64748b;">Date: ${escapeHtml(order.date || "")}</p>
+              <p style="margin:2px 0;font-size:12px;color:#334155;"><b>Status:</b> ${escapeHtml(order.postexStatus || order.status || "Confirmed")}</p>
+              <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;background:#f1f5f9;color:#334155;">
+                ${escapeHtml(order.source || "Storefront")}
+              </span>
+            </div>
+          </header>
+
+          <div class="gridTwo">
+            <div class="infoBox">
+              <b>Customer Information</b>
+              <p style="margin:6px 0 2px 0;font-size:14px;font-weight:bold;color:#0f172a;">${escapeHtml(order.customer)}</p>
+              <p style="margin:2px 0;font-size:13px;color:#2563eb;">📞 ${escapeHtml(order.phone || "No phone")}</p>
+              ${order.email ? `<p style="margin:2px 0;font-size:12px;color:#64748b;">✉️ ${escapeHtml(order.email)}</p>` : ""}
+            </div>
+            <div class="infoBox">
+              <b>Shipping &amp; Delivery Details</b>
+              <p style="margin:6px 0 2px 0;font-size:13px;color:#0f172a;"><b>📍 City:</b> ${escapeHtml(order.city || "—")}</p>
+              <p style="margin:2px 0;font-size:12px;color:#475569;line-height:1.4;">${escapeHtml(order.address || "No address provided")}</p>
+              <p style="margin:4px 0 0 0;font-size:12px;"><b>Delivery via:</b> ${escapeHtml(order.deliveryMethod || "PostEx")}</p>
+              ${order.tracking ? `<p style="margin:2px 0 0 0;font-size:12px;color:#166534;font-weight:bold;">🚚 Tracking #: ${escapeHtml(order.tracking)}</p>` : ""}
+            </div>
+          </div>
+
+          <table class="itemsTable">
+            <thead>
+              <tr>
+                <th>Ordered Item &amp; Variants</th>
+                <th style="width:60px;text-align:center;">Qty</th>
+                ${!isCompact ? `<th style="width:120px;text-align:right;">Unit Price</th><th style="width:130px;text-align:right;">Total</th>` : ""}
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsRows}
+            </tbody>
+          </table>
+
+          ${!isCompact ? `
+            <div class="financialSummary">
+              <div class="totalsTable">
+                <div><span>Products Subtotal:</span><span>Rs. ${subtotal.toLocaleString()}</span></div>
+                <div><span>Delivery Charges:</span><span>${delivery > 0 ? `Rs. ${delivery.toLocaleString()}` : "Free Delivery"}</span></div>
+                <div style="border-top:2px solid #cbd5e1;padding-top:6px;font-size:15px;font-weight:bold;color:#0f172a;">
+                  <span>Total Order Value:</span><span>Rs. ${total.toLocaleString()}</span>
+                </div>
+                ${advance > 0 ? `
+                  <div style="color:#166534;font-weight:600;">
+                    <span>Advance Payment Received:</span><span>- Rs. ${advance.toLocaleString()}</span>
+                  </div>
+                ` : ""}
+                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 10px;margin-top:8px;font-size:15px;font-weight:bold;color:#166534;">
+                  <span>COD Amount to Pay:</span>
+                  <span>${cod === 0 ? "PAID IN ADVANCE (Rs. 0)" : `Rs. ${cod.toLocaleString()}`}</span>
+                </div>
+              </div>
+            </div>
+          ` : `
+            <div style="margin-top:16px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+              <b style="font-size:12px;color:#334155;">Packaging Checklist:</b>
+              <p style="margin:4px 0 0 0;font-size:12px;color:#475569;line-height:1.4;">
+                ✓ Ensure suit matching size and color is packed correctly.<br/>
+                ✓ Include brand tags &amp; care instructions card.<br/>
+                ✓ Seal parcel securely before handing over to courier rider.
+              </p>
+            </div>
+          `}
+
+          ${(order.notes || order.internalNotes) ? `
+            <div class="notesBox">
+              <b>📝 Special Remarks / Customer Request:</b>
+              <p style="margin:4px 0 0 0;font-size:12px;line-height:1.4;white-space:pre-wrap;">${escapeHtml(order.notes || order.internalNotes)}</p>
+            </div>
+          ` : ""}
+
+          <footer class="orderFooter">
+            <p>Thank you for choosing Bustaniya! For any support or inquiries, visit <b>bustaniya.com</b></p>
+            <p style="font-size:10px;color:#94a3b8;margin-top:4px;">Invoice generated on ${new Date().toLocaleString("en-PK")}</p>
+          </footer>
+        </div>
+      `;
+    }).join("");
+  }
+
+  printWindow.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>${type === "manifest" ? "Dispatch Manifest" : type === "packing_slip" ? "Packing Slips" : "Invoices"} (${orders.length} Orders) - Bustaniya</title>
+        <style>
+          @page {
+            size: A4;
+            margin: 12mm 15mm;
+          }
+          * {
+            box-sizing: border-box;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #0f172a;
+            background: #fff;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .pageBreak {
+            page-break-after: always;
+            break-after: page;
+          }
+          .orderPage {
+            padding: 24px 28px;
+            max-width: 800px;
+            margin: 0 auto;
+          }
+          .orderHeader {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #173d29;
+            padding-bottom: 14px;
+            margin-bottom: 16px;
+          }
+          .orderHeader h1 {
+            margin: 0;
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            color: #173d29;
+          }
+          .gridTwo {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 16px;
+          }
+          .infoBox {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 14px;
+          }
+          .infoBox b {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+          }
+          .itemsTable {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+          }
+          .itemsTable th {
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #475569;
+            border-bottom: 2px solid #cbd5e1;
+            padding: 8px 10px;
+            background: #f1f5f9;
+          }
+          .itemsTable td {
+            border-bottom: 1px solid #e2e8f0;
+            padding: 10px;
+            font-size: 13px;
+            vertical-align: top;
+          }
+          .financialSummary {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+          }
+          .totalsTable {
+            width: 330px;
+          }
+          .totalsTable div {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 13px;
+            color: #334155;
+          }
+          .notesBox {
+            margin-top: 14px;
+            padding: 10px 14px;
+            background: #fefce8;
+            border: 1px solid #fef08a;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #713f12;
+          }
+          .orderFooter {
+            margin-top: 24px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 12px;
+            text-align: center;
+            font-size: 11px;
+            color: #64748b;
+          }
+          
+          /* Manifest Styles */
+          .manifestContainer {
+            padding: 24px;
+            max-width: 900px;
+            margin: 0 auto;
+          }
+          .manifestHeader {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid #173d29;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+          }
+          .manifestHeader h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #173d29;
+          }
+          .manifestHeader p {
+            margin: 2px 0 0 0;
+            color: #64748b;
+            font-size: 13px;
+          }
+          .manifestSummary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+          }
+          .statBox {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 12px;
+          }
+          .statBox span {
+            display: block;
+            font-size: 11px;
+            color: #64748b;
+          }
+          .statBox b {
+            font-size: 16px;
+            color: #0f172a;
+          }
+          .manifestTable {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+          }
+          .manifestTable th {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            padding: 8px;
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+          }
+          .manifestTable td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+            vertical-align: top;
+          }
+
+          .printControls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            background: #fff;
+            padding: 10px 16px;
+            border-radius: 30px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2), 0 8px 10px -6px rgba(0,0,0,0.1);
+            border: 1px solid #cbd5e1;
+            z-index: 9999;
+          }
+          .printBtn {
+            background: #166534;
+            color: #fff;
+            border: none;
+            padding: 9px 20px;
+            font-size: 13px;
+            font-weight: bold;
+            border-radius: 20px;
+            cursor: pointer;
+          }
+          @media print {
+            .printControls {
+              display: none !important;
+            }
+            .orderPage {
+              padding: 0;
+            }
+            .manifestContainer {
+              padding: 0;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="printControls">
+          <button class="printBtn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+        </div>
+        ${htmlContent}
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 350);
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+}
+
 function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, connected, loading, error, onRetry, onPageChange, initialSelectedId, onInitialSelectionHandled, tableDensity = "comfortable", setTableDensity, onNavigateToEvents }) {
   const [localOrders, setLocalOrders] = useState([]);
   const [selectedId, setSelectedId] = useState("");
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [activeTab, setActiveTab] = useState("Total Orders");
   const [orderSearch, setOrderSearch] = useState("");
   const [showDraft, setShowDraft] = useState(false);
@@ -3167,6 +3626,23 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       .includes(query);
     return matchesTab && matchesSearch;
   });
+
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((r) => selectedOrderIds.includes(r.id));
+
+  function toggleSelectAll() {
+    if (allVisibleSelected) {
+      const visibleSet = new Set(visibleRows.map((r) => r.id));
+      setSelectedOrderIds((prev) => prev.filter((id) => !visibleSet.has(id)));
+    } else {
+      setSelectedOrderIds((prev) => [...new Set([...prev, ...visibleRows.map((r) => r.id)])]);
+    }
+  }
+
+  function toggleSelectOrder(orderId) {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
+    );
+  }
   const orderStatusVisual = orderStatusCounts.filter((item) => item.label !== "Total Orders" && item.count > 0).map((item) => ({
     label: item.label,
     value: item.count,
@@ -3303,7 +3779,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
     }
   }
   return <><div className="adminTitle"><div><p>FULFILMENT</p><h1>Orders</h1><span>PostEx status, custom admin orders, fulfillment, returns and team notes.</span></div><button onClick={exportOrders} disabled={loading || exportingOrders || !canExport || !connected || !allRows.length} aria-busy={exportingOrders}>{exportingOrders ? "Exporting..." : "Export orders"}</button></div>
-    {loading && <div className="ordersConnect" aria-busy="true"><div><b>Loading ordersâ€¦</b><span>Fetching the latest stored order data.</span></div></div>}
+    {loading && <div className="ordersConnect" aria-busy="true"><div><b>Loading orders…</b><span>Fetching the latest stored order data.</span></div></div>}
     {!loading && error && <div className="ordersConnect"><div><b>Orders could not be loaded.</b><span>{error}</span></div><button onClick={onRetry}>Retry</button></div>}
     {!loading && !connected && !error && <div className="ordersConnect"><div><b>Session expired</b><span>Please sign in again to view orders.</span></div></div>}
     {connected && !loading && <>
@@ -3326,12 +3802,93 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
 
 
     <section className="adminCard managementCard">
+      {selectedOrderIds.length > 0 && (
+        <div
+          style={{
+            position: "sticky",
+            top: "10px",
+            zIndex: 35,
+            background: "#0f172a",
+            color: "#fff",
+            padding: "12px 18px",
+            borderRadius: "10px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "12px",
+            boxShadow: "0 10px 25px -5px rgba(0,0,0,0.25), 0 8px 10px -6px rgba(0,0,0,0.15)",
+            margin: "0 0 16px 0",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ background: "#2563eb", color: "#fff", padding: "4px 12px", borderRadius: "20px", fontWeight: 800, fontSize: "13px" }}>
+              ✓ {selectedOrderIds.length} Orders Selected
+            </span>
+            <span style={{ fontSize: "12px", color: "#cbd5e1" }}>
+              Print or export selected orders:
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => {
+                const selectedList = allRows.filter((o) => selectedOrderIds.includes(o.id));
+                generateBulkOrdersPdf({ orders: selectedList, type: "invoice" });
+              }}
+              style={{ background: "#166534", color: "#fff", border: "none", fontWeight: 700, padding: "8px 14px", fontSize: "12px", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              📄 Print Full Invoices PDF ({selectedOrderIds.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const selectedList = allRows.filter((o) => selectedOrderIds.includes(o.id));
+                generateBulkOrdersPdf({ orders: selectedList, type: "packing_slip" });
+              }}
+              style={{ background: "#0f766e", color: "#fff", border: "none", fontWeight: 700, padding: "8px 14px", fontSize: "12px", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              📦 Packing Slips PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const selectedList = allRows.filter((o) => selectedOrderIds.includes(o.id));
+                generateBulkOrdersPdf({ orders: selectedList, type: "manifest" });
+              }}
+              style={{ background: "#3b82f6", color: "#fff", border: "none", fontWeight: 700, padding: "8px 14px", fontSize: "12px", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              📋 Dispatch Manifest PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedOrderIds([])}
+              style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", padding: "8px 12px", fontSize: "12px", borderRadius: "6px", cursor: "pointer" }}
+            >
+              ✖ Clear Selection
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="ordersToolbar">
         <label className="orderStatusFilter">Order status<select value={activeTab} onChange={(event) => setActiveTab(event.target.value)}>{orderStatusCounts.map((category) => <option key={category.label} value={category.label}>{category.label} ({category.count})</option>)}</select></label>
         <TableDensityToggle density={tableDensity} onChange={setTableDensity} />
         <div className="inlineSearch"><Search /><input value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Search order, customer, tracking..." /></div>
       </div>
-      {allRows.length === 0 ? <EmptyState icon={ShoppingBag} title="No orders received" description="There are no orders in your store database yet." /> : <OrderTable rows={visibleRows} density={tableDensity} onSelect={(order) => setSelectedId(order.id)} />}
+      {allRows.length === 0 ? (
+        <EmptyState icon={ShoppingBag} title="No orders received" description="There are no orders in your store database yet." />
+      ) : (
+        <OrderTable
+          rows={visibleRows}
+          density={tableDensity}
+          onSelect={(order) => setSelectedId(order.id)}
+          selectedOrderIds={selectedOrderIds}
+          onToggleSelectOrder={toggleSelectOrder}
+          onToggleSelectAll={toggleSelectAll}
+          onPrintSingleOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "invoice" })}
+        />
+      )}
       {pagination?.totalPages > 1 && <div className="ordersPagination"><button disabled={loading || pagination.page <= 1} aria-busy={loading} onClick={() => onPageChange(pagination.page - 1)}>Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button disabled={loading || pagination.page >= pagination.totalPages} aria-busy={loading} onClick={() => onPageChange(pagination.page + 1)}>Next</button></div>}
     </section>
     {showDraft && <DraftOrderDialog products={products} onClose={() => setShowDraft(false)} onCreate={createDraft} saving={creatingDraft} />}
@@ -6864,7 +7421,15 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   );
 }
 
-function OrderTable({ rows, onSelect, density = "comfortable" }) {
+function OrderTable({
+  rows,
+  onSelect,
+  density = "comfortable",
+  selectedOrderIds = [],
+  onToggleSelectOrder,
+  onToggleSelectAll,
+  onPrintSingleOrder,
+}) {
   const [expandedId, setExpandedId] = useState(null);
 
   return (
@@ -6872,6 +7437,17 @@ function OrderTable({ rows, onSelect, density = "comfortable" }) {
       <table className="adminTable orderTable">
         <thead>
           <tr>
+            {onToggleSelectOrder && (
+              <th style={{ width: "36px", textAlign: "center", padding: "8px 4px" }}>
+                <input
+                  type="checkbox"
+                  aria-label="Select all orders"
+                  checked={rows.length > 0 && rows.every((r) => selectedOrderIds.includes(r.id))}
+                  onChange={onToggleSelectAll}
+                  style={{ cursor: "pointer", width: "16px", height: "16px", verticalAlign: "middle" }}
+                />
+              </th>
+            )}
             <th>Order</th>
             <th>Customer</th>
             <th>Ordered Items &amp; Notes</th>
@@ -6885,6 +7461,7 @@ function OrderTable({ rows, onSelect, density = "comfortable" }) {
         <tbody>
           {rows.map((order) => {
             const orderItems = normalizeOrderItems(order);
+            const isSelected = selectedOrderIds.includes(order.id);
             const totalOrderVal = Number(order.total || 0);
             const advancePaid = Number(order.amountPayableInAdvance || 0);
             const isFullPaid = advancePaid >= totalOrderVal && totalOrderVal > 0;
@@ -6896,7 +7473,18 @@ function OrderTable({ rows, onSelect, density = "comfortable" }) {
 
             return (
               <Fragment key={order.id}>
-                <tr style={{ background: isExpanded ? "#f8fafc" : undefined }}>
+                <tr style={{ background: isSelected ? "#eff6ff" : (isExpanded ? "#f8fafc" : undefined) }}>
+                {onToggleSelectOrder && (
+                  <td style={{ textAlign: "center", verticalAlign: "middle", padding: "8px 4px" }} onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select order ${order.id}`}
+                      checked={isSelected}
+                      onChange={() => onToggleSelectOrder(order.id)}
+                      style={{ cursor: "pointer", width: "16px", height: "16px", verticalAlign: "middle" }}
+                    />
+                  </td>
+                )}
                 <td>
                   <b>{order.id}</b>
                   <span
@@ -7023,6 +7611,26 @@ function OrderTable({ rows, onSelect, density = "comfortable" }) {
                         👁️ View
                       </button>
                     )}
+                    {onPrintSingleOrder && (
+                      <button
+                        type="button"
+                        onClick={() => onPrintSingleOrder(order)}
+                        style={{
+                          background: "#f0fdf4",
+                          color: "#166534",
+                          border: "1px solid #bbf7d0",
+                          borderRadius: "4px",
+                          padding: "4px 8px",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          whiteSpace: "nowrap"
+                        }}
+                        title="Print / PDF Invoice for this order"
+                      >
+                        📄 PDF
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setExpandedId(isExpanded ? null : order.id)}
@@ -7044,7 +7652,7 @@ function OrderTable({ rows, onSelect, density = "comfortable" }) {
               </tr>
               {isExpanded && (
                 <tr key={`${order.id}-expanded`} className="expandedOrderRow" style={{ background: "#f8fafc" }}>
-                  <td colSpan={8} style={{ padding: "14px 18px", borderBottom: "2px solid #cbd5e1" }}>
+                  <td colSpan={onToggleSelectOrder ? 9 : 8} style={{ padding: "14px 18px", borderBottom: "2px solid #cbd5e1" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", fontSize: "13px" }}>
                       <div>
                         <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Full Delivery Address</span>
