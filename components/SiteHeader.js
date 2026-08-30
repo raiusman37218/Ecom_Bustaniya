@@ -21,6 +21,7 @@ export default function SiteHeader({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [localCartCount, setLocalCartCount] = useState(0);
+  const [isStuck, setIsStuck] = useState(false);
 
   useEffect(() => {
     try {
@@ -33,6 +34,13 @@ export default function SiteHeader({
         }
       }
     } catch {}
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => setIsStuck(window.scrollY > 60);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   const displayCartCount = typeof initialCartCount === "number" ? initialCartCount : localCartCount;
@@ -55,7 +63,7 @@ export default function SiteHeader({
   }
 
   return (
-    <header className="siteHeaderLucknawi">
+    <header className={isStuck ? "siteHeaderLucknawi isStuck" : "siteHeaderLucknawi"}>
       {/* 1. Top Announcement Bar */}
       <AnnouncementBar storeSettings={storeSettings} />
 

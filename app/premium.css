@@ -1,0 +1,1522 @@
+/* =============================================================
+   BUSTANIYA — PREMIUM REFINEMENT LAYER
+   Loaded after globals.css / campaign-hero.css.
+   Keeps the existing structure, colours and content; refines the
+   craft: typography rhythm, product imagery, hover states, spacing.
+   ============================================================= */
+
+:root {
+  --bs-forest: #173d29;
+  --bs-forest-deep: #0e2f1d;
+  --bs-berry: #bd194b;
+  --bs-cream: #fcfaf5;
+  --bs-paper: #fffefb;
+  --bs-stone: #f4f0e8;
+  --bs-hair: #e6e0d4;
+  --bs-hair-soft: #efeae0;
+  --bs-muted: #7b8a80;
+  --bs-ink: #1d2a22;
+  --bs-ease: cubic-bezier(.22, .61, .36, 1);
+
+  /* ---- PRODUCT CARD IMAGERY (the one knob worth knowing about) ----
+     The catalogue mixes two shapes of photograph: tall 9:16 phone
+     shots and 3:4 studio shots. Letterboxing them (the old
+     object-fit: contain) left wide beige gutters and a ragged grid,
+     so the cards now crop to one uniform 2:3 frame.
+     If a particular garment crops badly, set
+         --bs-card-fit: contain;
+     and every product grid on the site goes back to the full,
+     uncropped photograph. --bs-card-focus moves the crop window. */
+  --bs-card-ratio: .66;
+  --bs-card-fit: cover;
+  --bs-card-focus: center 30%;
+  --bs-shadow-soft: 0 18px 44px -28px rgba(23, 61, 41, .45);
+}
+
+/* -------------------------------------------------------------
+   1. STICKY HEADER
+   Compacts on scroll: announcement bar collapses, logo shrinks.
+   ------------------------------------------------------------- */
+.siteHeaderLucknawi {
+  position: sticky;
+  top: 0;
+  z-index: 300;
+  background: rgba(255, 254, 251, .92);
+  backdrop-filter: saturate(1.4) blur(12px);
+  -webkit-backdrop-filter: saturate(1.4) blur(12px);
+  border-bottom: 1px solid var(--bs-hair-soft);
+  transition: box-shadow .3s var(--bs-ease), background .3s var(--bs-ease);
+}
+.siteHeaderLucknawi.isStuck {
+  box-shadow: 0 10px 30px -22px rgba(23, 61, 41, .5);
+}
+.siteHeaderLucknawi .lucknawiAnnouncementBar {
+  overflow: hidden;
+  transition: min-height .35s var(--bs-ease), height .35s var(--bs-ease), opacity .25s var(--bs-ease);
+}
+.siteHeaderLucknawi.isStuck .lucknawiAnnouncementBar {
+  min-height: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.siteHeaderLucknawi .headerMiddleRow {
+  transition: padding .35s var(--bs-ease);
+}
+.siteHeaderLucknawi.isStuck .headerMiddleRow {
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+.siteHeaderLucknawi .headerBrandLogo {
+  transition: height .35s var(--bs-ease);
+}
+.siteHeaderLucknawi.isStuck .headerBrandLogo {
+  height: 40px;
+}
+.siteHeaderLucknawi.isStuck .headerBrandLogo img {
+  max-height: 40px;
+}
+.siteHeaderLucknawi .headerNavRow {
+  transition: padding .35s var(--bs-ease);
+}
+.siteHeaderLucknawi.isStuck .headerNavRow {
+  padding-top: 4px;
+  padding-bottom: 9px;
+}
+
+/* Nav links: refined underline that grows from the centre */
+.headerNavRow .navItem {
+  font-size: 12px;
+  letter-spacing: .1em;
+  font-weight: 650;
+  color: #2b3830;
+}
+.headerNavRow .navItem::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  right: 50%;
+  bottom: -2px;
+  height: 1px;
+  background: var(--bs-berry);
+  transition: left .3s var(--bs-ease), right .3s var(--bs-ease);
+}
+.headerNavRow .navItem:hover,
+.headerNavRow .navItem.active {
+  color: var(--bs-forest);
+}
+.headerNavRow .navItem:hover::after,
+.headerNavRow .navItem.active::after {
+  left: 0;
+  right: 0;
+}
+
+/* Action icons */
+.actionIconLink, .actionIconBtn { color: #2b3830; }
+.actionIconLink:hover, .actionIconBtn:hover { color: var(--bs-berry); }
+.actionBadge {
+  background: var(--bs-berry);
+  box-shadow: 0 2px 6px rgba(189, 25, 75, .35);
+}
+
+/* -------------------------------------------------------------
+   2. SECTION RHYTHM & HEADINGS
+   Calmer scale than before — display type at a confident, not
+   shouty, size, with a hairline-flanked eyebrow.
+   ------------------------------------------------------------- */
+.shopSection {
+  padding: clamp(56px, 6vw, 88px) clamp(16px, 3.2vw, 56px) clamp(60px, 6.5vw, 96px);
+}
+/* Remove the vertical "NEW / 2026" marginalia — it dated the page */
+.shopSection::before { content: none; }
+
+.sectionHeading {
+  margin-bottom: clamp(26px, 3vw, 40px);
+}
+.sectionHeading .eyebrow,
+.categoryMinimalHeader .eyebrow,
+.instagramFeedHeader .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: var(--bs-berry);
+  margin: 0 0 14px;
+}
+.sectionHeading .eyebrow::before,
+.sectionHeading .eyebrow::after,
+.categoryMinimalHeader .eyebrow::before,
+.categoryMinimalHeader .eyebrow::after {
+  content: "";
+  display: block;
+  width: 26px;
+  height: 1px;
+  background: currentColor;
+  opacity: .5;
+}
+
+.sectionHeading h2,
+.newsletter h2,
+.categoryShowcase h2,
+.categoryMinimalHeader h2 {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 3.4vw, 48px);
+  line-height: 1.08;
+  font-weight: 600;
+  letter-spacing: -.015em;
+  margin: 0;
+  color: var(--bs-forest);
+}
+/* The berry rule under the heading — thinner, shorter, calmer */
+.sectionHeading::after {
+  width: 34px;
+  margin-top: 18px;
+  background: var(--bs-berry);
+  opacity: .8;
+}
+
+/* "View all" link */
+.sectionHeading a,
+.storyContent > a {
+  position: absolute;
+  right: 0;
+  bottom: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--bs-forest);
+  border-bottom: 1px solid rgba(23, 61, 41, .3);
+  padding-bottom: 5px;
+  transition: color .25s var(--bs-ease), border-color .25s var(--bs-ease), gap .25s var(--bs-ease);
+}
+.sectionHeading a:hover {
+  color: var(--bs-berry);
+  border-color: var(--bs-berry);
+  gap: 13px;
+}
+
+/* -------------------------------------------------------------
+   3. CATEGORY FILTER TABS
+   ------------------------------------------------------------- */
+.categoryTabs {
+  margin-bottom: clamp(28px, 3vw, 42px);
+  padding: 5px;
+  border-color: var(--bs-hair);
+  background: rgba(255, 255, 255, .75);
+  box-shadow: 0 10px 26px -20px rgba(23, 61, 41, .5);
+}
+.categoryTabs button {
+  padding: 10px 20px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #5d6d63;
+}
+.categoryTabs button:hover { color: var(--bs-forest); transform: none; }
+.categoryTabs .active {
+  background: var(--bs-forest);
+  color: #fff;
+  box-shadow: 0 6px 16px -8px rgba(23, 61, 41, .7);
+}
+
+/* -------------------------------------------------------------
+   4. PRODUCT CARDS
+   Editorial, borderless, full-bleed portrait imagery with a
+   second-image hover swap.
+   ------------------------------------------------------------- */
+.khaadiTopPicks .productGrid,
+.productGrid {
+  gap: clamp(14px, 1.6vw, 26px) clamp(12px, 1.4vw, 22px);
+}
+/* The "connected" style drew a boxed grid of hairlines. Drop the
+   box; let the garments carry the layout. */
+.productGrid:has(.productCard--connected) { gap: clamp(14px, 1.6vw, 26px) clamp(12px, 1.4vw, 22px); }
+.productGrid:has(.productCard--connected) .productCard--connected,
+.khaadiTopPicks .productGrid:has(.productCard--connected) .productCard--connected,
+.categoryPage .productGrid:has(.productCard--connected) .productCard--connected,
+.relatedProducts .productGrid:has(.productCard--connected) .productCard--connected {
+  border: 0 !important;
+  background: transparent !important;
+}
+.productGrid:has(.productCard--connected) .productCard--connected:nth-child(4n),
+.productGrid:has(.productCard--connected) .productCard--connected:nth-child(3n),
+.productGrid:has(.productCard--connected) .productCard--connected:nth-child(2n) {
+  border-right: 0 !important;
+}
+
+.productCard {
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+.productCard:hover { border-color: transparent; }
+
+.productImage,
+.productCard--connected .productImage,
+.khaadiTopPicks .productCard--connected .productImage {
+  aspect-ratio: var(--bs-card-ratio);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #f7f3ec 0%, #efe9df 100%);
+  overflow: hidden;
+}
+/* Portrait photos, uniform crop. Faces sit high in the frame, so the
+   crop is taken from the hem rather than the top. */
+.productImage img,
+.productCard--connected .productImage img,
+.khaadiTopPicks .productCard--connected .productImage img {
+  object-fit: var(--bs-card-fit) !important;
+  object-position: var(--bs-card-focus) !important;
+  transition: transform .7s var(--bs-ease), opacity .5s var(--bs-ease);
+}
+
+/* Second image reveals on hover */
+.productImage .productImageHover {
+  opacity: 0;
+  z-index: 2;
+}
+.productCard:hover .productImage .productImageHover,
+.productCard:focus-within .productImage .productImageHover {
+  opacity: 1;
+}
+.productCard:hover .productImage .productImagePrimary,
+.productCard:focus-within .productImage .productImagePrimary {
+  opacity: 0;
+}
+.productCard:hover .productImage img,
+.productCard--connected:hover .productImage img,
+.khaadiTopPicks .productCard--connected:hover .productImage img {
+  transform: scale(1.045) !important;
+}
+
+/* Badges — flat, typographic, no chrome */
+.badge,
+.productCard--connected .badge {
+  left: 0 !important;
+  top: 14px !important;
+  padding: 6px 12px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--bs-paper) !important;
+  color: var(--bs-forest) !important;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  letter-spacing: .14em !important;
+  text-transform: uppercase;
+}
+.saleBadge,
+.productCard--connected .saleBadge {
+  right: 0 !important;
+  left: auto !important;
+  top: 14px !important;
+  padding: 6px 11px !important;
+  border-radius: 0 !important;
+  background: var(--bs-berry) !important;
+  color: #fff !important;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  letter-spacing: .1em !important;
+}
+
+/* Hover action bar — quiet until you want it */
+.quickViewButton,
+.productCard--connected .quickViewButton {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  min-height: 44px;
+  border-radius: 0;
+  background: rgba(23, 61, 41, .94);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateY(100%);
+  transition: transform .32s var(--bs-ease), opacity .32s var(--bs-ease), background .2s var(--bs-ease);
+  z-index: 5;
+}
+.productCard:hover .quickViewButton,
+.productCard:focus-within .quickViewButton,
+.quickViewButton:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.quickViewButton:hover { background: var(--bs-berry); }
+
+/* Card copy */
+.productInfo,
+.productCard--connected .productInfo,
+.khaadiTopPicks .productCard--connected .productInfo {
+  padding: 16px 2px 4px !important;
+  border-top: 0 !important;
+  background: transparent !important;
+  text-align: center;
+}
+.productInfo p,
+.productCard--connected .productInfo p,
+.khaadiTopPicks .productCard--connected .productInfo p {
+  margin: 0 0 7px !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: .18em !important;
+  text-transform: uppercase;
+  color: var(--bs-muted) !important;
+}
+.productInfo h3,
+.productCard--connected .productInfo h3,
+.khaadiTopPicks .productCard--connected .productInfo h3 {
+  font-family: var(--font-display) !important;
+  font-size: 19px !important;
+  font-weight: 600 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -.005em !important;
+  color: var(--bs-forest) !important;
+}
+.productInfo h3 a { transition: color .2s var(--bs-ease); }
+.productInfo h3 a:hover { color: var(--bs-berry) !important; }
+
+.colorSwatches {
+  justify-content: center;
+  margin-top: 10px;
+}
+.colorSwatches i { width: 11px; height: 11px; border-color: #cfc8bd; }
+
+.productPrice,
+.productCard--connected .productPrice {
+  justify-content: center;
+  margin-top: 9px;
+  gap: 9px;
+}
+.productPrice span,
+.productCard--connected .productPrice span {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: .02em;
+  color: var(--bs-ink) !important;
+}
+.productPrice del,
+.productCard--connected .productPrice del {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  color: #a09889 !important;
+}
+
+/* -------------------------------------------------------------
+   5. SHOP BY CATEGORY TILES
+   Image-led tiles with a gradient scrim and the label set over the
+   photograph, in the Maria.B / house-of-couture idiom.
+   ------------------------------------------------------------- */
+.categoryShowcase--minimal {
+  padding: clamp(56px, 6vw, 88px) clamp(16px, 3.2vw, 56px);
+}
+.categoryMinimalHeader { margin-bottom: clamp(28px, 3vw, 44px); }
+.categoryMinimalGrid { gap: clamp(12px, 1.5vw, 22px); }
+
+.categoryMinimalImageWrap {
+  position: relative;
+  aspect-ratio: .78;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--bs-stone);
+}
+.categoryMinimalImageWrap img {
+  /* Category tiles are art direction, not product detail — they always
+     fill the frame regardless of the product-card setting above. */
+  object-fit: cover;
+  object-position: center 22%;
+  transition: transform .9s var(--bs-ease);
+}
+/* Permanent scrim so the overlaid label always reads */
+.categoryMinimalImageWrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(14, 47, 29, 0) 38%, rgba(14, 47, 29, .16) 58%, rgba(14, 47, 29, .74) 100%);
+  transition: opacity .4s var(--bs-ease);
+}
+.categoryMinimalCard:hover .categoryMinimalImageWrap { transform: none; }
+.categoryMinimalCard:hover .categoryMinimalImageWrap img { transform: scale(1.07); }
+
+/* Label sits on the photograph */
+.categoryCardOverlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px 20px;
+  background: none;
+  opacity: 1;
+}
+.categoryCardBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  background: rgba(255, 254, 251, .95);
+  color: var(--bs-forest);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .35s var(--bs-ease), transform .35s var(--bs-ease), background .2s var(--bs-ease);
+}
+.categoryMinimalCard:hover .categoryCardBtn {
+  opacity: 1;
+  transform: translateY(0);
+}
+.categoryCardBtn:hover { background: var(--bs-berry); color: #fff; }
+
+.categoryMinimalTitle {
+  margin: 14px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(19px, 1.6vw, 24px);
+  font-weight: 600;
+  letter-spacing: -.005em;
+  color: var(--bs-forest);
+  transition: color .25s var(--bs-ease);
+}
+.categoryMinimalCard:hover .categoryMinimalTitle { color: var(--bs-berry); }
+.categoryTitleArrow { transition: transform .3s var(--bs-ease); }
+.categoryMinimalCard:hover .categoryTitleArrow { transform: translateX(5px); }
+
+/* -------------------------------------------------------------
+   6. NEWSLETTER SECTION
+   ------------------------------------------------------------- */
+.newsletter {
+  padding: clamp(64px, 7vw, 104px) clamp(16px, 4vw, 40px);
+}
+.newsletter form {
+  max-width: 460px;
+  margin-top: 30px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(23, 61, 41, .4);
+  transition: border-color .3s var(--bs-ease);
+}
+.newsletter form:focus-within { border-color: var(--bs-berry); }
+.newsletter input {
+  font-size: 13px;
+  letter-spacing: .02em;
+}
+.newsletter button {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--bs-forest);
+  transition: color .2s var(--bs-ease);
+}
+.newsletter button:hover { color: var(--bs-berry); }
+
+/* -------------------------------------------------------------
+   7. INSTAGRAM RAIL
+   ------------------------------------------------------------- */
+.instagramFeedSection {
+  padding: clamp(56px, 6vw, 88px) clamp(16px, 3.2vw, 56px) clamp(64px, 6.5vw, 96px);
+}
+.instagramFeedHeader h2 {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -.015em;
+  color: var(--bs-forest);
+}
+.instagramPostImageWrap {
+  border-radius: 2px;
+  overflow: hidden;
+}
+.instagramPostImageWrap img { transition: transform .8s var(--bs-ease); }
+.instagramPostCard:hover .instagramPostImageWrap img { transform: scale(1.06); }
+.instagramPostOverlay {
+  background: linear-gradient(180deg, rgba(14, 47, 29, 0) 40%, rgba(14, 47, 29, .82) 100%);
+}
+.instagramCarouselButton {
+  border-radius: 999px;
+  background: var(--bs-paper);
+  border: 1px solid var(--bs-hair);
+  color: var(--bs-forest);
+  box-shadow: var(--bs-shadow-soft);
+  transition: background .2s var(--bs-ease), color .2s var(--bs-ease), transform .2s var(--bs-ease);
+}
+.instagramCarouselButton:hover {
+  background: var(--bs-forest);
+  color: #fff;
+  transform: scale(1.06);
+}
+
+/* -------------------------------------------------------------
+   8. QUICK VIEW MODAL
+   ------------------------------------------------------------- */
+.quickViewModal {
+  border-radius: 3px;
+  box-shadow: 0 40px 110px -30px rgba(14, 40, 26, .6);
+}
+.quickViewDetails h2 {
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 1.12;
+}
+.quickViewDetails > button,
+.addBagButton {
+  letter-spacing: .16em;
+  transition: background .22s var(--bs-ease);
+}
+.quickViewDetails > button:hover,
+.addBagButton:hover { background: var(--bs-berry); }
+
+/* -------------------------------------------------------------
+   9. SCROLL REVEAL — softer, shorter travel
+   ------------------------------------------------------------- */
+.scrollReveal {
+  transition: opacity .8s var(--bs-ease), transform .8s var(--bs-ease);
+}
+
+/* -------------------------------------------------------------
+   10. RESPONSIVE
+   ------------------------------------------------------------- */
+@media (max-width: 1100px) {
+  .categoryMinimalGrid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 900px) {
+  .siteHeaderLucknawi { position: sticky; }
+  .sectionHeading a, .storyContent > a {
+    position: static;
+    margin: 16px auto 0;
+    width: max-content;
+  }
+}
+@media (max-width: 600px) {
+  .shopSection,
+  .categoryShowcase--minimal,
+  .instagramFeedSection {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .khaadiTopPicks .productGrid,
+  .productGrid,
+  .productGrid:has(.productCard--connected) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px 10px;
+  }
+  .productInfo,
+  .productCard--connected .productInfo,
+  .khaadiTopPicks .productCard--connected .productInfo {
+    padding: 12px 2px 4px !important;
+  }
+  .productInfo h3,
+  .productCard--connected .productInfo h3,
+  .khaadiTopPicks .productCard--connected .productInfo h3 {
+    font-size: 15px !important;
+  }
+  .productPrice span,
+  .productCard--connected .productPrice span { font-size: 12px !important; }
+  /* Touch devices have no hover — keep the action bar visible */
+  .quickViewButton, .productCard--connected .quickViewButton { display: none !important; }
+  .categoryMinimalTitle { font-size: 16px; margin-top: 10px; }
+  .categoryCardBtn { opacity: 1; transform: none; padding: 7px 12px; font-size: 8px; }
+  .sectionHeading h2,
+  .newsletter h2,
+  .categoryShowcase h2,
+  .categoryMinimalHeader h2 { font-size: clamp(26px, 7.5vw, 34px); }
+}
+
+@media (hover: none) {
+  /* No hover on touch: show the second image never, and keep the
+     first frame crisp. */
+  .productImage .productImageHover { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .productImage img,
+  .categoryMinimalImageWrap img,
+  .instagramPostImageWrap img,
+  .siteHeaderLucknawi,
+  .siteHeaderLucknawi * { transition: none !important; }
+  .productCard:hover .productImage img { transform: none !important; }
+}
+
+/* =============================================================
+   11. SPECIFICITY RECONCILIATION
+   globals.css carries several later, more specific `.khaadiTopPicks`
+   layers from earlier iterations. These re-assert the refined
+   treatment at matching specificity instead of fighting with
+   !important on every declaration.
+   ============================================================= */
+
+/* --- Section heading ------------------------------------------------ */
+.khaadiTopPicks .sectionHeading .eyebrow,
+.bestSellersSection .sectionHeading .eyebrow {
+  margin: 0 0 14px;
+  color: var(--bs-berry);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .26em;
+}
+.khaadiTopPicks .sectionHeading h2,
+.bestSellersSection .sectionHeading h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(30px, 3.4vw, 48px);
+  line-height: 1.08;
+  font-weight: 600;
+  letter-spacing: -.015em;
+  color: var(--bs-forest);
+}
+.khaadiTopPicks .sectionHeading::after {
+  content: "";
+  display: block;
+  width: 34px;
+  height: 1px;
+  margin: 18px auto 0;
+  background: var(--bs-berry);
+  opacity: .8;
+}
+/* Best sellers keeps its left-aligned row with the "view all" link */
+.bestSellersSection .sectionHeading::after { display: none; }
+.bestSellersSection .sectionHeading > a {
+  position: static;
+  color: var(--bs-forest);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  border-bottom: 1px solid rgba(23, 61, 41, .3);
+  padding-bottom: 5px;
+}
+.bestSellersSection .sectionHeading > a:hover {
+  color: var(--bs-berry);
+  border-color: var(--bs-berry);
+}
+/* The generic rule above lifts "view all" out of flow; only the
+   centred headings want that. */
+.bestSellersSection .sectionHeading .eyebrow { text-align: left; }
+
+/* --- Category tabs: restored (they were display:none) --------------- */
+.khaadiTopPicks .categoryTabs {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto clamp(28px, 3vw, 42px);
+  flex-wrap: wrap;
+}
+
+/* --- Product media -------------------------------------------------- */
+.khaadiTopPicks .productCard,
+.khaadiTopPicks .productCard--connected {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  box-shadow: none;
+}
+.khaadiTopPicks .productCard:hover {
+  transform: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+.khaadiTopPicks .productImage,
+.khaadiTopPicks .productCard--connected .productImage,
+.productCard:not(.productCard--connected) .productImage {
+  aspect-ratio: var(--bs-card-ratio);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #f7f3ec 0%, #efe9df 100%);
+  overflow: hidden;
+}
+/* Drop the dark gradient that sat over the bottom of every garment */
+.khaadiTopPicks .productImage::after { content: none; }
+
+.khaadiTopPicks .productImage img,
+.productCard:not(.productCard--connected) .productImage img {
+  object-fit: var(--bs-card-fit);
+  object-position: var(--bs-card-focus);
+}
+.khaadiTopPicks .productCard:hover .productImage img { transform: scale(1.045); }
+
+/* --- Badges --------------------------------------------------------- */
+.khaadiTopPicks .badge {
+  left: 0;
+  top: 14px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 0;
+  background: var(--bs-paper);
+  color: var(--bs-forest);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+.khaadiTopPicks .saleBadge {
+  right: 0;
+  left: auto;
+  top: 14px;
+  border-radius: 0;
+  background: var(--bs-berry);
+  font-size: 9px;
+  letter-spacing: .1em;
+}
+.productCard:not(.productCard--connected) .badge { display: inline-block; }
+
+/* --- Hover action bar ------------------------------------------------ */
+.khaadiTopPicks .quickViewButton {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: 44px;
+  border-radius: 0;
+  background: rgba(23, 61, 41, .94);
+  color: #fff;
+  box-shadow: none;
+  letter-spacing: .16em;
+}
+.khaadiTopPicks .quickViewButton:hover { background: var(--bs-berry); }
+
+/* --- Card copy ------------------------------------------------------- */
+.khaadiTopPicks .productInfo {
+  padding: 16px 2px 4px;
+  text-align: center;
+}
+.khaadiTopPicks .productInfo p {
+  margin: 0 0 7px;
+  color: var(--bs-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+.khaadiTopPicks .productInfo h3 {
+  font-family: var(--font-display);
+  color: var(--bs-forest);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.khaadiTopPicks .productPrice {
+  justify-content: center;
+  margin-top: 9px;
+}
+.khaadiTopPicks .productPrice span {
+  color: var(--bs-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+.colorSwatches i { width: 11px; height: 11px; border-color: #cfc8bd; }
+
+@media (max-width: 600px) {
+  .khaadiTopPicks .productInfo { padding: 12px 2px 4px; }
+  .khaadiTopPicks .productInfo h3 { font-size: 15px; }
+  .khaadiTopPicks .productPrice span { font-size: 12px; }
+  .khaadiTopPicks .quickViewButton { display: none; }
+  .khaadiTopPicks .sectionHeading h2,
+  .bestSellersSection .sectionHeading h2 { font-size: clamp(26px, 7.5vw, 34px); }
+  .khaadiTopPicks .categoryTabs { gap: 4px; padding: 4px; }
+  .khaadiTopPicks .categoryTabs button { padding: 8px 14px; font-size: 10px; }
+}
+
+/* The connected-card media block in globals.css is flagged !important;
+   match it to land the taller frame and the studio backdrop. */
+.productCard--connected .productImage,
+.khaadiTopPicks .productCard--connected .productImage,
+.categoryPage .productCard--connected .productImage,
+.relatedProducts .productCard--connected .productImage {
+  aspect-ratio: var(--bs-card-ratio) !important;
+  border-radius: 2px !important;
+  background: linear-gradient(180deg, #f7f3ec 0%, #efe9df 100%) !important;
+}
+.productCard--connected .productImage img {
+  object-position: var(--bs-card-focus) !important;
+}
+
+/* -------------------------------------------------------------
+   12. STICKY-SAFE OVERFLOW CONTAINMENT
+   globals.css sets `overflow-x: hidden` on html and body. On body
+   that promotes it to a scroll container, which silently disables
+   `position: sticky` on the header. `clip` contains the same
+   overflow without creating a scroll container; the `hidden`
+   declaration stays first as the fallback for older browsers.
+   ------------------------------------------------------------- */
+html, body {
+  overflow-x: hidden !important;
+  overflow-x: clip !important;
+}
+
+/* =============================================================
+   13. CATEGORY & RELATED-PRODUCT GRIDS
+   Same card language as the homepage so the whole store reads as
+   one shop rather than three.
+   ============================================================= */
+.categoryPage .productGrid,
+.relatedProducts .productGrid,
+.categoryPage .productGrid:has(.productCard--connected) {
+  gap: clamp(14px, 1.6vw, 26px) clamp(12px, 1.4vw, 22px);
+}
+.categoryPage .productCard,
+.relatedProducts .productCard {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.categoryPage .productCard:hover,
+.relatedProducts .productCard:hover {
+  transform: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+.categoryPage .productImage,
+.relatedProducts .productImage {
+  aspect-ratio: var(--bs-card-ratio);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #f7f3ec 0%, #efe9df 100%);
+}
+.categoryPage .productImage img,
+.relatedProducts .productImage img {
+  object-fit: var(--bs-card-fit);
+  object-position: var(--bs-card-focus);
+}
+.categoryPage .productInfo,
+.relatedProducts .productInfo {
+  padding: 16px 2px 4px;
+  background: transparent;
+  text-align: center;
+}
+.categoryPage .productInfo p,
+.relatedProducts .productInfo p {
+  color: var(--bs-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .18em;
+}
+.categoryPage .productInfo h3,
+.relatedProducts .productInfo h3 {
+  font-family: var(--font-display);
+  color: var(--bs-forest);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.categoryPage .productPrice,
+.relatedProducts .productPrice { justify-content: center; margin-top: 9px; }
+.categoryPage .productPrice span,
+.relatedProducts .productPrice span {
+  color: var(--bs-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .categoryPage .productGrid,
+  .categoryPage .productGrid:has(.productCard--connected) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px 10px;
+  }
+  .categoryPage .productInfo,
+  .relatedProducts .productInfo { padding: 12px 2px 4px; }
+  .categoryPage .productInfo h3,
+  .relatedProducts .productInfo h3 { font-size: 15px; }
+  .categoryPage .productPrice span,
+  .relatedProducts .productPrice span { font-size: 12px; }
+}
+
+/* The connected-card copy block in globals.css is flagged !important at
+   `.categoryPage/.relatedProducts .productCard--connected` specificity;
+   match it so listing pages get the same centred, display-face card. */
+.categoryPage .productCard--connected .productInfo,
+.relatedProducts .productCard--connected .productInfo,
+.khaadiTopPicks .productCard--connected .productInfo,
+.productCard--connected .productInfo {
+  min-height: 0;
+  padding: 16px 2px 4px !important;
+  gap: 6px;
+  background: transparent !important;
+  text-align: center;
+}
+.categoryPage .productCard--connected .productInfo p,
+.relatedProducts .productCard--connected .productInfo p,
+.khaadiTopPicks .productCard--connected .productInfo p,
+.productCard--connected .productInfo p {
+  color: var(--bs-muted) !important;
+  font-size: 9px !important;
+  letter-spacing: .18em;
+}
+.categoryPage .productCard--connected .productInfo h3,
+.relatedProducts .productCard--connected .productInfo h3,
+.khaadiTopPicks .productCard--connected .productInfo h3,
+.productCard--connected .productInfo h3 {
+  color: var(--bs-forest) !important;
+  font-family: var(--font-display) !important;
+  font-size: 19px !important;
+  font-weight: 600 !important;
+  letter-spacing: -.005em !important;
+  line-height: 1.25;
+}
+.productCard--connected .productPrice { justify-content: center; }
+.productCard--connected .colorSwatches { display: flex; }
+
+/* Drop the hairline box that wrapped the connected grid */
+.productGrid:has(.productCard--connected) {
+  gap: clamp(14px, 1.6vw, 26px) clamp(12px, 1.4vw, 22px) !important;
+  border: 0;
+  background: transparent;
+}
+.productGrid:has(.productCard--connected) .productCard--connected,
+.khaadiTopPicks .productGrid:has(.productCard--connected) .productCard--connected,
+.categoryPage .productGrid:has(.productCard--connected) .productCard--connected,
+.relatedProducts .productGrid:has(.productCard--connected) .productCard--connected {
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  overflow: visible !important;
+}
+
+@media (max-width: 600px) {
+  .categoryPage .productCard--connected .productInfo,
+  .relatedProducts .productCard--connected .productInfo,
+  .khaadiTopPicks .productCard--connected .productInfo,
+  .productCard--connected .productInfo { padding: 12px 2px 4px !important; }
+  .categoryPage .productCard--connected .productInfo h3,
+  .relatedProducts .productCard--connected .productInfo h3,
+  .khaadiTopPicks .productCard--connected .productInfo h3,
+  .productCard--connected .productInfo h3 { font-size: 15px !important; }
+}
+
+/* =============================================================
+   14. PRODUCT DETAIL PAGE
+   The title was set at the homepage display scale inside a narrow
+   column, so it wrapped badly. This gives the PDP its own,
+   quieter typographic scale and tightens the buy panel.
+   ============================================================= */
+.productPage .productPurchase h1,
+.productPurchase h1 {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 2.6vw, 40px);
+  line-height: 1.12;
+  font-weight: 600;
+  letter-spacing: -.015em;
+  color: var(--bs-forest);
+  margin: 6px 0 0;
+}
+.productPurchase .eyebrow {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--bs-berry);
+}
+.productPurchase .detailPrice {
+  margin-top: 14px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  color: var(--bs-ink);
+}
+.productPurchase .taxNote {
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--bs-muted);
+}
+
+/* Option groups get a hairline rhythm instead of floating */
+.productOptionSection {
+  margin: 24px 0 0;
+  padding-top: 22px;
+  border-top: 1px solid var(--bs-hair-soft);
+}
+.productOptionSection:first-of-type { border-top: 0; padding-top: 0; }
+.selectorHeading {
+  margin-bottom: 12px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--bs-forest);
+}
+.selectedOptionValue {
+  font-weight: 500;
+  letter-spacing: .02em;
+  text-transform: none;
+  color: var(--bs-muted);
+}
+
+/* Buy actions */
+.addBagButton, .buyNowButton {
+  min-height: 52px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  transition: background .22s var(--bs-ease), color .22s var(--bs-ease), transform .18s var(--bs-ease);
+}
+.addBagButton:hover:not(:disabled) { background: var(--bs-berry); }
+.buyNowButton:hover:not(:disabled) { transform: translateY(-1px); }
+
+/* Gallery */
+.galleryMainImage {
+  border-radius: 3px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #f7f3ec 0%, #efe9df 100%);
+}
+.galleryThumbnails img,
+.galleryThumbnails button {
+  border-radius: 2px;
+}
+
+/* Accordion */
+.productDetailsAccordion {
+  border-top: 1px solid var(--bs-hair-soft);
+}
+.productDetailsTitle {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--bs-forest);
+}
+
+@media (max-width: 900px) {
+  .productPage .productPurchase h1,
+  .productPurchase h1 { font-size: clamp(24px, 6.5vw, 32px); }
+  .productPurchase .detailPrice { font-size: 19px; }
+}
+
+/* On narrow screens the filter pills wrapped to three rows. Give them
+   a single scrollable rail instead, the way the reference stores do. */
+@media (max-width: 700px) {
+  .categoryTabs,
+  .khaadiTopPicks .categoryTabs {
+    display: flex;
+    flex-wrap: nowrap;
+    width: auto;
+    max-width: none;
+    margin-inline: -12px;
+    padding: 5px 12px;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .categoryTabs::-webkit-scrollbar { display: none; }
+  .categoryTabs button {
+    flex: 0 0 auto;
+    border: 1px solid var(--bs-hair);
+    border-radius: 999px;
+    background: #fff;
+  }
+  .categoryTabs .active { border-color: var(--bs-forest); }
+}
+
+/* =============================================================
+   15. CARD HIT TARGETS
+   The hover image sits above the card's overlay link, and an
+   `opacity: 0` image still swallows clicks — that stopped product
+   cards from opening. Decorative layers get pointer-events: none
+   and the link is lifted above them.
+   ============================================================= */
+.productImage img,
+.productImage .productImagePrimary,
+.productImage .productImageHover,
+.productImage::after,
+.badge,
+.saleBadge,
+.productCard--connected .badge,
+.productCard--connected .saleBadge {
+  pointer-events: none;
+}
+.productCardLink {
+  z-index: 4;
+}
+/* The quick-view button must stay clickable above the link */
+.quickViewButton,
+.productCard--connected .quickViewButton,
+.khaadiTopPicks .quickViewButton {
+  z-index: 6;
+  pointer-events: auto;
+}
+
+/* Category tiles: the whole tile is one link, so the scrim and the
+   "Explore Collection" pill are decoration only. */
+.categoryCardOverlay,
+.categoryCardBtn,
+.categoryMinimalImageWrap::after {
+  pointer-events: none;
+}
+
+/* =============================================================
+   16. PRODUCT PAGE — MARIA.B-STYLE LAYOUT
+   Breadcrumb, a real price block with the compare-at strike and
+   discount pill, and a buy panel that stays with you as the
+   gallery scrolls.
+   ============================================================= */
+.productPage .productDetailLayout {
+  align-items: start;
+  gap: clamp(28px, 3.5vw, 64px);
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: clamp(18px, 2.4vw, 34px) clamp(16px, 3.2vw, 56px) clamp(56px, 6vw, 88px);
+}
+
+/* --- Breadcrumb --- */
+.productBreadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  color: var(--bs-muted);
+}
+.productBreadcrumb a {
+  color: var(--bs-muted);
+  transition: color .2s var(--bs-ease);
+}
+.productBreadcrumb a:hover { color: var(--bs-berry); }
+.productBreadcrumb span[aria-hidden] { opacity: .5; }
+.productBreadcrumbCurrent {
+  color: var(--bs-forest);
+  font-weight: 700;
+  max-width: 34ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The arrow link is redundant next to the breadcrumb on desktop */
+.productBack { display: none; }
+
+/* --- Buy panel ---
+   Deliberately NOT sticky: the panel runs to ~2100px (swatches, sizes,
+   quantity, buy buttons, social buttons, three accordions), so pinning it
+   either strands its lower half off-screen or forces a nested scrollbar.
+   Both read as broken. It scrolls with the page instead. */
+
+.productPage .productPurchase {
+  position: static;
+}
+
+/* --- Price block --- */
+.detailPriceRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  margin: 16px 0 0;
+}
+.detailPriceRow .detailPrice { margin: 0; }
+.detailComparePrice {
+  font-size: 15px;
+  font-weight: 400;
+  color: #a09889;
+}
+.detailDiscountPill {
+  padding: 5px 10px;
+  background: var(--bs-berry);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+/* --- Size & colour selectors --- */
+.sizeOptions { display: flex; flex-wrap: wrap; gap: 8px; }
+.sizeOptions button {
+  min-width: 46px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--bs-hair);
+  border-radius: 0;
+  background: #fff;
+  color: var(--bs-forest);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  transition: border-color .2s var(--bs-ease), background .2s var(--bs-ease), color .2s var(--bs-ease);
+}
+.sizeOptions button:hover:not(.sizeOutOfStock) { border-color: var(--bs-forest); }
+.sizeOptions button.selected {
+  border-color: var(--bs-forest);
+  background: var(--bs-forest);
+  color: #fff;
+}
+.sizeOptions button.sizeOutOfStock {
+  color: #b9b3a8;
+  border-color: var(--bs-hair-soft);
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+/* --- Gallery --- */
+.productGallery .galleryMainView { border-radius: 3px; overflow: hidden; }
+.galleryThumbnails .thumbBtn {
+  border: 1px solid transparent;
+  border-radius: 2px;
+  overflow: hidden;
+  padding: 0;
+  background: var(--bs-stone);
+  transition: border-color .2s var(--bs-ease), opacity .2s var(--bs-ease);
+  opacity: .75;
+}
+.galleryThumbnails .thumbBtn:hover { opacity: 1; }
+.galleryThumbnails .thumbBtn.active {
+  border-color: var(--bs-forest);
+  opacity: 1;
+}
+
+/* --- Accordions --- */
+.productPage details {
+  border-top: 1px solid var(--bs-hair-soft);
+  padding: 4px 0;
+}
+.productPage details summary {
+  padding: 16px 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--bs-forest);
+  cursor: pointer;
+  list-style: none;
+}
+.productPage details summary::-webkit-details-marker { display: none; }
+
+@media (max-width: 980px) {
+  .productPage .productDetailLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .productBreadcrumbCurrent { display: none; }
+  .productBreadcrumb { margin-bottom: 12px; }
+}
+
+/* =============================================================
+   17. BUY PANEL — FLAT, NOT A CARD
+   globals.css wrapped the purchase column in a rounded, bordered,
+   shadowed panel floating on the cream page. Maria.B (and every
+   couture PDP worth copying) sets the details flat on the page and
+   lets whitespace do the separating. This removes the card and
+   replaces the divider lines between option groups with the same
+   rhythm Maria.B uses — a consistent 30px gap, hairlines reserved
+   for the accordions at the bottom.
+   ============================================================= */
+.productPage .productPurchase,
+.productDetailLayout > .productPurchase {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Option groups: space, not rules */
+.productPage .productOptionSection {
+  margin: 30px 0 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.productPage .purchaseControls { margin-top: 30px; }
+.productPage .productSocialActions { margin-top: 22px; }
+
+.productPage .detailPriceRow { margin-top: 22px; }
+.productPage .taxNote { margin: 8px 0 0; }
+
+/* Selector labels sit flush with their controls */
+.productPage .selectorHeading {
+  margin: 0 0 12px;
+  align-items: center;
+}
+
+/* Accordions keep the hairlines — the only rules on the column */
+.productPage details:first-of-type { margin-top: 34px; }
+
+@media (max-width: 980px) {
+  .productPage .productPurchase,
+  .productDetailLayout > .productPurchase {
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+  }
+}
+
+/* Remaining rounded "cards" on the product page's main visual path.
+   The gallery grid photos and the Instagram reel block were floating
+   panels with 14–16px radii; flatten them to the same 2–3px frame the
+   rest of the catalogue uses so the page reads as one surface. */
+.productPage .gridPhotoCard {
+  border-radius: 2px;
+}
+.productPage .productInstagramReelCard {
+  border-radius: 3px;
+  border: 1px solid var(--bs-hair-soft);
+  background: transparent;
+  box-shadow: none;
+}
+.productPage .instagramIframeShell {
+  border-radius: 2px;
+  box-shadow: none;
+}
+.productPage .sizeChartTableWrap {
+  border-radius: 3px;
+  box-shadow: none;
+}
+.productPage .deliveryTextBody {
+  border-radius: 2px;
+}
+
+/* =============================================================
+   18. CHECKOUT — FLAT, TWO-COLUMN, SHOPIFY/MARIA.B PATTERN
+   The checkout already had good bones (numbered steps, --ck-*
+   tokens, a 580px form justified against the gutter). What broke
+   it was the same rounded card that wrapped the product panel:
+   `.checkoutForm, .orderSummary { border-radius: 28px; ... }`.
+   This removes it, warms the neutrals to the store palette, and
+   gives the summary the tinted, sticky right-hand panel that the
+   Shopify checkout Maria.B uses is built around.
+   ============================================================= */
+.checkoutPage {
+  --ck-panel: #f7f4ee;
+  --ck-border: #e3ddd2;
+  --ck-border-light: #eee9df;
+  --ck-accent: #173d29;
+  --ck-accent-hover: #0e2f1d;
+  --ck-accent-light: #f2f7f3;
+  --ck-text: #1d2a22;
+  --ck-muted: #7b8a80;
+  --ck-radius: 2px;
+}
+
+/* Kill the floating card on both columns */
+.checkoutPage .checkoutForm,
+.checkoutPage .orderSummary {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--ck-bg);
+}
+
+/* --- Right column: tinted, sticky, hairline-separated --- */
+.checkoutPage .orderSummary {
+  position: sticky;
+  top: 60px;
+  align-self: start;
+  min-height: calc(100vh - 60px);
+  padding: 36px clamp(20px, 3.5vw, 56px) 56px;
+  background: var(--ck-panel);
+  border-left: 1px solid var(--ck-border);
+}
+.checkoutPage .orderSummary h2 {
+  font-family: var(--font-display) !important;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--bs-forest);
+}
+
+/* --- Header --- */
+.checkoutPage .checkoutHeader {
+  border-bottom: 1px solid var(--ck-border);
+}
+.checkoutPage .checkoutHeader span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+/* --- Step headings --- */
+/* globals.css already sets these at 17px/600 sentence-case, which is
+   exactly the Shopify checkout hierarchy — only the colour changes. */
+.checkoutPage .checkoutSectionHeading b {
+  color: var(--bs-forest);
+}
+.checkoutPage .checkoutSectionHeading small {
+  color: var(--ck-muted);
+  font-size: 11px;
+}
+
+/* --- Fields: square corners, comfortable target --- */
+.checkoutPage .checkoutForm form > label:not(.paymentBox),
+.checkoutPage .checkoutForm .formRow > label {
+  min-height: 52px;
+  justify-content: center;
+  border-radius: var(--ck-radius);
+}
+.checkoutPage .checkoutForm form > label:not(.paymentBox):focus-within,
+.checkoutPage .checkoutForm .formRow > label:focus-within {
+  border-color: var(--bs-forest) !important;
+  box-shadow: 0 0 0 1px var(--bs-forest) !important;
+}
+
+/* --- Buttons --- */
+.checkoutPage .placeOrder {
+  border-radius: var(--ck-radius);
+  background: var(--bs-forest);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+.checkoutPage .placeOrder:not(:disabled):hover {
+  background: var(--bs-berry);
+  transform: none;
+  box-shadow: none;
+}
+.checkoutPage .primaryButton,
+.checkoutPage .secondaryButton {
+  border-radius: var(--ck-radius);
+  letter-spacing: .14em;
+}
+
+/* --- Payment / shipping option cards --- */
+.checkoutPage .paymentOptionList > *,
+.checkoutPage .shippingMethodBox {
+  border-radius: var(--ck-radius);
+}
+
+/* --- Order confirmation --- */
+.checkoutPage .confirmationCard {
+  border-radius: var(--ck-radius);
+  box-shadow: none;
+}
+.checkoutPage .confirmationHero h1 {
+  font-family: var(--font-display) !important;
+  font-size: clamp(30px, 3.4vw, 44px);
+  font-weight: 600;
+  letter-spacing: -.015em;
+  color: var(--bs-forest);
+}
+
+@media (max-width: 900px) {
+  .checkoutPage .orderSummary {
+    position: static;
+    min-height: 0;
+    padding: 20px clamp(16px, 4vw, 28px) 28px;
+    border-left: 0;
+    border-bottom: 1px solid var(--ck-border);
+  }
+}
+
+/* An overflow guard in globals.css — `.checkoutPage, .checkoutLayout,
+   .checkoutForm { max-width: 100% !important }` — overrode the form's
+   intended 580px cap, stretching fields to the full 727px column. Restore
+   the cap; min() keeps the guard's intent on narrow screens. */
+.checkoutPage .checkoutForm {
+  max-width: min(580px, 100%) !important;
+}

@@ -27,6 +27,12 @@ const fallbackCategoryRecords = categories
     };
   });
 
+function hoverImageOf(product) {
+  const gallery = Array.isArray(product?.images) ? product.images.filter(Boolean) : [];
+  const second = gallery.find((src) => src && src !== product.image);
+  return second || "";
+}
+
 function normalizeProducts(items) {
   return items.map((product) => ({
     ...product,
@@ -360,12 +366,24 @@ export default function Home({
                     <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
                       <div className="productImage">
                         <Image
+                          className="productImagePrimary"
                           src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                           alt={`${product.name} - ${product.category} by Bustaniya`}
                           fill
                           unoptimized
                           sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                         />
+                        {hoverImageOf(product) && (
+                          <Image
+                            className="productImageHover"
+                            src={optimizedImageUrl(hoverImageOf(product), CLOUDINARY_IMAGE_PRESETS.card)}
+                            alt=""
+                            aria-hidden="true"
+                            fill
+                            unoptimized
+                            sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
+                          />
+                        )}
                         <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
                         {product.badge && <span className="badge">{product.badge}</span>}
                         {salePercent(product) > 0 && <span className="saleBadge">{salePercent(product)}% OFF</span>}
@@ -461,7 +479,8 @@ export default function Home({
                   {bestSellers.map((product) => (
                     <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
                       <div className="productImage">
-                        <Image src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill unoptimized sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
+                        <Image className="productImagePrimary" src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill unoptimized sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
+                        {hoverImageOf(product) && <Image className="productImageHover" src={optimizedImageUrl(hoverImageOf(product), CLOUDINARY_IMAGE_PRESETS.card)} alt="" aria-hidden="true" fill unoptimized sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />}
                         <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
                         <span className="badge">Best seller</span>
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>

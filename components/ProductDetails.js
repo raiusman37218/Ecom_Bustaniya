@@ -9,6 +9,7 @@ import { productDescription } from "../lib/seo";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
 import { trackEvent } from "../lib/trackEvent";
+import { categoryToSlug } from "../data/store";
 import { getColorHex } from "../data/variantOptions";
 import SizeChartModal, { SizeTable } from "./SizeChartModal";
 import SiteHeader from "./SiteHeader";
@@ -167,6 +168,15 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const availableStock = Number(product.stock || 0);
 
   const outOfStock = availableStock <= 0;
+
+  // Breadcrumb / back link followed a hardcoded three-way check, so any
+  // category beyond Kurtis and Bottoms was sent to Co-ord Sets.
+  const categoryHref = `/category/${categoryToSlug(product.category || "")}`;
+
+  const compareAtPrice = Number(product.compareAtPrice || product.compare_at_price || 0);
+  const discountPercent = compareAtPrice > Number(product.price || 0) && Number(product.price || 0) > 0
+    ? Math.round(((compareAtPrice - Number(product.price)) / compareAtPrice) * 100)
+    : 0;
   const detailDescription = productDescription(product);
   const productDetails = getProductDetailsText(product, detailDescription);
 
@@ -379,8 +389,15 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
       <div className="productDetailLayout">
         <section className="productGallery mariabGallery">
-          <a className="productBack" href={product.category === "Kurtis" ? "/category/kurtis" : product.category === "Bottoms" ? "/category/bottoms" : "/category/coord-sets"}>
-            <ArrowLeft size={16} /> Back to collection
+          <nav className="productBreadcrumb" aria-label="Breadcrumb">
+            <a href="/">Home</a>
+            <span aria-hidden="true">/</span>
+            <a href={categoryHref}>{product.category}</a>
+            <span aria-hidden="true">/</span>
+            <span className="productBreadcrumbCurrent">{product.name}</span>
+          </nav>
+          <a className="productBack" href={categoryHref}>
+            <ArrowLeft size={16} /> Back to {product.category}
           </a>
 
           <div className={`galleryWorkspace ${productImages.length > 1 ? "hasThumbnails" : "singleImage"}`}>
@@ -531,7 +548,15 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         <section className="productPurchase">
           <p className="eyebrow">{product.category}</p>
           <h1>{product.name}</h1>
-          <p className="detailPrice">Rs. {product.price.toLocaleString()}</p>
+          <div className="detailPriceRow">
+            <p className="detailPrice">Rs. {product.price.toLocaleString()}</p>
+            {discountPercent > 0 && (
+              <>
+                <del className="detailComparePrice">Rs. {compareAtPrice.toLocaleString()}</del>
+                <span className="detailDiscountPill">{discountPercent}% OFF</span>
+              </>
+            )}
+          </div>
           <p className="taxNote">
             Tax included. {isFreeDelivery ? <span className="freeDeliveryBadge">🎉 Free Delivery on this order</span> : "Delivery calculated at checkout."}
           </p>

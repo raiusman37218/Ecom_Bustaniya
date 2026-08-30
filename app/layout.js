@@ -1,5 +1,6 @@
 import "./globals.css";
 import "./campaign-hero.css";
+import "./premium.css";
 import Script from "next/script";
 import { buildMetadata, siteConfig } from "../lib/seo";
 import MetaPixel from "../components/MetaPixel";
