@@ -32,6 +32,7 @@ const fallbackCategoryRecords = categories
  * aspect ratio at every width.
  */
 function heroSrcSet(src, preset, widths) {
+  if (!src || !src.includes("res.cloudinary.com")) return "";
   const ratio = preset.height / preset.width;
   return widths
     .map((width) => `${optimizedImageUrl(src, { ...preset, width, height: Math.round(width * ratio) })} ${width}w`)
@@ -56,18 +57,18 @@ function CampaignHeroImage({ desktopSrc, mobileSrc, alt }) {
   const safeDesktop = desktopSrc || "/bustaniya-campaign-hero-v5.png";
   const safeMobile = mobileSrc || safeDesktop;
 
-  // The hero is the LCP element, and it was shipping one fixed width per
-  // breakpoint — a 1920px file to a 1280px laptop, a 900px file to a 375px
-  // phone. Offer the browser a real set of widths so it takes the one the
-  // viewport needs.
-  const desktopSrcSet = heroSrcSet(safeDesktop, CLOUDINARY_IMAGE_PRESETS.heroDesktop, [1280, 1600, 1920, 2560]);
-  const mobileSrcSet = heroSrcSet(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile, [480, 640, 750, 900, 1125]);
+  const isCloudinaryDesktop = typeof safeDesktop === "string" && safeDesktop.includes("res.cloudinary.com");
+  const isCloudinaryMobile = typeof safeMobile === "string" && safeMobile.includes("res.cloudinary.com");
+
+  const desktopSrcSet = isCloudinaryDesktop ? heroSrcSet(safeDesktop, CLOUDINARY_IMAGE_PRESETS.heroDesktop, [1280, 1600, 1920, 2560]) : "";
+  const mobileSrcSet = isCloudinaryMobile ? heroSrcSet(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile, [480, 640, 750, 900, 1125]) : "";
   const desktopUrl = optimizedImageUrl(safeDesktop, CLOUDINARY_IMAGE_PRESETS.heroDesktop);
+  const mobileUrl = optimizedImageUrl(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile);
 
   return (
     <picture>
-      <source media="(max-width: 767px)" srcSet={mobileSrcSet} sizes="100vw" />
-      <source media="(min-width: 768px)" srcSet={desktopSrcSet} sizes="100vw" />
+      <source media="(max-width: 767px)" srcSet={mobileSrcSet || mobileUrl} sizes="100vw" />
+      <source media="(min-width: 768px)" srcSet={desktopSrcSet || desktopUrl} sizes="100vw" />
       <img src={desktopUrl} alt={alt || "Bustaniya campaign hero"} fetchPriority="high" decoding="async" />
     </picture>
   );
@@ -96,10 +97,17 @@ export default function Home({
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
   const instagramRailRef = useRef(null);
   
-  const rawDesktop = Array.isArray(safeSettings.heroDesktopImages) && safeSettings.heroDesktopImages.length ? safeSettings.heroDesktopImages : [safeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage];
-  const rawMobile = Array.isArray(safeSettings.heroMobileImages) && safeSettings.heroMobileImages.length ? safeSettings.heroMobileImages : [safeSettings.heroMobileImage || DEFAULT_STORE_SETTINGS.heroMobileImage];
+  const rawDesktop = Array.isArray(safeSettings.heroDesktopImages) && safeSettings.heroDesktopImages.length
+    ? safeSettings.heroDesktopImages
+    : [safeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage];
   const heroDesktopImages = rawDesktop.map((img) => img || "/bustaniya-campaign-hero-v5.png");
-  const heroMobileImages = rawMobile.map((img) => img || "/bustaniya-campaign-hero-v5.png");
+
+  const hasCustomMobile = Array.isArray(safeSettings.heroMobileImages) && safeSettings.heroMobileImages.length > 0 && safeSettings.heroMobileImages.some((img) => img && img !== DEFAULT_STORE_SETTINGS.heroMobileImage && img !== "/bustaniya-campaign-hero-mobile-v1.png" && img !== "/bustaniya-campaign-hero-v5.png");
+  const rawMobile = hasCustomMobile
+    ? safeSettings.heroMobileImages
+    : (safeSettings.heroMobileImage && safeSettings.heroMobileImage !== DEFAULT_STORE_SETTINGS.heroMobileImage && safeSettings.heroMobileImage !== "/bustaniya-campaign-hero-mobile-v1.png" ? [safeSettings.heroMobileImage] : heroDesktopImages);
+  const heroMobileImages = rawMobile.map((img) => img || heroDesktopImages[0] || "/bustaniya-campaign-hero-v5.png");
+
   const heroSlideCount = Math.max(heroDesktopImages.length, heroMobileImages.length);
   const desktopHero = {
     eyebrow: safeSettings.heroDesktopContent?.eyebrow ?? safeSettings.heroEyebrow ?? "",

@@ -73,10 +73,17 @@ export default function UkHomePageClient({
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
   const instagramRailRef = useRef(null);
 
-  const rawDesktop = Array.isArray(safeSettings.heroDesktopImages) && safeSettings.heroDesktopImages.length ? safeSettings.heroDesktopImages : [safeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage];
-  const rawMobile = Array.isArray(safeSettings.heroMobileImages) && safeSettings.heroMobileImages.length ? safeSettings.heroMobileImages : [safeSettings.heroMobileImage || DEFAULT_STORE_SETTINGS.heroMobileImage];
+  const rawDesktop = Array.isArray(safeSettings.heroDesktopImages) && safeSettings.heroDesktopImages.length
+    ? safeSettings.heroDesktopImages
+    : [safeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage];
   const heroDesktopImages = rawDesktop.map((img) => img || "/bustaniya-campaign-hero-v5.png");
-  const heroMobileImages = rawMobile.map((img) => img || "/bustaniya-campaign-hero-v5.png");
+
+  const hasCustomMobile = Array.isArray(safeSettings.heroMobileImages) && safeSettings.heroMobileImages.length > 0 && safeSettings.heroMobileImages.some((img) => img && img !== DEFAULT_STORE_SETTINGS.heroMobileImage && img !== "/bustaniya-campaign-hero-mobile-v1.png" && img !== "/bustaniya-campaign-hero-v5.png");
+  const rawMobile = hasCustomMobile
+    ? safeSettings.heroMobileImages
+    : (safeSettings.heroMobileImage && safeSettings.heroMobileImage !== DEFAULT_STORE_SETTINGS.heroMobileImage && safeSettings.heroMobileImage !== "/bustaniya-campaign-hero-mobile-v1.png" ? [safeSettings.heroMobileImage] : heroDesktopImages);
+  const heroMobileImages = rawMobile.map((img) => img || heroDesktopImages[0] || "/bustaniya-campaign-hero-v5.png");
+
   const heroSlideCount = Math.max(heroDesktopImages.length, heroMobileImages.length);
 
   const desktopHero = {

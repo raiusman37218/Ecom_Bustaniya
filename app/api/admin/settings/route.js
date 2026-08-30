@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { authorizeAdminSession, adminAuthErrorResponse } from "../../../../lib/adminAuth";
 import {
   getStoreSettings,
@@ -49,9 +50,10 @@ async function validateInstagramPosts(settings) {
 async function validateHeroImages(settings) {
   const lists = [settings.heroDesktopImages || settings.heroDesktopImage, settings.heroMobileImages || settings.heroMobileImage];
   for (const list of lists) {
+    if (!list) continue;
     const images = heroImageList(list);
-    if (!images.length || images.length > MAX_HERO_SLIDES) {
-      throw new Error(`Add between 1 and ${MAX_HERO_SLIDES} images for each hero layout.`);
+    if (images.length > MAX_HERO_SLIDES) {
+      throw new Error(`Add no more than ${MAX_HERO_SLIDES} images for each hero layout.`);
     }
     for (const image of images) await validateHeroImageUrl(image);
   }
@@ -92,6 +94,12 @@ export async function PATCH(request) {
     await validateHeroImages(nextSettings);
     await validateInstagramPosts(nextSettings);
     const settings = await updateStoreSettings(nextSettings);
+    try {
+      revalidatePath("/", "page");
+      revalidatePath("/uk", "page");
+      revalidatePath("/", "layout");
+      revalidatePath("/admin", "page");
+    } catch {}
     return NextResponse.json({ success: true, settings });
   } catch (error) {
     if (error?.status === 401 || error?.status === 403) {

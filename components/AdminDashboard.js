@@ -9128,9 +9128,21 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
     }
     setStoreSettingsError("");
     setStoreSettings((current) => {
-      const fallback = field === "heroDesktopImages" ? current.heroDesktopImage : current.heroMobileImage;
-      const currentImages = normalizeHeroImages(current[field] || fallback, fallback);
-      return { ...current, [field]: [...currentImages, url] };
+      const defaultImg = field === "heroDesktopImages" ? DEFAULT_STORE_SETTINGS.heroDesktopImage : DEFAULT_STORE_SETTINGS.heroMobileImage;
+      const legacyField = field === "heroDesktopImages" ? "heroDesktopImage" : "heroMobileImage";
+      const currentList = normalizeHeroImages(current[field] || current[legacyField], defaultImg);
+      const isOnlyDefault = currentList.length === 1 && (
+        currentList[0] === DEFAULT_STORE_SETTINGS.heroDesktopImage ||
+        currentList[0] === DEFAULT_STORE_SETTINGS.heroMobileImage ||
+        currentList[0] === "/bustaniya-campaign-hero-v5.png" ||
+        currentList[0] === "/bustaniya-campaign-hero-mobile-v1.png"
+      );
+      const nextImages = isOnlyDefault ? [url] : [...currentList, url];
+      return {
+        ...current,
+        [field]: nextImages,
+        [legacyField]: nextImages[0] || "",
+      };
     });
     setHeroUrlInputs((current) => ({ ...current, [field]: "" }));
   }
@@ -9432,20 +9444,47 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
           <section className="heroSettingsEditor">
             <div className="heroSettingsHeading"><div><p>HOMEPAGE BANNERS</p><h2>Hero Carousel & Messaging</h2><span>Manage desktop and mobile campaign images, headings and primary call-to-actions.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.heroEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEnabled: event.target.checked }))} /> Enabled</label></div>
             {[{ field: "heroDesktopImages", legacyField: "heroDesktopImage", label: "Desktop Hero Slides", hint: "Select multiple wide campaign images · recommended 16:8" }, { field: "heroMobileImages", legacyField: "heroMobileImage", label: "Mobile Hero Slides", hint: "Select multiple portrait campaign images · recommended 4:5" }].map((item) => {
-              const list = normalizeHeroImages(storeSettings[item.field] || storeSettings[item.legacyField], item.field === "heroDesktopImages" ? DEFAULT_STORE_SETTINGS.heroDesktopImage : DEFAULT_STORE_SETTINGS.heroMobileImage);
+              const defaultImg = item.field === "heroDesktopImages" ? DEFAULT_STORE_SETTINGS.heroDesktopImage : DEFAULT_STORE_SETTINGS.heroMobileImage;
+              const list = normalizeHeroImages(storeSettings[item.field] || storeSettings[item.legacyField], defaultImg);
               return (
                 <div className={`heroSlideManager ${item.field === "heroDesktopImages" ? "heroDesktopManager" : "heroMobileManager"}`} key={item.field}>
                   <div className="heroSlideHead"><div><b>{item.label}</b><span>{item.hint}</span></div><small>{list.length} slide{list.length === 1 ? "" : "s"}</small></div>
                   <div className="heroSlideGrid">
                     {list.map((url, idx) => (
                       <div className="heroSlideCard" key={`${url}-${idx}`}>
-                        <div className="heroSlideMedia"><img src={url} alt={`${item.label} ${idx + 1}`} /><button type="button" disabled={list.length === 1} onClick={() => setStoreSettings((current) => ({ ...current, [item.field]: list.filter((_, i) => i !== idx) }))} title={list.length === 1 ? "Keep at least one slide" : "Remove slide"}><X size={14} /></button></div>
+                        <div className="heroSlideMedia"><img src={url} alt={`${item.label} ${idx + 1}`} />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextList = list.filter((_, i) => i !== idx);
+                              const finalImages = nextList.length ? nextList : [defaultImg];
+                              setStoreSettings((current) => ({
+                                ...current,
+                                [item.field]: finalImages,
+                                [item.legacyField]: finalImages[0] || "",
+                              }));
+                            }}
+                            title="Remove slide"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
                         <span className="heroSlidePath">{url}</span>
                       </div>
                     ))}
                   </div>
                   <div className="heroUrlInputRow">
-                    <input value={heroUrlInputs[item.field] || ""} onChange={(event) => setHeroUrlInputs((current) => ({ ...current, [item.field]: event.target.value }))} placeholder="Paste image URL (https://...) or local path (/hero.png)" />
+                    <input
+                      value={heroUrlInputs[item.field] || ""}
+                      onChange={(event) => setHeroUrlInputs((current) => ({ ...current, [item.field]: event.target.value }))}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addHeroImageUrl(item.field);
+                        }
+                      }}
+                      placeholder="Paste image URL (https://...) or local path (/hero.png)"
+                    />
                     <button type="button" onClick={() => addHeroImageUrl(item.field)}>+ Add slide URL</button>
                   </div>
                 </div>
