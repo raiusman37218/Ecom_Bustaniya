@@ -1,6 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600;700&display=swap');
 
-:root { --ink:#183d29; --cream:#fcfaf5; --sage:#edf3e7; --orange:#bd194b; --line:#dce2d9; --berry:#bd194b; --forest:#16452c; --forest-dark:#0e2f1d; --lime:#eaf4d8; --muted:#6f7d73; --font-display:"Cormorant Garamond",Georgia,serif; --font-sans:"Manrope",Arial,sans-serif; }
+:root { --ink:#183d29; --cream:#fcfaf5; --sage:#edf3e7; --orange:#bd194b; --line:#dce2d9; --berry:#bd194b; --forest:#16452c; --forest-dark:#0e2f1d; --lime:#eaf4d8; --muted:#6f7d73; --font-display:var(--font-cormorant),"Cormorant Garamond",Georgia,serif; --font-sans:var(--font-manrope),"Manrope",Arial,sans-serif; }
 * { box-sizing:border-box; }
 html { width:100%; max-width:100%; overflow-x:hidden; scroll-behavior:smooth; }
 body { width:100%; max-width:100%; margin:0; color:var(--ink); font-family:var(--font-sans); background:var(--cream); overflow-x:hidden; position:relative; font-size:14px; -webkit-font-smoothing:antialiased; }

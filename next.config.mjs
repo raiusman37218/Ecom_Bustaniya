@@ -7,6 +7,8 @@ const nextConfig = {
     optimizePackageImports: ["lucide-react"],
   },
   images: {
+    loader: "custom",
+    loaderFile: "./lib/cloudinaryLoader.js",
     formats: ["image/avif", "image/webp"],
     qualities: [75, 85],
     minimumCacheTTL: 2592000,

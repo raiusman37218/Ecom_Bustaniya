@@ -2,6 +2,25 @@ import "./globals.css";
 import "./campaign-hero.css";
 import "./premium.css";
 import Script from "next/script";
+import { Cormorant_Garamond, Manrope } from "next/font/google";
+
+// Self-hosted and preloaded by Next. The previous `@import` inside globals.css
+// was render-blocking: the browser had to fetch and parse the CSS before it
+// even discovered the font stylesheet, then make a second trip to gstatic.
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-cormorant",
+});
+const manrope = Manrope({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-manrope",
+});
+
 import { buildMetadata, siteConfig } from "../lib/seo";
 import MetaPixel from "../components/MetaPixel";
 import WhatsAppSupportButton from "../components/WhatsAppSupportButton";
@@ -61,7 +80,7 @@ export default async function RootLayout({ children }) {
   const whatsappNumber = storeSettings?.paymentSettings?.whatsappNumber;
 
   return (
-    <html lang="en-PK">
+    <html lang="en-PK" className={`${cormorant.variable} ${manrope.variable}`}>
       <body>
         <MetaPixel pixelId={metaPixelId} />
         {gtmId && (

@@ -1520,3 +1520,51 @@ html, body {
 .checkoutPage .checkoutForm {
   max-width: min(580px, 100%) !important;
 }
+
+/* =============================================================
+   19. MOBILE MENU — RESTORE THE FULL-SCREEN OVERLAY
+   The drawer is `position: fixed; inset: 0`, but it was rendering
+   at only the header's height, so the page showed through and the
+   links sat on top of the content behind them.
+
+   Cause: an ancestor with `transform`, `will-change: transform`, or
+   `backdrop-filter` becomes the containing block for fixed-position
+   descendants. The header carries all three — `transform:
+   translateZ(0)` and `will-change` from the GPU-hint block in
+   globals.css, plus the backdrop blur added with the sticky header.
+   So `inset: 0` resolved against the 107px header box instead of
+   the viewport.
+
+   Below the mobile breakpoint the header drops all three, which
+   hands the drawer the viewport as its containing block again. The
+   blur is a desktop refinement only; on mobile the header is opaque
+   anyway, so nothing is lost.
+   ============================================================= */
+@media (max-width: 900px) {
+  .siteHeaderLucknawi {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    transform: none;
+    will-change: auto;
+    /* Opaque: a translucent bar over scrolling product photos is hard
+       to read, and there is no blur behind it now. */
+    background: #fffefb;
+  }
+
+  /* Belt and braces: the drawer states its own viewport sizing rather
+     than relying on `inset: 0` alone, so a future transformed ancestor
+     cannot silently shrink it again. */
+  .headerNavRow {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: 100vw;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: linear-gradient(155deg, #ffffff 0%, #fffefb 55%, #edf6e9 100%);
+  }
+  /* The drawer must clear the sticky header's own stacking context. */
+  .headerNavRow.mobileOpen {
+    z-index: 1000;
+  }
+}

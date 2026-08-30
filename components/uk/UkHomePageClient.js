@@ -346,7 +346,6 @@ export default function UkHomePageClient({
                           src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                           alt={`${product.name} - ${product.category} by Bustaniya UK`}
                           fill
-                          unoptimized
                           sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                         />
                         <a className="productCardLink" href={`/uk/product/${product.id}`} aria-label={`View ${product.name}`} />
@@ -402,7 +401,6 @@ export default function UkHomePageClient({
                             src={optimizedImageUrl(category.image || "/bustaniya-campaign-hero-v4.png", CLOUDINARY_IMAGE_PRESETS.category)}
                             alt={category.name}
                             fill
-                            unoptimized
                             sizes="(max-width: 600px) 50vw, (max-width: 1000px) 25vw, 300px"
                           />
                           <span className="categoryCardOverlay">
@@ -464,7 +462,6 @@ export default function UkHomePageClient({
                           src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                           alt={`${product.name} - ${product.category} by Bustaniya UK`}
                           fill
-                          unoptimized
                           sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                         />
                         <a className="productCardLink" href={`/uk/product/${product.id}`} aria-label={`View ${product.name}`} />
@@ -512,7 +509,6 @@ export default function UkHomePageClient({
                         src={optimizedImageUrl(post.image, CLOUDINARY_IMAGE_PRESETS.card)}
                         alt={post.caption || "Bustaniya UK Instagram post"}
                         fill
-                        unoptimized
                         sizes="(max-width: 600px) 70vw, 260px"
                       />
                       <div className="instagramOverlay">

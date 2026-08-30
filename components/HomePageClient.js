@@ -27,6 +27,17 @@ const fallbackCategoryRecords = categories
     };
   });
 
+/**
+ * Builds a width-descriptor srcSet from a hero preset, keeping the preset's
+ * aspect ratio at every width.
+ */
+function heroSrcSet(src, preset, widths) {
+  const ratio = preset.height / preset.width;
+  return widths
+    .map((width) => `${optimizedImageUrl(src, { ...preset, width, height: Math.round(width * ratio) })} ${width}w`)
+    .join(", ");
+}
+
 function hoverImageOf(product) {
   const gallery = Array.isArray(product?.images) ? product.images.filter(Boolean) : [];
   const second = gallery.find((src) => src && src !== product.image);
@@ -44,13 +55,19 @@ function normalizeProducts(items) {
 function CampaignHeroImage({ desktopSrc, mobileSrc, alt }) {
   const safeDesktop = desktopSrc || "/bustaniya-campaign-hero-v5.png";
   const safeMobile = mobileSrc || safeDesktop;
+
+  // The hero is the LCP element, and it was shipping one fixed width per
+  // breakpoint — a 1920px file to a 1280px laptop, a 900px file to a 375px
+  // phone. Offer the browser a real set of widths so it takes the one the
+  // viewport needs.
+  const desktopSrcSet = heroSrcSet(safeDesktop, CLOUDINARY_IMAGE_PRESETS.heroDesktop, [1280, 1600, 1920, 2560]);
+  const mobileSrcSet = heroSrcSet(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile, [480, 640, 750, 900, 1125]);
   const desktopUrl = optimizedImageUrl(safeDesktop, CLOUDINARY_IMAGE_PRESETS.heroDesktop);
-  const mobileUrl = optimizedImageUrl(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile);
 
   return (
     <picture>
-      <source media="(max-width: 767px)" srcSet={mobileUrl} />
-      <source media="(min-width: 768px)" srcSet={desktopUrl} />
+      <source media="(max-width: 767px)" srcSet={mobileSrcSet} sizes="100vw" />
+      <source media="(min-width: 768px)" srcSet={desktopSrcSet} sizes="100vw" />
       <img src={desktopUrl} alt={alt || "Bustaniya campaign hero"} fetchPriority="high" decoding="async" />
     </picture>
   );
@@ -370,7 +387,6 @@ export default function Home({
                           src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                           alt={`${product.name} - ${product.category} by Bustaniya`}
                           fill
-                          unoptimized
                           sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                         />
                         {hoverImageOf(product) && (
@@ -380,7 +396,6 @@ export default function Home({
                             alt=""
                             aria-hidden="true"
                             fill
-                            unoptimized
                             sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                           />
                         )}
@@ -423,7 +438,6 @@ export default function Home({
                             src={optimizedImageUrl(category.image || "/bustaniya-campaign-hero-v4.png", CLOUDINARY_IMAGE_PRESETS.category)}
                             alt={category.name}
                             fill
-                            unoptimized
                             sizes="(max-width: 600px) 50vw, (max-width: 1000px) 25vw, 300px"
                           />
                           <span className="categoryCardOverlay">
@@ -479,8 +493,8 @@ export default function Home({
                   {bestSellers.map((product) => (
                     <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
                       <div className="productImage">
-                        <Image className="productImagePrimary" src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill unoptimized sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
-                        {hoverImageOf(product) && <Image className="productImageHover" src={optimizedImageUrl(hoverImageOf(product), CLOUDINARY_IMAGE_PRESETS.card)} alt="" aria-hidden="true" fill unoptimized sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />}
+                        <Image className="productImagePrimary" src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
+                        {hoverImageOf(product) && <Image className="productImageHover" src={optimizedImageUrl(hoverImageOf(product), CLOUDINARY_IMAGE_PRESETS.card)} alt="" aria-hidden="true" fill sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />}
                         <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
                         <span className="badge">Best seller</span>
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
@@ -547,7 +561,6 @@ export default function Home({
                             src={post.image || "/bustaniya-instagram-hero.jpg"}
                             alt={post.caption || "Bustaniya Instagram post"}
                             fill
-                            unoptimized
                             sizes="(max-width: 600px) 82vw, (max-width: 1000px) 43vw, 28vw"
                           />
                         )}

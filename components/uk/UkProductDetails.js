@@ -207,7 +207,6 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
                   alt={`${product.name} - image ${activeImageIndex + 1}`}
                   fill
                   priority
-                  unoptimized
                   sizes="(max-width: 768px) 100vw, 550px"
                 />
                 {product.badge && <span className="detailBadge">{product.badge}</span>}
@@ -226,7 +225,7 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
                       className={`galleryThumbBtn ${activeImageIndex === idx ? "active" : ""}`}
                       onClick={() => setActiveImageIndex(idx)}
                     >
-                      <Image src={optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.thumbnail)} alt={`Thumbnail ${idx + 1}`} fill unoptimized />
+                      <Image src={optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.thumbnail)} alt={`Thumbnail ${idx + 1}`} fill />
                     </button>
                   ))}
                 </div>
@@ -383,7 +382,6 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
                       src={optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.card)}
                       alt={item.name}
                       fill
-                      unoptimized
                       sizes="(max-width: 600px) 50vw, 25vw"
                     />
                     <a className="productCardLink" href={`/uk/product/${item.id}`} aria-label={`View ${item.name}`} />
