@@ -1568,3 +1568,302 @@ html, body {
     z-index: 1000;
   }
 }
+
+/* =============================================================
+   20. COLLECTION PAGES — MARIA.B HEADER + SUBCATEGORY PILLS
+   The category hero was a full-bleed cover photo with a 124px
+   display title. Maria.B's collection pages open straight into the
+   goods: breadcrumb, a modest title, a row of subcategory pills,
+   then the grid. Same treatment whether or not the category has
+   subcategories.
+   ============================================================= */
+.categoryPage .collectionHeader {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: clamp(20px, 2.4vw, 34px) clamp(16px, 3.2vw, 56px) 0;
+}
+
+.collectionBreadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  color: var(--bs-muted);
+}
+.collectionBreadcrumb a {
+  color: var(--bs-muted);
+  transition: color .2s var(--bs-ease);
+}
+.collectionBreadcrumb a:hover { color: var(--bs-berry); }
+.collectionBreadcrumb span[aria-hidden] { opacity: .5; }
+.collectionBreadcrumbCurrent {
+  color: var(--bs-forest);
+  font-weight: 700;
+}
+
+.categoryPage .collectionHeader h1 {
+  margin: 14px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(30px, 3.4vw, 46px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -.015em;
+  color: var(--bs-forest);
+  text-shadow: none;
+  max-width: none;
+}
+.collectionIntro {
+  max-width: 62ch;
+  margin: 10px 0 0;
+  color: var(--bs-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+/* --- Subcategory pills --- */
+.subCategoryNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: clamp(20px, 2.4vw, 30px);
+}
+.subCategoryPill {
+  padding: 10px 22px;
+  border: 1px solid var(--bs-hair);
+  border-radius: 2px;
+  background: #fff;
+  color: var(--bs-forest);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  transition: border-color .2s var(--bs-ease), background .2s var(--bs-ease), color .2s var(--bs-ease);
+}
+.subCategoryPill:hover { border-color: var(--bs-forest); }
+.subCategoryPill.isActive {
+  border-color: var(--bs-forest);
+  background: var(--bs-forest);
+  color: #fff;
+}
+
+/* --- Grid area sits directly under the header now --- */
+.categoryPage .collectionArea {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: clamp(26px, 3vw, 40px) clamp(16px, 3.2vw, 56px) clamp(60px, 6.5vw, 96px);
+  background: transparent;
+}
+.categoryPage .collectionTop {
+  padding-bottom: 14px;
+  margin-bottom: clamp(20px, 2.4vw, 30px);
+  border-bottom: 1px solid var(--bs-hair-soft);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--bs-muted);
+}
+.categoryPage .collectionTop p { color: var(--bs-forest); font-weight: 800; }
+
+@media (max-width: 700px) {
+  /* One scrollable row rather than three stacked lines of pills. */
+  .subCategoryNav {
+    flex-wrap: nowrap;
+    margin-inline: -16px;
+    padding: 2px 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .subCategoryNav::-webkit-scrollbar { display: none; }
+  .subCategoryPill { flex: 0 0 auto; padding: 9px 16px; font-size: 12px; }
+  .categoryPage .collectionHeader h1 { font-size: clamp(26px, 7.5vw, 34px); }
+}
+
+/* =============================================================
+   21. MOBILE DENSITY — MATCH MARIA.B'S VERTICAL RHYTHM
+   Measured at 375px: Maria.B puts the first product at y=225.
+   Bustaniya was putting it at y=415 — a whole screen of chrome
+   before any garment. The card proportions already matched (2:3
+   image, 12px gutter); the gap was entirely in the furniture
+   above the grid. Every value below is trimmed toward their
+   measurements, keeping Bustaniya's palette and display face.
+   ============================================================= */
+@media (max-width: 900px) {
+  /* Announcement bar: 38px -> 30px, matching their 28px. Their
+     <header> is 70px on top of that, so the combined 98px is what
+     Bustaniya now measures too. */
+  .lucknawiAnnouncementBar {
+    min-height: 30px;
+    padding-inline: 14px;
+    font-size: 10px;
+    letter-spacing: .1em;
+  }
+  /* Brand row: the 44px tap targets set the floor here, same as
+     theirs — this only trims the surrounding padding. */
+  .siteHeaderLucknawi .headerMiddleRow {
+    padding: 7px 14px;
+  }
+  .siteHeaderLucknawi .headerBrandLogo {
+    height: 38px;
+  }
+  .siteHeaderLucknawi .headerBrandLogo img { max-height: 38px; }
+  .siteHeaderLucknawi.isStuck .headerBrandLogo,
+  .siteHeaderLucknawi.isStuck .headerBrandLogo img { height: 32px; max-height: 32px; }
+}
+
+@media (max-width: 700px) {
+  /* --- Collection header: 193px -> ~110px --- */
+  .categoryPage .collectionHeader {
+    padding: 14px 14px 0;
+  }
+  .collectionBreadcrumb { font-size: 10px; gap: 6px; }
+  .categoryPage .collectionHeader h1 {
+    margin-top: 8px;
+    font-size: 26px;
+  }
+  /* Maria.B shows no blurb on mobile — it pushed the grid down a
+     further 60px here for text nobody reads on a phone. */
+  .collectionIntro { display: none; }
+
+  /* --- Pills: 37px tall -> 30px, matching their 26px --- */
+  .subCategoryNav {
+    margin-top: 14px;
+    margin-inline: -14px;
+    padding: 2px 14px;
+  }
+  .subCategoryPill {
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+
+  /* --- Count/sort bar: 69px stacked -> one 34px line --- */
+  .categoryPage .collectionTop {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 0 10px;
+    margin-bottom: 14px;
+    font-size: 10px;
+  }
+  .categoryPage .collectionArea {
+    padding: 16px 14px 56px;
+  }
+
+  /* --- Card copy ---
+     Maria.B sets the phone card at title 12px / price 16px bold: the
+     price dominates, because that is the decision being made on a
+     small screen. Bustaniya had it inverted (title 15px, price 12px).
+     Selectors match the .categoryPage/.khaadiTopPicks + --connected
+     chains in globals.css, which carry !important at (0,4,0). */
+  .productPrice span,
+  .productCard--connected .productPrice span,
+  .khaadiTopPicks .productCard--connected .productPrice span,
+  .categoryPage .productCard--connected .productPrice span,
+  .relatedProducts .productCard--connected .productPrice span,
+  .categoryPage .productPrice span,
+  .relatedProducts .productPrice span {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+  }
+  .productInfo h3,
+  .productCard--connected .productInfo h3,
+  .khaadiTopPicks .productCard--connected .productInfo h3,
+  .categoryPage .productCard--connected .productInfo h3,
+  .relatedProducts .productCard--connected .productInfo h3,
+  .categoryPage .productInfo h3,
+  .relatedProducts .productInfo h3 {
+    font-size: 14px !important;
+    line-height: 1.25 !important;
+  }
+  .productInfo p,
+  .productCard--connected .productInfo p,
+  .khaadiTopPicks .productInfo p,
+  .categoryPage .productInfo p,
+  .relatedProducts .productInfo p {
+    margin-bottom: 5px !important;
+    font-size: 8px !important;
+  }
+
+  /* --- Home sections: same trim --- */
+  .shopSection,
+  .categoryShowcase--minimal,
+  .instagramFeedSection {
+    padding-top: 40px;
+    padding-bottom: 44px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .sectionHeading { margin-bottom: 20px; }
+  .sectionHeading::after,
+  .khaadiTopPicks .sectionHeading::after { margin-top: 12px; }
+  .categoryMinimalHeader { margin-bottom: 20px; }
+  .newsletter { padding-top: 48px; padding-bottom: 52px; }
+}
+
+/* =============================================================
+   22. PRODUCT PAGE ON MOBILE — PRICE ABOVE THE FOLD-ISH
+   The buy panel was starting 1,646px down the page. Two causes:
+
+   1. `.galleryMainView` declares `aspect-ratio: 4/5` but also
+      `min-height: 720px`, so on a 319px-wide column the frame
+      stretched to a 0.44 ratio — 320px taller than the aspect it
+      asks for.
+   2. The Instagram reel embed (585px) lives inside the gallery
+      column, which on a single-column phone layout puts it between
+      the photographs and the price.
+
+   Maria.B's phone PDP goes image -> title -> price with nothing in
+   between. `display: contents` promotes the gallery's children into
+   the page grid so the reel can be ordered after the buy panel,
+   where it reads as supporting content rather than an interruption.
+   ============================================================= */
+@media (max-width: 980px) {
+  .productPage .galleryMainView {
+    min-height: 0;
+  }
+
+  .productPage .productGallery {
+    display: contents;
+  }
+  .productPage .productBreadcrumb { order: 0; }
+  .productPage .galleryWorkspace { order: 1; }
+  .productPage .mariabPhotoGrid { order: 2; }
+  .productPage .productPurchase { order: 3; }
+  .productPage .productInstagramReelCard { order: 4; }
+
+  .productPage .productDetailLayout {
+    gap: 18px;
+  }
+}
+
+/* =============================================================
+   23. SIZE SELECTOR ON MOBILE
+   globals.css lays these out under `@media (max-width: 600px)` as
+   `display: grid` with `.sizeOptions button { width: 100% }`.
+   Section 16 above switched the container to flex for the desktop
+   pill row, which left that `width: 100%` orphaned: each button
+   then demanded the full 343px and wrapped onto its own line, so
+   S / M / L stacked vertically down the page.
+
+   Give the buttons their intrinsic width back so they read as a
+   row of chips, the way the desktop selector and Maria.B's do.
+   ============================================================= */
+@media (max-width: 600px) {
+  /* Unscoped: the quick-view modal reuses .sizeOptions and had the
+     same stacking. */
+  .sizeOptions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .sizeOptions button {
+    width: auto;
+    flex: 0 0 auto;
+    min-width: 54px;
+    padding: 0 16px;
+  }
+}

@@ -1,4 +1,3 @@
-import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import SiteHeader from "../../../components/SiteHeader";
@@ -37,7 +36,6 @@ export default async function CategoryPage({ params }) {
   const categoryProducts = products.filter(
     (product) => normalizeCategory(product.category) === category.name
   );
-  const categoryCoverImage = categoryProducts[0]?.image || category.image;
 
   return (
     <main className="categoryPage">
@@ -55,39 +53,28 @@ export default async function CategoryPage({ params }) {
       ])} />
       <SiteHeader storeSettings={storeSettings} categories={categories} activeNav={slug} />
 
+      <section className="collectionHeader">
+        <nav className="collectionBreadcrumb" aria-label="Breadcrumb">
+          <a href="/">Home</a>
+          <span aria-hidden="true">/</span>
+          <span className="collectionBreadcrumbCurrent">{category.name}</span>
+        </nav>
+        <h1>{category.name}</h1>
+        {category.description && <p className="collectionIntro">{category.description}</p>}
 
-      <section
-        className="categoryHero"
-        style={{ backgroundImage: `url(${optimizedImageUrl(categoryCoverImage, CLOUDINARY_IMAGE_PRESETS.heroDesktop)})` }}
-      >
-        <a href="/"><ArrowLeft size={16} /> Back to home</a>
-        <div>
-          <p className="eyebrow">BUSTANIYA COLLECTIONS</p>
-          <h1>{category.name}</h1>
-          <p>{category.description}</p>
-        </div>
+        {!!subcategories.length && (
+          <nav className="subCategoryNav" aria-label={`Shop ${category.name} by style`}>
+            <a className="subCategoryPill isActive" href={`/category/${category.slug}`}>All {category.name}</a>
+            {subcategories.map((item) => (
+              <a className="subCategoryPill" href={`/category/${category.slug}/${item.slug}`} key={item.slug}>
+                {item.name}
+              </a>
+            ))}
+          </nav>
+        )}
       </section>
 
       <section className="collectionArea">
-        {!!subcategories.length && (
-          <div className="subCollectionBlock">
-            <p className="eyebrow">EXPLORE {category.name.toUpperCase()}</p>
-            <h2>Shop by style</h2>
-            <div className="subCollectionGrid">
-              {subcategories.map((item) => {
-                const subcategoryCoverImage =
-                  categoryProducts.find((product) => product.subcategory === item.slug)?.image || item.image;
-                return (
-                <a href={`/category/${category.slug}/${item.slug}`} key={item.slug}>
-                  <div style={{ backgroundImage: `url(${optimizedImageUrl(subcategoryCoverImage, CLOUDINARY_IMAGE_PRESETS.circleThumb)})` }} />
-                  <h3>{item.name}</h3>
-                  <span>Explore collection</span>
-                </a>
-              );
-              })}
-            </div>
-          </div>
-        )}
         <div className="collectionTop">
           <p>{categoryProducts.length} products</p>
           <span>Sort by: Featured</span>

@@ -1,4 +1,3 @@
-import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import SiteHeader from "../../../../components/SiteHeader";
@@ -34,7 +33,8 @@ export default async function SubcategoryPage({ params }) {
 
   const [products, storeSettings] = await Promise.all([getCatalogProducts(), getStoreSettings()]);
   const items = products.filter((product) => normalizeCategory(product.category) === parent.name && product.subcategory === subcategory);
-  const coverImage = items[0]?.image || details.image;
+  // The sibling row lets shoppers switch styles without going back up a level.
+  const siblings = subcategoryOptions(categories, slug);
 
   return (
     <main className="categoryPage">
@@ -53,16 +53,31 @@ export default async function SubcategoryPage({ params }) {
       ])} />
       <SiteHeader storeSettings={storeSettings} categories={categories} activeNav={slug} />
 
-      <section
-        className="categoryHero subcategoryHero"
-        style={{ backgroundImage: `linear-gradient(90deg, #f4f7eef0, #f4f7ee30), url(${optimizedImageUrl(coverImage, CLOUDINARY_IMAGE_PRESETS.heroDesktop)})` }}
-      >
-        <a href={`/category/${slug}`}><ArrowLeft size={16} /> All {parent.name}</a>
-        <div>
-          <p className="eyebrow">BUSTANIYA - {parent.name.toUpperCase()}</p>
-          <h1>{details.name}</h1>
-          <p>{details.description}</p>
-        </div>
+      <section className="collectionHeader">
+        <nav className="collectionBreadcrumb" aria-label="Breadcrumb">
+          <a href="/">Home</a>
+          <span aria-hidden="true">/</span>
+          <a href={`/category/${slug}`}>{parent.name}</a>
+          <span aria-hidden="true">/</span>
+          <span className="collectionBreadcrumbCurrent">{details.name}</span>
+        </nav>
+        <h1>{details.name}</h1>
+        {details.description && <p className="collectionIntro">{details.description}</p>}
+
+        {!!siblings.length && (
+          <nav className="subCategoryNav" aria-label={`Shop ${parent.name} by style`}>
+            <a className="subCategoryPill" href={`/category/${slug}`}>All {parent.name}</a>
+            {siblings.map((item) => (
+              <a
+                className={item.slug === subcategory ? "subCategoryPill isActive" : "subCategoryPill"}
+                href={`/category/${slug}/${item.slug}`}
+                key={item.slug}
+              >
+                {item.name}
+              </a>
+            ))}
+          </nav>
+        )}
       </section>
 
       <section className="collectionArea">
