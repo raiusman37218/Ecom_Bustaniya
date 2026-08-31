@@ -1092,7 +1092,7 @@ export default function AdminDashboard() {
       .then((result) => {
         if (!result?.user) return;
         setCurrentAdminUser(result.user);
-        loadOrders();
+        refreshWorkspace();
       })
       .catch(() => {})
       .finally(() => setAdminAuthChecked(true));
@@ -1262,10 +1262,6 @@ export default function AdminDashboard() {
       // soon as their request completes; catalog/dashboard enrichment must not
       // keep the entire admin workspace behind the Orders loading screen.
       setOrdersLoading(false);
-      void loadAdminData().catch((adminDataError) => {
-        // Orders remain usable when a separate dashboard/catalog request fails.
-        console.error("Admin workspace data load failed", adminDataError);
-      });
     } catch (loadError) {
       setOrdersConnected(false);
       setOrdersError(loadError.message);
@@ -1273,6 +1269,16 @@ export default function AdminDashboard() {
     } finally {
       setOrdersLoading(false);
     }
+  }
+
+  // Orders and the catalogue/dashboard load side by side. Chaining them meant
+  // a failing orders request left Products, Inventory and Finance permanently
+  // empty, and every page change refetched the whole catalogue.
+  function refreshWorkspace() {
+    void loadAdminData().catch((adminDataError) => {
+      console.error("Admin workspace data load failed", adminDataError);
+    });
+    return loadOrders();
   }
 
   async function loadAdminData() {
@@ -1739,7 +1745,7 @@ export default function AdminDashboard() {
         <div className="adminContent">
           {ordersError && active !== "Orders" && <div className="adminErrorBanner">{ordersError}</div>}
           {!canAccessActive && <div className="adminErrorBanner">You do not have access to this admin area.</div>}
-          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} ordersError={ordersLoadError} currentAdminUser={currentAdminUser} onRefresh={() => loadOrders()} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.order_number || order.id); navigateAdminSection("Orders"); }} />}
+          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} ordersError={ordersLoadError} currentAdminUser={currentAdminUser} onRefresh={() => refreshWorkspace()} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.order_number || order.id); navigateAdminSection("Orders"); }} />}
           {canAccessActive && active === "Events" && <EventsWorkspace onNavigateToSettings={() => navigateAdminSection("Settings", { focus: "Tracking" })} onNavigateToOrder={(orderId) => { setRequestedOrderId(orderId); navigateAdminSection("Orders"); }} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
@@ -2089,7 +2095,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const productCosts = new Map((products || []).map((product) => [String(product.id), Number(product.costTotalPkr || 0)]));
   const dashboardCogs = deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(productCosts.get(String(item.productId)) || 0), 0);
   const dashboardReturns = liveOrders.filter(isReturnedOrder).length;
-  const dashboardCod = liveOrders.filter(isPendingCodOrder).reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const dashboardCod = liveOrders.filter(isPendingCodOrder).reduce((sum, order) => sum + orderMoney(order).cod, 0);
   const dashboardProductRevenue = deliveredItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0);
   const dashboardDeliveryCollected = Math.max(0, dashboardSales - dashboardProductRevenue);
   const dashboardCalculatedPostex = postexCalculatedSummary(financeSnapshot.postex || {});
@@ -2816,6 +2822,7 @@ function isReturnedOrder(order) {
 const orderCategoryLabels = [
   "Total Orders",
   "Unbooked",
+  "Cancelled",
   "Booked",
   "PostEx Warehouse",
   "Out For Delivery",
@@ -2871,6 +2878,7 @@ function normalizePostexCategory(value = "") {
 
   if (!normalized) return "Unbooked";
   if (["all", "total", "total orders"].includes(normalized)) return "Total Orders";
+  if (normalized.includes("cancel") || normalized.includes("expire") || normalized.includes("void")) return "Cancelled";
   if (normalized.includes("unbook") || normalized.includes("pending") || normalized.includes("draft")) return "Unbooked";
   if (normalized.includes("warehouse")) return "PostEx Warehouse";
   if (normalized.includes("out for delivery")) return "Out For Delivery";
@@ -2888,6 +2896,7 @@ function normalizePostexCategory(value = "") {
 function isPendingCodOrder(order) {
   return [
     "Booked",
+    "PostEx Warehouse",
     "Transferred",
     "Out For Delivery",
     "Attempted",
@@ -2986,6 +2995,57 @@ function normalizeOrderItems(order) {
     });
   }
   return [{ id: "fallback", name: "Order items", title: "Order items", sku: order?.id || "", quantity: 1, price: Number(order?.total || 0), size: "", color: "" }];
+}
+
+// Every surface that shows money for an order — the table, the drawer, the
+// invoice/manifest PDFs and the PostEx booking payload — goes through here, so
+// they can never disagree with each other or with what the courier collects.
+//
+// Stored values win by default: `total_order_value_pkr` is what the customer
+// agreed to, what Finance recorded and what PostEx was booked against. Only the
+// drawer, which previews unsaved line-item edits, passes `overrides.items`.
+function orderMoney(order = {}, overrides = {}) {
+  const amount = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  };
+  const raw = order.raw || {};
+  const storedTotal = amount(order.total) ?? amount(raw.total_order_value_pkr) ?? amount(raw.total_pkr) ?? 0;
+  const delivery = amount(overrides.delivery)
+    ?? amount(order.deliveryCharges)
+    ?? amount(raw.delivery_charges_pkr)
+    ?? amount(raw.delivery_pkr)
+    ?? 0;
+
+  const editedItems = Array.isArray(overrides.items) ? overrides.items : null;
+  const editedSubtotal = editedItems
+    ? editedItems.reduce((sum, item) => sum + Number(item.price || 0) * Math.max(1, Number(item.quantity || 1)), 0)
+    : 0;
+  // Legacy rows store line items without a unit price. Recomputing from those
+  // would report a zero-value order, so the stored total stays the fallback.
+  const useEdited = Boolean(editedItems) && editedSubtotal > 0;
+
+  const total = useEdited ? editedSubtotal + delivery : storedTotal;
+  const subtotal = useEdited ? editedSubtotal : Math.max(0, storedTotal - delivery);
+  const advance = Math.min(total, amount(overrides.advance) ?? amount(order.amountPayableInAdvance) ?? 0);
+  const cod = Math.max(0, total - advance);
+
+  // What the order row currently says PostEx will hand back. A drift between
+  // this and total − advance means the row was edited outside the booking.
+  const bookedCod = amount(order.amountPayableOnDelivery) ?? amount(raw.amount_payable_on_delivery_pkr);
+
+  return {
+    subtotal,
+    delivery,
+    total,
+    advance,
+    cod,
+    bookedCod: bookedCod === null ? cod : bookedCod,
+    codMismatch: bookedCod !== null && Math.abs(bookedCod - cod) >= 1,
+    isPrepaid: total > 0 && cod === 0,
+    isFullyAdvanced: total > 0 && advance >= total,
+    hasAdvance: advance > 0,
+  };
 }
 
 function legacyArticleNumber(id) {
@@ -3414,20 +3474,14 @@ function generateBulkOrdersPdf({ orders = [], type = "stitching" }) {
     `;
   } else if (type === "manifest") {
     // Courier Dispatch Manifest
-    const totalCod = orders.reduce((sum, o) => {
-      const total = Number(o.total || 0);
-      const adv = Number(o.amountPayableInAdvance || 0);
-      return sum + Math.max(0, total - adv);
-    }, 0);
-    const totalAdvance = orders.reduce((sum, o) => sum + Number(o.amountPayableInAdvance || 0), 0);
-    const totalValue = orders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const totalCod = orders.reduce((sum, o) => sum + orderMoney(o).cod, 0);
+    const totalAdvance = orders.reduce((sum, o) => sum + orderMoney(o).advance, 0);
+    const totalValue = orders.reduce((sum, o) => sum + orderMoney(o).total, 0);
 
     const rowsHtml = orders.map((o, idx) => {
       const items = normalizeOrderItems(o);
       const itemsText = items.map((it) => `${escapeHtml(it.name)} ${[it.size, it.color].filter(Boolean).length ? `(${escapeHtml([it.size, it.color].filter(Boolean).join("/"))})` : ""} × ${it.quantity}`).join("<br/>");
-      const total = Number(o.total || 0);
-      const adv = Number(o.amountPayableInAdvance || 0);
-      const cod = Math.max(0, total - adv);
+      const { advance: adv, cod } = orderMoney(o);
 
       return `<tr>
         <td style="text-align:center;">${idx + 1}</td>
@@ -3502,11 +3556,9 @@ function generateBulkOrdersPdf({ orders = [], type = "stitching" }) {
 
     htmlContent = orders.map((order, orderIndex) => {
       const items = normalizeOrderItems(order);
-      const total = Number(order.total || 0);
-      const subtotal = Number(order.productSubtotal || order.subtotal || total);
-      const delivery = Number(order.deliveryCharges ?? order.raw?.delivery_charges_pkr ?? 250);
-      const advance = Number(order.amountPayableInAdvance || 0);
-      const cod = Math.max(0, total - advance);
+      // Falling back to the total when `productSubtotal` was 0 printed invoices
+      // whose subtotal plus delivery did not add up to their own total.
+      const { total, subtotal, delivery, advance, cod } = orderMoney(order);
 
       const itemsRows = items.map((item) => {
         const qty = Number(item.quantity || 1);
@@ -4224,9 +4276,11 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
     value: item.count,
     color: item.label === "Delivered" ? "#10b981" : item.label === "Booked" ? "#2563eb" : item.label === "Unbooked" ? "#f59e0b" : item.label === "Attempted" ? "#8b5cf6" : item.label === "Returned" ? "#ef4444" : item.label === "Cancelled" ? "#6b7280" : "#3b82f6",
   }));
-  const cityVisual = Object.entries(allRows.reduce((map, order) => {
+  // Delivered only: the chart is labelled "delivered order value", and counting
+  // cancelled and returned parcels here inflated every city's revenue.
+  const cityVisual = Object.entries(allRows.filter(isDeliveredOrder).reduce((map, order) => {
     const city = order.city || "Unknown";
-    map[city] = (map[city] || 0) + Number(order.total || 0);
+    map[city] = (map[city] || 0) + orderMoney(order).total;
     return map;
   }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, value], index) => ({
     label,
@@ -4354,235 +4408,185 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       setExportingOrders(false);
     }
   }
-  return <><div className="adminTitle"><div><p>FULFILMENT</p><h1>Orders</h1><span>PostEx status, custom admin orders, fulfillment, returns and team notes.</span></div><button onClick={exportOrders} disabled={loading || exportingOrders || !canExport || !connected || !allRows.length} aria-busy={exportingOrders}>{exportingOrders ? "Exporting..." : "Export orders"}</button></div>
-    {loading && <div className="ordersConnect" aria-busy="true"><div><b>Loading orders…</b><span>Fetching the latest stored order data.</span></div></div>}
-    {!loading && error && <div className="ordersConnect"><div><b>Orders could not be loaded.</b><span>{error}</span></div><button onClick={onRetry}>Retry</button></div>}
-    {!loading && !connected && !error && <div className="ordersConnect"><div><b>Session expired</b><span>Please sign in again to view orders.</span></div></div>}
-    {connected && !loading && <>
-    <div className="moduleQuickLinks"><button className="customOrderCta" onClick={() => setShowDraft(true)}><Plus /> Create custom order</button></div>
-    <section className="orderPeriodGrid">
-      {periodSummary.map((period) => <article className="adminCard orderPeriodCard" key={period.label}>
-        <p>{period.label}</p>
-        <div><b>{period.orders}</b><span>Orders</span></div>
-        <ul>
-          <li><span>Sales</span><b>Rs. {period.sales.toLocaleString()}</b></li>
-          <li><span>Average</span><b>Rs. {period.average.toLocaleString()}</b></li>
-          <li><span>Range</span><b>{period.range}</b></li>
-        </ul>
-      </article>)}
-    </section>
-    <div className="adminVisualGrid">
-      <VisualDonut title="Order pipeline" subtitle="Live fulfilment health — booked, in-transit, delivered and returned." centerValue={allRows.length} centerLabel="total" items={orderStatusVisual} />
-      <VisualBars title="Revenue by city" subtitle="Top shipping destinations ranked by delivered order value." format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`} items={cityVisual} />
+  // The workspace keeps its shape while a page is refetched. Blanking the whole
+  // panel on every page change lost the toolbar, the filters and the scroll
+  // position, which read as the screen "hanging" on each click.
+  const showSkeleton = loading && !allRows.length;
+  const isRefreshing = loading && allRows.length > 0;
+
+  return <>
+    <div className="adminTitle">
+      <div>
+        <p>FULFILMENT</p>
+        <h1>Orders</h1>
+        <span>PostEx status, custom admin orders, fulfillment, returns and team notes.</span>
+      </div>
+      <button onClick={exportOrders} disabled={loading || exportingOrders || !canExport || !connected || !allRows.length} aria-busy={exportingOrders}>
+        {exportingOrders ? "Exporting..." : "Export orders"}
+      </button>
     </div>
 
+    {!loading && error && <div className="ordersConnect"><div><b>Orders could not be loaded.</b><span>{error}</span></div><button onClick={onRetry}>Retry</button></div>}
+    {!loading && !connected && !error && <div className="ordersConnect"><div><b>Session expired</b><span>Please sign in again to view orders.</span></div></div>}
 
-    <section className="adminCard managementCard">
-      {selectedOrderIds.length > 0 && (
-        <div
-          style={{
-            position: "sticky",
-            top: "10px",
-            zIndex: 35,
-            background: "#0f172a",
-            color: "#fff",
-            padding: "12px 18px",
-            borderRadius: "10px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "12px",
-            boxShadow: "0 10px 25px -5px rgba(0,0,0,0.25), 0 8px 10px -6px rgba(0,0,0,0.15)",
-            margin: "0 0 16px 0",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ background: "#2563eb", color: "#fff", padding: "4px 12px", borderRadius: "20px", fontWeight: 800, fontSize: "13px" }}>
-              ✓ {selectedOrderIds.length} Orders Selected
-            </span>
-            <span style={{ fontSize: "12px", color: "#cbd5e1" }}>
-              Print or export selected orders:
-            </span>
+    {showSkeleton && <OrdersLoadingSkeleton />}
+
+    {!showSkeleton && (connected || allRows.length > 0) && <>
+      <div className="moduleQuickLinks">
+        <button className="customOrderCta" onClick={() => setShowDraft(true)}><Plus /> Create custom order</button>
+      </div>
+
+      <section className="orderPeriodGrid">
+        {periodSummary.map((period) => <article className="adminCard orderPeriodCard" key={period.label}>
+          <p>{period.label}</p>
+          <div><b>{period.orders}</b><span>Orders</span></div>
+          <ul>
+            <li><span>Delivered sales</span><b>Rs. {period.sales.toLocaleString()}</b></li>
+            <li><span>Avg. delivered order</span><b>Rs. {period.average.toLocaleString()}</b></li>
+            <li><span>Range</span><b>{period.range}</b></li>
+          </ul>
+        </article>)}
+      </section>
+
+      <div className="adminVisualGrid">
+        <VisualDonut title="Order pipeline" subtitle="Live fulfilment health — booked, in-transit, delivered and returned." centerValue={allRows.length} centerLabel="total" items={orderStatusVisual} />
+        <VisualBars title="Revenue by city" subtitle="Top shipping destinations ranked by delivered order value." format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`} items={cityVisual} />
+      </div>
+
+      <section className={`adminCard managementCard ordersWorkspace ${isRefreshing ? "isRefreshing" : ""}`}>
+        {isRefreshing && <div className="ordersRefreshBar" role="status" aria-label="Refreshing orders" />}
+
+        {selectedOrderIds.length > 0 && (
+          <div className="orderBulkBar">
+            <div className="orderBulkSummary">
+              <span className="orderBulkCount">{selectedOrderIds.length} selected</span>
+              <span className="orderBulkHint">Print or export the selected orders</span>
+            </div>
+            <div className="orderBulkActions">
+              <button type="button" className="tone-forest" title="Print stitching and production job cards for the workshop tailor" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "stitching" })}>
+                🧵 Stitching slips
+              </button>
+              <button type="button" className="tone-teal" title="Print the master cutting and stitching batch sheet" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "batch_sheet" })}>
+                📋 Cutting sheet
+              </button>
+              <button type="button" className="tone-blue" title="Print customer invoices" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "invoice" })}>
+                📄 Invoices
+              </button>
+              <button type="button" className="tone-slate" title="Print the courier dispatch handover sheet" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "manifest" })}>
+                🚚 Courier manifest
+              </button>
+              <button type="button" className="orderBulkClear" onClick={() => setSelectedOrderIds([])}>Clear</button>
+            </div>
           </div>
-          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={() => {
-                const selectedList = allRows.filter((o) => selectedOrderIds.includes(o.id));
-                generateBulkOrdersPdf({ orders: selectedList, type: "stitching" });
-              }}
-              style={{ background: "#166534", color: "#fff", border: "none", fontWeight: 700, padding: "8px 14px", fontSize: "12px", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
-              title="Print specialized stitching and production job cards for workshop tailor"
-            >
-              🧵 Stitching Slips PDF ({selectedOrderIds.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const selectedList = allRows.filter((o) => selectedOrderIds.includes(o.id));
-                generateBulkOrdersPdf({ orders: selectedList, type: "batch_sheet" });
-              }}
-              style={{ background: "#0f766e", color: "#fff", border: "none", fontWeight: 700, padding: "8px 14px", fontSize: "12px", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
-              title="Print master cutting & stitching batch sheet for workshop"
-            >
-              📋 Master Cutting Sheet PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const selectedList = allRows.filter((o) => selectedOrderIds.includes(o.id));
-                generateBulkOrdersPdf({ orders: selectedList, type: "invoice" });
-              }}
-              style={{ background: "#2563eb", color: "#fff", border: "none", fontWeight: 700, padding: "8px 14px", fontSize: "12px", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
-              title="Print customer invoices"
-            >
-              📄 Customer Invoices PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const selectedList = allRows.filter((o) => selectedOrderIds.includes(o.id));
-                generateBulkOrdersPdf({ orders: selectedList, type: "manifest" });
-              }}
-              style={{ background: "#475569", color: "#fff", border: "none", fontWeight: 700, padding: "8px 14px", fontSize: "12px", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
-              title="Print courier dispatch handover sheet"
-            >
-              🚚 Courier Manifest PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedOrderIds([])}
-              style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", padding: "8px 12px", fontSize: "12px", borderRadius: "6px", cursor: "pointer" }}
-            >
-              ✖ Clear Selection
-            </button>
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* Interactive Status Pills Navigation */}
-      <div
-        className="orderStatusPillsBar"
-        style={{
-          display: "flex",
-          gap: "6px",
-          alignItems: "center",
-          overflowX: "auto",
-          padding: "12px 16px",
-          borderBottom: "1px solid #e2e8f0",
-          background: "#f8fafc",
-          scrollbarWidth: "thin",
-        }}
-      >
-        {orderStatusCounts.map((category) => {
-          const isActive = activeTab === category.label;
-          const isAdvance = category.label === "Advance Paid";
-          const isDelivered = category.label === "Delivered";
-          const isBooked = category.label === "Booked";
-          const isUnbooked = category.label === "Unbooked";
-          const isReturned = category.label === "Returned";
-
-          let activeBg = "#166534";
-          if (isAdvance) activeBg = "#15803d";
-          if (isBooked) activeBg = "#1e40af";
-          if (isUnbooked) activeBg = "#b45309";
-          if (isReturned) activeBg = "#b91c1c";
-
-          return (
-            <button
-              key={category.label}
-              type="button"
-              onClick={() => setActiveTab(category.label)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "6px 14px",
-                borderRadius: "20px",
-                fontSize: "12px",
-                fontWeight: isActive ? 800 : 600,
-                cursor: "pointer",
-                border: isActive ? `1.5px solid ${activeBg}` : "1px solid #cbd5e1",
-                background: isActive ? activeBg : "#ffffff",
-                color: isActive ? "#ffffff" : isAdvance ? "#15803d" : "#334155",
-                boxShadow: isActive ? "0 2px 5px rgba(0,0,0,0.15)" : "0 1px 2px rgba(0,0,0,0.03)",
-                whiteSpace: "nowrap",
-                transition: "all 0.15s ease",
-              }}
-            >
-              <span>
-                {isDelivered && "🟢 "}
-                {isBooked && "🔵 "}
-                {isUnbooked && "🟡 "}
-                {isAdvance && "💵 "}
-                {isReturned && "🔴 "}
-                {category.label}
-              </span>
-              <span
-                style={{
-                  background: isActive ? "rgba(255,255,255,0.25)" : (isAdvance ? "#dcfce7" : "#f1f5f9"),
-                  color: isActive ? "#fff" : (isAdvance ? "#166534" : "#475569"),
-                  padding: "1px 7px",
-                  borderRadius: "10px",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                }}
+        <div className="orderStatusPills" role="tablist" aria-label="Filter orders by PostEx status">
+          {orderStatusCounts.map((category) => {
+            const isActive = activeTab === category.label;
+            return (
+              <button
+                key={category.label}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`orderStatusPill tone-${orderPillTone(category.label)} ${isActive ? "isActive" : ""}`}
+                onClick={() => setActiveTab(category.label)}
               >
-                {category.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                <span className="orderStatusPillLabel">{category.label}</span>
+                <span className="orderStatusPillCount">{category.count}</span>
+              </button>
+            );
+          })}
+        </div>
 
-      <div className="ordersToolbar" style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", background: "#fff", borderBottom: "1px solid #e2e8f0" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontSize: "13px", fontWeight: 700, color: "#475569" }}>
-            Showing <b>{visibleRows.length}</b> {visibleRows.length === 1 ? "order" : "orders"} {activeTab !== "Total Orders" ? `in ${activeTab}` : ""}
-          </span>
-          <TableDensityToggle density={tableDensity} onChange={setTableDensity} />
+        <div className="ordersToolbar">
+          <div className="ordersToolbarInfo">
+            <span className="ordersToolbarCount">
+              {isRefreshing ? "Refreshing…" : <>Showing <b>{visibleRows.length}</b> of {allRows.length} {allRows.length === 1 ? "order" : "orders"}{activeTab !== "Total Orders" ? ` · ${activeTab}` : ""}</>}
+            </span>
+            <TableDensityToggle density={tableDensity} onChange={setTableDensity} />
+          </div>
+          <div className="inlineSearch ordersSearch">
+            <Search aria-hidden="true" />
+            <input
+              value={orderSearch}
+              onChange={(event) => setOrderSearch(event.target.value)}
+              placeholder="Search order #, customer, phone, city, tracking…"
+              aria-label="Search orders"
+            />
+            {orderSearch && (
+              <button type="button" className="ordersSearchClear" onClick={() => setOrderSearch("")} title="Clear search" aria-label="Clear search">✕</button>
+            )}
+          </div>
         </div>
-        <div className="inlineSearch" style={{ position: "relative", minWidth: "260px" }}>
-          <Search style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", width: "16px", height: "16px", color: "#94a3b8" }} />
-          <input
-            value={orderSearch}
-            onChange={(event) => setOrderSearch(event.target.value)}
-            placeholder="Search order #, customer, phone, city, tracking..."
-            style={{ paddingLeft: "32px", paddingRight: orderSearch ? "28px" : "12px", width: "100%", height: "36px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "12px" }}
+
+        {allRows.length === 0 ? (
+          <EmptyState icon={ShoppingBag} title="No orders received" description="There are no orders in your store database yet." />
+        ) : (
+          <OrderTable
+            rows={visibleRows}
+            density={tableDensity}
+            onSelect={(order) => setSelectedId(order.id)}
+            selectedOrderIds={selectedOrderIds}
+            onToggleSelectOrder={toggleSelectOrder}
+            onToggleSelectAll={toggleSelectAll}
+            onPrintStitchingOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
+            onPrintSingleOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "invoice" })}
           />
-          {orderSearch && (
-            <button
-              type="button"
-              onClick={() => setOrderSearch("")}
-              style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "14px", padding: 0 }}
-              title="Clear search"
-            >
-              ✖
-            </button>
-          )}
-        </div>
-      </div>
-      {allRows.length === 0 ? (
-        <EmptyState icon={ShoppingBag} title="No orders received" description="There are no orders in your store database yet." />
-      ) : (
-        <OrderTable
-          rows={visibleRows}
-          density={tableDensity}
-          onSelect={(order) => setSelectedId(order.id)}
-          selectedOrderIds={selectedOrderIds}
-          onToggleSelectOrder={toggleSelectOrder}
-          onToggleSelectAll={toggleSelectAll}
-          onPrintStitchingOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
-          onPrintSingleOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "invoice" })}
-        />
-      )}
-      {pagination?.totalPages > 1 && <div className="ordersPagination"><button disabled={loading || pagination.page <= 1} aria-busy={loading} onClick={() => onPageChange(pagination.page - 1)}>Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button disabled={loading || pagination.page >= pagination.totalPages} aria-busy={loading} onClick={() => onPageChange(pagination.page + 1)}>Next</button></div>}
-    </section>
-    {showDraft && <DraftOrderDialog products={products} onClose={() => setShowDraft(false)} onCreate={createDraft} saving={creatingDraft} />}
-    {selectedOrder && <OrderDetailDrawer order={selectedOrder} catalogProducts={products} onClose={() => setSelectedId("")} onUpdate={persistOrderUpdate} canRecordRefund={currentAdminUser?.role === "Owner"} onNavigateToEvents={onNavigateToEvents} />}
+        )}
+
+        {pagination?.totalPages > 1 && (
+          <div className="ordersPagination">
+            <button disabled={loading || pagination.page <= 1} aria-busy={loading} onClick={() => onPageChange(pagination.page - 1)}>Previous</button>
+            <span>Page {pagination.page} of {pagination.totalPages}</span>
+            <button disabled={loading || pagination.page >= pagination.totalPages} aria-busy={loading} onClick={() => onPageChange(pagination.page + 1)}>Next</button>
+          </div>
+        )}
+      </section>
+
+      {showDraft && <DraftOrderDialog products={products} onClose={() => setShowDraft(false)} onCreate={createDraft} saving={creatingDraft} />}
+      {selectedOrder && <OrderDetailDrawer order={selectedOrder} catalogProducts={products} onClose={() => setSelectedId("")} onUpdate={persistOrderUpdate} canRecordRefund={currentAdminUser?.role === "Owner"} onNavigateToEvents={onNavigateToEvents} />}
     </>}
   </>;
+}
+
+function orderPillTone(label) {
+  if (label === "Total Orders") return "neutral";
+  if (label === "Advance Paid") return "money";
+  if (label === "Delivered") return "delivered";
+  if (label === "Booked" || label === "Transferred") return "booked";
+  if (label === "Unbooked" || label === "Un-Assigned By Me") return "unbooked";
+  if (label === "Returned" || label === "Out For Return") return "returned";
+  if (label === "Cancelled") return "cancelled";
+  if (label === "Attempted" || label === "Delivery Under Review") return "attention";
+  return "transit";
+}
+
+function OrdersLoadingSkeleton() {
+  return (
+    <div className="ordersSkeleton" aria-busy="true" aria-label="Loading orders">
+      <div className="ordersSkeletonCards">
+        {[1, 2, 3].map((card) => (
+          <div className="ordersSkeletonCard" key={card}>
+            <span className="adminSkeleton" style={{ width: "38%", height: "10px" }} />
+            <span className="adminSkeleton" style={{ width: "52%", height: "26px" }} />
+            <span className="adminSkeleton" style={{ width: "100%", height: "9px" }} />
+            <span className="adminSkeleton" style={{ width: "80%", height: "9px" }} />
+          </div>
+        ))}
+      </div>
+      <div className="ordersSkeletonTable">
+        <div className="ordersSkeletonToolbar">
+          <span className="adminSkeleton" style={{ width: "200px", height: "14px" }} />
+          <span className="adminSkeleton" style={{ width: "260px", height: "34px" }} />
+        </div>
+        {[1, 2, 3, 4, 5, 6].map((row) => (
+          <span className="adminSkeleton ordersSkeletonRow" key={row} />
+        ))}
+      </div>
+      <p className="adminLoadingStatus">Loading orders from Supabase…</p>
+    </div>
+  );
 }
 
 const courierProviderOptions = [
@@ -7384,7 +7388,13 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
         body: JSON.stringify({
           orderId: order.rawId || String(order.id).replace(/^#/, ""),
           orderRef: order.order_number || String(order.id).replace(/^#/, ""),
-          total: order.total,
+          total: savedMoney.total,
+          // Without these the server re-derived the money from current catalog
+          // prices and guessed "full advance" from a verified payment status,
+          // which handed PostEx a COD amount the customer never agreed to.
+          paymentOption: savedMoney.isFullyAdvanced ? "full_advance" : savedMoney.hasAdvance ? "cod_delivery_advance" : "cod",
+          deliveryCharges: savedMoney.delivery,
+          advancePaid: savedMoney.advance,
           paymentStatus,
           bookPostex: true,
           deliveryMethod: "PostEx",
@@ -7438,7 +7448,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   }
 
   function printDocument({ title, subtitle, compact = false }) {
-    const total = Number(order.total || 0);
+    const total = orderMoney(order).total;
     const rows = items.map((item) => {
       const quantity = Number(item.quantity || 0);
       const unitPrice = Number(item.price || 0);
@@ -7495,11 +7505,17 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
     });
   }
 
-  const calculatedItemsTotal = orderItems.reduce((sum, it) => sum + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
-  const deliveryChargeVal = Number(order.deliveryCharges ?? order.raw?.delivery_charges_pkr ?? 250);
-  const calculatedOrderTotal = calculatedItemsTotal > 0 ? calculatedItemsTotal + deliveryChargeVal : Number(order.total || 0);
-  const currentAdvance = Number(advancePaidAmount || 0);
-  const currentCod = Math.max(0, calculatedOrderTotal - currentAdvance);
+  // Saved figures drive the PostEx booking; `preview` folds in the unsaved
+  // line-item and advance edits currently on screen so the operator sees what
+  // the courier will be told to collect once they press save.
+  const savedMoney = orderMoney(order);
+  const preview = orderMoney(order, { items: orderItems, advance: Number(advancePaidAmount || 0) });
+  const calculatedItemsTotal = preview.subtotal;
+  const deliveryChargeVal = preview.delivery;
+  const calculatedOrderTotal = preview.total;
+  const currentAdvance = preview.advance;
+  const currentCod = preview.cod;
+  const unsavedTotalChange = Math.abs(preview.total - savedMoney.total) >= 1 || Math.abs(preview.advance - savedMoney.advance) >= 1;
 
   return (
     <>
@@ -7939,13 +7955,29 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
               </span>
             </div>
 
+            {unsavedTotalChange && (
+              <p className="orderMoneyNotice orderMoneyNoticeInfo">
+                Unsaved edits. Saved right now: total Rs. {savedMoney.total.toLocaleString()}, advance
+                Rs. {savedMoney.advance.toLocaleString()}, COD Rs. {savedMoney.cod.toLocaleString()}. Save to apply the
+                new figures before booking or re-booking PostEx.
+              </p>
+            )}
+            {savedMoney.codMismatch && (
+              <p className="orderMoneyNotice orderMoneyNoticeWarn">
+                PostEx is booked to collect Rs. {savedMoney.bookedCod.toLocaleString()}. After the
+                Rs. {savedMoney.advance.toLocaleString()} advance on a Rs. {savedMoney.total.toLocaleString()} order,
+                only Rs. {savedMoney.cod.toLocaleString()} is actually due — update the shipment with PostEx so the
+                rider collects the right amount.
+              </p>
+            )}
+
             <div className="formRow" style={{ marginTop: "12px" }}>
               <label>
                 Advance Received (PKR)
                 <input
                   type="number"
                   min="0"
-                  max={order.total}
+                  max={calculatedOrderTotal}
                   value={advancePaidAmount}
                   onChange={(event) => setAdvancePaidAmount(event.target.value)}
                   placeholder="250, 500, or full total..."
@@ -7977,7 +8009,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                   className="editProductButton"
                   style={{ fontSize: "11px", padding: "6px 10px", background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }}
                   onClick={() => {
-                    setAdvancePaidAmount(Number(order.total || 0));
+                    setAdvancePaidAmount(calculatedOrderTotal);
                     setPaymentStatus("Payment Verified");
                   }}
                 >
@@ -7988,11 +8020,11 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                   className="editProductButton"
                   style={{ fontSize: "11px", padding: "6px 10px", background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}
                   onClick={() => {
-                    setAdvancePaidAmount(250);
+                    setAdvancePaidAmount(Math.min(deliveryChargeVal || 250, calculatedOrderTotal));
                     setPaymentStatus("Payment Verified");
                   }}
                 >
-                  🔵 Set Rs. 250 Advance
+                  🔵 Set delivery advance (Rs. {(Math.min(deliveryChargeVal || 250, calculatedOrderTotal)).toLocaleString()})
                 </button>
               </div>
             </div>
@@ -8176,7 +8208,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
             <div className="formRow">
               <label>
                 Refund Amount (PKR)
-                <input type="number" min="0" max={order.total} step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} />
+                <input type="number" min="0" max={calculatedOrderTotal} step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} />
               </label>
               <label>
                 Refund Method
@@ -8233,7 +8265,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
             </div>
             <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#334155", marginTop: "8px" }}>
               <div><b>Shared Event ID:</b> <code>{order.order_number || String(order.id).replace(/^#/, "")}</code></div>
-              <div><b>Conversion Value:</b> Rs. {Number(order.total || 0).toLocaleString()} (PKR)</div>
+              <div><b>Conversion Value:</b> Rs. {savedMoney.total.toLocaleString()} (PKR)</div>
             </div>
             <div className="orderActionRow" style={{ marginTop: "10px" }}>
               {onNavigateToEvents && (
@@ -8267,6 +8299,36 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   );
 }
 
+const ORDER_SOURCE_BADGES = [
+  { match: "instagram", label: "Instagram DM", icon: "📸", tone: "pink" },
+  { match: "whatsapp", label: "WhatsApp", icon: "💬", tone: "green" },
+  { match: "walk-in", label: "Walk-in", icon: "🏬", tone: "amber" },
+  { match: "manual", label: "Manual", icon: "🏬", tone: "amber" },
+  { match: "phone", label: "Phone call", icon: "📞", tone: "violet" },
+  { match: "facebook", label: "Facebook", icon: "🔵", tone: "blue" },
+];
+
+function orderSourceBadge(source = "") {
+  const value = String(source || "").toLowerCase();
+  return ORDER_SOURCE_BADGES.find((badge) => value.includes(badge.match))
+    || { label: "Storefront", icon: "🌐", tone: "slate" };
+}
+
+const STANDARD_ITEM_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "FREE SIZE"];
+
+function isCustomItemSize(size = "") {
+  const value = String(size || "").trim().toUpperCase();
+  return !value || !STANDARD_ITEM_SIZES.includes(value);
+}
+
+function whatsappNumber(phone = "") {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("92")) return digits;
+  if (digits.startsWith("0")) return `92${digits.slice(1)}`;
+  return `92${digits}`;
+}
+
 function OrderTable({
   rows,
   onSelect,
@@ -8278,409 +8340,256 @@ function OrderTable({
   onPrintSingleOrder,
 }) {
   const [expandedId, setExpandedId] = useState(null);
-
-  const getSourceBadge = (source = "") => {
-    const s = String(source || "").toLowerCase();
-    if (s.includes("instagram")) return { label: "📸 Instagram DM", bg: "#fdf2f8", color: "#db2777", border: "#fbcfe8" };
-    if (s.includes("whatsapp")) return { label: "💬 WhatsApp", bg: "#f0fdf4", color: "#16a34a", border: "#bbf7d0" };
-    if (s.includes("walk-in") || s.includes("manual")) return { label: "🏬 Manual", bg: "#fefce8", color: "#ca8a04", border: "#fef08a" };
-    if (s.includes("phone")) return { label: "📞 Phone Call", bg: "#f5f3ff", color: "#7c3aed", border: "#ddd6fe" };
-    return { label: "🌐 Storefront", bg: "#f1f5f9", color: "#475569", border: "#e2e8f0" };
-  };
+  const selectable = Boolean(onToggleSelectOrder);
+  const columnCount = selectable ? 8 : 7;
 
   return (
-    <div className={`adminTableWrap ${density === "compact" ? "compactTable" : ""}`}>
+    <div className={`adminTableWrap orderTableWrap ${density === "compact" ? "compactTable" : ""}`}>
       <table className="adminTable orderTable">
+        {/* Eight fixed columns. The date sits with the order identity and the
+            tracking number with the courier status, which keeps the whole table
+            inside a normal admin viewport instead of hiding a column behind the
+            pinned actions cell. */}
+        <colgroup>
+          {selectable && <col className="colSelect" />}
+          <col className="colOrder" />
+          <col className="colCustomer" />
+          <col className="colItems" />
+          <col className="colMoney" />
+          <col className="colPayment" />
+          <col className="colStatus" />
+          <col className="colActions" />
+        </colgroup>
         <thead>
-          <tr style={{ background: "#f8fafc" }}>
-            {onToggleSelectOrder && (
-              <th style={{ width: "40px", textAlign: "center", padding: "10px 6px" }}>
+          <tr>
+            {selectable && (
+              <th className="orderCellSelect">
                 <input
                   type="checkbox"
                   aria-label="Select all orders"
-                  checked={rows.length > 0 && rows.every((r) => selectedOrderIds.includes(r.id))}
+                  checked={rows.length > 0 && rows.every((row) => selectedOrderIds.includes(row.id))}
                   onChange={onToggleSelectAll}
-                  style={{ cursor: "pointer", width: "16px", height: "16px", verticalAlign: "middle", accentColor: "#166534" }}
                 />
               </th>
             )}
-            <th style={{ minWidth: "120px" }}>Order ID</th>
-            <th style={{ minWidth: "160px" }}>Customer Details</th>
-            <th style={{ minWidth: "220px" }}>Ordered Suits &amp; Notes</th>
-            <th style={{ minWidth: "150px" }}>Amount &amp; Advance</th>
-            <th style={{ minWidth: "130px" }}>Payment</th>
-            <th style={{ minWidth: "120px" }}>PostEx Status</th>
-            <th style={{ minWidth: "100px" }}>Date</th>
-            <th style={{ minWidth: "200px" }}>Actions</th>
+            <th>Order</th>
+            <th>Customer</th>
+            <th>Items &amp; notes</th>
+            <th>Amount &amp; advance</th>
+            <th>Payment</th>
+            <th>PostEx status</th>
+            <th className="orderCellActions">Actions</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((order) => {
             const orderItems = normalizeOrderItems(order);
+            const money = orderMoney(order);
             const isSelected = selectedOrderIds.includes(order.id);
-            const totalOrderVal = Number(order.total || 0);
-            const advancePaid = Number(order.amountPayableInAdvance || 0);
-            const isFullPaid = advancePaid >= totalOrderVal && totalOrderVal > 0;
-            const codCollectible = Math.max(0, totalOrderVal - advancePaid);
-            const rawPhoneDigits = String(order.phone || "").replace(/\D/g, "");
-            const waPhone = rawPhoneDigits.startsWith("0") ? `92${rawPhoneDigits.slice(1)}` : rawPhoneDigits.startsWith("92") ? rawPhoneDigits : `92${rawPhoneDigits}`;
             const isExpanded = expandedId === order.id;
-            const hasNotes = Boolean(order.notes || order.internalNotes);
-            const sourceInfo = getSourceBadge(order.source);
+            const waPhone = whatsappNumber(order.phone);
+            const note = order.notes || order.internalNotes || "";
+            const source = orderSourceBadge(order.source);
+            const statusLabel = order.postexStatus || order.status || "Unbooked";
+            const statusKey = orderStatus(order).replaceAll(" ", "").replaceAll("-", "");
+            const paymentVerified = String(order.paymentStatus || "").toLowerCase().includes("verified");
+            const rowClass = [
+              "orderRow",
+              isSelected ? "isSelected" : "",
+              isExpanded ? "isExpanded" : "",
+            ].filter(Boolean).join(" ");
 
             return (
               <Fragment key={order.id}>
-                <tr
-                  style={{
-                    background: isSelected ? "#eff6ff" : (isExpanded ? "#f8fafc" : undefined),
-                    borderLeft: isSelected ? "3px solid #2563eb" : undefined,
-                    transition: "background 0.15s ease",
-                  }}
-                >
-                {onToggleSelectOrder && (
-                  <td style={{ textAlign: "center", verticalAlign: "middle", padding: "10px 6px" }} onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      aria-label={`Select order ${order.id}`}
-                      checked={isSelected}
-                      onChange={() => onToggleSelectOrder(order.id)}
-                      style={{ cursor: "pointer", width: "16px", height: "16px", verticalAlign: "middle", accentColor: "#166534" }}
-                    />
+                <tr className={rowClass}>
+                  {selectable && (
+                    <td className="orderCellSelect" onClick={(event) => event.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select order ${order.id}`}
+                        checked={isSelected}
+                        onChange={() => onToggleSelectOrder(order.id)}
+                      />
+                    </td>
+                  )}
+
+                  <td>
+                    <span className="orderRef">{order.id}</span>
+                    <span className={`orderSourceTag tone-${source.tone}`}>
+                      <i aria-hidden="true">{source.icon}</i>{source.label}
+                    </span>
+                    <span className="orderMetaLine">{order.date}</span>
                   </td>
-                )}
-                <td>
-                  <span style={{ fontSize: "14px", fontWeight: 800, color: "#0f172a" }}>{order.id}</span>
-                  <div style={{ marginTop: "4px" }}>
-                    <span
-                      style={{
-                        background: sourceInfo.bg,
-                        color: sourceInfo.color,
-                        border: `1px solid ${sourceInfo.border}`,
-                        fontSize: "10px",
-                        fontWeight: 700,
-                        padding: "2px 6px",
-                        borderRadius: "12px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "3px",
-                      }}
-                    >
-                      {sourceInfo.label}
-                    </span>
-                  </div>
-                  {order.tracking && (
-                    <small className="trackingNumber" style={{ display: "block", marginTop: "4px", fontSize: "11px", color: "#2563eb", fontWeight: 600 }}>
-                      🚚 {order.tracking}
-                    </small>
-                  )}
-                </td>
-                <td>
-                  <b style={{ fontSize: "13px", color: "#0f172a" }}>{order.customer}</b>
-                  {order.phone && (
-                    <div style={{ fontSize: "11px", color: "#475569", marginTop: "3px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                      <span>📞 {order.phone}</span>
-                      {rawPhoneDigits && (
-                        <a
-                          href={`https://wa.me/${waPhone}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            color: "#166534",
-                            fontWeight: 700,
-                            textDecoration: "none",
-                            background: "#dcfce7",
-                            border: "1px solid #bbf7d0",
-                            padding: "1px 6px",
-                            borderRadius: "10px",
-                            fontSize: "10px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "2px",
-                          }}
-                          title="Chat with Customer on WhatsApp"
-                        >
-                          💬 WA
-                        </a>
-                      )}
-                    </div>
-                  )}
-                  <small style={{ display: "block", marginTop: "3px", fontSize: "11px", color: "#64748b" }}>
-                    📍 {order.city || "—"}
-                  </small>
-                </td>
-                <td style={{ maxWidth: "260px" }}>
-                  <div style={{ fontSize: "12px", color: "#1e293b", fontWeight: 600, lineHeight: 1.4 }}>
-                    {orderItems.map((it, i) => {
-                      const rawSize = it.size || "Custom";
-                      const isCustom = !["XS", "S", "M", "L", "XL", "XXL", "Free Size"].includes(rawSize) || rawSize.toLowerCase().includes("custom");
-                      return (
-                        <div key={it.id || i} style={{ marginBottom: "3px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                          <span>• <b>{it.name || it.title}</b></span>
-                          <span
-                            style={{
-                              background: isCustom ? "#fef3c7" : "#dbeafe",
-                              color: isCustom ? "#92400e" : "#1e40af",
-                              padding: "1px 5px",
-                              borderRadius: "4px",
-                              fontSize: "10px",
-                              fontWeight: 700,
-                            }}
+
+                  <td>
+                    <span className="orderCustomerName">{order.customer}</span>
+                    {order.phone && (
+                      <span className="orderContactLine">
+                        <span className="orderPhone">{order.phone}</span>
+                        {waPhone && (
+                          <a
+                            className="orderWhatsappTag"
+                            href={`https://wa.me/${waPhone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={`Chat with ${order.customer} on WhatsApp`}
                           >
-                            {rawSize}
+                            WhatsApp
+                          </a>
+                        )}
+                      </span>
+                    )}
+                    <span className="orderMetaLine">📍 {order.city || "—"}</span>
+                  </td>
+
+                  <td>
+                    <ul className="orderItemList">
+                      {orderItems.map((item, index) => (
+                        <li key={item.id || index}>
+                          <span className="orderItemName">{item.name || item.title}</span>
+                          <span className={`orderSizeTag ${isCustomItemSize(item.size) ? "isCustom" : ""}`}>
+                            {item.size || "Custom"}
                           </span>
-                          {it.color && <span style={{ color: "#64748b", fontSize: "11px" }}>({it.color})</span>}
-                          <span style={{ color: "#166534", fontWeight: 700 }}>× {it.quantity}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {hasNotes && (
-                    <div
-                      style={{
-                        marginTop: "6px",
-                        padding: "5px 8px",
-                        background: "#fefce8",
-                        border: "1px solid #fde047",
-                        borderRadius: "6px",
-                        fontSize: "11px",
-                        color: "#854d0e",
-                        lineHeight: "1.3",
-                      }}
-                      title={order.notes || order.internalNotes}
-                    >
-                      📝 <b>Note:</b> {String(order.notes || order.internalNotes).length > 60 ? `${String(order.notes || order.internalNotes).slice(0, 60)}...` : (order.notes || order.internalNotes)}
-                    </div>
-                  )}
-                </td>
-                <td>
-                  <b style={{ fontSize: "14px", color: "#0f172a" }}>Rs. {totalOrderVal.toLocaleString()}</b>
-                  <div style={{ marginTop: "4px", lineHeight: "1.3", fontSize: "11px" }}>
-                    {advancePaid > 0 ? (
-                      <span style={{ color: "#15803d", fontWeight: 700 }}>
-                        {isFullPaid ? "🟢 Full Advance (100%)" : `🟢 Advance: Rs. ${advancePaid.toLocaleString()}`}
-                      </span>
-                    ) : (
-                      <span style={{ color: "#64748b", fontWeight: 500 }}>⭕ Advance: Rs. 0</span>
-                    )}
-                    <br />
-                    <span style={{ color: codCollectible === 0 ? "#15803d" : "#1e40af", fontWeight: 800, marginTop: "2px", display: "inline-block" }}>
-                      🚚 PostEx COD: {codCollectible === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${codCollectible.toLocaleString()}`}
+                          {item.color && <span className="orderItemColor">{item.color}</span>}
+                          <span className="orderItemQty">× {item.quantity}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {note && <p className="orderNotePreview" title={note}>📝 {note}</p>}
+                  </td>
+
+                  <td>
+                    <span className="orderTotalValue">Rs. {money.total.toLocaleString()}</span>
+                    <span className={`orderMoneyLine ${money.hasAdvance ? "isPaid" : "isMuted"}`}>
+                      {money.isFullyAdvanced
+                        ? "Advance: full (100%)"
+                        : money.hasAdvance
+                          ? `Advance: Rs. ${money.advance.toLocaleString()}`
+                          : "Advance: Rs. 0"}
                     </span>
-                  </div>
-                </td>
-                <td>
-                  <b style={{ fontSize: "12px", color: "#1e293b" }}>{order.paymentMethod || "COD"}</b>
-                  <span
-                    className="statusBadge"
-                    style={{
-                      display: "block",
-                      marginTop: "3px",
-                      fontSize: "10px",
-                      padding: "2px 6px",
-                      borderRadius: "4px",
-                      width: "fit-content",
-                      background: String(order.paymentStatus).toLowerCase().includes("verified") ? "#dcfce7" : "#fef3c7",
-                      color: String(order.paymentStatus).toLowerCase().includes("verified") ? "#166534" : "#92400e",
-                    }}
-                  >
-                    {order.paymentStatus || "Awaiting Payment"}
-                  </span>
-                </td>
-                <td>
-                  <span className={`statusBadge ${orderStatus(order).replaceAll(" ", "").replaceAll("-", "").toLowerCase()}`}>
-                    {order.postexStatus || order.status}
-                  </span>
-                  {order.confirmationStatus && !["confirmed", "payment verified", "verified"].includes(String(order.confirmationStatus).toLowerCase()) && (
-                    <small className="trackingNumber" style={{ display: "block", marginTop: "4px" }}>
-                      <span className="statusBadge unconfirmed" style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "10px" }}>
-                        ⚠️ {order.confirmationStatus}
+                    <span className={`orderCodValue ${money.isPrepaid ? "isPrepaid" : ""}`}>
+                      COD: {money.isPrepaid ? "Rs. 0 · prepaid" : `Rs. ${money.cod.toLocaleString()}`}
+                    </span>
+                    {money.codMismatch && (
+                      <span
+                        className="orderMoneyFlag"
+                        title={`PostEx was booked to collect Rs. ${money.bookedCod.toLocaleString()}. Re-book or update the shipment.`}
+                      >
+                        ⚠ Booked Rs. {money.bookedCod.toLocaleString()}
                       </span>
-                    </small>
-                  )}
-                </td>
-                <td style={{ fontSize: "12px", color: "#475569", whiteSpace: "nowrap" }}>{order.date}</td>
-                <td>
-                  <div style={{ display: "flex", alignItems: "center", gap: "5px", flexWrap: "wrap" }}>
-                    {onSelect && (
+                    )}
+                  </td>
+
+                  <td>
+                    <span className="orderPaymentMethod">{order.paymentMethod || "Cash on Delivery"}</span>
+                    <span className={`statusBadge orderPaymentBadge ${paymentVerified ? "ok" : "pending"}`}>
+                      {order.paymentStatus || "Awaiting Payment"}
+                    </span>
+                  </td>
+
+                  <td>
+                    <span className={`statusBadge orderStatusBadge ${statusKey.toLowerCase()}`}>{statusLabel}</span>
+                    {order.tracking
+                      ? <span className="orderTrackingTag" title={order.tracking}>🚚 {order.tracking}</span>
+                      : <span className="orderMetaLine">Not booked with PostEx</span>}
+                    {order.confirmationStatus
+                      && !["confirmed", "payment verified", "verified"].includes(String(order.confirmationStatus).toLowerCase()) && (
+                      <span className="statusBadge orderStatusNote unconfirmed">⚠️ {order.confirmationStatus}</span>
+                    )}
+                  </td>
+
+                  <td className="orderCellActions">
+                    <div className="orderRowActions">
+                      {onSelect && (
+                        <button type="button" className="orderActionPrimary" onClick={() => onSelect(order)} aria-label={`Open order ${order.id}`}>
+                          View
+                        </button>
+                      )}
+                      {onPrintStitchingOrder && (
+                        <button type="button" className="orderActionGhost" onClick={() => onPrintStitchingOrder(order)} title="Print stitching production slip for the workshop">
+                          🧵 Slip
+                        </button>
+                      )}
+                      {onPrintSingleOrder && (
+                        <button type="button" className="orderActionGhost" onClick={() => onPrintSingleOrder(order)} title="Print the customer invoice for this order">
+                          📄 Invoice
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => onSelect(order)}
-                        aria-label={`Open order ${order.id}`}
-                        style={{
-                          background: "#166534",
-                          color: "#fff",
-                          border: "none",
-                          borderRadius: "6px",
-                          padding: "5px 10px",
-                          cursor: "pointer",
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          whiteSpace: "nowrap",
-                        }}
+                        className="orderActionToggle"
+                        onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                        aria-expanded={isExpanded}
+                        aria-label={isExpanded ? `Hide details for ${order.id}` : `Show details for ${order.id}`}
+                        title="Toggle inline details"
                       >
-                        👁️ View
+                        {isExpanded ? "▲" : "▼"}
                       </button>
-                    )}
-                    {onPrintStitchingOrder && (
-                      <button
-                        type="button"
-                        onClick={() => onPrintStitchingOrder(order)}
-                        style={{
-                          background: "#f0fdf4",
-                          color: "#166534",
-                          border: "1px solid #bbf7d0",
-                          borderRadius: "6px",
-                          padding: "5px 8px",
-                          cursor: "pointer",
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          whiteSpace: "nowrap",
-                        }}
-                        title="Print Stitching Production Slip for Workshop"
-                      >
-                        🧵 Stitch Slip
-                      </button>
-                    )}
-                    {onPrintSingleOrder && (
-                      <button
-                        type="button"
-                        onClick={() => onPrintSingleOrder(order)}
-                        style={{
-                          background: "#eff6ff",
-                          color: "#1e40af",
-                          border: "1px solid #bfdbfe",
-                          borderRadius: "6px",
-                          padding: "5px 8px",
-                          cursor: "pointer",
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          whiteSpace: "nowrap",
-                        }}
-                        title="Print Customer Invoice for this order"
-                      >
-                        📄 Invoice
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setExpandedId(isExpanded ? null : order.id)}
-                      style={{
-                        background: isExpanded ? "#cbd5e1" : "#f1f5f9",
-                        border: "1px solid #cbd5e1",
-                        borderRadius: "6px",
-                        padding: "5px 7px",
-                        cursor: "pointer",
-                        fontSize: "10px",
-                        fontWeight: 800,
-                        color: "#334155",
-                      }}
-                      title="Toggle quick inline details"
-                    >
-                      {isExpanded ? "▲" : "▼"}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              {isExpanded && (
-                <tr key={`${order.id}-expanded`} className="expandedOrderRow" style={{ background: "#f8fafc" }}>
-                  <td colSpan={onToggleSelectOrder ? 9 : 8} style={{ padding: "16px 20px", borderBottom: "2px solid #cbd5e1" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", fontSize: "13px" }}>
-                      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>📍 Full Delivery Address</span>
-                        <p style={{ margin: "6px 0", color: "#1e293b", lineHeight: 1.4, fontWeight: 500 }}>{order.address || order.city || "No address saved"}</p>
-                        {rawPhoneDigits && (
-                          <div style={{ marginTop: "8px" }}>
-                            <a
-                              href={`https://wa.me/${waPhone}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                color: "#166534",
-                                fontWeight: 700,
-                                textDecoration: "none",
-                                fontSize: "12px",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "4px",
-                                background: "#dcfce7",
-                                border: "1px solid #bbf7d0",
-                                padding: "3px 8px",
-                                borderRadius: "6px"
-                              }}
-                            >
-                              💬 Chat on WhatsApp ({order.phone})
-                            </a>
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>✂️ Ordered Suits / Items</span>
-                        <ul style={{ margin: "6px 0", paddingLeft: "16px", color: "#1e293b", lineHeight: 1.5 }}>
-                          {orderItems.map((it, idx) => (
-                            <li key={it.id || idx}>
-                              <b>{it.name || it.title}</b> — Size: <b>{it.size || "Standard"}</b> {it.color ? `(${it.color})` : ""} × <b>{it.quantity}</b>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>💰 Financial Breakdown</span>
-                        <div style={{ margin: "6px 0", fontSize: "12px", color: "#334155", lineHeight: 1.6 }}>
-                          <div>Total Order Value: <b>Rs. {totalOrderVal.toLocaleString()}</b></div>
-                          <div>Advance Paid: <b style={{ color: "#15803d" }}>Rs. {advancePaid.toLocaleString()}</b></div>
-                          <div style={{ fontWeight: 800, color: codCollectible === 0 ? "#15803d" : "#1e40af" }}>
-                            PostEx COD to Collect: Rs. {codCollectible.toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                        <div>
-                          <span style={{ fontSize: "11px", fontWeight: 800, color: "#854d0e", textTransform: "uppercase", letterSpacing: "0.05em" }}>📝 Workshop Notes</span>
-                          <div style={{
-                            marginTop: "6px",
-                            background: "#fefce8",
-                            border: "1px solid #fde047",
-                            padding: "8px 10px",
-                            borderRadius: "6px",
-                            color: "#713f12",
-                            fontSize: "12px",
-                            lineHeight: 1.4,
-                            whiteSpace: "pre-wrap"
-                          }}>
-                            {order.notes || order.internalNotes || "No special tailor instructions."}
-                          </div>
-                        </div>
-                        {onSelect && (
-                          <button
-                            type="button"
-                            onClick={() => onSelect(order)}
-                            style={{
-                              marginTop: "10px",
-                              background: "#166534",
-                              color: "#fff",
-                              border: "none",
-                              padding: "7px 12px",
-                              borderRadius: "6px",
-                              fontSize: "12px",
-                              fontWeight: 700,
-                              cursor: "pointer",
-                              textAlign: "center"
-                            }}
-                          >
-                            👁️ Open Order Editor
-                          </button>
-                        )}
-                      </div>
                     </div>
                   </td>
                 </tr>
-              )}
-            </Fragment>
-          );
-        })}
+
+                {isExpanded && (
+                  <tr className="orderExpandedRow">
+                    <td colSpan={columnCount}>
+                      <div className="orderExpandedGrid">
+                        <section className="orderExpandedCard">
+                          <h4>Delivery address</h4>
+                          <p>{order.address || order.city || "No address saved"}</p>
+                          {waPhone && (
+                            <a className="orderWhatsappLink" href={`https://wa.me/${waPhone}`} target="_blank" rel="noopener noreferrer">
+                              💬 Chat on WhatsApp · {order.phone}
+                            </a>
+                          )}
+                        </section>
+
+                        <section className="orderExpandedCard">
+                          <h4>Ordered items</h4>
+                          <ul className="orderExpandedItems">
+                            {orderItems.map((item, index) => (
+                              <li key={item.id || index}>
+                                <b>{item.name || item.title}</b>
+                                <span>Size {item.size || "Standard"}{item.color ? ` · ${item.color}` : ""} · × {item.quantity}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+
+                        <section className="orderExpandedCard">
+                          <h4>Financial breakdown</h4>
+                          <dl className="orderExpandedMoney">
+                            <div><dt>Product subtotal</dt><dd>Rs. {money.subtotal.toLocaleString()}</dd></div>
+                            <div><dt>Delivery charges</dt><dd>Rs. {money.delivery.toLocaleString()}</dd></div>
+                            <div><dt>Total order value</dt><dd>Rs. {money.total.toLocaleString()}</dd></div>
+                            <div><dt>Advance received</dt><dd className="isPaid">Rs. {money.advance.toLocaleString()}</dd></div>
+                            <div className="isTotalRow">
+                              <dt>PostEx COD to collect</dt>
+                              <dd className={money.isPrepaid ? "isPrepaid" : "isDue"}>Rs. {money.cod.toLocaleString()}</dd>
+                            </div>
+                          </dl>
+                          {money.codMismatch && (
+                            <p className="orderMoneyNotice orderMoneyNoticeWarn">
+                              PostEx is booked to collect Rs. {money.bookedCod.toLocaleString()}. Update the shipment so the rider collects Rs. {money.cod.toLocaleString()}.
+                            </p>
+                          )}
+                        </section>
+
+                        <section className="orderExpandedCard orderExpandedNotes">
+                          <h4>Workshop notes</h4>
+                          <p className="orderExpandedNoteBody">{note || "No special tailor instructions."}</p>
+                          {onSelect && (
+                            <button type="button" className="orderActionPrimary" onClick={() => onSelect(order)}>
+                              Open order editor
+                            </button>
+                          )}
+                        </section>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
       {!rows.length && (

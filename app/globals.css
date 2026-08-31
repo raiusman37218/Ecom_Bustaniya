@@ -13046,3 +13046,580 @@ html {
 
 
 
+
+/* ==========================================================================
+   ORDERS WORKSPACE
+   The orders table carries far more per cell than any other admin table:
+   an id plus source and tracking, a customer plus phone and city, a wrapped
+   item list, three money lines. The shared `.adminTable` rules assume single
+   line cells (`white-space:nowrap`, auto layout), which pushed that content
+   straight over the neighbouring column. Everything below gives the orders
+   table its own predictable geometry instead of fighting those defaults.
+   ========================================================================== */
+
+.ordersWorkspace {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* --- refresh affordance: the panel stays put, a bar shows the refetch ----- */
+.ordersRefreshBar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  height: 3px;
+  overflow: hidden;
+  background: #e6efe7;
+  z-index: 6;
+}
+.ordersRefreshBar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 32%;
+  background: linear-gradient(90deg, transparent, var(--forest), transparent);
+  animation: ordersRefreshSlide 1.1s ease-in-out infinite;
+}
+@keyframes ordersRefreshSlide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(420%); }
+}
+.ordersWorkspace.isRefreshing .orderTableWrap { opacity: .55; transition: opacity .18s ease; }
+
+/* --- bulk selection bar --------------------------------------------------- */
+.orderBulkBar {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 18px;
+  background: #12301f;
+  color: #fff;
+  box-shadow: 0 10px 24px #0b251833;
+}
+.orderBulkSummary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.orderBulkCount {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #2f7a4f;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.orderBulkHint { color: #bcd3c3; font-size: 12px; }
+.orderBulkActions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.orderBulkActions button {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 7px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter .15s ease, transform .15s ease;
+}
+.orderBulkActions button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.orderBulkActions .tone-forest { background: #1a6b3d; }
+.orderBulkActions .tone-teal { background: #0f766e; }
+.orderBulkActions .tone-blue { background: #2159a8; }
+.orderBulkActions .tone-slate { background: #47575f; }
+.orderBulkActions .orderBulkClear { background: #ffffff26; font-weight: 650; }
+
+/* --- status filter pills -------------------------------------------------- */
+.orderStatusPills {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 18px;
+  overflow-x: auto;
+  background: #f6f9f5;
+  border-bottom: 1px solid #dce7dd;
+  scrollbar-width: thin;
+}
+.orderStatusPill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 6px 0 13px;
+  border: 1px solid #d2ded4;
+  border-radius: 999px;
+  background: #fff;
+  color: #3c4f43;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.orderStatusPill:hover { border-color: #a8c2ae; background: #f2f8f2; }
+.orderStatusPillCount {
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #eef2ee;
+  color: #4a5c50;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+.orderStatusPill.isActive { color: #fff; border-color: transparent; }
+.orderStatusPill.isActive .orderStatusPillCount { background: #ffffff33; color: #fff; }
+.orderStatusPill.isActive.tone-neutral { background: #16452c; }
+.orderStatusPill.isActive.tone-money { background: #157347; }
+.orderStatusPill.isActive.tone-delivered { background: #147a45; }
+.orderStatusPill.isActive.tone-booked { background: #1e4f96; }
+.orderStatusPill.isActive.tone-unbooked { background: #9a6209; }
+.orderStatusPill.isActive.tone-returned { background: #a52029; }
+.orderStatusPill.isActive.tone-cancelled { background: #57646b; }
+.orderStatusPill.isActive.tone-attention { background: #6d3fa8; }
+.orderStatusPill.isActive.tone-transit { background: #2a6f8f; }
+/* A small colour key so the pill row reads at a glance when inactive. */
+.orderStatusPill::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #b7c4bb;
+}
+.orderStatusPill.tone-money::before { background: #157347; }
+.orderStatusPill.tone-delivered::before { background: #14a058; }
+.orderStatusPill.tone-booked::before { background: #2c6fd1; }
+.orderStatusPill.tone-unbooked::before { background: #d99413; }
+.orderStatusPill.tone-returned::before { background: #d24450; }
+.orderStatusPill.tone-cancelled::before { background: #8b979d; }
+.orderStatusPill.tone-attention::before { background: #8b5cf6; }
+.orderStatusPill.tone-transit::before { background: #3f9dc4; }
+.orderStatusPill.isActive::before { background: #ffffffcc; }
+
+/* --- toolbar -------------------------------------------------------------- */
+.adminContent .ordersToolbar {
+  min-height: 62px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #fff;
+  border-bottom: 1px solid #e3ebe4;
+}
+.ordersToolbarInfo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.ordersToolbarCount { color: #4c5f53; font-size: 12px; font-weight: 650; }
+.ordersToolbarCount b { color: #132f22; font-weight: 850; }
+.adminContent .ordersToolbar .inlineSearch.ordersSearch {
+  position: relative;
+  width: min(360px, 100%);
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #d5e0d7;
+  border-radius: 9px;
+  background: #fff;
+}
+.ordersSearch svg { width: 15px; height: 15px; flex: 0 0 auto; color: #8fa094; }
+.ordersSearch input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 13px; }
+.ordersSearchClear {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #eef2ee;
+  color: #63736a;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* --- table geometry ------------------------------------------------------- */
+/* Fixed layout + a colgroup is what actually stops the overlap: every column
+   gets exactly its declared width, and content that does not fit wraps or is
+   ellipsised inside the cell instead of spilling over the next one. */
+.orderTableWrap { overflow: auto; }
+.adminContent .orderTable {
+  table-layout: fixed;
+  min-width: 1184px;
+  white-space: normal;
+}
+.orderTable col.colSelect { width: 42px; }
+.orderTable col.colOrder { width: 144px; }
+.orderTable col.colCustomer { width: 160px; }
+.orderTable col.colItems { width: 225px; }
+.orderTable col.colMoney { width: 156px; }
+.orderTable col.colPayment { width: 132px; }
+.orderTable col.colStatus { width: 155px; }
+.orderTable col.colActions { width: 170px; }
+
+/* Compact density trims the same eight columns for narrower laptops. */
+.adminContent .orderTableWrap.compactTable .orderTable { min-width: 1042px; }
+.orderTableWrap.compactTable col.colOrder { width: 128px; }
+.orderTableWrap.compactTable col.colCustomer { width: 142px; }
+.orderTableWrap.compactTable col.colItems { width: 198px; }
+.orderTableWrap.compactTable col.colMoney { width: 140px; }
+.orderTableWrap.compactTable col.colPayment { width: 116px; }
+.orderTableWrap.compactTable col.colStatus { width: 136px; }
+.orderTableWrap.compactTable col.colActions { width: 140px; }
+.adminContent .orderTableWrap.compactTable .orderTable td { padding: 9px 10px; }
+.adminContent .orderTableWrap.compactTable .orderTable th { padding: 9px 10px; }
+
+.adminContent .orderTable th {
+  padding: 12px 14px;
+  background: #f4f8f4;
+  color: #6f7f74;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .06em;
+  white-space: nowrap;
+  border-bottom: 1px solid #dde7de;
+}
+.adminContent .orderTable td {
+  padding: 13px 14px;
+  vertical-align: top;
+  border-top: 1px solid #eaefea;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.adminContent .orderTable tbody tr.orderRow:hover td { background: #f8fcf8; }
+.orderTable tr.orderRow.isSelected td { background: #f1f8f3; }
+.orderTable tr.orderRow.isSelected td:first-child { box-shadow: inset 3px 0 0 var(--forest); }
+.orderTable tr.orderRow.isExpanded td { background: #f7faf7; }
+
+.orderTable .orderCellSelect { width: 44px; padding: 13px 0; text-align: center; vertical-align: middle; }
+.orderTable .orderCellSelect input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--forest); }
+
+/* Sticky actions column. `td[colspan]` is excluded: the expanded detail row is
+   a single full-width cell, and pinning it to the right edge broke the row. */
+.adminTable td[colspan],
+.adminTable th[colspan] { position: static; box-shadow: none; }
+.orderTable .orderCellActions {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: #fff;
+  box-shadow: -8px 0 12px -8px #0b251826;
+}
+.orderTable thead .orderCellActions { z-index: 5; background: #f4f8f4; }
+.adminContent .orderTable tbody tr.orderRow:hover .orderCellActions { background: #f8fcf8; }
+.orderTable tr.orderRow.isSelected .orderCellActions { background: #f1f8f3; }
+.orderTable tr.orderRow.isExpanded .orderCellActions { background: #f7faf7; }
+
+/* --- order cell ----------------------------------------------------------- */
+.orderRef {
+  display: block;
+  color: #12301f;
+  font-size: 13px;
+  font-weight: 850;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orderSourceTag,
+.orderTrackingTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin-top: 5px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.orderSourceTag i { font-style: normal; }
+.orderSourceTag.tone-pink { background: #fdf2f8; color: #a81f63; border-color: #f6cfe3; }
+.orderSourceTag.tone-green { background: #eefaf1; color: #146c3c; border-color: #c3e9d1; }
+.orderSourceTag.tone-amber { background: #fdf8e7; color: #8a6208; border-color: #f2e0af; }
+.orderSourceTag.tone-violet { background: #f5f2fd; color: #5b34a6; border-color: #ddd3f6; }
+.orderSourceTag.tone-blue { background: #eff5fd; color: #1f4f96; border-color: #cbdcf4; }
+.orderSourceTag.tone-slate { background: #f2f5f2; color: #4d5c53; border-color: #dee5df; }
+.orderTrackingTag { display: flex; background: #eff5fd; color: #1f4f96; border-color: #cbdcf4; font-weight: 700; }
+
+/* --- customer cell -------------------------------------------------------- */
+.orderCustomerName {
+  display: block;
+  color: #12301f;
+  font-size: 13px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orderContactLine { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.orderPhone { color: #52645a; font-size: 11px; font-variant-numeric: tabular-nums; }
+.orderWhatsappTag {
+  padding: 1px 7px;
+  border: 1px solid #c3e9d1;
+  border-radius: 999px;
+  background: #eefaf1;
+  color: #146c3c;
+  font-size: 10px;
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.orderWhatsappTag:hover { background: #ddf4e4; }
+.orderMetaLine { display: block; margin-top: 4px; color: #6d7d73; font-size: 11px; }
+
+/* --- items cell ----------------------------------------------------------- */
+.orderItemList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.orderItemList li { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: 12px; }
+.orderItemName {
+  max-width: 100%;
+  color: #1c3226;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.orderSizeTag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #eaf1fb;
+  color: #1f4f96;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.orderSizeTag.isCustom { background: #fdf3dc; color: #8a6208; }
+.orderItemColor { color: #6d7d73; font-size: 11px; }
+.orderItemQty { color: #146c3c; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.orderNotePreview {
+  margin: 8px 0 0;
+  padding: 6px 9px;
+  border: 1px solid #f0e0ab;
+  border-left: 3px solid #d9a919;
+  border-radius: 6px;
+  background: #fdfaee;
+  color: #7a5a10;
+  font-size: 11px;
+  line-height: 1.4;
+  /* Long tailor notes stay two lines: no cell-height blowout, no clipping
+     mid-glyph, and the full text is on the title attribute. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* --- money cell ----------------------------------------------------------- */
+.orderTotalValue {
+  display: block;
+  color: #12301f;
+  font-size: 14px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+.orderMoneyLine { display: block; margin-top: 4px; font-size: 11px; font-weight: 700; }
+.orderMoneyLine.isPaid { color: #157347; }
+.orderMoneyLine.isMuted { color: #7c8a81; font-weight: 600; }
+.orderCodValue {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 2px 8px;
+  border: 1px solid #cbdcf4;
+  border-radius: 6px;
+  background: #eff5fd;
+  color: #1c4a8c;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.orderCodValue.isPrepaid { background: #eefaf1; border-color: #c3e9d1; color: #146c3c; }
+.orderMoneyFlag {
+  display: block;
+  margin-top: 5px;
+  color: #9a5b06;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+/* --- payment + status cells ----------------------------------------------- */
+.orderPaymentMethod { display: block; color: #2c4034; font-size: 12px; font-weight: 700; }
+/* The wide `min-width` belongs to the primary PostEx pill only. Applied to
+   every `.statusBadge` it also stretched the small payment and confirmation
+   chips past their column. */
+.adminContent .orderTable .statusBadge { min-width: 0; }
+.adminContent .orderTable .orderStatusBadge { min-width: 0; width: 100%; justify-content: center; text-align: center; }
+.orderTable .orderPaymentBadge,
+.orderTable .orderStatusNote {
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 5px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 750;
+  white-space: normal;
+  text-align: left;
+}
+.orderTable .orderPaymentBadge.ok { background: #eefaf1; color: #146c3c; border-color: #c3e9d1; }
+.orderTable .orderPaymentBadge.pending { background: #fdf8e7; color: #8a6208; border-color: #f2e0af; }
+.orderTable .orderStatusBadge { padding: 5px 8px; font-size: 11px; }
+
+/* --- row actions ---------------------------------------------------------- */
+.orderRowActions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.orderRowActions button {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.orderActionPrimary { border: 0; background: var(--forest); color: #fff; }
+.orderActionPrimary:hover { background: #0f3721; }
+.orderActionGhost { border: 1px solid #d5e0d7; background: #fff; color: #2c4034; }
+.orderActionGhost:hover { background: #f2f8f2; border-color: #b6cebc; }
+.orderActionToggle { width: 30px; padding: 0; border: 1px solid #d5e0d7; background: #f4f7f4; color: #4c5f53; }
+.orderActionToggle:hover { background: #e8efe8; }
+
+/* --- expanded detail row -------------------------------------------------- */
+.orderTable tr.orderExpandedRow > td {
+  padding: 0;
+  background: #f5f9f5;
+  border-bottom: 2px solid #dce7dd;
+}
+.orderExpandedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+  padding: 16px 18px;
+}
+.orderExpandedCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #e0e8e1;
+  border-radius: 10px;
+  background: #fff;
+}
+.orderExpandedCard h4 {
+  margin: 0;
+  color: #6f7f74;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.orderExpandedCard p { margin: 0; color: #23372b; font-size: 13px; line-height: 1.5; }
+.orderWhatsappLink {
+  align-self: flex-start;
+  padding: 5px 10px;
+  border: 1px solid #c3e9d1;
+  border-radius: 7px;
+  background: #eefaf1;
+  color: #146c3c;
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+}
+.orderExpandedItems { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.orderExpandedItems li { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.orderExpandedItems b { color: #1c3226; }
+.orderExpandedItems span { color: #6d7d73; }
+.orderExpandedMoney { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.orderExpandedMoney > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.orderExpandedMoney dt { color: #6d7d73; font-size: 12px; }
+.orderExpandedMoney dd {
+  margin: 0;
+  color: #1c3226;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.orderExpandedMoney dd.isPaid { color: #157347; }
+.orderExpandedMoney .isTotalRow { margin-top: 3px; padding-top: 7px; border-top: 1px solid #e6ece7; }
+.orderExpandedMoney .isTotalRow dt { color: #2c4034; font-weight: 750; }
+.orderExpandedMoney dd.isDue { color: #1c4a8c; font-size: 14px; }
+.orderExpandedMoney dd.isPrepaid { color: #146c3c; font-size: 14px; }
+.orderExpandedNotes { justify-content: space-between; }
+.orderExpandedNoteBody {
+  padding: 9px 11px;
+  border: 1px solid #f0e0ab;
+  border-radius: 7px;
+  background: #fdfaee;
+  color: #7a5a10;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.orderExpandedNotes .orderActionPrimary {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+/* --- shared money notices (table + detail drawer) ------------------------- */
+.orderMoneyNotice {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.orderMoneyNoticeWarn { border: 1px solid #f2d3a4; background: #fdf6e9; color: #8a5a08; }
+.orderMoneyNoticeInfo { border: 1px solid #cbdcf4; background: #f2f7fd; color: #1c4a8c; }
+
+/* --- first-load skeleton -------------------------------------------------- */
+.ordersSkeleton { display: flex; flex-direction: column; gap: 18px; }
+.ordersSkeletonCards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.ordersSkeletonCard {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-height: 156px;
+  padding: 18px;
+  border: 1px solid #dce7dd;
+  border-radius: 14px;
+  background: #fff;
+}
+.ordersSkeletonTable {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid #dce7dd;
+  border-radius: 14px;
+  background: #fff;
+}
+.ordersSkeletonToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ordersSkeletonRow { width: 100%; height: 46px; border-radius: 8px; }
+
+@media (max-width: 1024px) {
+  .ordersSkeletonCards { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .orderBulkBar { padding: 10px 12px; }
+  .orderBulkActions button { flex: 1 1 auto; }
+  .orderStatusPills { padding: 10px 12px; }
+  /* Restated because this block's base rules sit later in the file than the
+     older mobile overrides and would otherwise win the cascade on phones. */
+  .adminContent .ordersToolbar { padding: 12px; align-items: stretch; flex-direction: column; }
+  .ordersToolbarInfo { justify-content: space-between; }
+  .adminContent .ordersToolbar .inlineSearch.ordersSearch { width: 100%; }
+  .orderExpandedGrid { padding: 12px; }
+  /* A 170px pinned column would eat half a phone screen, so on mobile the
+     actions cell scrolls with the rest of the row. */
+  .orderTable .orderCellActions { position: static; box-shadow: none; }
+  .orderTable col.colActions { width: 150px; }
+}

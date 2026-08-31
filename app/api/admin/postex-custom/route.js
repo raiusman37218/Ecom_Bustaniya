@@ -237,32 +237,24 @@ export async function POST(request) {
     const legacyPaid = !requestedPaymentOption && ["paid", "payment verified"].includes(normalizeText(paymentStatusInput));
     const isFullAdvance = requestedPaymentOption === "full_advance" || requestedPaymentOption === "bank_deposit" || requestedPaymentOption === "advance" || legacyPaid;
     const isDeliveryAdvance = requestedPaymentOption === "cod_delivery_advance" || requestedPaymentOption === "delivery_advance" || requestedPaymentOption === "cod_advance_delivery";
-    const paymentMethod = isFullAdvance ? "bank_deposit" : "cod";
-    const productSubtotal = normalizeMoney(
+    let paymentMethod = isFullAdvance ? "bank_deposit" : "cod";
+    const requestedDelivery = body?.deliveryCharges ?? body?.deliveryFee;
+    const requestedAdvance = body?.advancePaid ?? body?.deliveryAdvanceAmount;
+    let productSubtotal = normalizeMoney(
       customItems.reduce((sum, item) => sum + Number(item.total_pkr || 0), 0)
     );
-    const deliveryFee = isFullAdvance
-      ? 0
-      : normalizeMoney(body?.deliveryCharges ?? body?.deliveryFee ?? 250, 250);
-    const total = normalizeMoney(productSubtotal + deliveryFee);
-    const requestedAdvance = body?.advancePaid ?? body?.deliveryAdvanceAmount;
+    let deliveryFee = isFullAdvance ? 0 : normalizeMoney(requestedDelivery ?? 250, 250);
+    let total = normalizeMoney(productSubtotal + deliveryFee);
     const defaultAdvance = isFullAdvance ? total : isDeliveryAdvance ? deliveryFee : legacyPaid ? total : 0;
-    const advancePaidPkr = normalizeMoney(requestedAdvance ?? defaultAdvance);
+    let advancePaidPkr = normalizeMoney(requestedAdvance ?? defaultAdvance);
     if (advancePaidPkr > total) {
       throw validationError("Advance amount cannot be greater than the total order value.");
     }
     if (isDeliveryAdvance && advancePaidPkr <= 0) {
       throw validationError("Enter the delivery advance amount received before saving this order.");
     }
-    const amountPayableOnDeliveryPkr = Math.max(0, total - advancePaidPkr);
-    const paymentStatus = paymentStatusInput || (advancePaidPkr > 0 ? "Payment Verified" : "Awaiting Payment");
-    const normalizedPaymentStatus = normalizeText(paymentStatus);
-    const paymentProofStatus = normalizedPaymentStatus === "paid" ? "Payment Verified" : paymentStatus;
-    const paymentMethodLabel = isFullAdvance
-      ? "Full advance payment"
-      : isDeliveryAdvance || advancePaidPkr > 0
-        ? "COD — delivery advance"
-        : "Cash on Delivery";
+    let amountPayableOnDeliveryPkr = Math.max(0, total - advancePaidPkr);
+    let paymentStatus = paymentStatusInput || (advancePaidPkr > 0 ? "Payment Verified" : "Awaiting Payment");
     const orderNumber = makeCustomOrderNumber();
     const allItemsInCatalog = customItems.every((item) => !item.custom);
     let completedOrder;
@@ -291,6 +283,38 @@ export async function POST(request) {
         }
       } catch {}
     }
+
+    // Re-booking an order that already exists must never re-derive its money.
+    // Catalog prices change, and `legacyPaid` guesses "full advance" from a
+    // verified payment status — both used to rewrite the stored total and hand
+    // PostEx a COD amount the customer never agreed to. The saved subtotal,
+    // delivery charge and advance are what Finance already recorded, so they
+    // stay authoritative unless this request states otherwise explicitly.
+    if (existingOrder) {
+      const storedSubtotal = Number(existingOrder.product_subtotal_pkr ?? existingOrder.subtotal_pkr);
+      const storedDelivery = Number(existingOrder.delivery_charges_pkr ?? existingOrder.delivery_pkr);
+      const storedTotal = Number(existingOrder.total_order_value_pkr ?? existingOrder.total_pkr);
+      const storedAdvance = Number(existingOrder.amount_payable_in_advance_pkr);
+      if (Number.isFinite(storedSubtotal) && storedSubtotal > 0) productSubtotal = normalizeMoney(storedSubtotal);
+      if (requestedDelivery === undefined && Number.isFinite(storedDelivery)) deliveryFee = normalizeMoney(storedDelivery);
+      total = Number.isFinite(storedTotal) && storedTotal > 0
+        ? normalizeMoney(storedTotal)
+        : normalizeMoney(productSubtotal + deliveryFee);
+      if (requestedAdvance === undefined && Number.isFinite(storedAdvance)) advancePaidPkr = normalizeMoney(storedAdvance);
+      advancePaidPkr = Math.min(advancePaidPkr, total);
+      amountPayableOnDeliveryPkr = Math.max(0, total - advancePaidPkr);
+      paymentMethod = String(existingOrder.payment_method || paymentMethod);
+      paymentStatus = paymentStatusInput || existingOrder.payment_proof_status || existingOrder.payment_status || paymentStatus;
+    }
+
+    const isFullyPrepaid = total > 0 && advancePaidPkr >= total;
+    const normalizedPaymentStatus = normalizeText(paymentStatus);
+    const paymentProofStatus = normalizedPaymentStatus === "paid" ? "Payment Verified" : paymentStatus;
+    const paymentMethodLabel = isFullyPrepaid
+      ? "Full advance payment"
+      : advancePaidPkr > 0
+        ? "COD — delivery advance"
+        : "Cash on Delivery";
 
     const directOrderRecord = {
       id: randomUUID(),
@@ -478,13 +502,13 @@ export async function POST(request) {
 
     const paymentSnapshot = {
       paymentMethod: paymentMethodLabel,
-      paymentOption: isFullAdvance ? "full_advance" : isDeliveryAdvance ? "cod_delivery_advance" : "cod",
+      paymentOption: isFullyPrepaid ? "full_advance" : advancePaidPkr > 0 ? "cod_delivery_advance" : "cod",
       productSubtotalPkr: productSubtotal,
       deliveryChargesPkr: deliveryFee,
       totalOrderValuePkr: orderTotalPkr,
       amountPayableInAdvancePkr: advancePaidPkr,
       amountPayableOnDeliveryPkr,
-      advanceType: isDeliveryAdvance ? "delivery_charges" : isFullAdvance ? "full_order" : "none",
+      advanceType: isFullyPrepaid ? "full_order" : advancePaidPkr > 0 ? "delivery_charges" : "none",
     };
     const internalNotesFormatted = limitText([
       body?.notes,
