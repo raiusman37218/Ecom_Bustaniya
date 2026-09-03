@@ -5706,6 +5706,53 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   border: 1px solid #e9d5ff;
   font-weight: 800;
 }
+
+/* Specific Payment Status Badges */
+.statusBadge.codpending {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  font-weight: 800;
+}
+.statusBadge.advancepending,
+.statusBadge.awaitingpayment {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  font-weight: 800;
+}
+.statusBadge.proofsubmitted,
+.statusBadge.verificationdue {
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+  font-weight: 800;
+}
+.statusBadge.paymentverified {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+  font-weight: 800;
+}
+.statusBadge.paid {
+  background: #15803d;
+  color: #ffffff;
+  border: 1px solid #166534;
+  font-weight: 800;
+}
+.statusBadge.paymentrejected {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  font-weight: 800;
+}
+.statusBadge.refunded {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  font-weight: 800;
+}
+
 .orderDetailDrawer {
   width:min(860px,100%);
   background:#f3f6f2;
@@ -13249,29 +13296,27 @@ html {
 .orderTableWrap { overflow: auto; }
 .adminContent .orderTable {
   table-layout: fixed;
-  min-width: 1184px;
+  min-width: 1040px;
   white-space: normal;
 }
-.orderTable col.colSelect { width: 42px; }
-.orderTable col.colOrder { width: 144px; }
-.orderTable col.colCustomer { width: 160px; }
+.orderTable col.colSelect { width: 38px; }
+.orderTable col.colOrder { width: 135px; }
+.orderTable col.colCustomer { width: 170px; }
 .orderTable col.colItems { width: 225px; }
-.orderTable col.colMoney { width: 156px; }
-.orderTable col.colPayment { width: 132px; }
-.orderTable col.colStatus { width: 155px; }
-.orderTable col.colActions { width: 170px; }
+.orderTable col.colStatus { width: 145px; }
+.orderTable col.colMoney { width: 165px; }
+.orderTable col.colActions { width: 165px; }
 
-/* Compact density trims the same eight columns for narrower laptops. */
-.adminContent .orderTableWrap.compactTable .orderTable { min-width: 1042px; }
-.orderTableWrap.compactTable col.colOrder { width: 128px; }
-.orderTableWrap.compactTable col.colCustomer { width: 142px; }
-.orderTableWrap.compactTable col.colItems { width: 198px; }
-.orderTableWrap.compactTable col.colMoney { width: 140px; }
-.orderTableWrap.compactTable col.colPayment { width: 116px; }
-.orderTableWrap.compactTable col.colStatus { width: 136px; }
-.orderTableWrap.compactTable col.colActions { width: 140px; }
-.adminContent .orderTableWrap.compactTable .orderTable td { padding: 9px 10px; }
-.adminContent .orderTableWrap.compactTable .orderTable th { padding: 9px 10px; }
+/* Compact density trims for narrower laptops. */
+.adminContent .orderTableWrap.compactTable .orderTable { min-width: 950px; }
+.orderTableWrap.compactTable col.colOrder { width: 120px; }
+.orderTableWrap.compactTable col.colCustomer { width: 150px; }
+.orderTableWrap.compactTable col.colItems { width: 195px; }
+.orderTableWrap.compactTable col.colStatus { width: 130px; }
+.orderTableWrap.compactTable col.colMoney { width: 145px; }
+.orderTableWrap.compactTable col.colActions { width: 145px; }
+.adminContent .orderTableWrap.compactTable .orderTable td { padding: 8px 10px; }
+.adminContent .orderTableWrap.compactTable .orderTable th { padding: 8px 10px; }
 
 .adminContent .orderTable th {
   padding: 12px 14px;
@@ -13315,6 +13360,19 @@ html {
 .orderTable tr.orderRow.isExpanded .orderCellActions { background: #f7faf7; }
 
 /* --- order cell ----------------------------------------------------------- */
+/* --- order cell ----------------------------------------------------------- */
+.orderIdLink {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  display: block;
+}
+.orderIdLink:hover .orderRef {
+  color: var(--forest);
+  text-decoration: underline;
+}
 .orderRef {
   display: block;
   color: #12301f;
@@ -13324,14 +13382,24 @@ html {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.orderMetaSub {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+.orderDateText {
+  color: #64748b;
+  font-size: 10.5px;
+}
 .orderSourceTag,
 .orderTrackingTag {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   max-width: 100%;
-  margin-top: 5px;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border: 1px solid transparent;
   border-radius: 999px;
   font-size: 10px;
@@ -13347,9 +13415,11 @@ html {
 .orderSourceTag.tone-violet { background: #f5f2fd; color: #5b34a6; border-color: #ddd3f6; }
 .orderSourceTag.tone-blue { background: #eff5fd; color: #1f4f96; border-color: #cbdcf4; }
 .orderSourceTag.tone-slate { background: #f2f5f2; color: #4d5c53; border-color: #dee5df; }
-.orderTrackingTag { display: flex; background: #eff5fd; color: #1f4f96; border-color: #cbdcf4; font-weight: 700; }
+.orderTrackingTag { display: inline-flex; background: #eff5fd; color: #1f4f96; border-color: #cbdcf4; font-weight: 700; text-decoration: none; }
+.orderTrackingTag:hover { background: #dbeafe; }
 
 /* --- customer cell -------------------------------------------------------- */
+.orderCustomerLine { display: flex; align-items: center; gap: 6px; }
 .orderCustomerName {
   display: block;
   color: #12301f;
@@ -13359,15 +13429,16 @@ html {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.orderContactLine { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-.orderPhone { color: #52645a; font-size: 11px; font-variant-numeric: tabular-nums; }
+.orderLocationSub { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 11px; flex-wrap: wrap; }
+.orderCityTag { color: #475569; font-weight: 600; }
+.orderPhoneSmall { color: #64748b; font-size: 10.5px; font-variant-numeric: tabular-nums; }
 .orderWhatsappTag {
-  padding: 1px 7px;
+  padding: 1px 6px;
   border: 1px solid #c3e9d1;
   border-radius: 999px;
   background: #eefaf1;
   color: #146c3c;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 750;
   text-decoration: none;
   white-space: nowrap;
@@ -13375,7 +13446,62 @@ html {
 .orderWhatsappTag:hover { background: #ddf4e4; }
 .orderMetaLine { display: block; margin-top: 4px; color: #6d7d73; font-size: 11px; }
 
-/* --- items cell ----------------------------------------------------------- */
+/* --- items cell (clean summary) ------------------------------------------- */
+.orderArticleSummary { display: flex; flex-direction: column; gap: 3px; }
+.orderPrimaryItemLine { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; }
+.orderItemPrimaryName {
+  font-weight: 750;
+  color: #1c3226;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 145px;
+}
+.orderItemMetaChips { display: flex; align-items: center; gap: 5px; margin-top: 2px; flex-wrap: wrap; }
+.orderMoreItemsTag {
+  font-size: 9.5px;
+  font-weight: 750;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.orderMoreItemsTag:hover { background: #e2e8f0; }
+.orderNoteChip {
+  font-size: 9.5px;
+  font-weight: 750;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.orderNoteChip:hover { background: #fde68a; }
+.orderMutedText { color: #94a3b8; font-size: 11.5px; font-style: italic; }
+.orderSizeTag {
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #eaf1fb;
+  color: #1f4f96;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  display: inline-block;
+}
+.orderSizeTag.isCustom {
+  background: #eaf1fb;
+  color: #1f4f96;
+}
+.orderItemQty { color: #146c3c; font-size: 11px; font-weight: 800; white-space: nowrap; }
 .orderItemList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
 .orderItemList li { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: 12px; }
 .orderItemName {
@@ -13384,37 +13510,21 @@ html {
   font-weight: 700;
   overflow-wrap: anywhere;
 }
-.orderSizeTag {
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: #eaf1fb;
-  color: #1f4f96;
-  font-size: 10px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-.orderSizeTag.isCustom { background: #fdf3dc; color: #8a6208; }
 .orderItemColor { color: #6d7d73; font-size: 11px; }
-.orderItemQty { color: #146c3c; font-size: 11px; font-weight: 800; white-space: nowrap; }
-.orderNotePreview {
-  margin: 8px 0 0;
-  padding: 6px 9px;
-  border: 1px solid #f0e0ab;
-  border-left: 3px solid #d9a919;
-  border-radius: 6px;
-  background: #fdfaee;
-  color: #7a5a10;
-  font-size: 11px;
-  line-height: 1.4;
-  /* Long tailor notes stay two lines: no cell-height blowout, no clipping
-     mid-glyph, and the full text is on the title attribute. */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+
+/* --- courier status block ------------------------------------------------- */
+.orderStatusBlock { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.orderMutedTracking { font-size: 10px; color: #94a3b8; }
+.orderUnconfirmedChip {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #b45309;
+  background: #fef3c7;
+  border-radius: 4px;
+  padding: 1px 5px;
 }
 
-/* --- money cell ----------------------------------------------------------- */
+/* --- money cell & payment pills ------------------------------------------- */
 .orderTotalValue {
   display: block;
   color: #12301f;
@@ -13422,6 +13532,22 @@ html {
   font-weight: 850;
   font-variant-numeric: tabular-nums;
 }
+.orderPaymentSub { display: flex; align-items: center; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
+.orderPaymentPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 750;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.orderPaymentPill.prepaid { background: #dcfce7; color: #166534; }
+.orderPaymentPill.partial { background: #eff6ff; color: #1e40af; }
+.orderPaymentPill.partial small { color: #3b82f6; font-weight: 600; }
+.orderPaymentPill.cod { background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; }
+
 .orderMoneyLine { display: block; margin-top: 4px; font-size: 11px; font-weight: 700; }
 .orderMoneyLine.isPaid { color: #157347; }
 .orderMoneyLine.isMuted { color: #7c8a81; font-weight: 600; }
@@ -13549,6 +13675,23 @@ html {
 .orderExpandedMoney dd.isDue { color: #1c4a8c; font-size: 14px; }
 .orderExpandedMoney dd.isPrepaid { color: #146c3c; font-size: 14px; }
 .orderExpandedNotes { justify-content: space-between; }
+.orderExpandedNoteBox {
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-left: 3px solid #f59e0b;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #78350f;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.orderExpandedPhone {
+  color: #475569;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  margin: 2px 0 0;
+}
 .orderExpandedNoteBody {
   padding: 9px 11px;
   border: 1px solid #f0e0ab;

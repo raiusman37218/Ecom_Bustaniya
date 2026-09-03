@@ -192,13 +192,13 @@ async function createCheckoutOrderDirect({ customer, items, paymentAmounts, paym
     status: "pending",
     courier_status: "pending",
     payment_method: paymentAmounts.paymentMethod,
-    payment_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting Payment" : "COD Pending",
-    payment_proof_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting Payment" : "COD",
+    payment_status: paymentAmounts.amountPayableInAdvance > 0 ? "Advance Pending" : "COD Pending",
+    payment_proof_status: paymentAmounts.amountPayableInAdvance > 0 ? "Advance Pending" : "COD Pending",
     // Order confirmation is independent from payment proof. Customers may
     // place and confirm an order even when they have not transferred advance
     // funds yet; payment verification remains a separate operational status.
     order_confirmation_status: "Confirmed",
-    fulfillment_status: paymentAmounts.paymentMethod === "full_advance" ? "On hold" : "Unfulfilled",
+    fulfillment_status: paymentAmounts.amountPayableInAdvance > 0 ? "On hold" : "Unfulfilled",
     subtotal: paymentAmounts.productSubtotal,
     subtotal_pkr: paymentAmounts.productSubtotal,
     shipping_fee_pkr: paymentAmounts.deliveryCharges,
@@ -234,26 +234,8 @@ async function createCheckoutOrderDirect({ customer, items, paymentAmounts, paym
       size: item.size || null,
       color: item.color || null,
     })),
-    notes: [
-      paymentAmounts.paymentMethod === "full_advance"
-        ? "Order confirmed; full advance payment verification is tracked separately."
-        : "Cash on Delivery order placed and confirmed.",
-      `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment (Free Delivery)" : "Cash on Delivery (COD)"}.`,
-      `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
-      `Delivery charges: ${paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges}` : "Free"}.`,
-      `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
-      `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
-    ].join(" "),
-    internal_notes: [
-      paymentAmounts.paymentMethod === "full_advance"
-        ? "Order confirmed; full advance payment verification is tracked separately."
-        : "Cash on Delivery order placed and confirmed.",
-      `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment (Free Delivery)" : "Cash on Delivery (COD)"}.`,
-      `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
-      `Delivery charges: ${paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges}` : "Free"}.`,
-      `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
-      `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
-    ].join(" "),
+    notes: customer.notes?.trim() || null,
+    internal_notes: customer.notes?.trim() || null,
   };
 
   // Bustaniya has evolved through several order schemas. This inserts all
@@ -495,8 +477,8 @@ export async function POST(request) {
         subtotal_pkr: paymentAmounts.productSubtotal,
         shipping_fee_pkr: paymentAmounts.deliveryCharges,
         total_pkr: paymentAmounts.totalOrderValue,
-        payment_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting Payment" : "COD Pending",
-        payment_proof_status: paymentAmounts.paymentMethod === "full_advance" ? "Awaiting Payment" : "COD",
+        payment_status: paymentAmounts.amountPayableInAdvance > 0 ? "Advance Pending" : "COD Pending",
+        payment_proof_status: paymentAmounts.amountPayableInAdvance > 0 ? "Advance Pending" : "COD Pending",
         // Confirmation no longer waits for an advance transfer. Keep the
         // payment proof status above so finance can still verify it later.
         order_confirmation_status: "Confirmed",
@@ -506,32 +488,14 @@ export async function POST(request) {
         amount_payable_in_advance_pkr: paymentAmounts.amountPayableInAdvance,
         amount_payable_on_delivery_pkr: paymentAmounts.amountPayableOnDelivery,
         payment_details_snapshot: paymentDetails,
-        fulfillment_status: paymentAmounts.paymentMethod === "full_advance" ? "On hold" : "Unfulfilled",
+        fulfillment_status: paymentAmounts.amountPayableInAdvance > 0 ? "On hold" : "Unfulfilled",
         status: "pending",
         courier_status: "pending",
         // Older Bustaniya schemas already have internal notes. Retain the
         // payment snapshot there too when the newer dedicated columns are not
         // installed, so the admin still has a complete verification record.
-        internal_notes: [
-          paymentAmounts.paymentMethod === "full_advance"
-            ? "Order confirmed; full advance payment verification is tracked separately."
-            : "Cash on Delivery order placed and confirmed.",
-          `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment (Free Delivery)" : "Cash on Delivery (COD)"}.`,
-          `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
-          `Delivery charges: ${paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges}` : "Free"}.`,
-          `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
-          `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
-        ].join(" "),
-        notes: [
-          paymentAmounts.paymentMethod === "full_advance"
-            ? "Order confirmed; full advance payment verification is tracked separately."
-            : "Cash on Delivery order placed and confirmed.",
-          `Method: ${paymentAmounts.paymentMethod === "full_advance" ? "Full advance payment (Free Delivery)" : "Cash on Delivery (COD)"}.`,
-          `Product subtotal: Rs. ${paymentAmounts.productSubtotal}.`,
-          `Delivery charges: ${paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges}` : "Free"}.`,
-          `Pay now: Rs. ${paymentAmounts.amountPayableInAdvance}.`,
-          `Pay on delivery: Rs. ${paymentAmounts.amountPayableOnDelivery}.`,
-        ].join(" "),
+        internal_notes: customer.notes?.trim() || null,
+        notes: customer.notes?.trim() || null,
       });
 
     const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "";

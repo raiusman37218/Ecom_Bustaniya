@@ -1200,7 +1200,7 @@ export default function AdminDashboard() {
         const orderItems = Array.isArray(order.items) && order.items.length
           ? order.items
           : (Array.isArray(order.order_items) && order.order_items.length ? order.order_items : []);
-        const orderNotes = order.internal_notes || order.notes || "";
+        const orderNotes = cleanUserNote(order.internal_notes || order.notes || "");
 
         return {
           rawId: order.id,
@@ -1224,21 +1224,38 @@ export default function AdminDashboard() {
           paymentReference: order.payment_reference || "",
           confirmationStatus: "Confirmed",
           paymentDetails: order.payment_details_snapshot || {},
-          status: formatOrderStatus(order.courier_normalized_status || order.courier_status || order.status || "pending"),
-          postexStatus: formatOrderStatus(order.courier_status || order.status || "pending"),
-          courierRawStatus: order.courier_raw_status || order.courier_status || "",
-          courierNormalizedStatus: order.courier_normalized_status || "unassigned",
-          courierServiceType: order.courier_service_type || "",
-          paymentStatus: order.payment_proof_status || order.payment_status || "Awaiting Payment",
-          fulfillmentStatus: order.fulfillment_status || (order.courier_tracking_number || order.tracking_number ? "Booked with PostEx" : "Unfulfilled"),
-          tracking: order.courier_tracking_number || order.tracking_number || "",
+          ...(() => {
+            const rawStatus = String(order.status || "").trim();
+            const rawCourierStatus = String(order.courier_status || "").trim();
+            const rawTracking = String(order.courier_tracking_number || order.tracking_number || "").trim();
+            const isExplicitUnbooked = rawStatus.toLowerCase().includes("unbook") || rawCourierStatus.toLowerCase().includes("unbook") || rawStatus.toLowerCase().includes("unassigned") || rawCourierStatus.toLowerCase().includes("unassigned");
+            const hasRealTracking = Boolean(rawTracking && !rawTracking.startsWith("MANUAL-"));
+
+            const resolvedStatus = isExplicitUnbooked
+              ? "Unbooked"
+              : formatOrderStatus(order.courier_status || order.status || order.courier_normalized_status || "pending");
+            const resolvedPostexStatus = isExplicitUnbooked
+              ? "Unbooked"
+              : formatOrderStatus(order.courier_status || order.status || "pending");
+
+            return {
+              status: resolvedStatus,
+              postexStatus: resolvedPostexStatus,
+              courierRawStatus: isExplicitUnbooked ? "Unbooked" : (order.courier_raw_status || order.courier_status || ""),
+              courierNormalizedStatus: isExplicitUnbooked ? "unassigned" : (order.courier_normalized_status || "unassigned"),
+              courierServiceType: order.courier_service_type || "",
+              paymentStatus: formatPaymentStatus(order.payment_proof_status || order.payment_status || "", { advance, total }),
+              fulfillmentStatus: isExplicitUnbooked ? "Unfulfilled" : (order.fulfillment_status || (hasRealTracking ? "Booked with PostEx" : "Unfulfilled")),
+              tracking: hasRealTracking ? rawTracking : "",
+            };
+          })(),
           phone: order.shipping_phone || order.guest_phone || "",
           address: [order.shipping_address || order.shipping_line1, order.shipping_city, order.shipping_postal_code].filter(Boolean).join(", "),
           email: order.customer_email || order.guest_email || "",
           items: orderItems,
           order_items: orderItems,
           notes: orderNotes,
-          internalNotes: order.internal_notes || orderNotes,
+          internalNotes: orderNotes,
           source: detectedSource,
           deliveryMethod: detectedDeliveryMethod,
           tags: tagsList,
@@ -2822,21 +2839,14 @@ function isReturnedOrder(order) {
 const orderCategoryLabels = [
   "Total Orders",
   "Unbooked",
-  "Cancelled",
-  "Booked",
-  "PostEx Warehouse",
+  "In Courier",
   "Out For Delivery",
   "Delivered",
-  "Attempted",
-  "Out For Return",
   "Returned",
-  "Delivery Under Review",
-  "Transferred",
-  "Un-Assigned By Me",
+  "Cancelled",
 ];
 
 const customOrderStatusOptions = [
-  "Un-Assigned By Me",
   "Unbooked",
   "Booked",
   "PostEx Warehouse",
@@ -2853,6 +2863,7 @@ const customOrderStatusOptions = [
   "Manual Delivery",
   "On Hold",
   "Cancelled",
+  "Un-Assigned By Me",
 ];
 
 const returnWorkflowTransitions = {
@@ -2868,6 +2879,45 @@ const returnWorkflowTransitions = {
   Closed: ["Closed"],
 };
 
+function cleanUserNote(rawNote = "") {
+  if (!rawNote || typeof rawNote !== "string") return "";
+  const lines = rawNote.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const genuine = [];
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+    const isBoilerplate =
+      lower.startsWith("payment option:") ||
+      lower.startsWith("payment status:") ||
+      lower.startsWith("advance received:") ||
+      lower.startsWith("pay on delivery:") ||
+      lower.startsWith("source:") ||
+      lower.startsWith("delivery:") ||
+      lower.startsWith("postex:") ||
+      lower.startsWith("method:") ||
+      lower.startsWith("product subtotal:") ||
+      lower.startsWith("delivery charges:") ||
+      lower.startsWith("pay now:") ||
+      lower.includes("checkout payment verification pending") ||
+      lower.includes("order confirmed; full advance payment verification") ||
+      lower.includes("cash on delivery order placed and confirmed");
+    if (!isBoilerplate) genuine.push(line);
+  }
+  return genuine.join("\n").trim();
+}
+
+function formatPaymentStatus(value = "", { advance = 0, total = 0 } = {}) {
+  const s = String(value || "").trim().toLowerCase();
+  if (s === "paid" || s.includes("full paid") || s.includes("fully paid") || (total > 0 && advance >= total && advance > 0)) return "Paid";
+  if (s.includes("reject") || s.includes("decline") || s.includes("fail")) return "Payment Rejected";
+  if (s.includes("refund")) return "Refunded";
+  if (s.includes("verif") && !s.includes("await") && !s.includes("due") && !s.includes("pending")) return "Payment Verified";
+  if (s.includes("proof") || s.includes("submitted") || s.includes("due")) return "Proof Submitted";
+  if (s.includes("advance") || advance > 0) return "Advance Pending";
+  if (s.includes("cod")) return "COD Pending";
+  if (s.includes("awaiting")) return advance > 0 ? "Advance Pending" : "COD Pending";
+  return "COD Pending";
+}
+
 function normalizePostexCategory(value = "") {
   const normalized = String(value || "Unbooked")
     .toLowerCase()
@@ -2879,18 +2929,50 @@ function normalizePostexCategory(value = "") {
   if (!normalized) return "Unbooked";
   if (["all", "total", "total orders"].includes(normalized)) return "Total Orders";
   if (normalized.includes("cancel") || normalized.includes("expire") || normalized.includes("void")) return "Cancelled";
-  if (normalized.includes("unbook") || normalized.includes("pending") || normalized.includes("draft")) return "Unbooked";
+  if (normalized.includes("unbook") || normalized.includes("unassigned") || normalized.includes("un assigned") || normalized.includes("pending") || normalized.includes("draft")) return "Unbooked";
   if (normalized.includes("warehouse")) return "PostEx Warehouse";
   if (normalized.includes("out for delivery")) return "Out For Delivery";
   if (normalized.includes("out for return")) return "Out For Return";
   if (normalized.includes("under review") || normalized.includes("review")) return "Delivery Under Review";
-  if (normalized.includes("un assigned") || normalized.includes("unassigned")) return "Un-Assigned By Me";
   if (normalized.includes("attempt")) return "Attempted";
   if (normalized.includes("return")) return "Returned";
   if (normalized.includes("deliver") || normalized.includes("complete")) return "Delivered";
   if (normalized.includes("transfer")) return "Transferred";
   if (normalized.includes("book")) return "Booked";
   return "Unbooked";
+}
+
+function orderMatchesCategory(order, tab) {
+  const rawStatus = String(order.status || "").toLowerCase();
+  const rawPostex = String(order.postexStatus || "").toLowerCase();
+  const isUnbooked = rawStatus.includes("unbook") || rawPostex.includes("unbook") || rawStatus.includes("unassigned") || rawPostex.includes("unassigned") || (!order.tracking && (rawStatus.includes("pending") || rawStatus === ""));
+
+  if (tab === "Total Orders") return true;
+  if (tab === "Advance Paid") return Number(order.amountPayableInAdvance || 0) > 0;
+  if (tab === "Unbooked") return isUnbooked;
+
+  // If order is explicitly unbooked, it NEVER matches In Courier or Delivered
+  if (isUnbooked) return false;
+
+  const category = normalizePostexCategory(order.postexStatus || order.status);
+
+  if (tab === "In Courier") {
+    return ["Booked", "PostEx Warehouse", "Transferred", "Rider Assigned", "In-Transit"].includes(category) || (Boolean(order.tracking) && !["Delivered", "Returned", "Out For Delivery", "Attempted", "Cancelled"].includes(category));
+  }
+  if (tab === "Out For Delivery") {
+    return ["Out For Delivery", "Attempted"].includes(category);
+  }
+  if (tab === "Delivered") {
+    return category === "Delivered";
+  }
+  if (tab === "Returned") {
+    return ["Returned", "Out For Return"].includes(category);
+  }
+  if (tab === "Cancelled") {
+    return category === "Cancelled";
+  }
+
+  return category === tab;
 }
 
 function isPendingCodOrder(order) {
@@ -3094,7 +3176,7 @@ function createDraftOrderFromForm(form, products = []) {
   );
   const amountPayableOnDelivery = Math.max(0, total - advancePaid);
   const deliveryMethod = String(form.get("deliveryMethod") || "Rider / same city").trim();
-  const status = String(form.get("status") || "Un-Assigned By Me").trim();
+  const status = String(form.get("status") || "Unbooked").trim();
   const source = String(form.get("source") || "Manual").trim();
   const now = new Date();
   const notes = String(form.get("notes") || "").trim();
@@ -3170,13 +3252,13 @@ function formatSavedCustomOrder(order, fallback = {}) {
     amountPayableOnDelivery,
     paymentMethod,
     paymentOption: normalizedPaymentMethod,
-    status: formatOrderStatus(order?.courier_status || order?.status || fallback.status || "Un-Assigned By Me"),
-    postexStatus: formatOrderStatus(order?.courier_status || order?.status || fallback.postexStatus || "Un-Assigned By Me"),
+    status: formatOrderStatus(order?.courier_status || order?.status || fallback.status || "Unbooked"),
+    postexStatus: formatOrderStatus(order?.courier_status || order?.status || fallback.postexStatus || "Unbooked"),
     paymentStatus: order?.payment_proof_status || order?.payment_status || fallback.paymentStatus || "Awaiting Payment",
     confirmationStatus: "Confirmed",
     paymentReference: order?.payment_reference || fallback.paymentReference || "",
-    fulfillmentStatus: order?.fulfillment_status || fallback.fulfillmentStatus || "Manual delivery",
-    tracking: order?.courier_tracking_number || order?.tracking_number || fallback.tracking || "",
+    fulfillmentStatus: order?.fulfillment_status || fallback.fulfillmentStatus || "Unfulfilled",
+    tracking: (order?.courier_tracking_number && !String(order.courier_tracking_number).startsWith("MANUAL-")) ? order.courier_tracking_number : (fallback.tracking || ""),
     phone: order?.shipping_phone || order?.guest_phone || fallback.phone || "",
     address: [order?.shipping_address, order?.shipping_city, order?.shipping_postal_code].filter(Boolean).join(", ") || fallback.address || "",
     items: orderItems,
@@ -3216,172 +3298,92 @@ function generateBulkOrdersPdf({ orders = [], type = "stitching" }) {
   let htmlContent = "";
 
   if (type === "stitching") {
-    // Specialized Stitching Unit Production Job Cards (1 A4 Card per Order)
+    // Professional, Brief Workshop Stitching Slip
     htmlContent = orders.map((order, orderIndex) => {
       const items = normalizeOrderItems(order);
-      const totalSuits = items.reduce((sum, it) => sum + Number(it.quantity || 1), 0);
-      const notesText = (order.notes || order.internalNotes || "").trim();
+      const customNotes = (order.notes || order.internalNotes || "").trim();
 
       const itemsHtml = items.map((item, itIdx) => {
         const qty = Number(item.quantity || 1);
-        const rawSize = String(item.size || "Custom").trim();
-        const rawColor = String(item.color || "Standard / As Picture").trim();
-        const sku = String(item.sku || "").trim();
-        const isCustom = !["XS", "S", "M", "L", "XL", "XXL", "Free Size"].includes(rawSize) || rawSize.toLowerCase().includes("custom");
+        const rawSize = String(item.size || "Standard").trim();
+        const isCustom = !rawSize || rawSize.toLowerCase().includes("custom") || rawSize.toUpperCase() === "C" || isCustomItemSize(rawSize);
+        const displaySize = isCustom ? "C (Custom)" : rawSize;
+        const articleNo = item.articleNumber || item.article_number || item.sku || (item.id && !String(item.id).startsWith("manual") ? `BST-${item.id}` : "—");
+        const colorText = item.color ? String(item.color).trim() : "";
 
         return `
-          <div class="stitchingItemCard">
-            <div class="itemTitleBar">
-              <div style="flex:1;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                  <span class="itemBadge">SUIT #${itIdx + 1}</span>
-                  ${sku ? `<span class="skuPill">SKU: ${escapeHtml(sku)}</span>` : ""}
-                </div>
-                <h2 class="suitName">${escapeHtml(item.name || item.title)}</h2>
+          <div class="stitchingArticleRow">
+            <div class="articleDetails">
+              <div class="articleTitleRow">
+                <span class="articleIndex">#${itIdx + 1}</span>
+                <span class="articleName">${escapeHtml(item.name || item.title)}</span>
               </div>
-              <div class="sizeHighlightBadge ${isCustom ? 'customSizeBadge' : ''}">
-                <span class="sizeLabel">${isCustom ? 'CUSTOM SIZE' : 'STITCHING SIZE'}</span>
-                <b class="sizeValue">${escapeHtml(rawSize)}</b>
+              <div class="articleMetaRow">
+                <span class="articleMetaItem"><b>Article No:</b> ${escapeHtml(articleNo)}</span>
+                ${colorText ? `<span class="articleMetaItem"><b>Color:</b> ${escapeHtml(colorText)}</span>` : ""}
+                ${qty > 1 ? `<span class="articleMetaItem"><b>Qty:</b> ${qty}</span>` : ""}
               </div>
             </div>
-
-            <div class="suitSpecsGrid">
-              <div class="specBox">
-                <span class="specLabel">Color / Fabric:</span>
-                <b class="specValue">${escapeHtml(rawColor)}</b>
-              </div>
-              <div class="specBox">
-                <span class="specLabel">Quantity to Stitch:</span>
-                <b class="specValue" style="color:#166534;font-size:15px;">${qty} Suit${qty > 1 ? 's' : ''}</b>
-              </div>
-              <div class="specBox">
-                <span class="specLabel">Sizing Spec:</span>
-                <b class="specValue" style="color:${isCustom ? '#b45309' : '#1e40af'};">${isCustom ? '✂️ Custom Measurements' : '📏 Standard Pattern'}</b>
-              </div>
-            </div>
-
-            <div class="measurementsTableWrap">
-              <div class="measurementsHead">Standard Pattern Reference [Size: ${escapeHtml(rawSize)}]:</div>
-              <div class="measurementsGrid">
-                ${rawSize === "XS" ? `
-                  <div class="measItem"><span>Chest</span><b>18"</b></div>
-                  <div class="measItem"><span>Shirt Length</span><b>37"</b></div>
-                  <div class="measItem"><span>Shoulder</span><b>14"</b></div>
-                  <div class="measItem"><span>Sleeves</span><b>21"</b></div>
-                  <div class="measItem"><span>Waist</span><b>16"</b></div>
-                  <div class="measItem"><span>Trouser Length</span><b>37"</b></div>
-                ` : rawSize === "S" ? `
-                  <div class="measItem"><span>Chest</span><b>19"</b></div>
-                  <div class="measItem"><span>Shirt Length</span><b>38"</b></div>
-                  <div class="measItem"><span>Shoulder</span><b>14.5"</b></div>
-                  <div class="measItem"><span>Sleeves</span><b>21.5"</b></div>
-                  <div class="measItem"><span>Waist</span><b>17"</b></div>
-                  <div class="measItem"><span>Trouser Length</span><b>38"</b></div>
-                ` : rawSize === "M" ? `
-                  <div class="measItem"><span>Chest</span><b>20"</b></div>
-                  <div class="measItem"><span>Shirt Length</span><b>39"</b></div>
-                  <div class="measItem"><span>Shoulder</span><b>15"</b></div>
-                  <div class="measItem"><span>Sleeves</span><b>22"</b></div>
-                  <div class="measItem"><span>Waist</span><b>18.5"</b></div>
-                  <div class="measItem"><span>Trouser Length</span><b>38.5"</b></div>
-                ` : rawSize === "L" ? `
-                  <div class="measItem"><span>Chest</span><b>21.5"</b></div>
-                  <div class="measItem"><span>Shirt Length</span><b>40"</b></div>
-                  <div class="measItem"><span>Shoulder</span><b>15.5"</b></div>
-                  <div class="measItem"><span>Sleeves</span><b>22.5"</b></div>
-                  <div class="measItem"><span>Waist</span><b>20"</b></div>
-                  <div class="measItem"><span>Trouser Length</span><b>39"</b></div>
-                ` : rawSize === "XL" ? `
-                  <div class="measItem"><span>Chest</span><b>23"</b></div>
-                  <div class="measItem"><span>Shirt Length</span><b>40"</b></div>
-                  <div class="measItem"><span>Shoulder</span><b>16"</b></div>
-                  <div class="measItem"><span>Sleeves</span><b>22.5"</b></div>
-                  <div class="measItem"><span>Waist</span><b>21.5"</b></div>
-                  <div class="measItem"><span>Trouser Length</span><b>40"</b></div>
-                ` : rawSize === "XXL" ? `
-                  <div class="measItem"><span>Chest</span><b>24.5"</b></div>
-                  <div class="measItem"><span>Shirt Length</span><b>41"</b></div>
-                  <div class="measItem"><span>Shoulder</span><b>16.5"</b></div>
-                  <div class="measItem"><span>Sleeves</span><b>23"</b></div>
-                  <div class="measItem"><span>Waist</span><b>23"</b></div>
-                  <div class="measItem"><span>Trouser Length</span><b>40"</b></div>
-                ` : isCustom ? `
-                  <div style="grid-column: span 6; color:#92400e; font-weight:700; font-size:12px;">
-                    ✂️ Custom Measurements / Sizing Details Given in Master Instructions Box Below
-                  </div>
-                ` : `
-                  <div style="grid-column: span 6; color:#475569; font-size:12px;">
-                    Free Size / Standard Unstitched Pattern
-                  </div>
-                `}
-              </div>
+            <div class="articleSizeBox">
+              <span class="sizeLabel">SIZE</span>
+              <span class="sizeValue">${escapeHtml(displaySize)}</span>
             </div>
           </div>
         `;
       }).join("");
 
+      const isCustomOrder = items.some((it) => {
+        const s = String(it.size || "").trim();
+        return !s || s.toLowerCase().includes("custom") || s.toUpperCase() === "C" || isCustomItemSize(s);
+      }) || Boolean(customNotes);
+
       return `
         <div class="stitchingPage ${orderIndex < orders.length - 1 ? 'pageBreak' : ''}">
-          <!-- Slip Header -->
-          <header class="stitchingHeader">
-            <div class="brandCol">
-              <h1 class="brandLogo">BUSTANIYA</h1>
-              <span class="unitTitle">🧵 WORKSHOP STITCHING PRODUCTION SLIP</span>
+          <div class="stitchingSlipCard">
+            <!-- Header -->
+            <div class="slipHeader">
+              <div>
+                <span class="brandName">BUSTANIYA</span>
+                <span class="slipBadge">STITCHING SLIP</span>
+              </div>
+              <div class="orderIdBlock">
+                <span class="orderIdText">${escapeHtml(order.id)}</span>
+                <span class="orderDateText">${escapeHtml(order.date || "")}</span>
+              </div>
             </div>
-            <div class="orderMetaCol">
-              <div class="orderNumberBadge">${escapeHtml(order.id)}</div>
-              <div class="orderDateText"><b>Order Date:</b> ${escapeHtml(order.date || "")}</div>
-              <div class="orderSourceText"><b>Source:</b> ${escapeHtml(order.source || "Customer Order")}</div>
-            </div>
-          </header>
 
-          <!-- Customer & Destination Banner -->
-          <div class="customerStitchingBar">
-            <div class="custCol">
-              <span class="labelM">Customer Name:</span>
-              <b class="valM" style="font-size:15px;color:#0f172a;">${escapeHtml(order.customer || "—")}</b>
-              ${order.phone ? `<span class="subValM">📞 ${escapeHtml(order.phone)}</span>` : ""}
+            <!-- Customer & Order Details Bar -->
+            <div class="slipCustomerBar">
+              <div>
+                <span class="barLabel">Customer Name</span>
+                <b class="barValue">${escapeHtml(order.customer || "—")}</b>
+                ${order.phone ? `<span class="barPhone">📞 ${escapeHtml(order.phone)}</span>` : ""}
+              </div>
+              <div style="text-align:right;">
+                <span class="barLabel">Order ID</span>
+                <b class="barValue" style="color:#166534;">${escapeHtml(order.id)}</b>
+              </div>
             </div>
-            <div class="custCol">
-              <span class="labelM">Destination City:</span>
-              <b class="valM" style="font-size:14px;">📍 ${escapeHtml(order.city || "—")}</b>
+
+            <!-- Articles List -->
+            <div class="slipArticlesList">
+              ${itemsHtml}
             </div>
-            <div class="custCol">
-              <span class="labelM">Total Quantity:</span>
-              <b class="valM" style="color:#166534;font-size:16px;">${totalSuits} Suit${totalSuits > 1 ? 's' : ''}</b>
-            </div>
-            <div class="custCol">
-              <span class="labelM">Production Order:</span>
-              <b class="valM" style="color:#1e40af;">Made-to-Order Workshop</b>
+
+            <!-- Custom Instructions Section (ONLY SHOWN IF CUSTOM ORDER) -->
+            ${isCustomOrder && customNotes ? `
+              <div class="customInstructionsBox">
+                <div class="customInstructionsHead">✂️ CUSTOM STITCHING INSTRUCTIONS:</div>
+                <div class="customInstructionsBody">${escapeHtml(customNotes)}</div>
+              </div>
+            ` : ""}
+
+            <!-- Slip Footer -->
+            <div class="slipFooter">
+              <span>Bustaniya Production · ${escapeHtml(order.id)}</span>
+              <span>Printed: ${new Date().toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span>
             </div>
           </div>
-
-          <!-- Line Items Section -->
-          <div class="suitsSectionTitle">
-            <span>✂️ SUITS / ARTICLES SPECIFICATIONS</span>
-          </div>
-          ${itemsHtml}
-
-          <!-- Master Customization & Tailor Notes Callout Box -->
-          <div class="tailorNotesBox">
-            <div class="tailorNotesHead">
-              <b>⚠️ MASTER CUTTER &amp; TAILOR SPECIAL INSTRUCTIONS / CUSTOMIZATION:</b>
-            </div>
-            <div class="tailorNotesBody">
-              ${notesText ? `
-                <p class="customNotesContent">${escapeHtml(notesText)}</p>
-              ` : `
-                <p class="customNotesContent" style="color:#64748b;font-style:italic;font-weight:500;">
-                  No extra customization requested. Stitch as per standard brand pattern, neckline, and sizing specs.
-                </p>
-              `}
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <footer class="stitchingFooter">
-            <span>Bustaniya Production Management · Order <b>${escapeHtml(order.id)}</b> · Generated on ${new Date().toLocaleString("en-PK")}</span>
-          </footer>
         </div>
       `;
     }).join("");
@@ -3697,260 +3699,189 @@ function generateBulkOrdersPdf({ orders = [], type = "stitching" }) {
             break-after: page;
           }
           
-          /* Stitching Card Styles */
+          /* Brief & Professional Stitching Slip Styles */
           .stitchingPage {
-            padding: 20px 24px;
-            max-width: 820px;
+            padding: 16px;
+            max-width: 720px;
             margin: 0 auto;
           }
-          .stitchingHeader {
+          .stitchingSlipCard {
+            border: 2px solid #0f172a;
+            border-radius: 8px;
+            padding: 16px 20px;
+            background: #fff;
+            page-break-inside: avoid;
+          }
+          .slipHeader {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 3px solid #166534;
-            padding-bottom: 12px;
-            margin-bottom: 14px;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
           }
-          .brandLogo {
-            margin: 0;
-            font-size: 28px;
-            font-weight: 900;
-            letter-spacing: 0.08em;
-            color: #173d29;
-          }
-          .unitTitle {
-            display: inline-block;
-            font-size: 11px;
-            font-weight: 800;
-            color: #166534;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            background: #dcfce7;
-            padding: 3px 8px;
-            border-radius: 4px;
-            margin-top: 4px;
-          }
-          .orderNumberBadge {
+          .brandName {
             font-size: 22px;
             font-weight: 900;
-            color: #1e293b;
-            background: #f1f5f9;
-            border: 2px solid #cbd5e1;
-            padding: 4px 12px;
-            border-radius: 6px;
-            text-align: right;
-            display: inline-block;
-          }
-          .orderDateText {
-            font-size: 12px;
-            color: #475569;
-            margin-top: 4px;
-            text-align: right;
-          }
-          .orderSourceText {
-            font-size: 11px;
-            color: #64748b;
-            text-align: right;
-          }
-
-          .customerStitchingBar {
-            display: grid;
-            grid-template-columns: 1.4fr 1fr 1fr 1.2fr;
-            gap: 10px;
-            background: #f8fafc;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-          }
-          .custCol .labelM {
-            display: block;
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: #64748b;
-            font-weight: 700;
-            margin-bottom: 2px;
-          }
-          .custCol .valM {
-            font-size: 14px;
+            letter-spacing: 0.08em;
             color: #0f172a;
-            font-weight: 700;
           }
-          .custCol .subValM {
-            display: block;
+          .slipBadge {
+            display: inline-block;
+            margin-left: 10px;
             font-size: 11px;
-            color: #15803d;
-            font-weight: 600;
-            margin-top: 2px;
-          }
-
-          .suitsSectionTitle {
-            font-size: 13px;
             font-weight: 800;
             letter-spacing: 0.06em;
-            color: #1e293b;
-            margin-bottom: 10px;
-            border-left: 4px solid #166534;
-            padding-left: 8px;
-          }
-          .stitchingItemCard {
-            border: 2px solid #cbd5e1;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 14px;
-            background: #fff;
-          }
-          .itemTitleBar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px dashed #cbd5e1;
-            padding-bottom: 12px;
-            margin-bottom: 12px;
-            gap: 12px;
-          }
-          .itemBadge {
-            font-size: 10px;
-            font-weight: 800;
-            background: #1e293b;
-            color: #fff;
-            padding: 3px 7px;
-            border-radius: 4px;
-            display: inline-block;
-          }
-          .skuPill {
-            font-size: 11px;
-            font-weight: 600;
-            color: #64748b;
+            text-transform: uppercase;
             background: #f1f5f9;
-            padding: 2px 6px;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            padding: 2px 8px;
             border-radius: 4px;
-            border: 1px solid #e2e8f0;
+            vertical-align: middle;
           }
-          .suitName {
-            margin: 0;
+          .orderIdBlock {
+            text-align: right;
+          }
+          .orderIdText {
+            display: block;
             font-size: 20px;
             font-weight: 900;
             color: #0f172a;
-            line-height: 1.2;
           }
-          .sizeHighlightBadge {
-            background: #1e40af;
+          .orderDateText {
+            display: block;
+            font-size: 11px;
+            color: #64748b;
+          }
+          .slipCustomerBar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 8px 14px;
+            margin-bottom: 14px;
+          }
+          .barLabel {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            font-weight: 700;
+          }
+          .barValue {
+            font-size: 15px;
+            color: #0f172a;
+          }
+          .barPhone {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 12px;
+            color: #2563eb;
+            font-weight: 600;
+          }
+          .slipArticlesList {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 14px;
+          }
+          .stitchingArticleRow {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 10px 14px;
+            background: #fff;
+          }
+          .articleDetails {
+            flex: 1;
+          }
+          .articleTitleRow {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+          }
+          .articleIndex {
+            font-size: 11px;
+            font-weight: 800;
+            background: #0f172a;
             color: #fff;
-            padding: 8px 16px;
-            border-radius: 8px;
-            text-align: center;
-            min-width: 110px;
-            box-shadow: 0 2px 4px rgba(30, 64, 175, 0.15);
+            padding: 1px 6px;
+            border-radius: 3px;
           }
-          .customSizeBadge {
-            background: #b45309 !important;
-            box-shadow: 0 2px 4px rgba(180, 83, 9, 0.15);
+          .articleName {
+            font-size: 16px;
+            font-weight: 800;
+            color: #0f172a;
+          }
+          .articleMetaRow {
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+            color: #475569;
+            flex-wrap: wrap;
+          }
+          .articleMetaItem {
+            background: #f1f5f9;
+            padding: 2px 7px;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+          }
+          .articleSizeBox {
+            text-align: center;
+            background: #eaf1fb;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 6px 14px;
+            min-width: 80px;
           }
           .sizeLabel {
             display: block;
             font-size: 9px;
-            letter-spacing: 0.08em;
-            opacity: 0.95;
-            font-weight: 700;
+            font-weight: 800;
+            color: #1e40af;
+            letter-spacing: 0.05em;
           }
           .sizeValue {
-            font-size: 22px;
+            display: block;
+            font-size: 16px;
             font-weight: 900;
-            letter-spacing: 0.05em;
+            color: #1e40af;
           }
-
-          .suitSpecsGrid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            background: #f1f5f9;
-            padding: 10px 14px;
-            border-radius: 6px;
-            margin-bottom: 12px;
-          }
-          .specBox .specLabel {
-            display: block;
-            font-size: 10px;
-            color: #64748b;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-          }
-          .specBox .specValue {
-            font-size: 14px;
-            color: #0f172a;
-            font-weight: 700;
-          }
-
-          .measurementsTableWrap {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 10px 14px;
-            font-size: 12px;
-          }
-          .measurementsHead {
-            font-weight: 800;
-            color: #334155;
-            margin-bottom: 8px;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-          }
-          .measurementsGrid {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 8px;
-            color: #334155;
-          }
-          .measItem {
-            background: #fff;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            padding: 6px 8px;
-            text-align: center;
-          }
-          .measItem span {
-            display: block;
-            font-size: 10px;
-            color: #64748b;
-            margin-bottom: 2px;
-          }
-          .measItem b {
-            font-size: 13px;
-            color: #0f172a;
-          }
-
-          .tailorNotesBox {
+          .customInstructionsBox {
             background: #fefce8;
-            border: 2px solid #eab308;
-            border-radius: 8px;
-            padding: 14px 18px;
-            margin: 16px 0;
+            border: 1.5px solid #facc15;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 14px;
           }
-          .tailorNotesHead b {
-            font-size: 12px;
+          .customInstructionsHead {
+            font-size: 11px;
+            font-weight: 800;
             color: #854d0e;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
+            margin-bottom: 4px;
           }
-          .customNotesContent {
-            margin: 8px 0 0 0;
-            font-size: 14px;
+          .customInstructionsBody {
+            font-size: 13px;
             font-weight: 700;
             color: #713f12;
-            line-height: 1.5;
+            line-height: 1.4;
             white-space: pre-wrap;
           }
-
-          .stitchingFooter {
-            margin-top: 20px;
+          .slipFooter {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #94a3b8;
             border-top: 1px dashed #cbd5e1;
             padding-top: 8px;
-            text-align: center;
-            font-size: 11px;
-            color: #64748b;
           }
 
           /* Batch Cut Sheet Styles */
@@ -4208,6 +4139,41 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
   }, [connected, rows]);
 
   useEffect(() => {
+    if (!connected) return;
+    let isMounted = true;
+    async function autoSyncPostex() {
+      try {
+        const res = await fetch("/api/admin/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "sync_postex" }),
+        });
+        const data = await res.json();
+        if (isMounted && data?.updatedCount > 0) {
+          onRetry?.();
+        }
+      } catch {
+        // Silently ignore background polling blips
+      }
+    }
+
+    const initialTimer = setTimeout(autoSyncPostex, 3000);
+    const intervalTimer = setInterval(autoSyncPostex, 45000);
+
+    function onFocus() {
+      autoSyncPostex();
+    }
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(initialTimer);
+      clearInterval(intervalTimer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [connected, onRetry]);
+
+  useEffect(() => {
     if (!initialSelectedId) return;
     const cleanTarget = String(initialSelectedId).trim().toLowerCase().replace(/^#/, "");
     const match = allRows.find((order) => {
@@ -4227,7 +4193,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       label,
       count: label === "Total Orders"
         ? allRows.length
-        : allRows.filter((order) => normalizePostexCategory(order.postexStatus || order.status) === label).length,
+        : allRows.filter((order) => orderMatchesCategory(order, label)).length,
     })),
     {
       label: "Advance Paid",
@@ -4240,14 +4206,9 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
   }, [activeTab]);
   const selectedOrder = allRows.find((order) => order.id === selectedId);
   const visibleRows = allRows.filter((order) => {
-    const statusLabel = normalizePostexCategory(order.postexStatus || order.status);
     const query = orderSearch.toLowerCase();
-    const matchesTab = activeTab === "Total Orders"
-      ? true
-      : activeTab === "Advance Paid"
-      ? Number(order.amountPayableInAdvance || 0) > 0
-      : statusLabel === activeTab;
-    const matchesSearch = [order.id, order.customer, order.city, order.tracking, order.phone, order.postexStatus, order.deliveryMethod, order.source]
+    const matchesTab = orderMatchesCategory(order, activeTab);
+    const matchesSearch = [order.id, order.customer, order.city, order.tracking, order.phone, order.postexStatus, order.status, order.deliveryMethod, order.source]
       .filter(Boolean)
       .join(" ")
       .toLowerCase()
@@ -4294,18 +4255,23 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
   }
 
   async function persistOrderUpdate(order, changes) {
+    const stage = changes.postexStatus || changes.status || "";
+    const isUnbook = stage.toLowerCase().includes("unbook");
+    const resolvedTracking = changes.tracking !== undefined ? changes.tracking : order.tracking;
     const response = await fetch("/api/admin/orders", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         orderId: order.rawId || order.raw?.id || order.id || order.order_number,
-        orderStage: changes.postexStatus || changes.status,
+        orderStage: stage,
+        status: stage,
         paymentStatus: changes.paymentStatus,
         paymentReference: changes.paymentReference,
         amountPayableInAdvance: changes.amountPayableInAdvance,
         confirmationStatus: changes.confirmationStatus,
-        fulfillmentStatus: changes.fulfillmentStatus,
-        tracking: changes.tracking,
+        fulfillmentStatus: isUnbook ? "Unfulfilled" : changes.fulfillmentStatus,
+        tracking: resolvedTracking,
+        deliveryMethod: changes.deliveryMethod,
         notes: changes.notes,
         tags: changes.tags,
         items: changes.items,
@@ -4316,11 +4282,13 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
     if (!response.ok) throw new Error(result?.error?.message || "Order changes could not be saved.");
     const nextChanges = {
       ...changes,
+      ...(isUnbook ? { fulfillmentStatus: "Unfulfilled", status: "Unbooked", postexStatus: "Unbooked" } : {}),
       ...(result.operation ? { operation: result.operation } : {}),
       ...(result.operation ? { operationEvents: [{ event_type: "order_operation_updated", new_value: { operation: result.operation }, created_at: new Date().toISOString() }, ...(order.operationEvents || [])] } : {}),
       ...(result.operationPersistence !== "saved" && result.operationPersistence !== "not_requested" ? { operationStorageAvailable: false } : {}),
     };
     updateLocalOrder(order.id, nextChanges);
+    onRetry?.();
     return nextChanges;
   }
 
@@ -4391,6 +4359,36 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
     }
   }
 
+  const [syncingPostex, setSyncingPostex] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
+
+  async function syncAllPostexOrders() {
+    setSyncingPostex(true);
+    setSyncMessage("");
+    try {
+      const response = await fetch("/api/admin/orders/sync-postex", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "PostEx status sync failed.");
+      await onRetry();
+      const updatedCount = result.updatedCount || 0;
+      const checkedCount = result.totalChecked || 0;
+      setSyncMessage(
+        updatedCount > 0
+          ? `Synced ${checkedCount} active order(s) with PostEx (${updatedCount} updated to latest live status).`
+          : `All ${checkedCount} active PostEx parcel(s) are already up-to-date.`
+      );
+      setTimeout(() => setSyncMessage(""), 7000);
+    } catch (err) {
+      window.alert(err.message || "Unable to sync with PostEx.");
+    } finally {
+      setSyncingPostex(false);
+    }
+  }
+
   async function exportOrders() {
     setExportingOrders(true);
     try {
@@ -4421,10 +4419,42 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
         <h1>Orders</h1>
         <span>PostEx status, custom admin orders, fulfillment, returns and team notes.</span>
       </div>
-      <button onClick={exportOrders} disabled={loading || exportingOrders || !canExport || !connected || !allRows.length} aria-busy={exportingOrders}>
-        {exportingOrders ? "Exporting..." : "Export orders"}
-      </button>
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={syncAllPostexOrders}
+          disabled={loading || syncingPostex || !connected}
+          aria-busy={syncingPostex}
+          className="adminSecondaryBtn"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            background: "#fff",
+            border: "1px solid #cbd5e1",
+            borderRadius: "6px",
+            padding: "8px 14px",
+            fontSize: "13px",
+            fontWeight: 700,
+            color: "#0f766e",
+            cursor: syncingPostex ? "not-allowed" : "pointer"
+          }}
+          title="Query PostEx tracking API for live status changes on all active parcels"
+        >
+          <RefreshCw size={14} className={syncingPostex ? "animate-spin" : ""} />
+          <span>{syncingPostex ? "Syncing PostEx..." : "🔄 Sync PostEx Status"}</span>
+        </button>
+        <button onClick={exportOrders} disabled={loading || exportingOrders || !canExport || !connected || !allRows.length} aria-busy={exportingOrders}>
+          {exportingOrders ? "Exporting..." : "Export orders"}
+        </button>
+      </div>
     </div>
+
+    {syncMessage && (
+      <div className="adminSuccessBanner" role="status" style={{ margin: "10px 0" }}>
+        ✅ {syncMessage}
+      </div>
+    )}
 
     {!loading && error && <div className="ordersConnect"><div><b>Orders could not be loaded.</b><span>{error}</span></div><button onClick={onRetry}>Retry</button></div>}
     {!loading && !connected && !error && <div className="ordersConnect"><div><b>Session expired</b><span>Please sign in again to view orders.</span></div></div>}
@@ -4554,11 +4584,11 @@ function orderPillTone(label) {
   if (label === "Total Orders") return "neutral";
   if (label === "Advance Paid") return "money";
   if (label === "Delivered") return "delivered";
-  if (label === "Booked" || label === "Transferred") return "booked";
+  if (label === "In Courier" || label === "Booked" || label === "Transferred") return "booked";
   if (label === "Unbooked" || label === "Un-Assigned By Me") return "unbooked";
   if (label === "Returned" || label === "Out For Return") return "returned";
   if (label === "Cancelled") return "cancelled";
-  if (label === "Attempted" || label === "Delivery Under Review") return "attention";
+  if (label === "Out For Delivery" || label === "Attempted" || label === "Delivery Under Review") return "attention";
   return "transit";
 }
 
@@ -6960,9 +6990,11 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
           <label>
             Payment Status
             <select name="paymentStatus" value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
-              <option>Awaiting Payment</option>
+              <option>COD Pending</option>
+              <option>Advance Pending</option>
               <option>Proof Submitted</option>
               <option>Payment Verified</option>
+              <option>Paid</option>
               <option>Payment Rejected</option>
             </select>
           </label>
@@ -6991,19 +7023,19 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
         <div className="formRow">
           <label>
             Delivery Method
-            <select name="deliveryMethod">
-              <option>PostEx</option>
-              <option>Rider / same city</option>
-              <option>Customer pickup</option>
-              <option>Staff delivery</option>
-              <option>Manual courier</option>
-              <option>PostEx later</option>
+            <select name="deliveryMethod" defaultValue="Rider / same city">
+              <option value="Rider / same city">Rider / same city</option>
+              <option value="PostEx later">PostEx later (Unbooked)</option>
+              <option value="PostEx">PostEx (Book courier dispatch now)</option>
+              <option value="Customer pickup">Customer pickup</option>
+              <option value="Staff delivery">Staff delivery</option>
+              <option value="Manual courier">Manual courier</option>
             </select>
           </label>
           <label>
             Order Status
-            <select name="status">
-              {customOrderStatusOptions.map((status) => <option key={status}>{status}</option>)}
+            <select name="status" defaultValue="Unbooked">
+              {customOrderStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
             </select>
           </label>
         </div>
@@ -7201,6 +7233,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   const [refundMethod, setRefundMethod] = useState(order.operation?.refundMethod || "");
   const [saving, setSaving] = useState(false);
   const [bookingPostex, setBookingPostex] = useState(false);
+  const [checkingPostex, setCheckingPostex] = useState(false);
   const [resyncingCapi, setResyncingCapi] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
@@ -7211,8 +7244,11 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   const restoringReturnedStock = order.operation?.returnStatus !== "Return received" && returnStatus === "Return received";
 
   useEffect(() => {
+    setTracking(order.tracking || "");
+    const initialStage = order.status || order.postexStatus || "Unbooked";
+    setOrderStage(initialStage);
     setOrderItems(normalizeOrderItems(order));
-  }, [order.id, order.rawId, order.order_number, JSON.stringify(order.items), JSON.stringify(order.order_items)]);
+  }, [order.id, order.rawId, order.order_number, order.tracking, order.status, order.postexStatus, JSON.stringify(order.items), JSON.stringify(order.order_items)]);
 
   function updateItemField(index, field, value) {
     setOrderItems((prev) => {
@@ -7438,6 +7474,43 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
     setTimeout(() => setCopiedTracking(false), 2000);
   }
 
+  async function checkLivePostexStatus() {
+    if (!tracking || tracking.startsWith("MANUAL-")) return;
+    setCheckingPostex(true);
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      const res = await fetch("/api/admin/orders/sync-postex", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.rawId || order.raw?.id || order.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not check PostEx status");
+      if (data.rawStatus) {
+        setOrderStage(data.rawStatus);
+        setSaveMessage(`✅ Live PostEx status: ${data.rawStatus}`);
+        await onUpdate(order, { postexStatus: data.rawStatus, status: data.rawStatus });
+      }
+    } catch (err) {
+      setSaveError(err.message || "Failed to check live PostEx status");
+    } finally {
+      setCheckingPostex(false);
+    }
+  }
+
+  async function unbookOrder() {
+    if (!window.confirm(`Are you sure you want to mark order ${order.id} status as Unbooked?`)) return;
+    setOrderStage("Unbooked");
+    setFulfillmentStatus("Unfulfilled");
+    await saveChanges({
+      status: "Unbooked",
+      postexStatus: "Unbooked",
+      orderStage: "Unbooked",
+      fulfillmentStatus: "Unfulfilled",
+    });
+  }
+
   function escapePrintText(value = "") {
     return String(value || "").replace(/[&<>"]/g, (char) => ({
       "&": "&amp;",
@@ -7448,13 +7521,13 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   }
 
   function printDocument({ title, subtitle, compact = false }) {
-    const total = orderMoney(order).total;
+    const total = preview.total;
     const rows = items.map((item) => {
       const quantity = Number(item.quantity || 0);
       const unitPrice = Number(item.price || 0);
       const lineTotal = quantity * unitPrice;
       return `<tr>
-        <td><b>${escapePrintText(item.name)}</b><small>${escapePrintText([item.sku, item.size, item.color].filter(Boolean).join(" / "))}</small></td>
+        <td><b>${escapePrintText(item.name || item.title)}</b><small>${escapePrintText([item.sku, item.size, item.color].filter(Boolean).join(" / "))}</small></td>
         <td>${quantity}</td>
         ${compact ? "" : `<td>Rs. ${unitPrice.toLocaleString()}</td><td>Rs. ${lineTotal.toLocaleString()}</td>`}
       </tr>`;
@@ -7534,7 +7607,37 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
             <h2>{order.id}</h2>
             <span>{order.customer} · Rs. {calculatedOrderTotal.toLocaleString()} · {order.date}</span>
           </div>
-          <button onClick={onClose} aria-label="Close details"><X /></button>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <button
+              type="button"
+              className="editProductButton"
+              onClick={() => saveChanges()}
+              disabled={saving}
+              style={{
+                background: "#166534",
+                color: "#fff",
+                border: "none",
+                fontWeight: 700,
+                padding: "8px 16px",
+                borderRadius: "6px",
+                fontSize: "12px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                cursor: saving ? "not-allowed" : "pointer"
+              }}
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                "💾 Save All Changes"
+              )}
+            </button>
+            <button onClick={onClose} aria-label="Close details"><X /></button>
+          </div>
         </header>
 
         <div className="orderDetailBody">
@@ -7548,7 +7651,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
               <div style={{ display: "flex", gap: "6px" }}>
                 {rawPhoneDigits && (
                   <a
-                    href={`https://wa.me/${waPhone}`}
+                    href={`https://wa.me/${waPhone}?text=${encodeURIComponent(`Assalam o Alaikum ${order.customer || ""}, this is regarding your order #${order.id || ""} from Bustaniya.`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -7590,7 +7693,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", fontSize: "13px", color: "#334155" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", fontSize: "13px", color: "#334155" }}>
               <div>
                 <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Customer Name</span>
                 <b>{order.customer}</b>
@@ -7601,8 +7704,14 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 <b>{order.phone || "No phone saved"}</b>
               </div>
               <div>
-                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>City &amp; Region</span>
+                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>City</span>
                 <b>📍 {order.city || "—"}</b>
+              </div>
+              <div>
+                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Order Channel / Source</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: "#f1f5f9", padding: "4px 8px", borderRadius: "6px", fontWeight: 600, fontSize: "12px" }}>
+                  {orderSourceBadge(order.source).icon} {orderSourceBadge(order.source).label}
+                </span>
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
                 <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Complete Delivery Address</span>
@@ -7695,27 +7804,46 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
           <section className="orderDetailGrid">
             <article className="adminCard orderDetailCard">
               <h3>Order Stage</h3>
-              <select value={orderStage} onChange={(event) => setOrderStage(event.target.value)}>
+              <select value={orderStage} onChange={(event) => {
+                const val = event.target.value;
+                setOrderStage(val);
+                const isUnbook = val.toLowerCase().includes("unbook");
+                if (isUnbook) {
+                  setFulfillmentStatus("Unfulfilled");
+                }
+                saveChanges({
+                  postexStatus: val,
+                  status: val,
+                  orderStage: val,
+                  ...(isUnbook ? { fulfillmentStatus: "Unfulfilled" } : {}),
+                });
+              }}>
                 {customOrderStatusOptions.map((status) => <option key={status}>{status}</option>)}
               </select>
             </article>
             <article className="adminCard orderDetailCard">
               <h3>Payment Status</h3>
-              <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
-                <option>Awaiting Payment</option>
+              <select value={paymentStatus} onChange={(event) => {
+                const val = event.target.value;
+                setPaymentStatus(val);
+                saveChanges({ paymentStatus: val });
+              }}>
+                <option>COD Pending</option>
+                <option>Advance Pending</option>
                 <option>Proof Submitted</option>
                 <option>Payment Verified</option>
-                <option>Payment Rejected</option>
-                <option>COD pending</option>
-                <option>Advance pending</option>
-                <option>Verification due</option>
                 <option>Paid</option>
+                <option>Payment Rejected</option>
                 <option>Refunded</option>
               </select>
             </article>
             <article className="adminCard orderDetailCard">
               <h3>Fulfillment</h3>
-              <select value={fulfillmentStatus} onChange={(event) => setFulfillmentStatus(event.target.value)}>
+              <select value={fulfillmentStatus} onChange={(event) => {
+                const val = event.target.value;
+                setFulfillmentStatus(val);
+                saveChanges({ fulfillmentStatus: val });
+              }}>
                 <option>Unfulfilled</option>
                 <option>Packing</option>
                 <option>Booked with PostEx</option>
@@ -7726,7 +7854,11 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
             </article>
             <article className="adminCard orderDetailCard">
               <h3>Delivery Method</h3>
-              <select value={deliveryMethod} onChange={(event) => setDeliveryMethod(event.target.value)}>
+              <select value={deliveryMethod} onChange={(event) => {
+                const val = event.target.value;
+                setDeliveryMethod(val);
+                saveChanges({ deliveryMethod: val });
+              }}>
                 <option>PostEx</option>
                 <option>Rider / same city</option>
                 <option>Customer pickup</option>
@@ -7737,7 +7869,18 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
             </article>
             <article className="adminCard orderDetailCard">
               <h3>Risk Level</h3>
-              <select value={risk} onChange={(event) => setRisk(event.target.value)}>
+              <select value={risk} onChange={(event) => {
+                const val = event.target.value;
+                setRisk(val);
+                const currentTags = tags.split(",").map((t) => t.trim()).filter(Boolean);
+                const cleanTags = currentTags.filter((t) => !t.toLowerCase().includes("risk") && t !== "Repeat customer");
+                if (val !== "Standard COD") {
+                  cleanTags.push(val);
+                }
+                const nextTagsStr = cleanTags.join(", ");
+                setTags(nextTagsStr);
+                saveChanges({ tags: cleanTags });
+              }}>
                 <option>Standard COD</option>
                 <option>High risk COD</option>
                 <option>Repeat customer</option>
@@ -7790,6 +7933,14 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 </button>
                 <button type="button" onClick={printInvoice} style={{ padding: "6px 10px", fontSize: "12px" }}>📄 Print Invoice</button>
                 <button type="button" onClick={printPackingSlip} style={{ padding: "6px 10px", fontSize: "12px" }}>📦 Packing Slip</button>
+                <button
+                  type="button"
+                  onClick={() => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
+                  style={{ padding: "6px 10px", fontSize: "12px" }}
+                  title="Print Stitching Slip for Workshop Tailor"
+                >
+                  🧵 Stitching Slip
+                </button>
               </div>
             </div>
 
@@ -7997,13 +8148,16 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
               <label>
                 Payment Proof Status
                 <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
-                  <option>Awaiting Payment</option>
+                  <option>COD Pending</option>
+                  <option>Advance Pending</option>
                   <option>Proof Submitted</option>
                   <option>Payment Verified</option>
+                  <option>Paid</option>
                   <option>Payment Rejected</option>
+                  <option>Refunded</option>
                 </select>
               </label>
-              <div style={{ display: "flex", gap: "6px", alignItems: "flex-end", paddingBottom: "2px" }}>
+              <div style={{ display: "flex", gap: "6px", alignItems: "flex-end", paddingBottom: "2px", flexWrap: "wrap" }}>
                 <button
                   type="button"
                   className="editProductButton"
@@ -8026,13 +8180,25 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 >
                   🔵 Set delivery advance (Rs. {(Math.min(deliveryChargeVal || 250, calculatedOrderTotal)).toLocaleString()})
                 </button>
+                <button
+                  type="button"
+                  className="editProductButton"
+                  style={{ fontSize: "11px", padding: "6px 10px", background: "#f8fafc", color: "#475569", border: "1px solid #cbd5e1" }}
+                  onClick={() => {
+                    setAdvancePaidAmount(0);
+                    setPaymentStatus("COD pending");
+                  }}
+                >
+                  ⚪ Rs. 0 (Full COD)
+                </button>
               </div>
             </div>
 
-            <div className="orderActionRow" style={{ marginTop: "12px" }}>
+            <div className="orderActionRow" style={{ marginTop: "12px", flexWrap: "wrap", gap: "8px" }}>
               <button
                 type="button"
                 onClick={() => saveChanges({
+                  paymentStatus,
                   paymentReference,
                   amountPayableInAdvance: Number(advancePaidAmount || 0),
                   confirmationStatus: "Confirmed",
@@ -8040,7 +8206,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 disabled={saving}
                 aria-busy={saving}
               >
-                Save Payment Details
+                💾 Save Payment Details
               </button>
               <button
                 type="button"
@@ -8155,27 +8321,106 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 </button>
               )}
               {tracking && (
-                <button
-                  type="button"
-                  onClick={() => saveChanges({ fulfillmentStatus: "Booked with PostEx", tracking })}
-                  disabled={saving}
-                  aria-busy={saving}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    cursor: saving ? "not-allowed" : "pointer"
-                  }}
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>Saving...</span>
-                    </>
+                <>
+                  <button
+                    type="button"
+                    onClick={checkLivePostexStatus}
+                    disabled={saving || checkingPostex}
+                    style={{
+                      background: "#0f766e",
+                      color: "#fff",
+                      border: "none",
+                      fontWeight: 700,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      cursor: (saving || checkingPostex) ? "not-allowed" : "pointer"
+                    }}
+                    title="Query PostEx tracking API for the real-time status of this order"
+                  >
+                    {checkingPostex ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Checking PostEx...</span>
+                      </>
+                    ) : (
+                      "🔄 Check Live Status"
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => saveChanges({ tracking })}
+                    disabled={saving || checkingPostex}
+                    aria-busy={saving}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      cursor: (saving || checkingPostex) ? "not-allowed" : "pointer"
+                    }}
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      "💾 Save Tracking"
+                    )}
+                  </button>
+                  {orderStage.toLowerCase().includes("unbook") ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOrderStage("Booked");
+                        setFulfillmentStatus("Booked with PostEx");
+                        saveChanges({
+                          status: "Booked",
+                          postexStatus: "Booked",
+                          orderStage: "Booked",
+                          fulfillmentStatus: "Booked with PostEx",
+                        });
+                      }}
+                      disabled={saving || checkingPostex}
+                      style={{
+                        background: "#f0fdf4",
+                        color: "#166534",
+                        border: "1px solid #bbf7d0",
+                        fontWeight: 700,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        cursor: (saving || checkingPostex) ? "not-allowed" : "pointer"
+                      }}
+                      title="Mark order as dispatched or handed over to PostEx courier rider"
+                    >
+                      🚚 Handed to Courier (Dispatched)
+                    </button>
+                  ) : !orderStage.toLowerCase().includes("deliver") ? (
+                    <button
+                      type="button"
+                      onClick={unbookOrder}
+                      disabled={saving || checkingPostex}
+                      style={{
+                        background: "#fef2f2",
+                        color: "#b91c1c",
+                        border: "1px solid #fecaca",
+                        fontWeight: 700,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        cursor: (saving || checkingPostex) ? "not-allowed" : "pointer"
+                      }}
+                      title="Move this order back to Unbooked (At Warehouse)"
+                    >
+                      ↩️ Mark as Unbooked (At Warehouse)
+                    </button>
                   ) : (
-                    "Save Tracking Number"
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#dcfce7", color: "#166534", padding: "6px 12px", borderRadius: "6px", fontWeight: 700, fontSize: "12px" }}>
+                      ✅ Delivered to Customer
+                    </span>
                   )}
-                </button>
+                </>
               )}
             </div>
           </section>
@@ -8314,7 +8559,7 @@ function orderSourceBadge(source = "") {
     || { label: "Storefront", icon: "🌐", tone: "slate" };
 }
 
-const STANDARD_ITEM_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "FREE SIZE"];
+const STANDARD_ITEM_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "FREE SIZE", "STD", "STANDARD"];
 
 function isCustomItemSize(size = "") {
   const value = String(size || "").trim().toUpperCase();
@@ -8346,18 +8591,14 @@ function OrderTable({
   return (
     <div className={`adminTableWrap orderTableWrap ${density === "compact" ? "compactTable" : ""}`}>
       <table className="adminTable orderTable">
-        {/* Eight fixed columns. The date sits with the order identity and the
-            tracking number with the courier status, which keeps the whole table
-            inside a normal admin viewport instead of hiding a column behind the
-            pinned actions cell. */}
         <colgroup>
           {selectable && <col className="colSelect" />}
           <col className="colOrder" />
           <col className="colCustomer" />
           <col className="colItems" />
-          <col className="colMoney" />
-          <col className="colPayment" />
+          <col className="colSize" style={{ width: "68px" }} />
           <col className="colStatus" />
+          <col className="colMoney" />
           <col className="colActions" />
         </colgroup>
         <thead>
@@ -8374,10 +8615,10 @@ function OrderTable({
             )}
             <th>Order</th>
             <th>Customer</th>
-            <th>Items &amp; notes</th>
-            <th>Amount &amp; advance</th>
-            <th>Payment</th>
-            <th>PostEx status</th>
+            <th>Articles</th>
+            <th style={{ textAlign: "center", width: "68px" }}>Size</th>
+            <th>Courier Status</th>
+            <th>Total &amp; Payment</th>
             <th className="orderCellActions">Actions</th>
           </tr>
         </thead>
@@ -8392,7 +8633,6 @@ function OrderTable({
             const source = orderSourceBadge(order.source);
             const statusLabel = order.postexStatus || order.status || "Unbooked";
             const statusKey = orderStatus(order).replaceAll(" ", "").replaceAll("-", "");
-            const paymentVerified = String(order.paymentStatus || "").toLowerCase().includes("verified");
             const rowClass = [
               "orderRow",
               isSelected ? "isSelected" : "",
@@ -8413,105 +8653,187 @@ function OrderTable({
                     </td>
                   )}
 
+                  {/* 1. Order ID & Date */}
                   <td>
-                    <span className="orderRef">{order.id}</span>
-                    <span className={`orderSourceTag tone-${source.tone}`}>
-                      <i aria-hidden="true">{source.icon}</i>{source.label}
-                    </span>
-                    <span className="orderMetaLine">{order.date}</span>
+                    <button
+                      type="button"
+                      className="orderIdLink"
+                      onClick={() => onSelect && onSelect(order)}
+                      title={`Open details for order ${order.id}`}
+                    >
+                      <span className="orderRef">{order.id}</span>
+                    </button>
+                    <div className="orderMetaSub">
+                      <span className="orderDateText">{order.date}</span>
+                    </div>
                   </td>
 
+                  {/* 2. Customer & Phone */}
                   <td>
-                    <span className="orderCustomerName">{order.customer}</span>
+                    <div className="orderCustomerLine">
+                      <span className="orderCustomerName" title={order.customer}>{order.customer}</span>
+                      {waPhone && (
+                        <a
+                          className="orderWhatsappTag"
+                          href={`https://wa.me/${waPhone}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Chat with ${order.customer} on WhatsApp`}
+                        >
+                          💬 WA
+                        </a>
+                      )}
+                    </div>
                     {order.phone && (
-                      <span className="orderContactLine">
-                        <span className="orderPhone">{order.phone}</span>
-                        {waPhone && (
-                          <a
-                            className="orderWhatsappTag"
-                            href={`https://wa.me/${waPhone}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={`Chat with ${order.customer} on WhatsApp`}
-                          >
-                            WhatsApp
-                          </a>
-                        )}
-                      </span>
+                      <div className="orderLocationSub">
+                        <span className="orderPhoneSmall">{order.phone}</span>
+                      </div>
                     )}
-                    <span className="orderMetaLine">📍 {order.city || "—"}</span>
                   </td>
 
+                  {/* 3. Articles */}
                   <td>
-                    <ul className="orderItemList">
-                      {orderItems.map((item, index) => (
-                        <li key={item.id || index}>
-                          <span className="orderItemName">{item.name || item.title}</span>
-                          <span className={`orderSizeTag ${isCustomItemSize(item.size) ? "isCustom" : ""}`}>
-                            {item.size || "Custom"}
+                    {orderItems.length > 0 ? (
+                      <div className="orderArticleSummary">
+                        <div className="orderPrimaryItemLine">
+                          <span className="orderItemPrimaryName" title={orderItems[0].name || orderItems[0].title}>
+                            {orderItems[0].name || orderItems[0].title}
                           </span>
-                          {item.color && <span className="orderItemColor">{item.color}</span>}
-                          <span className="orderItemQty">× {item.quantity}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    {note && <p className="orderNotePreview" title={note}>📝 {note}</p>}
+                          {Number(orderItems[0].quantity || 1) > 1 && (
+                            <span className="orderItemQty">×{orderItems[0].quantity}</span>
+                          )}
+                        </div>
+                        <div className="orderItemMetaChips">
+                          {orderItems.length > 1 && (
+                            <span
+                              className="orderMoreItemsTag"
+                              title={orderItems.map((it) => `${it.name} (${it.size || "Std"} × ${it.quantity || 1})`).join(", ")}
+                              onClick={() => onSelect && onSelect(order)}
+                            >
+                              +{orderItems.length - 1} more item{orderItems.length > 2 ? "s" : ""}
+                            </span>
+                          )}
+                          {note && (
+                            <span
+                              className="orderNoteChip"
+                              title={`Special Note: ${note}`}
+                              onClick={() => onSelect && onSelect(order)}
+                            >
+                              📝 Note
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="orderMutedText">No items</span>
+                    )}
                   </td>
 
+                  {/* 4. Dedicated Size Column */}
+                  <td style={{ textAlign: "center" }}>
+                    {orderItems.length > 0 ? (
+                      <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
+                        {orderItems.slice(0, 2).map((item, idx) => {
+                          const rawSize = String(item.size || "").trim();
+                          const isCustom = !rawSize || rawSize.toLowerCase().includes("custom") || rawSize.toUpperCase() === "C" || isCustomItemSize(rawSize);
+                          const displaySize = isCustom ? "C" : rawSize;
+                          return (
+                            <span
+                              key={idx}
+                              className="orderSizeTag"
+                              title={isCustom ? `Custom Size: ${rawSize || "Custom measurements"}` : `Size: ${displaySize}`}
+                            >
+                              {displaySize}
+                            </span>
+                          );
+                        })}
+                        {orderItems.length > 2 && (
+                          <span style={{ fontSize: "10px", color: "#64748b" }}>+{orderItems.length - 2}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="orderMutedText">—</span>
+                    )}
+                  </td>
+
+                  {/* 4. Courier Status */}
+                  <td>
+                    <div className="orderStatusBlock">
+                      <span className={`statusBadge orderStatusBadge ${statusKey.toLowerCase()}`}>
+                        {statusLabel}
+                      </span>
+                      {order.tracking ? (
+                        <a
+                          href={`https://postex.pk/tracking?cn=${order.tracking}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="orderTrackingTag"
+                          title="Open live tracking on PostEx"
+                        >
+                          🚚 {order.tracking}
+                        </a>
+                      ) : (
+                        <span className="orderMutedTracking">Unbooked</span>
+                      )}
+                      {order.confirmationStatus && !["confirmed", "payment verified", "verified"].includes(String(order.confirmationStatus).toLowerCase()) && (
+                        <span className="orderUnconfirmedChip" title={order.confirmationStatus}>
+                          ⚠️ {order.confirmationStatus}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* 5. Total & Payment */}
                   <td>
                     <span className="orderTotalValue">Rs. {money.total.toLocaleString()}</span>
-                    <span className={`orderMoneyLine ${money.hasAdvance ? "isPaid" : "isMuted"}`}>
-                      {money.isFullyAdvanced
-                        ? "Advance: full (100%)"
-                        : money.hasAdvance
-                          ? `Advance: Rs. ${money.advance.toLocaleString()}`
-                          : "Advance: Rs. 0"}
-                    </span>
-                    <span className={`orderCodValue ${money.isPrepaid ? "isPrepaid" : ""}`}>
-                      COD: {money.isPrepaid ? "Rs. 0 · prepaid" : `Rs. ${money.cod.toLocaleString()}`}
-                    </span>
-                    {money.codMismatch && (
-                      <span
-                        className="orderMoneyFlag"
-                        title={`PostEx was booked to collect Rs. ${money.bookedCod.toLocaleString()}. Re-book or update the shipment.`}
-                      >
-                        ⚠ Booked Rs. {money.bookedCod.toLocaleString()}
-                      </span>
-                    )}
+                    <div className="orderPaymentSub">
+                      {money.isFullyAdvanced ? (
+                        <span className="orderPaymentPill prepaid" title="100% Paid in advance">
+                          🟢 100% Paid
+                        </span>
+                      ) : money.hasAdvance ? (
+                        <span className="orderPaymentPill partial" title={`Advance Rs. ${money.advance.toLocaleString()} received. COD Rs. ${money.cod.toLocaleString()} to collect.`}>
+                          COD Rs. {money.cod.toLocaleString()} <small>(Adv Rs. {money.advance.toLocaleString()})</small>
+                        </span>
+                      ) : (
+                        <span className="orderPaymentPill cod" title={`Full Cash on Delivery: Rs. ${money.cod.toLocaleString()}`}>
+                          COD Rs. {money.cod.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
                   </td>
 
-                  <td>
-                    <span className="orderPaymentMethod">{order.paymentMethod || "Cash on Delivery"}</span>
-                    <span className={`statusBadge orderPaymentBadge ${paymentVerified ? "ok" : "pending"}`}>
-                      {order.paymentStatus || "Awaiting Payment"}
-                    </span>
-                  </td>
-
-                  <td>
-                    <span className={`statusBadge orderStatusBadge ${statusKey.toLowerCase()}`}>{statusLabel}</span>
-                    {order.tracking
-                      ? <span className="orderTrackingTag" title={order.tracking}>🚚 {order.tracking}</span>
-                      : <span className="orderMetaLine">Not booked with PostEx</span>}
-                    {order.confirmationStatus
-                      && !["confirmed", "payment verified", "verified"].includes(String(order.confirmationStatus).toLowerCase()) && (
-                      <span className="statusBadge orderStatusNote unconfirmed">⚠️ {order.confirmationStatus}</span>
-                    )}
-                  </td>
-
+                  {/* 6. Actions */}
                   <td className="orderCellActions">
                     <div className="orderRowActions">
                       {onSelect && (
-                        <button type="button" className="orderActionPrimary" onClick={() => onSelect(order)} aria-label={`Open order ${order.id}`}>
-                          View
+                        <button
+                          type="button"
+                          className="orderActionPrimary"
+                          onClick={() => onSelect(order)}
+                          aria-label={`Open order ${order.id}`}
+                          title="View full order details & edit"
+                        >
+                          👁️ View
                         </button>
                       )}
                       {onPrintStitchingOrder && (
-                        <button type="button" className="orderActionGhost" onClick={() => onPrintStitchingOrder(order)} title="Print stitching production slip for the workshop">
+                        <button
+                          type="button"
+                          className="orderActionGhost"
+                          onClick={() => onPrintStitchingOrder(order)}
+                          title="Print Stitching Slip for Workshop"
+                        >
                           🧵 Slip
                         </button>
                       )}
                       {onPrintSingleOrder && (
-                        <button type="button" className="orderActionGhost" onClick={() => onPrintSingleOrder(order)} title="Print the customer invoice for this order">
+                        <button
+                          type="button"
+                          className="orderActionGhost"
+                          onClick={() => onPrintSingleOrder(order)}
+                          title="Print Customer Invoice"
+                        >
                           📄 Invoice
                         </button>
                       )}
@@ -8520,8 +8842,8 @@ function OrderTable({
                         className="orderActionToggle"
                         onClick={() => setExpandedId(isExpanded ? null : order.id)}
                         aria-expanded={isExpanded}
-                        aria-label={isExpanded ? `Hide details for ${order.id}` : `Show details for ${order.id}`}
-                        title="Toggle inline details"
+                        aria-label={isExpanded ? `Hide inline details for ${order.id}` : `Show inline details for ${order.id}`}
+                        title="Toggle quick inline details"
                       >
                         {isExpanded ? "▲" : "▼"}
                       </button>
@@ -8534,8 +8856,10 @@ function OrderTable({
                     <td colSpan={columnCount}>
                       <div className="orderExpandedGrid">
                         <section className="orderExpandedCard">
-                          <h4>Delivery address</h4>
+                          <h4>📍 Delivery destination</h4>
+                          <p><b>{order.customer}</b></p>
                           <p>{order.address || order.city || "No address saved"}</p>
+                          {order.phone && <p className="orderExpandedPhone">📞 {order.phone}</p>}
                           {waPhone && (
                             <a className="orderWhatsappLink" href={`https://wa.me/${waPhone}`} target="_blank" rel="noopener noreferrer">
                               💬 Chat on WhatsApp · {order.phone}
@@ -8544,43 +8868,67 @@ function OrderTable({
                         </section>
 
                         <section className="orderExpandedCard">
-                          <h4>Ordered items</h4>
+                          <h4>👗 Ordered items ({orderItems.length})</h4>
                           <ul className="orderExpandedItems">
                             {orderItems.map((item, index) => (
                               <li key={item.id || index}>
-                                <b>{item.name || item.title}</b>
-                                <span>Size {item.size || "Standard"}{item.color ? ` · ${item.color}` : ""} · × {item.quantity}</span>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
+                                  <b>{item.name || item.title}</b>
+                                  <span style={{ fontWeight: 700 }}>× {item.quantity || 1}</span>
+                                </div>
+                                <span>Size: {item.size || "Standard"}{item.color ? ` · Color: ${item.color}` : ""}{item.price ? ` · Rs. ${Number(item.price).toLocaleString()}` : ""}</span>
                               </li>
                             ))}
                           </ul>
                         </section>
 
+                        <section className="orderExpandedCard orderExpandedNotes">
+                          <h4>📝 Workshop Notes &amp; Instructions</h4>
+                          {note ? (
+                            <div className="orderExpandedNoteBox">
+                              {note}
+                            </div>
+                          ) : (
+                            <p style={{ color: "#94a3b8", fontStyle: "italic" }}>No special instructions or internal notes.</p>
+                          )}
+                          {onSelect && (
+                            <button
+                              type="button"
+                              className="orderOpenDrawerBtn"
+                              onClick={() => onSelect(order)}
+                              style={{
+                                marginTop: "auto",
+                                alignSelf: "flex-start",
+                                background: "none",
+                                border: "none",
+                                color: "#0f766e",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                padding: 0
+                              }}
+                            >
+                              ✏️ Edit notes &amp; order details in full view →
+                            </button>
+                          )}
+                        </section>
+
                         <section className="orderExpandedCard">
-                          <h4>Financial breakdown</h4>
+                          <h4>💰 Financial breakdown</h4>
                           <dl className="orderExpandedMoney">
-                            <div><dt>Product subtotal</dt><dd>Rs. {money.subtotal.toLocaleString()}</dd></div>
-                            <div><dt>Delivery charges</dt><dd>Rs. {money.delivery.toLocaleString()}</dd></div>
-                            <div><dt>Total order value</dt><dd>Rs. {money.total.toLocaleString()}</dd></div>
+                            <div><dt>Subtotal</dt><dd>Rs. {money.subtotal.toLocaleString()}</dd></div>
+                            <div><dt>Delivery</dt><dd>Rs. {money.delivery.toLocaleString()}</dd></div>
+                            <div><dt>Total</dt><dd><b>Rs. {money.total.toLocaleString()}</b></dd></div>
                             <div><dt>Advance received</dt><dd className="isPaid">Rs. {money.advance.toLocaleString()}</dd></div>
                             <div className="isTotalRow">
                               <dt>PostEx COD to collect</dt>
                               <dd className={money.isPrepaid ? "isPrepaid" : "isDue"}>Rs. {money.cod.toLocaleString()}</dd>
                             </div>
                           </dl>
-                          {money.codMismatch && (
-                            <p className="orderMoneyNotice orderMoneyNoticeWarn">
-                              PostEx is booked to collect Rs. {money.bookedCod.toLocaleString()}. Update the shipment so the rider collects Rs. {money.cod.toLocaleString()}.
-                            </p>
-                          )}
-                        </section>
-
-                        <section className="orderExpandedCard orderExpandedNotes">
-                          <h4>Workshop notes</h4>
-                          <p className="orderExpandedNoteBody">{note || "No special tailor instructions."}</p>
-                          {onSelect && (
-                            <button type="button" className="orderActionPrimary" onClick={() => onSelect(order)}>
-                              Open order editor
-                            </button>
+                          {order.tracking && (
+                            <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px solid #e2e8f0", fontSize: "12px" }}>
+                              <span>Tracking: <b>{order.tracking}</b></span>
+                            </div>
                           )}
                         </section>
                       </div>

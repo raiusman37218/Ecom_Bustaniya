@@ -353,18 +353,8 @@ export async function POST(request) {
       guest_email: "",
       items: customItems,
       tags: ["Custom order", body?.source, body?.deliveryMethod].filter(Boolean),
-      notes: limitText([
-        `Payment option: ${paymentMethodLabel}`,
-        `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
-        `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
-        body?.notes,
-      ].filter(Boolean).join("\n"), 2000),
-      internal_notes: limitText([
-        body?.notes,
-        `Payment option: ${paymentMethodLabel}`,
-        `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
-        `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
-      ].filter(Boolean).join("\n"), 2000),
+      notes: body?.notes?.trim() ? limitText(body.notes.trim(), 2000) : null,
+      internal_notes: body?.notes?.trim() ? limitText(body.notes.trim(), 2000) : null,
     };
 
     if (existingOrder) {
@@ -446,8 +436,8 @@ export async function POST(request) {
       pickupAddressCode: courier.pickupAddressCode,
     };
 
-    let trackingNumber = `MANUAL-${completedOrder.order_number || orderNumber}`;
-    let courierStatus = body?.status || "Un-Assigned By Me";
+    let trackingNumber = null;
+    let courierStatus = body?.status || "Unbooked";
     let postexResponse = {
       manual: true,
       deliveryMethod: body?.deliveryMethod || "Manual",
@@ -510,15 +500,7 @@ export async function POST(request) {
       amountPayableOnDeliveryPkr,
       advanceType: isFullyPrepaid ? "full_order" : advancePaidPkr > 0 ? "delivery_charges" : "none",
     };
-    const internalNotesFormatted = limitText([
-      body?.notes,
-      `Payment option: ${paymentMethodLabel}`,
-      `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
-      `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
-      body?.source ? `Source: ${body.source}` : "",
-      body?.deliveryMethod ? `Delivery: ${body.deliveryMethod}` : "",
-      courierMessage ? `PostEx: ${courierMessage}` : "",
-    ].filter(Boolean).join("\n"), 2000);
+    const internalNotesFormatted = body?.notes?.trim() ? limitText(body.notes.trim(), 2000) : null;
 
     const paymentFields = {
       payment_method: paymentMethod,
@@ -541,23 +523,26 @@ export async function POST(request) {
       shipping_city: customer.city.trim(),
       guest_name: customer.name.trim(),
       guest_phone: customer.phone.trim(),
-      courier_tracking_number: trackingNumber,
-      tracking_number: trackingNumber,
-      courier_status: courierStatus,
-      status: body?.status || courierStatus,
-      fulfillment_status: courierBooked ? "Booked with PostEx" : (body?.fulfillmentStatus || "Manual delivery"),
+      courier_tracking_number: courierBooked ? trackingNumber : null,
+      tracking_number: courierBooked ? trackingNumber : null,
+      courier_status: courierBooked ? courierStatus : (body?.status || "Unbooked"),
+      courier_normalized_status: courierBooked ? "booked" : "unassigned",
+      status: courierBooked ? courierStatus : (body?.status || "Unbooked"),
+      fulfillment_status: courierBooked ? "Booked with PostEx" : (body?.fulfillmentStatus || "Unfulfilled"),
       tags: ["Custom order", body?.source, body?.deliveryMethod].filter(Boolean),
       notes: internalNotesFormatted,
       internal_notes: internalNotesFormatted,
     };
 
     if (reservedOrder) {
-      completedOrder = await supabaseAdminRpc("complete_postex_booking", {
-        p_order_id: reservedOrder.order_id,
-        p_checkout_token: reservedOrder.checkout_token,
-        p_tracking_number: trackingNumber,
-        p_response: postexResponse,
-      });
+      if (courierBooked && trackingNumber) {
+        completedOrder = await supabaseAdminRpc("complete_postex_booking", {
+          p_order_id: reservedOrder.order_id,
+          p_checkout_token: reservedOrder.checkout_token,
+          p_tracking_number: trackingNumber,
+          p_response: postexResponse,
+        });
+      }
       // Manual/admin-created orders follow the same policy as checkout:
       // confirmation is immediate and payment proof is tracked separately.
       const confirmedOrder = await patchCustomOrder(completedOrder?.id || reservedOrder.order_id, paymentFields).catch(() => completedOrder);
