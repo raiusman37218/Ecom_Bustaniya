@@ -1911,7 +1911,7 @@ export default function AdminDashboard() {
                   name="deliveryInfo"
                   rows="3"
                   defaultValue={editingProduct?.deliveryInfo || editingProduct?.cost_breakdown?.metadata?.deliveryInfo || ""}
-                  placeholder="e.g. Dispatched within 24-48 hours. Delivery in 3-5 business days across Pakistan."
+                  placeholder="e.g. Dispatched within 24-48 hours. Delivery in 8-9 delivery days across Pakistan."
                 />
                 <small className="settingsHint" style={{ display: "block", marginTop: "4px", color: "#64748b", fontSize: "11px" }}>
                   Leave empty to use the store&apos;s global delivery information and policies.
@@ -10089,7 +10089,7 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
                 <input
                   value={storeSettings.deliverySettings?.estimatedDays || ""}
                   onChange={(event) => updateDeliverySettings({ estimatedDays: event.target.value })}
-                  placeholder="e.g. 3-5 business days"
+                  placeholder="e.g. 8-9 delivery days"
                 />
               </label>
               <label>
@@ -10143,7 +10143,7 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
                 rows="4"
                 value={storeSettings.deliverySettings?.defaultDeliveryInfo || ""}
                 onChange={(event) => updateDeliverySettings({ defaultDeliveryInfo: event.target.value })}
-                placeholder="Orders are processed within 24 hours and delivered within 3-5 business days across Pakistan. Tracking details are shared via SMS and WhatsApp once dispatched."
+                placeholder="Orders are processed within 24 hours and delivered within 8-9 delivery days across Pakistan. Tracking details are shared via SMS and WhatsApp once dispatched."
               />
               <small className="settingsHint">Shown in the Delivery accordion on all products unless overridden per product.</small>
             </label>

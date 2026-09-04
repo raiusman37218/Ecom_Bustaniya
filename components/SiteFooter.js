@@ -63,7 +63,7 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
           </span>
           <div className="footerTrustPills">
             <span><Truck size={13} /> Nationwide Delivery</span>
-            <span><ShieldCheck size={13} /> 7-Day Exchange</span>
+            <span><ShieldCheck size={13} /> Return &amp; Exchange Policy</span>
           </div>
         </div>
 
@@ -87,7 +87,7 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
           <ul className="footerNavList">
             <li><a href="/contact">Contact Us</a></li>
             <li><a href="/shipping-policy">Shipping &amp; Delivery Info</a></li>
-            <li><a href="/exchange-return-policy">Returns &amp; Exchange Policy</a></li>
+            <li><a href="/exchange-return-policy">Return &amp; Exchange Policy</a></li>
             <li>
               <a
                 href={rawWhatsapp ? `https://wa.me/${rawWhatsapp}?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need assistance with an order.")}` : "https://wa.me/923053530008"}
@@ -182,6 +182,8 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
             <a href="/terms-and-conditions">Terms</a>
             <span>&middot;</span>
             <a href="/shipping-policy">Shipping</a>
+            <span>&middot;</span>
+            <a href="/exchange-return-policy">Return &amp; Exchange</a>
           </div>
         </div>
       </div>

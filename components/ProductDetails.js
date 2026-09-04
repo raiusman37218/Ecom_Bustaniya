@@ -181,7 +181,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const productDetails = getProductDetailsText(product, detailDescription);
 
   const deliverySettings = storeSettings?.deliverySettings || DEFAULT_STORE_SETTINGS.deliverySettings || {};
-  const estimatedDays = deliverySettings.estimatedDays || "3-5 business days";
+  const estimatedDays = deliverySettings.estimatedDays || "8-9 delivery days";
   const freeThreshold = Number(deliverySettings.freeDeliveryThreshold || 5000);
   const isFreeDelivery = Number(product.price || 0) >= freeThreshold;
   const deliveryFeeSummary = isFreeDelivery
@@ -190,7 +190,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const codAvailable = deliverySettings.codAvailable !== false;
   const codNote = deliverySettings.codNote || "Cash on Delivery available nationwide";
   const customDeliveryText = String(product?.deliveryInfo || product?.delivery_info || product?.deliveryText || "").trim();
-  const fallbackDeliveryText = deliverySettings.defaultDeliveryInfo || "Orders are processed within 24 hours and delivered within 3-5 business days across Pakistan. Tracking details are shared via SMS and WhatsApp once dispatched.";
+  const fallbackDeliveryText = deliverySettings.defaultDeliveryInfo || "Orders are processed within 24 hours and delivered within 8-9 delivery days across Pakistan. Tracking details are shared via SMS and WhatsApp once dispatched.";
   const displayDeliveryInfo = customDeliveryText || fallbackDeliveryText;
 
   const whatsappNumber = String(
@@ -773,6 +773,36 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                 <ShieldCheck size={14} />
                 <span>All parcels are packed securely and dispatched with live tracking via PostEx Courier.</span>
               </div>
+            </div>
+          </details>
+
+          <details className="productDetailsAccordion">
+            <summary>Return &amp; exchange policy</summary>
+            <div className="productDetailsAccordionBody">
+              <h2 className="productDetailsTitle">Return &amp; Exchange Overview</h2>
+              <p style={{ margin: "6px 0 12px", color: "#4f6257", fontSize: "14px", lineHeight: "1.6" }}>
+                Every order is carefully inspected and securely packed before dispatch.
+              </p>
+              <ul style={{ paddingLeft: "18px", margin: "0 0 14px", color: "#374151", fontSize: "13px", lineHeight: "1.7" }}>
+                <li>
+                  <strong>Damaged or Defective:</strong> Contact us within 24 hours of delivery with pictures/videos. Bustaniya bears all return/exchange delivery charges for confirmed issues.
+                </li>
+                <li>
+                  <strong>Exchange / Replacement:</strong> Available for unused, unwashed items with tags intact (customer covers exchange delivery charges).
+                </li>
+                <li>
+                  <strong>Refunds:</strong> No refunds for change-of-mind requests.
+                </li>
+                <li>
+                  <strong>Unboxing Video:</strong> Please record an unboxing video when opening your parcel to quickly verify any damage or missing items.
+                </li>
+              </ul>
+              <a
+                href="/exchange-return-policy"
+                style={{ display: "inline-block", color: "#166534", fontSize: "13px", fontWeight: "700", textDecoration: "underline" }}
+              >
+                Read full Return &amp; Exchange Policy &rarr;
+              </a>
             </div>
           </details>
 

@@ -31,7 +31,7 @@ export default async function ShippingPolicyPage() {
           </p>
           <h2>Estimated delivery times</h2>
           <p>
-            Orders are processed within 24–48 hours and delivered within 3–5 business days nationwide via tracked courier. Tracking updates are provided via SMS and WhatsApp.
+            Orders are processed within 24–48 hours and delivered within 8–9 delivery days nationwide via tracked courier. Tracking updates are provided via SMS and WhatsApp.
           </p>
         </section>
       </main>

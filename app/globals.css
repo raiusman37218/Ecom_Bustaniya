@@ -3856,9 +3856,12 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 .infoHero p:not(.eyebrow) { max-width:620px; color:#5f6f64; line-height:1.75; }
 .infoContent { width:min(840px,88vw); padding:56px 0 90px; margin:0 auto; }
 .infoContent h2 { margin:34px 0 10px; font-family:var(--font-display); font-size:32px; line-height:1; font-weight:600; }
-.infoContent h2:first-child { margin-top:0; }
-.infoContent p { color:#56675d; line-height:1.85; }
+.infoContent p { color:#56675d; line-height:1.85; margin: 10px 0; }
 .infoContent [dir="rtl"] { padding:18px 20px; border-inline-start:3px solid var(--berry); background:#fff; color:#354c3e; font-size:16px; }
+.infoContent ul { margin:14px 0 24px 20px; padding-left:14px; list-style-type:disc; color:#4a5b50; line-height:1.8; font-size:15px; }
+.infoContent ul li { margin-bottom:8px; }
+.infoNoticeBox { margin-top:32px; padding:20px 24px; background:#fbf8f2; border:1px solid #e5dbcd; border-left:4px solid var(--forest); border-radius:14px; color:#2e4437; font-size:15px; line-height:1.75; }
+.infoNoticeBox p { color:#2e4437 !important; margin:0; }
 .checkoutPage { --checkout-bg:#f8fced; min-height:100vh; background:var(--checkout-bg); }
 .checkoutHeader { height:92px; padding:0 6vw; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; background:var(--checkout-bg); }
 .checkoutHeader span { display:flex; align-items:center; gap:7px; font-size:11px; text-transform:uppercase; letter-spacing:.08em; }

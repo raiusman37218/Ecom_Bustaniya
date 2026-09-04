@@ -229,12 +229,12 @@ export const DEFAULT_STORE_SETTINGS = {
     ]
   },
   deliverySettings: {
-    estimatedDays: "3-5 business days",
+    estimatedDays: "8-9 delivery days",
     deliveryFeeText: "Rs. 200 standard delivery nationwide · Free above Rs. 5,000",
     freeDeliveryThreshold: 5000,
     codAvailable: true,
     codNote: "Cash on Delivery available nationwide (Pay full cash on delivery)",
-    defaultDeliveryInfo: "Orders are processed within 24 hours and delivered within 3-5 business days across Pakistan. Tracking details are shared via SMS and WhatsApp once dispatched.",
+    defaultDeliveryInfo: "Orders are processed within 24 hours and delivered within 8-9 delivery days across Pakistan. Tracking details are shared via SMS and WhatsApp once dispatched.",
   },
   homepageSections: DEFAULT_HOMEPAGE_SECTIONS,
 };
