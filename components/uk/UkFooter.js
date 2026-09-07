@@ -135,7 +135,7 @@ export default function UkFooter({ categories = [], storeSettings = DEFAULT_STOR
                 aria-label="WhatsApp Support"
               >
                 <div className="socialIconWrap socialIcon--whatsapp">
-                  <WhatsAppIcon size={16} />
+                  <img src="/whatsapp-icon.png" alt="WhatsApp" width={20} height={20} style={{ display: "block", objectFit: "contain" }} />
                 </div>
                 <div className="socialDetails">
                   <b>WhatsApp Support</b>

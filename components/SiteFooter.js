@@ -31,7 +31,7 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
     storeSettings?.paymentSettings?.whatsappNumber ||
     storeSettings?.whatsappNumber ||
     DEFAULT_STORE_SETTINGS.paymentSettings?.whatsappNumber ||
-    "923053530008"
+    "923227811989"
   ).replace(/[^0-9]/g, "");
 
   const instagramRaw = String(
@@ -90,7 +90,7 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
             <li><a href="/exchange-return-policy">Return &amp; Exchange Policy</a></li>
             <li>
               <a
-                href={rawWhatsapp ? `https://wa.me/${rawWhatsapp}?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need assistance with an order.")}` : "https://wa.me/923053530008"}
+                href={rawWhatsapp ? `https://wa.me/${rawWhatsapp}?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need assistance with an order.")}` : "https://wa.me/923227811989"}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -100,28 +100,22 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
           </ul>
         </div>
 
-        {/* Column 3: Company */}
+        {/* Column 3: Contact & Help */}
         <div className="footerNavCol">
-          <h4 className="footerColHeading">Company</h4>
+          <h4 className="footerColHeading">Quick Help</h4>
           <ul className="footerNavList">
-            <li><a href="/about">About Bustaniya</a></li>
+            <li><a href="/track-order">Track My Order</a></li>
+            <li><a href="/faqs">Frequently Asked Questions</a></li>
+            <li><a href="/contact">Email Support</a></li>
             <li><a href="/privacy-policy">Privacy Policy</a></li>
-            <li><a href="/terms-and-conditions">Terms &amp; Conditions</a></li>
-            <li><a href="/shipping-policy">Payment Methods &amp; COD</a></li>
+            <li><a href="/terms">Terms of Service</a></li>
           </ul>
-          <address className="footerCompanyDetails">
-            <strong>BUSTANIYA LTD</strong>
-            <span>Company no. 17414024</span>
-            <span>Registered office</span>
-            <span>Unit A1099 Siu Office, 4–6 Greatorex Street, London, United Kingdom, E1 5NF</span>
-            <span>SIC 47910 — Retail sale via mail order houses or via Internet</span>
-          </address>
         </div>
 
-        {/* Column 4: Connect With Us */}
-        <div className="footerNavCol footerSocialCol">
+        {/* Column 4: Stay Connected */}
+        <div className="footerSocialCol">
           <h4 className="footerColHeading">Connect With Us</h4>
-          <p className="footerConnectText">Follow our journey and get in touch with our concierge team:</p>
+          <p className="footerSocialSubtitle">Reach out directly on social or chat with our team.</p>
           <div className="footerSocialList">
             <a
               href={instagramUrl}
@@ -148,11 +142,17 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
                 aria-label="WhatsApp Support"
               >
                 <div className="socialIconWrap socialIcon--whatsapp">
-                  <WhatsAppIcon size={16} />
+                  <img src="/whatsapp-icon.png" alt="WhatsApp" width={20} height={20} style={{ display: "block", objectFit: "contain" }} />
                 </div>
                 <div className="socialDetails">
                   <b>WhatsApp Support</b>
-                  <small>+92 305 3530008</small>
+                  <small>
+                    {rawWhatsapp.startsWith("92")
+                      ? `+92 ${rawWhatsapp.slice(2, 5)} ${rawWhatsapp.slice(5)}`
+                      : rawWhatsapp.startsWith("0")
+                      ? `${rawWhatsapp.slice(0, 4)} ${rawWhatsapp.slice(4)}`
+                      : `+92 ${rawWhatsapp}`}
+                  </small>
                 </div>
               </a>
             )}

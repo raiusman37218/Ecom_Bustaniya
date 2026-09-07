@@ -197,7 +197,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     storeSettings?.paymentSettings?.whatsappNumber ||
     storeSettings?.whatsappNumber ||
     DEFAULT_STORE_SETTINGS.paymentSettings?.whatsappNumber ||
-    "923053530008"
+    "923227811989"
   ).replace(/\D/g, "");
 
   const [productUrl, setProductUrl] = useState(`https://bustaniya.pk/product/${product.id}`);
@@ -686,7 +686,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               onClick={() => setWhatsAppOrderOpen(true)}
             >
               <div className="socialBtnIconWrap whatsappIconCircle">
-                <WhatsAppIcon size={20} />
+                <img src="/whatsapp-icon.png" alt="WhatsApp" width={22} height={22} style={{ display: "block", objectFit: "contain" }} />
               </div>
               <div className="socialBtnTextWrap">
                 <span className="socialBtnLine">ORDER ON</span>
@@ -933,7 +933,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             </div>
             <label>Complete address<textarea required autoComplete="street-address" rows="3" value={whatsAppOrderDetails.address} onChange={(event) => updateWhatsAppOrderDetail("address", event.target.value)} placeholder="House/flat no., street/road, block/area" /></label>
             <p className="whatsAppOrderHelp">Your filled details and this product&apos;s article number will be added to the WhatsApp message. You can attach a screenshot or continue the conversation there.</p>
-            <button className="whatsAppOrderSubmit" type="submit"><WhatsAppIcon size={20} /> Continue to WhatsApp</button>
+            <button className="whatsAppOrderSubmit" type="submit"><img src="/whatsapp-icon.png" alt="WhatsApp" width={22} height={22} style={{ display: "inline-block", verticalAlign: "middle", objectFit: "contain" }} /> Continue to WhatsApp</button>
           </form>
         </section>
       </div>

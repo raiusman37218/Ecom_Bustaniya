@@ -693,7 +693,7 @@ export default function CheckoutPage() {
               </button>
             </div>
             <p className="checkoutPrivacy"><Lock size={13} /> Your information is used only to process this order securely.</p>
-            <p className="checkoutInlineHelp">Need help? <a href={`https://wa.me/923053530008?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need help with my checkout.")}`} target="_blank" rel="noreferrer"><MessageCircle size={13} /> Chat on WhatsApp</a></p>
+            <p className="checkoutInlineHelp">Need help? <a href={`https://wa.me/923227811989?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need help with my checkout.")}`} target="_blank" rel="noreferrer"><MessageCircle size={13} /> Chat on WhatsApp</a></p>
             <nav className="checkoutPolicyLinks" aria-label="Checkout policies"><a href="/exchange-return-policy">Return &amp; Exchange Policy</a><a href="/shipping-policy">Shipping</a><a href="/privacy-policy">Privacy policy</a><a href="/terms-and-conditions">Terms of service</a></nav>
           </form>
         </section>
@@ -767,7 +767,7 @@ function OrderConfirmation({ order, items }) {
   const isFullAdvance = normalizePaymentMethod(order.paymentMethod) === PAYMENT_METHODS.FULL_ADVANCE;
   const paymentAmount = Number(order.advanceAmount || 0);
   const payableOnDelivery = Number(order.payableOnDelivery || 0);
-  const whatsappNumber = String(paymentDetails.whatsappNumber || "923053530008").replace(/\D/g, "");
+  const whatsappNumber = String(paymentDetails.whatsappNumber || "923227811989").replace(/\D/g, "");
 
   const itemsText = items
     .map((item) => `• ${item.name}${item.size ? ` (Size: ${item.size})` : ""} x${item.quantity}`)

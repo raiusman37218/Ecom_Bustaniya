@@ -3909,38 +3909,99 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 .paymentVerificationCard>p { color:#506557; line-height:1.6; }
 .whatsappPaymentButton { display:inline-flex; align-items:center; justify-content:center; min-height:44px; margin-top:16px; padding:0 16px; border-radius:5px; background:#1d6840; color:#fff!important; font-size:12px; font-weight:800; text-decoration:none; }
 .whatsappSupportButton {
-  position:fixed;
-  right:22px;
-  bottom:22px;
-  z-index:80;
-  display:inline-flex;
-  align-items:center;
-  gap:9px;
-  min-height:48px;
-  padding:0 18px;
-  border:1px solid rgba(255,255,255,.55);
-  border-radius:999px;
-  background:#25d366;
-  box-shadow:0 10px 24px rgba(20,75,44,.24);
-  color:#fff;
-  font-size:13px;
-  font-weight:800;
-  letter-spacing:.01em;
-  text-decoration:none;
-  transition:all .2s ease;
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-decoration: none;
+  border-radius: 50%;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.25));
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .whatsappSupportButton.isCheckoutPage {
-  bottom:110px !important;
-  right:24px !important;
+  bottom: 110px !important;
+  right: 24px !important;
 }
-@media (max-width:768px) {
+@media (max-width: 768px) {
+  .whatsappSupportButton {
+    right: 18px;
+    bottom: 20px;
+    width: 54px;
+    height: 54px;
+  }
   .whatsappSupportButton.isCheckoutPage {
-    display:none !important;
+    display: none !important;
   }
 }
-.whatsappSupportButton:hover { background:#1fbd5a; color:#fff; transform:translateY(-2px); box-shadow:0 14px 28px rgba(20,75,44,.32); }
-.whatsappSupportButton:focus-visible { outline:3px solid #16452c; outline-offset:3px; }
-.whatsappSupportButton svg { flex:0 0 auto; }
+.whatsappSupportButton:hover {
+  transform: scale(1.1) translateY(-3px);
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.35));
+}
+.whatsappSupportButton:active {
+  transform: scale(0.95);
+}
+.whatsappSupportButton:focus-visible {
+  outline: 3px solid #25d366;
+  outline-offset: 3px;
+  border-radius: 50%;
+}
+.whatsappSupportButton img,
+.whatsappSupportButton .whatsappSupportIcon {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+.whatsappTooltip {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  background: #111827;
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.whatsappTooltip::after {
+  content: "";
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent transparent transparent #111827;
+}
+@media (hover: hover) {
+  .whatsappSupportButton:hover .whatsappTooltip {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+@media (hover: none) {
+  .whatsappTooltip {
+    display: none;
+  }
+}
 .paymentVerificationWorkspace { border-color:#c8decf; background:linear-gradient(145deg,#fffefa,#f7fcf7); }
 .paymentVerificationWorkspace .orderActionRow .dangerButton { background:#b52b4b; }
 .placeOrder { min-height:54px; padding:17px; border:0; border-radius:6px; background:var(--berry); color:#fff; text-transform:uppercase; letter-spacing:.09em; font-size:11px; display:flex; align-items:center; justify-content:center; transition:background .2s ease,transform .2s ease,box-shadow .2s ease; }

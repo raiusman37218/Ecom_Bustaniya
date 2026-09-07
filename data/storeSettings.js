@@ -171,9 +171,9 @@ export const DEFAULT_STORE_SETTINGS = {
     bankTitle: "",
     bankAccountNumber: "",
     bankIban: "",
-    whatsappNumber: "",
+    whatsappNumber: "923227811989",
     advanceHeading: "Full Advance Payment Instructions",
-    instructions: "Full payment bank account mein transfer karein. Payment karne ke baad transaction ka screenshot proof ke taur par WhatsApp (+92 305 3530008) par bhejein. Dispatch payment verification ke baad start hoga.",
+    instructions: "Full payment bank account mein transfer karein. Payment karne ke baad transaction ka screenshot proof ke taur par WhatsApp (+92 322 7811989) par bhejein. Dispatch payment verification ke baad start hoga.",
   },
   shippingZones: [
     { id: "pakistan-standard", zone: "Pakistan - Standard", cities: "All PostEx service cities", rate: 200, freeAbove: 5000 },
