@@ -1228,21 +1228,34 @@ export default function AdminDashboard() {
             const rawStatus = String(order.status || "").trim();
             const rawCourierStatus = String(order.courier_status || "").trim();
             const rawTracking = String(order.courier_tracking_number || order.tracking_number || "").trim();
-            const isExplicitUnbooked = rawStatus.toLowerCase().includes("unbook") || rawCourierStatus.toLowerCase().includes("unbook") || rawStatus.toLowerCase().includes("unassigned") || rawCourierStatus.toLowerCase().includes("unassigned");
             const hasRealTracking = Boolean(rawTracking && !rawTracking.startsWith("MANUAL-"));
+            const isExplicitUnbooked = !hasRealTracking && (
+              rawStatus.toLowerCase().includes("unbook") ||
+              rawCourierStatus.toLowerCase().includes("unbook") ||
+              rawStatus.toLowerCase().includes("unassigned") ||
+              rawCourierStatus.toLowerCase().includes("unassigned")
+            );
 
-            const resolvedStatus = isExplicitUnbooked
-              ? "Unbooked"
-              : formatOrderStatus(order.courier_status || order.status || order.courier_normalized_status || "pending");
-            const resolvedPostexStatus = isExplicitUnbooked
-              ? "Unbooked"
-              : formatOrderStatus(order.courier_status || order.status || "pending");
+            let effectiveStatus;
+            if (isExplicitUnbooked) {
+              effectiveStatus = "Unbooked";
+            } else if (hasRealTracking) {
+              const raw = order.courier_raw_status || order.courier_status || order.status || "";
+              if (!raw || raw.toLowerCase() === "unbooked" || raw.toLowerCase() === "pending" || raw.toLowerCase() === "unassigned") {
+                effectiveStatus = "Booked";
+              } else {
+                effectiveStatus = formatOrderStatus(raw);
+              }
+            } else {
+              const raw = order.status || order.courier_status || "";
+              effectiveStatus = (!raw || raw.toLowerCase() === "pending") ? "Unbooked" : formatOrderStatus(raw);
+            }
 
             return {
-              status: resolvedStatus,
-              postexStatus: resolvedPostexStatus,
-              courierRawStatus: isExplicitUnbooked ? "Unbooked" : (order.courier_raw_status || order.courier_status || ""),
-              courierNormalizedStatus: isExplicitUnbooked ? "unassigned" : (order.courier_normalized_status || "unassigned"),
+              status: effectiveStatus,
+              postexStatus: effectiveStatus,
+              courierRawStatus: isExplicitUnbooked ? "Unbooked" : (hasRealTracking && (order.courier_raw_status || "").toLowerCase() === "unbooked" ? "Booked" : (order.courier_raw_status || order.courier_status || "")),
+              courierNormalizedStatus: isExplicitUnbooked ? "unassigned" : (hasRealTracking && (order.courier_normalized_status || "").toLowerCase() === "unassigned" ? "booked" : (order.courier_normalized_status || "unassigned")),
               courierServiceType: order.courier_service_type || "",
               paymentStatus: formatPaymentStatus(order.payment_proof_status || order.payment_status || "", { advance, total }),
               fulfillmentStatus: isExplicitUnbooked ? "Unfulfilled" : (order.fulfillment_status || (hasRealTracking ? "Booked with PostEx" : "Unfulfilled")),
@@ -2833,7 +2846,8 @@ function isDeliveredOrder(order) {
 }
 
 function isReturnedOrder(order) {
-  return normalizePostexCategory(order.postexStatus || order.status) === "Returned";
+  const cat = normalizePostexCategory(order.postexStatus || order.status);
+  return cat === "Returned" || cat === "Out For Return";
 }
 
 const orderCategoryLabels = [
@@ -2929,23 +2943,32 @@ function normalizePostexCategory(value = "") {
   if (!normalized) return "Unbooked";
   if (["all", "total", "total orders"].includes(normalized)) return "Total Orders";
   if (normalized.includes("cancel") || normalized.includes("expire") || normalized.includes("void")) return "Cancelled";
-  if (normalized.includes("unbook") || normalized.includes("unassigned") || normalized.includes("un assigned") || normalized.includes("pending") || normalized.includes("draft")) return "Unbooked";
-  if (normalized.includes("warehouse")) return "PostEx Warehouse";
   if (normalized.includes("out for delivery")) return "Out For Delivery";
   if (normalized.includes("out for return")) return "Out For Return";
   if (normalized.includes("under review") || normalized.includes("review")) return "Delivery Under Review";
   if (normalized.includes("attempt")) return "Attempted";
   if (normalized.includes("return")) return "Returned";
   if (normalized.includes("deliver") || normalized.includes("complete")) return "Delivered";
+  if (normalized.includes("warehouse")) return "PostEx Warehouse";
+  if (normalized.includes("transit")) return "In-Transit";
   if (normalized.includes("transfer")) return "Transferred";
   if (normalized.includes("book")) return "Booked";
+  if (normalized.includes("unbook") || normalized.includes("unassigned") || normalized.includes("un assigned") || normalized.includes("pending") || normalized.includes("draft")) return "Unbooked";
   return "Unbooked";
 }
 
 function orderMatchesCategory(order, tab) {
+  const hasTracking = Boolean(order.tracking && !String(order.tracking).startsWith("MANUAL-"));
   const rawStatus = String(order.status || "").toLowerCase();
   const rawPostex = String(order.postexStatus || "").toLowerCase();
-  const isUnbooked = rawStatus.includes("unbook") || rawPostex.includes("unbook") || rawStatus.includes("unassigned") || rawPostex.includes("unassigned") || (!order.tracking && (rawStatus.includes("pending") || rawStatus === ""));
+  const isUnbooked = !hasTracking && (
+    rawStatus.includes("unbook") ||
+    rawPostex.includes("unbook") ||
+    rawStatus.includes("unassigned") ||
+    rawPostex.includes("unassigned") ||
+    rawStatus.includes("pending") ||
+    rawStatus === ""
+  );
 
   if (tab === "Total Orders") return true;
   if (tab === "Advance Paid") return Number(order.amountPayableInAdvance || 0) > 0;
@@ -2957,7 +2980,10 @@ function orderMatchesCategory(order, tab) {
   const category = normalizePostexCategory(order.postexStatus || order.status);
 
   if (tab === "In Courier") {
-    return ["Booked", "PostEx Warehouse", "Transferred", "Rider Assigned", "In-Transit"].includes(category) || (Boolean(order.tracking) && !["Delivered", "Returned", "Out For Delivery", "Attempted", "Cancelled"].includes(category));
+    return (
+      ["Booked", "PostEx Warehouse", "Transferred", "Rider Assigned", "In-Transit"].includes(category) ||
+      (hasTracking && !["Delivered", "Returned", "Out For Return", "Out For Delivery", "Attempted", "Cancelled"].includes(category))
+    );
   }
   if (tab === "Out For Delivery") {
     return ["Out For Delivery", "Attempted"].includes(category);
@@ -4359,35 +4385,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
     }
   }
 
-  const [syncingPostex, setSyncingPostex] = useState(false);
-  const [syncMessage, setSyncMessage] = useState("");
 
-  async function syncAllPostexOrders() {
-    setSyncingPostex(true);
-    setSyncMessage("");
-    try {
-      const response = await fetch("/api/admin/orders/sync-postex", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "PostEx status sync failed.");
-      await onRetry();
-      const updatedCount = result.updatedCount || 0;
-      const checkedCount = result.totalChecked || 0;
-      setSyncMessage(
-        updatedCount > 0
-          ? `Synced ${checkedCount} active order(s) with PostEx (${updatedCount} updated to latest live status).`
-          : `All ${checkedCount} active PostEx parcel(s) are already up-to-date.`
-      );
-      setTimeout(() => setSyncMessage(""), 7000);
-    } catch (err) {
-      window.alert(err.message || "Unable to sync with PostEx.");
-    } finally {
-      setSyncingPostex(false);
-    }
-  }
 
   async function exportOrders() {
     setExportingOrders(true);
@@ -4420,41 +4418,11 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
         <span>PostEx status, custom admin orders, fulfillment, returns and team notes.</span>
       </div>
       <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-        <button
-          type="button"
-          onClick={syncAllPostexOrders}
-          disabled={loading || syncingPostex || !connected}
-          aria-busy={syncingPostex}
-          className="adminSecondaryBtn"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-            background: "#fff",
-            border: "1px solid #cbd5e1",
-            borderRadius: "6px",
-            padding: "8px 14px",
-            fontSize: "13px",
-            fontWeight: 700,
-            color: "#0f766e",
-            cursor: syncingPostex ? "not-allowed" : "pointer"
-          }}
-          title="Query PostEx tracking API for live status changes on all active parcels"
-        >
-          <RefreshCw size={14} className={syncingPostex ? "animate-spin" : ""} />
-          <span>{syncingPostex ? "Syncing PostEx..." : "🔄 Sync PostEx Status"}</span>
-        </button>
         <button onClick={exportOrders} disabled={loading || exportingOrders || !canExport || !connected || !allRows.length} aria-busy={exportingOrders}>
           {exportingOrders ? "Exporting..." : "Export orders"}
         </button>
       </div>
     </div>
-
-    {syncMessage && (
-      <div className="adminSuccessBanner" role="status" style={{ margin: "10px 0" }}>
-        ✅ {syncMessage}
-      </div>
-    )}
 
     {!loading && error && <div className="ordersConnect"><div><b>Orders could not be loaded.</b><span>{error}</span></div><button onClick={onRetry}>Retry</button></div>}
     {!loading && !connected && !error && <div className="ordersConnect"><div><b>Session expired</b><span>Please sign in again to view orders.</span></div></div>}

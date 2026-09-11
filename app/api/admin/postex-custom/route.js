@@ -466,8 +466,8 @@ export async function POST(request) {
           const postexTrackingNumber = postexTrackingNumberFromBooking(result);
 
           if (postexTrackingNumber) {
-            trackingNumber = postexTrackingNumber;
-            courierStatus = result?.dist?.transactionStatus || "Booked";
+            const rawTxStatus = result?.dist?.transactionStatus;
+            courierStatus = (rawTxStatus && rawTxStatus.toLowerCase() !== "unbooked") ? rawTxStatus : "Booked";
             postexResponse = result;
             courierBooked = true;
           } else {
