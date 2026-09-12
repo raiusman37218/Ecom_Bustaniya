@@ -7214,6 +7214,8 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   const [saveError, setSaveError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const [copiedTracking, setCopiedTracking] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
+  const [copiedOrderNumber, setCopiedOrderNumber] = useState(false);
   const [orderItems, setOrderItems] = useState(() => normalizeOrderItems(order));
   const items = orderItems;
   const returnStatusOptions = returnWorkflowTransitions[order.operation?.returnStatus || "No return"] || [returnStatus];
@@ -7450,6 +7452,27 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
     setTimeout(() => setCopiedTracking(false), 2000);
   }
 
+  function copyAddressToClipboard() {
+    const fullAddr = [
+      order.customer,
+      order.phone,
+      order.address || order.city,
+      order.city ? `City: ${order.city}` : ""
+    ].filter(Boolean).join("\n");
+    if (!fullAddr) return;
+    navigator.clipboard?.writeText(fullAddr);
+    setCopiedAddress(true);
+    setTimeout(() => setCopiedAddress(false), 2000);
+  }
+
+  function copyOrderNumberToClipboard() {
+    const num = order.order_number || String(order.id).replace(/^#/, "");
+    if (!num) return;
+    navigator.clipboard?.writeText(num);
+    setCopiedOrderNumber(true);
+    setTimeout(() => setCopiedOrderNumber(false), 2000);
+  }
+
   async function checkLivePostexStatus() {
     if (!tracking || tracking.startsWith("MANUAL-")) return;
     setCheckingPostex(true);
@@ -7566,32 +7589,108 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   const currentCod = preview.cod;
   const unsavedTotalChange = Math.abs(preview.total - savedMoney.total) >= 1 || Math.abs(preview.advance - savedMoney.advance) >= 1;
 
+  const rawStatusLower = String(orderStage || "").toLowerCase();
+  const isDelivered = rawStatusLower.includes("deliver") && !rawStatusLower.includes("out for delivery");
+  const isReturned = rawStatusLower.includes("return");
+  const isCancelled = rawStatusLower.includes("cancel") || rawStatusLower.includes("void");
+  const isOutForDelivery = rawStatusLower.includes("out for delivery") || rawStatusLower.includes("attempt");
+  const isInTransit = rawStatusLower.includes("transit") || rawStatusLower.includes("warehouse") || rawStatusLower.includes("transfer") || rawStatusLower.includes("rider");
+  const isBooked = Boolean(tracking && !tracking.startsWith("MANUAL-")) || rawStatusLower.includes("book");
+
+  let currentStepIndex = 0;
+  if (isDelivered) currentStepIndex = 4;
+  else if (isOutForDelivery) currentStepIndex = 3;
+  else if (isInTransit) currentStepIndex = 2;
+  else if (isBooked) currentStepIndex = 1;
+  else currentStepIndex = 0;
+
+  const waOrderRef = order.order_number || order.id || "";
+  const waItemsText = (orderItems || []).map((it) => `${it.name || it.title || "Suit"}${it.size ? ` (${it.size})` : ""}`).join(", ");
+  const waPrefilledText = encodeURIComponent(
+    `Assalam-o-Alaikum ${order.customer || ""},\nYeh message Bustaniya ki taraf se aap ke order #${waOrderRef} ke hawalay se hai.\n\n📦 Items: ${waItemsText}\n💰 Total Amount: Rs. ${calculatedOrderTotal.toLocaleString()}\n📍 Delivery City: ${order.city || "Pakistan"}\n🏠 Address: ${order.address || ""}\n\nKindly confirm if your details are correct so we can dispatch your parcel.\nShukriya!\nBustaniya Store`
+  );
+  const waLink = `https://wa.me/${waPhone}?text=${waPrefilledText}`;
+
+  const stepperSteps = [
+    { label: "1. Unbooked", sub: "At Warehouse", icon: "📦" },
+    { label: "2. Booked", sub: "CN Assigned", icon: "🏷️" },
+    { label: "3. In Transit", sub: "Courier Hub", icon: "🚚" },
+    { label: "4. Out For Delivery", sub: "Rider Dispatched", icon: "🛵" },
+    { label: "5. Delivered", sub: "Cash Collected", icon: "✅" },
+  ];
+
   return (
     <>
       <div className="adminOverlay" onClick={onClose} />
       <aside className="orderDetailDrawer">
-        <header>
+        {/* Sticky Professional Top Header */}
+        <header style={{ position: "sticky", top: 0, zIndex: 30, background: "#ffffff", borderBottom: "1px solid #e2e8f0", padding: "14px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-              <span className={`statusBadge ${String(orderStage).replaceAll(" ", "").replaceAll("-", "").toLowerCase()}`}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.01em" }}>
+                  {order.id}
+                </h2>
+                <button
+                  type="button"
+                  onClick={copyOrderNumberToClipboard}
+                  title="Copy order number"
+                  style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: "5px", padding: "3px 6px", fontSize: "11px", cursor: "pointer", color: "#475569" }}
+                >
+                  {copiedOrderNumber ? "✅ Copied" : "📋 Copy"}
+                </button>
+              </div>
+
+              <span className={`statusBadge ${String(orderStage).replaceAll(" ", "").replaceAll("-", "").toLowerCase()}`} style={{ fontWeight: 700, fontSize: "11px" }}>
                 {orderStage}
               </span>
-              <span className="statusBadge" style={{ background: "#f1f5f9", color: "#334155", fontSize: "11px" }}>
-                {order.source || "Storefront"}
+
+              <span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`} style={{ fontWeight: 700, fontSize: "11px" }}>
+                {paymentStatus}
+              </span>
+
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 600, color: "#475569" }}>
+                {orderSourceBadge(order.source).icon} {orderSourceBadge(order.source).label}
               </span>
             </div>
-            <h2>{order.id}</h2>
-            <span>{order.customer} · Rs. {calculatedOrderTotal.toLocaleString()} · {order.date}</span>
+
+            <div style={{ fontSize: "12px", color: "#64748b" }}>
+              <b>{order.customer}</b> · <span style={{ color: "#166534", fontWeight: 700 }}>Rs. {calculatedOrderTotal.toLocaleString()}</span> · {order.date}
+            </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
             <button
               type="button"
-              className="editProductButton"
+              onClick={printInvoice}
+              style={{ background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", padding: "7px 11px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
+              title="Print Customer Invoice Receipt"
+            >
+              📄 Invoice
+            </button>
+            <button
+              type="button"
+              onClick={printPackingSlip}
+              style={{ background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", padding: "7px 11px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
+              title="Print Warehouse Packing Slip"
+            >
+              📦 Packing Slip
+            </button>
+            <button
+              type="button"
+              onClick={() => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
+              style={{ background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", padding: "7px 11px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
+              title="Print Workshop Stitching Slip"
+            >
+              🧵 Stitching Slip
+            </button>
+            <button
+              type="button"
               onClick={() => saveChanges()}
               disabled={saving}
               style={{
                 background: "#166534",
-                color: "#fff",
+                color: "#ffffff",
                 border: "none",
                 fontWeight: 700,
                 padding: "8px 16px",
@@ -7600,7 +7699,8 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
-                cursor: saving ? "not-allowed" : "pointer"
+                cursor: saving ? "not-allowed" : "pointer",
+                boxShadow: "0 2px 8px rgba(22, 101, 52, 0.25)"
               }}
             >
               {saving ? (
@@ -7612,323 +7712,539 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 "💾 Save All Changes"
               )}
             </button>
-            <button onClick={onClose} aria-label="Close details"><X /></button>
+            <button onClick={onClose} aria-label="Close details" className="drawerCloseBtn">
+              <X size={16} />
+            </button>
           </div>
         </header>
 
-        <div className="orderDetailBody">
-          {/* Customer & Contact Card */}
-          <section className="adminCard orderDetailCard" style={{ padding: "18px", background: "#fff" }}>
-            <div className="inventoryListHead" style={{ marginBottom: "10px" }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#173d29" }}>Customer &amp; Delivery Details</h3>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>Shipping and direct contact options</span>
-              </div>
-              <div style={{ display: "flex", gap: "6px" }}>
-                {rawPhoneDigits && (
-                  <a
-                    href={`https://wa.me/${waPhone}?text=${encodeURIComponent(`Assalam o Alaikum ${order.customer || ""}, this is regarding your order #${order.id || ""} from Bustaniya.`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      background: "#22c55e",
-                      color: "#fff",
-                      padding: "6px 12px",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                      fontWeight: 700,
-                      textDecoration: "none"
-                    }}
-                    title="Open WhatsApp Chat with customer"
-                  >
-                    💬 WhatsApp
-                  </a>
-                )}
-                {rawPhoneDigits && (
-                  <a
-                    href={`tel:${order.phone}`}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      background: "#f1f5f9",
-                      color: "#334155",
-                      padding: "6px 10px",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      textDecoration: "none"
-                    }}
-                  >
-                    📞 Call
-                  </a>
-                )}
-              </div>
+        <div className="orderDetailBody" style={{ padding: "16px 22px 100px", display: "flex", flexDirection: "column", gap: "14px", background: "#f8fafc" }}>
+          {/* Notifications & Warnings */}
+          {saveError && (
+            <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", color: "#991b1b", padding: "10px 14px", borderRadius: "8px", fontSize: "13px", fontWeight: 600 }}>
+              ⚠️ {saveError}
+            </div>
+          )}
+          {saveMessage && (
+            <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", color: "#166534", padding: "10px 14px", borderRadius: "8px", fontSize: "13px", fontWeight: 600 }}>
+              ✅ {saveMessage}
+            </div>
+          )}
+          {unsavedTotalChange && (
+            <div style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", color: "#1e40af", padding: "10px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 600 }}>
+              ℹ️ Unsaved edits: Subtotal or advance amounts modified on screen. Press <b>Save All Changes</b> to sync database before booking with courier.
+            </div>
+          )}
+          {savedMoney.codMismatch && (
+            <div style={{ background: "#fffbeb", border: "1.5px solid #fcd34d", color: "#92400e", padding: "10px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 600 }}>
+              ⚠️ PostEx booking COD mismatch: PostEx is set to collect Rs. {savedMoney.bookedCod?.toLocaleString()}. Advance received makes due amount Rs. {savedMoney.cod?.toLocaleString()}. Update courier shipment so rider collects correct cash.
+            </div>
+          )}
+
+          {/* 1. Visual Shipping Lifecycle Stepper */}
+          <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "14px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <span style={{ fontSize: "11px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Courier Delivery Lifecycle
+              </span>
+              <span style={{ fontSize: "12px", fontWeight: 700, color: isCancelled ? "#ef4444" : isReturned ? "#b91c1c" : isDelivered ? "#166534" : "#2563eb" }}>
+                {isCancelled ? "❌ Cancelled" : isReturned ? "↩️ Returned to Merchant" : isDelivered ? "✅ Delivered" : orderStage}
+              </span>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", fontSize: "13px", color: "#334155" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", overflowX: "auto", padding: "4px 0" }}>
+              {stepperSteps.map((step, idx) => {
+                const isPassed = currentStepIndex > idx;
+                const isCurrent = currentStepIndex === idx;
+                return (
+                  <div key={step.label} style={{ display: "flex", alignItems: "center", flex: idx === stepperSteps.length - 1 ? "0 0 auto" : 1 }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: "90px" }}>
+                      <div style={{
+                        width: "34px",
+                        height: "34px",
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "14px",
+                        background: isPassed ? "#dcfce7" : isCurrent ? "#166534" : "#f1f5f9",
+                        color: isPassed ? "#166534" : isCurrent ? "#ffffff" : "#94a3b8",
+                        border: isCurrent ? "2px solid #166534" : isPassed ? "2px solid #86efac" : "2px solid #e2e8f0",
+                        boxShadow: isCurrent ? "0 0 0 4px #dcfce7" : "none",
+                        transition: "all 0.2s ease",
+                        fontWeight: 700
+                      }}>
+                        {isPassed ? "✓" : step.icon}
+                      </div>
+                      <span style={{ fontSize: "11px", fontWeight: isCurrent ? 800 : 600, color: isCurrent ? "#166534" : isPassed ? "#1e293b" : "#94a3b8", marginTop: "4px", textAlign: "center", whiteSpace: "nowrap" }}>
+                        {step.label}
+                      </span>
+                      <span style={{ fontSize: "9px", color: "#94a3b8" }}>{step.sub}</span>
+                    </div>
+
+                    {idx < stepperSteps.length - 1 && (
+                      <div style={{
+                        flex: 1,
+                        height: "3px",
+                        background: currentStepIndex > idx ? "#86efac" : "#e2e8f0",
+                        margin: "-14px 4px 0",
+                        borderRadius: "2px"
+                      }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* 2. Priority Courier Operations & Booking Card */}
+          <section style={{ background: "#ffffff", border: tracking ? "1.5px solid #86efac" : "1.5px solid #e2e8f0", borderRadius: "12px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            {!tracking ? (
               <div>
-                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Customer Name</span>
-                <b>{order.customer}</b>
-                {order.email && <div style={{ color: "#64748b", fontSize: "12px" }}>{order.email}</div>}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "14px" }}>
+                  <div>
+                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#d97706", background: "#fef3c7", padding: "3px 8px", borderRadius: "6px", textTransform: "uppercase" }}>
+                      📦 Ready For Dispatch (At Warehouse)
+                    </span>
+                    <h3 style={{ margin: "6px 0 2px", fontSize: "17px", fontWeight: 800, color: "#0f172a" }}>
+                      PostEx Courier Booking
+                    </h3>
+                    <p style={{ margin: 0, fontSize: "12px", color: "#64748b" }}>
+                      Generate official PostEx consignment note and tracking number in 1 click.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={bookWithPostex}
+                    disabled={saving || bookingPostex}
+                    style={{
+                      background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
+                      color: "#ffffff",
+                      border: "none",
+                      fontWeight: 800,
+                      padding: "10px 22px",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      cursor: (saving || bookingPostex) ? "not-allowed" : "pointer",
+                      boxShadow: "0 4px 14px rgba(37, 99, 235, 0.3)"
+                    }}
+                  >
+                    {bookingPostex ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>Booking with PostEx...</span>
+                      </>
+                    ) : (
+                      "⚡ Book with PostEx Courier"
+                    )}
+                  </button>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                  <div>
+                    <span style={{ fontSize: "10px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Destination City</span>
+                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a" }}>📍 {order.city || "Pakistan"}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "10px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>PostEx Cash To Collect</span>
+                    <div style={{ fontSize: "14px", fontWeight: 800, color: currentCod === 0 ? "#166534" : "#1d4ed8" }}>
+                      {currentCod === 0 ? "Rs. 0 (Prepaid - Do Not Collect)" : `Rs. ${currentCod.toLocaleString()} (COD)`}
+                    </div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "10px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Delivery Method</span>
+                    <select
+                      value={deliveryMethod}
+                      onChange={(e) => {
+                        setDeliveryMethod(e.target.value);
+                        saveChanges({ deliveryMethod: e.target.value });
+                      }}
+                      style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "5px", border: "1px solid #cbd5e1", background: "#ffffff", marginTop: "2px" }}
+                    >
+                      <option>PostEx</option>
+                      <option>Rider / same city</option>
+                      <option>Customer pickup</option>
+                      <option>Staff delivery</option>
+                      <option>Manual courier</option>
+                      <option>PostEx later</option>
+                    </select>
+                  </div>
+                </div>
               </div>
+            ) : (
               <div>
-                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Phone Number</span>
-                <b>{order.phone || "No phone saved"}</b>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "12px" }}>
+                  <div>
+                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#166534", background: "#dcfce7", padding: "3px 8px", borderRadius: "6px", textTransform: "uppercase" }}>
+                      🏷️ PostEx Shipment Active
+                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+                      <code style={{ fontSize: "17px", fontWeight: 800, color: "#166534", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "3px 10px", borderRadius: "6px" }}>
+                        {tracking}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={copyTrackingToClipboard}
+                        style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "4px 10px", fontSize: "11px", fontWeight: 700, color: "#334155", cursor: "pointer" }}
+                      >
+                        {copiedTracking ? "✅ Copied" : "📋 Copy CN"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+                    {!tracking.startsWith("MANUAL-") && (
+                      <a
+                        href={`https://postex.pk/tracking?cn=${tracking}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          background: "#eff6ff",
+                          color: "#1d4ed8",
+                          border: "1px solid #bfdbfe",
+                          padding: "7px 13px",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          textDecoration: "none",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px"
+                        }}
+                      >
+                        🔗 Live PostEx.pk
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={checkLivePostexStatus}
+                      disabled={saving || checkingPostex}
+                      style={{
+                        background: "#0f766e",
+                        color: "#ffffff",
+                        border: "none",
+                        fontWeight: 700,
+                        padding: "7px 14px",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        cursor: (saving || checkingPostex) ? "not-allowed" : "pointer"
+                      }}
+                    >
+                      {checkingPostex ? (
+                        <>
+                          <Loader2 size={13} className="animate-spin" />
+                          <span>Checking...</span>
+                        </>
+                      ) : (
+                        "🔄 Check Live Status"
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f1f5f9", paddingTop: "10px", flexWrap: "wrap", gap: "8px", fontSize: "12px", color: "#64748b" }}>
+                  <div>
+                    Live Stage: <b style={{ color: "#0f172a" }}>{orderStage}</b> · PostEx Collection: <b style={{ color: currentCod === 0 ? "#166534" : "#1d4ed8" }}>{currentCod === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${currentCod.toLocaleString()}`}</b>
+                  </div>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    {orderStage.toLowerCase().includes("unbook") ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOrderStage("Booked");
+                          setFulfillmentStatus("Booked with PostEx");
+                          saveChanges({ status: "Booked", postexStatus: "Booked", orderStage: "Booked", fulfillmentStatus: "Booked with PostEx" });
+                        }}
+                        disabled={saving || checkingPostex}
+                        style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontWeight: 700, padding: "5px 12px", borderRadius: "6px", fontSize: "11px", cursor: "pointer" }}
+                      >
+                        🚚 Mark Dispatched
+                      </button>
+                    ) : !orderStage.toLowerCase().includes("deliver") ? (
+                      <button
+                        type="button"
+                        onClick={unbookOrder}
+                        disabled={saving || checkingPostex}
+                        style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", fontWeight: 700, padding: "5px 12px", borderRadius: "6px", fontSize: "11px", cursor: "pointer" }}
+                      >
+                        ↩️ Return to Warehouse (Unbook)
+                      </button>
+                    ) : (
+                      <span style={{ background: "#dcfce7", color: "#166534", padding: "4px 10px", borderRadius: "6px", fontWeight: 700, fontSize: "11px" }}>
+                        ✅ Parcel Delivered
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
+            )}
+          </section>
+
+          {/* 3. Customer & Delivery Address Card */}
+          <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px" }}>
+              <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#173d29", display: "flex", alignItems: "center", gap: "6px" }}>
+                👤 Customer &amp; Shipping Details
+              </h3>
+              <span style={{ fontSize: "11px", fontWeight: 600, color: "#475569", background: "#f1f5f9", padding: "2px 8px", borderRadius: "5px" }}>
+                Channel: {orderSourceBadge(order.source).label}
+              </span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
               <div>
-                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>City</span>
-                <b>📍 {order.city || "—"}</b>
+                <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Customer Name</span>
+                <div style={{ fontSize: "15px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>{order.customer || "Guest Customer"}</div>
+                {order.email && <div style={{ fontSize: "12px", color: "#64748b" }}>{order.email}</div>}
               </div>
+
               <div>
-                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Order Channel / Source</span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: "#f1f5f9", padding: "4px 8px", borderRadius: "6px", fontWeight: 600, fontSize: "12px" }}>
-                  {orderSourceBadge(order.source).icon} {orderSourceBadge(order.source).label}
-                </span>
+                <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Phone &amp; One-Click Contact</span>
+                <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>{order.phone || "No phone saved"}</div>
+                <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+                  {rawPhoneDigits && (
+                    <a
+                      href={waLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        background: "#22c55e",
+                        color: "#ffffff",
+                        padding: "5px 12px",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px"
+                      }}
+                      title="Open WhatsApp with ready order confirmation message"
+                    >
+                      💬 WhatsApp Customer
+                    </a>
+                  )}
+                  {rawPhoneDigits && (
+                    <a
+                      href={`tel:${order.phone}`}
+                      style={{
+                        background: "#f1f5f9",
+                        color: "#334155",
+                        padding: "5px 10px",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        textDecoration: "none"
+                      }}
+                    >
+                      📞 Call
+                    </a>
+                  )}
+                </div>
               </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Complete Delivery Address</span>
-                <p style={{ margin: "2px 0 0", lineHeight: 1.4, color: "#1e293b" }}>{order.address || order.city || "No address saved"}</p>
+
+              <div>
+                <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Delivery City</span>
+                <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>📍 {order.city || "—"}</div>
+              </div>
+
+              <div style={{ gridColumn: "1 / -1", background: "#f8fafc", padding: "12px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Complete Delivery Address</span>
+                  <button
+                    type="button"
+                    onClick={copyAddressToClipboard}
+                    style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "5px", padding: "3px 8px", fontSize: "11px", fontWeight: 700, color: "#334155", cursor: "pointer" }}
+                  >
+                    {copiedAddress ? "✅ Copied" : "📋 Copy Address"}
+                  </button>
+                </div>
+                <p style={{ margin: "4px 0 0", fontSize: "13px", lineHeight: "1.5", color: "#1e293b", fontWeight: 500 }}>
+                  {order.address || order.city || "No address saved"}
+                </p>
               </div>
             </div>
           </section>
 
-          {/* Internal Notes & Special Instructions Card (PROMINENT) */}
-          <section className="adminCard orderOpsCard" style={{ background: "#fefce8", border: "1px solid #fde047", padding: "18px" }}>
-            <div className="inventoryListHead" style={{ marginBottom: "10px" }}>
+          {/* 4. Financial Breakdown & Advance Verification */}
+          <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px" }}>
               <div>
-                <h3 style={{ color: "#854d0e", display: "flex", alignItems: "center", gap: "6px", margin: 0, fontSize: "15px" }}>
-                  📝 Internal Notes &amp; Special Remarks
+                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#173d29" }}>
+                  💰 Financial Breakdown &amp; Advance Verification
                 </h3>
-                <span style={{ color: "#a16207", fontSize: "12px" }}>
-                  Admin notes, DM context, customer requests, rider timing &amp; instructions
-                </span>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>Payment tracking, verified advance, and remaining COD cash collection</span>
               </div>
-              {notes && (
-                <span className="statusBadge" style={{ background: "#fef08a", color: "#854d0e", fontWeight: 700 }}>
-                  Notes Active
-                </span>
-              )}
+              <span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`}>
+                {paymentStatus}
+              </span>
             </div>
 
-            {notes && (
-              <div style={{
-                background: "#fff",
-                padding: "12px 14px",
-                borderRadius: "8px",
-                border: "1px solid #fef08a",
-                color: "#713f12",
-                fontSize: "13px",
-                lineHeight: "1.6",
-                whiteSpace: "pre-wrap",
-                marginBottom: "12px"
-              }}>
-                {notes}
+            {/* 5-KPI strip */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "8px", marginBottom: "14px" }}>
+              <div style={{ padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+                <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Items Subtotal</span>
+                <div style={{ fontSize: "15px", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>Rs. {calculatedItemsTotal.toLocaleString()}</div>
               </div>
-            )}
+              <div style={{ padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+                <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Delivery Fee</span>
+                <div style={{ fontSize: "15px", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>Rs. {deliveryChargeVal.toLocaleString()}</div>
+              </div>
+              <div style={{ padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+                <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Total Order</span>
+                <div style={{ fontSize: "15px", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>Rs. {calculatedOrderTotal.toLocaleString()}</div>
+              </div>
+              <div style={{ padding: "10px 12px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px" }}>
+                <span style={{ fontSize: "10px", fontWeight: 700, color: "#166534", textTransform: "uppercase" }}>Advance Paid</span>
+                <div style={{ fontSize: "15px", fontWeight: 800, color: "#166534", marginTop: "2px" }}>Rs. {currentAdvance.toLocaleString()}</div>
+              </div>
+              <div style={{ padding: "10px 12px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "8px" }}>
+                <span style={{ fontSize: "10px", fontWeight: 700, color: "#1e40af", textTransform: "uppercase" }}>PostEx COD Due</span>
+                <div style={{ fontSize: "15px", fontWeight: 800, color: currentCod === 0 ? "#166534" : "#1d4ed8", marginTop: "2px" }}>
+                  {currentCod === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${currentCod.toLocaleString()}`}
+                </div>
+              </div>
+            </div>
 
-            <label style={{ margin: 0 }}>
-              <span style={{ fontSize: "12px", color: "#854d0e", fontWeight: 700 }}>
-                {notes ? "Edit / Append Internal Notes:" : "Add Internal Notes:"}
-              </span>
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                rows="3"
-                placeholder="Write customer request, DM context, phone verification, rider instructions, custom sizes..."
-                style={{ background: "#fff", border: "1px solid #facc15", marginTop: "6px", width: "100%" }}
-              />
-            </label>
-
-            {saveError && <p className="checkoutError" role="alert" style={{ marginTop: "8px" }}>{saveError}</p>}
-            {saveMessage && <p className="adminSuccessBanner" role="status" style={{ marginTop: "8px" }}>{saveMessage}</p>}
-
-            <div className="orderActionRow" style={{ marginTop: "10px" }}>
+            {/* Advance shortcuts */}
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "12px", background: "#f8fafc", padding: "8px 12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569" }}>Advance Shortcuts:</span>
               <button
                 type="button"
-                className="editProductButton"
-                onClick={() => saveChanges({ notes })}
-                disabled={saving}
-                aria-busy={saving}
-                style={{
-                  background: "#ca8a04",
-                  color: "#fff",
-                  border: "none",
-                  fontWeight: 700,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  cursor: saving ? "not-allowed" : "pointer"
-                }}
+                style={{ fontSize: "11px", padding: "4px 8px", background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", borderRadius: "5px", cursor: "pointer", fontWeight: 700 }}
+                onClick={() => { setAdvancePaidAmount(calculatedOrderTotal); setPaymentStatus("Payment Verified"); }}
               >
-                {saving ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>Saving Note...</span>
-                  </>
-                ) : (
-                  "💾 Save Internal Note"
-                )}
+                🟢 100% Full Advance (Rs. {calculatedOrderTotal.toLocaleString()})
+              </button>
+              <button
+                type="button"
+                style={{ fontSize: "11px", padding: "4px 8px", background: "#fefce8", color: "#854d0e", border: "1px solid #fde047", borderRadius: "5px", cursor: "pointer", fontWeight: 700 }}
+                onClick={() => { setAdvancePaidAmount(deliveryChargeVal || 250); setPaymentStatus("Payment Verified"); }}
+              >
+                🟡 Delivery Advance (Rs. {(deliveryChargeVal || 250).toLocaleString()})
+              </button>
+              <button
+                type="button"
+                style={{ fontSize: "11px", padding: "4px 8px", background: "#ffffff", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "5px", cursor: "pointer", fontWeight: 700 }}
+                onClick={() => { setAdvancePaidAmount(0); setPaymentStatus("COD pending"); }}
+              >
+                ⚪ Full COD (Rs. 0 Advance)
+              </button>
+            </div>
+
+            <div className="formRow" style={{ marginTop: "8px" }}>
+              <label>
+                Advance Received (PKR)
+                <input
+                  type="number"
+                  min="0"
+                  max={calculatedOrderTotal}
+                  value={advancePaidAmount}
+                  onChange={(event) => setAdvancePaidAmount(event.target.value)}
+                  placeholder="Enter advance amount..."
+                />
+              </label>
+              <label>
+                Payment Reference ID / TID
+                <input
+                  value={paymentReference}
+                  onChange={(event) => setPaymentReference(event.target.value)}
+                  placeholder="NayaPay, Bank transfer, JazzCash reference"
+                />
+              </label>
+              <label>
+                Payment Status
+                <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
+                  <option>COD Pending</option>
+                  <option>Advance Pending</option>
+                  <option>Proof Submitted</option>
+                  <option>Payment Verified</option>
+                  <option>Paid</option>
+                  <option>Payment Rejected</option>
+                  <option>Refunded</option>
+                </select>
+              </label>
+            </div>
+
+            <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentStatus("Payment Verified");
+                  setFulfillmentStatus("Packing");
+                  saveChanges({ paymentStatus: "Payment Verified", paymentReference, amountPayableInAdvance: Number(advancePaidAmount || 0), fulfillmentStatus: "Packing", confirmationStatus: "Confirmed" });
+                }}
+                disabled={saving}
+                style={{ background: "#166534", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
+              >
+                ✅ Verify Payment &amp; Move to Packing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentStatus("Payment Rejected");
+                  saveChanges({ paymentStatus: "Payment Rejected", paymentReference, confirmationStatus: "Confirmed" });
+                }}
+                disabled={saving}
+                style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", padding: "8px 14px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
+              >
+                ❌ Reject Payment
+              </button>
+              <button
+                type="button"
+                onClick={() => saveChanges({ paymentStatus, paymentReference, amountPayableInAdvance: Number(advancePaidAmount || 0), confirmationStatus: "Confirmed" })}
+                disabled={saving}
+                style={{ background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", padding: "8px 14px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
+              >
+                💾 Save Payment Details
               </button>
             </div>
           </section>
 
-          {/* Quick Selectors Grid */}
-          <section className="orderDetailGrid">
-            <article className="adminCard orderDetailCard">
-              <h3>Order Stage</h3>
-              <select value={orderStage} onChange={(event) => {
-                const val = event.target.value;
-                setOrderStage(val);
-                const isUnbook = val.toLowerCase().includes("unbook");
-                if (isUnbook) {
-                  setFulfillmentStatus("Unfulfilled");
-                }
-                saveChanges({
-                  postexStatus: val,
-                  status: val,
-                  orderStage: val,
-                  ...(isUnbook ? { fulfillmentStatus: "Unfulfilled" } : {}),
-                });
-              }}>
-                {customOrderStatusOptions.map((status) => <option key={status}>{status}</option>)}
-              </select>
-            </article>
-            <article className="adminCard orderDetailCard">
-              <h3>Payment Status</h3>
-              <select value={paymentStatus} onChange={(event) => {
-                const val = event.target.value;
-                setPaymentStatus(val);
-                saveChanges({ paymentStatus: val });
-              }}>
-                <option>COD Pending</option>
-                <option>Advance Pending</option>
-                <option>Proof Submitted</option>
-                <option>Payment Verified</option>
-                <option>Paid</option>
-                <option>Payment Rejected</option>
-                <option>Refunded</option>
-              </select>
-            </article>
-            <article className="adminCard orderDetailCard">
-              <h3>Fulfillment</h3>
-              <select value={fulfillmentStatus} onChange={(event) => {
-                const val = event.target.value;
-                setFulfillmentStatus(val);
-                saveChanges({ fulfillmentStatus: val });
-              }}>
-                <option>Unfulfilled</option>
-                <option>Packing</option>
-                <option>Booked with PostEx</option>
-                <option>Shipped</option>
-                <option>Delivered</option>
-                <option>On hold</option>
-              </select>
-            </article>
-            <article className="adminCard orderDetailCard">
-              <h3>Delivery Method</h3>
-              <select value={deliveryMethod} onChange={(event) => {
-                const val = event.target.value;
-                setDeliveryMethod(val);
-                saveChanges({ deliveryMethod: val });
-              }}>
-                <option>PostEx</option>
-                <option>Rider / same city</option>
-                <option>Customer pickup</option>
-                <option>Staff delivery</option>
-                <option>Manual courier</option>
-                <option>PostEx later</option>
-              </select>
-            </article>
-            <article className="adminCard orderDetailCard">
-              <h3>Risk Level</h3>
-              <select value={risk} onChange={(event) => {
-                const val = event.target.value;
-                setRisk(val);
-                const currentTags = tags.split(",").map((t) => t.trim()).filter(Boolean);
-                const cleanTags = currentTags.filter((t) => !t.toLowerCase().includes("risk") && t !== "Repeat customer");
-                if (val !== "Standard COD") {
-                  cleanTags.push(val);
-                }
-                const nextTagsStr = cleanTags.join(", ");
-                setTags(nextTagsStr);
-                saveChanges({ tags: cleanTags });
-              }}>
-                <option>Standard COD</option>
-                <option>High risk COD</option>
-                <option>Repeat customer</option>
-              </select>
-            </article>
-          </section>
-
-          {/* Order Items & Product Editor Section */}
-          <section className="adminCard orderItemsCard" style={{ padding: "18px", background: "#fff" }}>
-            <div className="inventoryListHead" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+          {/* 5. Ordered Suits & Product Items */}
+          <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px", flexWrap: "wrap", gap: "8px" }}>
               <div>
-                <h2 style={{ fontSize: "16px", margin: 0, fontWeight: 700, color: "#173d29" }}>Ordered Items &amp; Product Settings</h2>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>Change products, sizes, colors, or quantities and save directly</span>
+                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#173d29" }}>
+                  👗 Ordered Suits &amp; Products ({orderItems.length})
+                </h3>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>Edit quantities, custom sizes, suit titles or add new line items</span>
               </div>
-              <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "6px" }}>
                 <button
                   type="button"
                   onClick={handleAddProductItem}
-                  style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontWeight: 700, padding: "7px 12px", fontSize: "12px", borderRadius: "6px", cursor: "pointer" }}
+                  style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontWeight: 700, padding: "6px 12px", fontSize: "12px", borderRadius: "6px", cursor: "pointer" }}
                 >
                   + Add Product to Order
                 </button>
                 <button
                   type="button"
-                  className="editProductButton"
                   onClick={() => saveChanges({ items: orderItems })}
                   disabled={saving}
-                  style={{
-                    background: "#166534",
-                    color: "#fff",
-                    border: "none",
-                    fontWeight: 700,
-                    padding: "7px 14px",
-                    fontSize: "12px",
-                    borderRadius: "6px",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    cursor: saving ? "not-allowed" : "pointer"
-                  }}
+                  style={{ background: "#166534", color: "#ffffff", border: "none", fontWeight: 700, padding: "6px 14px", fontSize: "12px", borderRadius: "6px", cursor: saving ? "not-allowed" : "pointer" }}
                 >
-                  {saving ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>Saving Changes...</span>
-                    </>
-                  ) : (
-                    "💾 Save Items & Changes"
-                  )}
-                </button>
-                <button type="button" onClick={printInvoice} style={{ padding: "6px 10px", fontSize: "12px" }}>📄 Print Invoice</button>
-                <button type="button" onClick={printPackingSlip} style={{ padding: "6px 10px", fontSize: "12px" }}>📦 Packing Slip</button>
-                <button
-                  type="button"
-                  onClick={() => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
-                  style={{ padding: "6px 10px", fontSize: "12px" }}
-                  title="Print Stitching Slip for Workshop Tailor"
-                >
-                  🧵 Stitching Slip
+                  💾 Save Items
                 </button>
               </div>
             </div>
 
-            <div className="adminTableWrap" style={{ marginTop: "14px", overflowX: "auto" }}>
+            <div className="adminTableWrap" style={{ overflowX: "auto" }}>
               <table className="adminTable" style={{ minWidth: "680px" }}>
                 <thead>
                   <tr>
-                    <th style={{ minWidth: "220px" }}>Product Name (Change / Select)</th>
-                    <th style={{ minWidth: "140px" }}>Size (Edit)</th>
-                    <th style={{ minWidth: "120px" }}>Color (Edit)</th>
+                    <th style={{ minWidth: "220px" }}>Product Name / Suit</th>
+                    <th style={{ minWidth: "130px" }}>Size</th>
+                    <th style={{ minWidth: "120px" }}>Color</th>
                     <th style={{ width: "65px" }}>Qty</th>
-                    <th style={{ width: "110px" }}>Unit Price (PKR)</th>
+                    <th style={{ width: "110px" }}>Unit Price</th>
                     <th>Line Total</th>
                     <th style={{ width: "40px" }}></th>
                   </tr>
@@ -7941,7 +8257,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                     return (
                       <tr key={item.id || index}>
                         <td>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                               {item.imageUrl && (
                                 <img src={item.imageUrl} alt={item.name} style={{ width: "36px", height: "36px", objectFit: "cover", borderRadius: "4px", flexShrink: 0 }} />
@@ -7966,8 +8282,8 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                                 type="text"
                                 value={item.name || item.title || ""}
                                 onChange={(e) => updateItemField(index, "name", e.target.value)}
-                                placeholder="Enter custom suit / product title..."
-                                style={{ padding: "5px 8px", fontSize: "12px", borderRadius: "4px", border: "1.5px solid #2563eb", background: "#fff", fontWeight: 600 }}
+                                placeholder="Enter custom suit title..."
+                                style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "4px", border: "1.5px solid #2563eb", background: "#fff", fontWeight: 600 }}
                               />
                             )}
                           </div>
@@ -7996,7 +8312,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                                 type="text"
                                 value={item.size || ""}
                                 onChange={(e) => updateItemField(index, "size", e.target.value)}
-                                placeholder="Size (e.g. 38, Custom size)"
+                                placeholder="e.g. 38, Custom size"
                                 style={{ padding: "4px 8px", fontSize: "11px", borderRadius: "4px", border: "1px solid #94a3b8", background: "#fff" }}
                               />
                             )}
@@ -8007,7 +8323,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                             type="text"
                             value={item.color || ""}
                             onChange={(e) => updateItemField(index, "color", e.target.value)}
-                            placeholder="Color (e.g. Olive, Pink)"
+                            placeholder="Color"
                             style={{ padding: "5px 8px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "#f8fafc", width: "100%" }}
                           />
                         </td>
@@ -8059,71 +8375,83 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
             </div>
           </section>
 
-          {/* Payment & Advance Verification Card */}
-          <section className="adminCard orderOpsCard paymentVerificationWorkspace" style={{ padding: "18px" }}>
-            <div className="inventoryListHead">
+          {/* 6. Internal Notes & Remarks Card */}
+          <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: "16px" }}>Financial Breakdown &amp; Advance Verification</h3>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>Payment tracking, advance received, and remaining COD collection</span>
+                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "6px" }}>
+                  📝 Internal Notes &amp; Special Remarks
+                </h3>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>Admin context, customer requests, rider timing, or custom stitching notes</span>
               </div>
-              <span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`}>
-                {paymentStatus}
-              </span>
+              {notes && (
+                <span style={{ background: "#f1f5f9", color: "#334155", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700 }}>
+                  Active Note
+                </span>
+              )}
             </div>
 
-            <div className="paymentOrderBreakdown" style={{ marginTop: "12px" }}>
-              <span>Method: <b>{order.paymentMethod || "Cash on Delivery"}</b></span>
-              <span>Product Subtotal: <b>Rs. {calculatedItemsTotal.toLocaleString()}</b></span>
-              <span>Delivery Charges: <b>Rs. {deliveryChargeVal.toLocaleString()}</b></span>
-              <span>Total Order Value: <b>Rs. {calculatedOrderTotal.toLocaleString()}</b></span>
-              <span style={{ color: "#15803d" }}>Advance Received: <b>Rs. {currentAdvance.toLocaleString()}</b></span>
-              <span style={{ color: currentCod === 0 ? "#15803d" : "#1e40af" }}>
-                PostEx COD Collection: <b>{currentCod === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${currentCod.toLocaleString()}`}</b>
-              </span>
-            </div>
-
-            {unsavedTotalChange && (
-              <p className="orderMoneyNotice orderMoneyNoticeInfo">
-                Unsaved edits. Saved right now: total Rs. {savedMoney.total.toLocaleString()}, advance
-                Rs. {savedMoney.advance.toLocaleString()}, COD Rs. {savedMoney.cod.toLocaleString()}. Save to apply the
-                new figures before booking or re-booking PostEx.
-              </p>
-            )}
-            {savedMoney.codMismatch && (
-              <p className="orderMoneyNotice orderMoneyNoticeWarn">
-                PostEx is booked to collect Rs. {savedMoney.bookedCod.toLocaleString()}. After the
-                Rs. {savedMoney.advance.toLocaleString()} advance on a Rs. {savedMoney.total.toLocaleString()} order,
-                only Rs. {savedMoney.cod.toLocaleString()} is actually due — update the shipment with PostEx so the
-                rider collects the right amount.
-              </p>
+            {notes && (
+              <div style={{ background: "#f8fafc", padding: "12px 14px", borderRadius: "8px", border: "1px solid #e2e8f0", color: "#334155", fontSize: "13px", lineHeight: "1.6", whiteSpace: "pre-wrap", marginBottom: "12px" }}>
+                {notes}
+              </div>
             )}
 
-            <div className="formRow" style={{ marginTop: "12px" }}>
-              <label>
-                Advance Received (PKR)
-                <input
-                  type="number"
-                  min="0"
-                  max={calculatedOrderTotal}
-                  value={advancePaidAmount}
-                  onChange={(event) => setAdvancePaidAmount(event.target.value)}
-                  placeholder="250, 500, or full total..."
-                />
-              </label>
-              <label>
-                Payment Reference ID / Transaction ID
-                <input
-                  value={paymentReference}
-                  onChange={(event) => setPaymentReference(event.target.value)}
-                  placeholder="Bank transfer / NayaPay / JazzCash reference"
-                />
-              </label>
+            <label style={{ margin: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
+              <span style={{ fontSize: "12px", fontWeight: 700, color: "#475569" }}>
+                {notes ? "Edit / Append Internal Notes:" : "Add Internal Notes:"}
+              </span>
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows="2"
+                placeholder="Write customer request, DM context, phone verification, rider instructions..."
+                style={{ padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", width: "100%", fontSize: "13px" }}
+              />
+            </label>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "10px" }}>
+              <button
+                type="button"
+                onClick={() => saveChanges({ notes })}
+                disabled={saving}
+                style={{ background: "#334155", color: "#ffffff", border: "none", padding: "7px 16px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
+              >
+                💾 Save Note
+              </button>
+            </div>
+          </section>
+
+          {/* 7. Quick Status Overrides Grid */}
+          <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            <div style={{ marginBottom: "10px", borderBottom: "1px solid #f1f5f9", paddingBottom: "6px" }}>
+              <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#173d29" }}>
+                ⚙️ Status &amp; Workflow Controls
+              </h3>
+              <span style={{ fontSize: "12px", color: "#64748b" }}>Manual overrides for courier, payment and packing stages</span>
             </div>
 
-            <div className="formRow">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
               <label>
-                Payment Proof Status
-                <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Courier Stage</span>
+                <select value={orderStage} onChange={(e) => {
+                  const val = e.target.value;
+                  setOrderStage(val);
+                  const isUnbook = val.toLowerCase().includes("unbook");
+                  if (isUnbook) setFulfillmentStatus("Unfulfilled");
+                  saveChanges({ postexStatus: val, status: val, orderStage: val, ...(isUnbook ? { fulfillmentStatus: "Unfulfilled" } : {}) });
+                }} style={{ padding: "8px", borderRadius: "6px" }}>
+                  {customOrderStatusOptions.map((s) => <option key={s}>{s}</option>)}
+                </select>
+              </label>
+
+              <label>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Payment Status</span>
+                <select value={paymentStatus} onChange={(e) => {
+                  const val = e.target.value;
+                  setPaymentStatus(val);
+                  saveChanges({ paymentStatus: val });
+                }} style={{ padding: "8px", borderRadius: "6px" }}>
                   <option>COD Pending</option>
                   <option>Advance Pending</option>
                   <option>Proof Submitted</option>
@@ -8133,387 +8461,156 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                   <option>Refunded</option>
                 </select>
               </label>
-              <div style={{ display: "flex", gap: "6px", alignItems: "flex-end", paddingBottom: "2px", flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  className="editProductButton"
-                  style={{ fontSize: "11px", padding: "6px 10px", background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }}
-                  onClick={() => {
-                    setAdvancePaidAmount(calculatedOrderTotal);
-                    setPaymentStatus("Payment Verified");
-                  }}
-                >
-                  🟢 Set 100% Full Advance
-                </button>
-                <button
-                  type="button"
-                  className="editProductButton"
-                  style={{ fontSize: "11px", padding: "6px 10px", background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}
-                  onClick={() => {
-                    setAdvancePaidAmount(Math.min(deliveryChargeVal || 250, calculatedOrderTotal));
-                    setPaymentStatus("Payment Verified");
-                  }}
-                >
-                  🔵 Set delivery advance (Rs. {(Math.min(deliveryChargeVal || 250, calculatedOrderTotal)).toLocaleString()})
-                </button>
-                <button
-                  type="button"
-                  className="editProductButton"
-                  style={{ fontSize: "11px", padding: "6px 10px", background: "#f8fafc", color: "#475569", border: "1px solid #cbd5e1" }}
-                  onClick={() => {
-                    setAdvancePaidAmount(0);
-                    setPaymentStatus("COD pending");
-                  }}
-                >
-                  ⚪ Rs. 0 (Full COD)
-                </button>
-              </div>
-            </div>
 
-            <div className="orderActionRow" style={{ marginTop: "12px", flexWrap: "wrap", gap: "8px" }}>
-              <button
-                type="button"
-                onClick={() => saveChanges({
-                  paymentStatus,
-                  paymentReference,
-                  amountPayableInAdvance: Number(advancePaidAmount || 0),
-                  confirmationStatus: "Confirmed",
-                })}
-                disabled={saving}
-                aria-busy={saving}
-              >
-                💾 Save Payment Details
-              </button>
-              <button
-                type="button"
-                className="editProductButton"
-                onClick={() => {
-                  setPaymentStatus("Payment Verified");
-                  setFulfillmentStatus("Packing");
-                  saveChanges({
-                    paymentStatus: "Payment Verified",
-                    paymentReference,
-                    amountPayableInAdvance: Number(advancePaidAmount || 0),
-                    fulfillmentStatus: "Packing",
-                    confirmationStatus: "Confirmed",
-                  });
-                }}
-                disabled={saving}
-                aria-busy={saving}
-              >
-                ✅ Verify Payment &amp; Move to Packing
-              </button>
-              <button
-                type="button"
-                className="dangerButton"
-                onClick={() => {
-                  setPaymentStatus("Payment Rejected");
-                  saveChanges({
-                    paymentStatus: "Payment Rejected",
-                    paymentReference,
-                    confirmationStatus: "Confirmed",
-                  });
-                }}
-                disabled={saving}
-                aria-busy={saving}
-              >
-                ❌ Reject Payment
-              </button>
-            </div>
-          </section>
-
-          {/* Fulfillment & Courier Operations Card */}
-          <section className="adminCard orderOpsCard" style={{ padding: "18px" }}>
-            <div className="inventoryListHead">
-              <div>
-                <h3 style={{ margin: 0, fontSize: "16px" }}>Courier &amp; Delivery Tracking</h3>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>PostEx shipment booking and tracking numbers</span>
-              </div>
-            </div>
-
-            <div className="formRow" style={{ marginTop: "12px" }}>
               <label>
-                Tracking Number
-                <div style={{ display: "flex", gap: "6px" }}>
-                  <input
-                    value={tracking}
-                    onChange={(event) => setTracking(event.target.value)}
-                    placeholder="PostEx tracking number (e.g. 123456789)"
-                  />
-                  {tracking && (
-                    <button
-                      type="button"
-                      onClick={copyTrackingToClipboard}
-                      className="editProductButton"
-                      style={{ whiteSpace: "nowrap", padding: "0 12px" }}
-                      title="Copy tracking number"
-                    >
-                      {copiedTracking ? "Copied!" : "Copy"}
-                    </button>
-                  )}
-                </div>
-              </label>
-            </div>
-
-            {tracking && !tracking.startsWith("MANUAL-") && (
-              <div style={{ marginTop: "6px", fontSize: "12px" }}>
-                <a
-                  href={`https://postex.pk/tracking?cn=${tracking}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: "#2563eb", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}
-                >
-                  🔗 Open live tracking page on PostEx.pk
-                </a>
-              </div>
-            )}
-
-            <div className="orderActionRow" style={{ marginTop: "12px" }}>
-              {!order.postexBooked && !tracking && (
-                <button
-                  type="button"
-                  className="editProductButton"
-                  onClick={bookWithPostex}
-                  disabled={saving || bookingPostex}
-                  style={{
-                    background: "#2563eb",
-                    color: "#fff",
-                    border: "none",
-                    fontWeight: 700,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    cursor: (saving || bookingPostex) ? "not-allowed" : "pointer"
-                  }}
-                >
-                  {bookingPostex ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>Booking with PostEx...</span>
-                    </>
-                  ) : (
-                    "⚡ Book with PostEx Courier"
-                  )}
-                </button>
-              )}
-              {tracking && (
-                <>
-                  <button
-                    type="button"
-                    onClick={checkLivePostexStatus}
-                    disabled={saving || checkingPostex}
-                    style={{
-                      background: "#0f766e",
-                      color: "#fff",
-                      border: "none",
-                      fontWeight: 700,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      cursor: (saving || checkingPostex) ? "not-allowed" : "pointer"
-                    }}
-                    title="Query PostEx tracking API for the real-time status of this order"
-                  >
-                    {checkingPostex ? (
-                      <>
-                        <Loader2 size={14} className="animate-spin" />
-                        <span>Checking PostEx...</span>
-                      </>
-                    ) : (
-                      "🔄 Check Live Status"
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => saveChanges({ tracking })}
-                    disabled={saving || checkingPostex}
-                    aria-busy={saving}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      cursor: (saving || checkingPostex) ? "not-allowed" : "pointer"
-                    }}
-                  >
-                    {saving ? (
-                      <>
-                        <Loader2 size={14} className="animate-spin" />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      "💾 Save Tracking"
-                    )}
-                  </button>
-                  {orderStage.toLowerCase().includes("unbook") ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOrderStage("Booked");
-                        setFulfillmentStatus("Booked with PostEx");
-                        saveChanges({
-                          status: "Booked",
-                          postexStatus: "Booked",
-                          orderStage: "Booked",
-                          fulfillmentStatus: "Booked with PostEx",
-                        });
-                      }}
-                      disabled={saving || checkingPostex}
-                      style={{
-                        background: "#f0fdf4",
-                        color: "#166534",
-                        border: "1px solid #bbf7d0",
-                        fontWeight: 700,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        cursor: (saving || checkingPostex) ? "not-allowed" : "pointer"
-                      }}
-                      title="Mark order as dispatched or handed over to PostEx courier rider"
-                    >
-                      🚚 Handed to Courier (Dispatched)
-                    </button>
-                  ) : !orderStage.toLowerCase().includes("deliver") ? (
-                    <button
-                      type="button"
-                      onClick={unbookOrder}
-                      disabled={saving || checkingPostex}
-                      style={{
-                        background: "#fef2f2",
-                        color: "#b91c1c",
-                        border: "1px solid #fecaca",
-                        fontWeight: 700,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        cursor: (saving || checkingPostex) ? "not-allowed" : "pointer"
-                      }}
-                      title="Move this order back to Unbooked (At Warehouse)"
-                    >
-                      ↩️ Mark as Unbooked (At Warehouse)
-                    </button>
-                  ) : (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#dcfce7", color: "#166534", padding: "6px 12px", borderRadius: "6px", fontWeight: 700, fontSize: "12px" }}>
-                      ✅ Delivered to Customer
-                    </span>
-                  )}
-                </>
-              )}
-            </div>
-          </section>
-
-          {/* Returns, Exchanges & Refunds */}
-          <section className="adminCard orderOpsCard" style={{ padding: "18px" }}>
-            <h3>Returns, Exchanges &amp; Refunds</h3>
-            <div className="formRow">
-              <label>
-                Status
-                <select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)}>
-                  {returnStatusOptions.map((status) => <option key={status}>{status}</option>)}
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Fulfillment Status</span>
+                <select value={fulfillmentStatus} onChange={(e) => {
+                  const val = e.target.value;
+                  setFulfillmentStatus(val);
+                  saveChanges({ fulfillmentStatus: val });
+                }} style={{ padding: "8px", borderRadius: "6px" }}>
+                  <option>Unfulfilled</option>
+                  <option>Packing</option>
+                  <option>Booked with PostEx</option>
+                  <option>Shipped</option>
+                  <option>Delivered</option>
+                  <option>On hold</option>
                 </select>
               </label>
+
               <label>
-                Reason
-                <input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Size, defect, incorrect item..." />
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Delivery Method</span>
+                <select value={deliveryMethod} onChange={(e) => {
+                  const val = e.target.value;
+                  setDeliveryMethod(val);
+                  saveChanges({ deliveryMethod: val });
+                }} style={{ padding: "8px", borderRadius: "6px" }}>
+                  <option>PostEx</option>
+                  <option>Rider / same city</option>
+                  <option>Customer pickup</option>
+                  <option>Staff delivery</option>
+                  <option>Manual courier</option>
+                  <option>PostEx later</option>
+                </select>
               </label>
-            </div>
-            <div className="formRow">
+
               <label>
-                Resolution
-                <textarea value={returnResolution} onChange={(event) => setReturnResolution(event.target.value)} rows="2" placeholder="Approved replacement, customer contacted..." />
-              </label>
-              <label>
-                Tags
-                <input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Urgent, DM, Exchange" />
-              </label>
-            </div>
-            <div className="formRow">
-              <label>
-                Refund Amount (PKR)
-                <input type="number" min="0" max={calculatedOrderTotal} step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} />
-              </label>
-              <label>
-                Refund Method
-                <select value={refundMethod} onChange={(event) => setRefundMethod(event.target.value)} disabled={!canRecordRefund}>
-                  <option value="">Select method</option>
-                  <option>Bank transfer</option>
-                  <option>Easypaisa</option>
-                  <option>JazzCash</option>
-                  <option>Card reversal</option>
-                  <option>Cash</option>
-                  <option>Other</option>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Risk Assessment</span>
+                <select value={risk} onChange={(e) => {
+                  const val = e.target.value;
+                  setRisk(val);
+                  const currentTags = tags.split(",").map((t) => t.trim()).filter(Boolean);
+                  const cleanTags = currentTags.filter((t) => !t.toLowerCase().includes("risk") && t !== "Repeat customer");
+                  if (val !== "Standard COD") cleanTags.push(val);
+                  const nextTagsStr = cleanTags.join(", ");
+                  setTags(nextTagsStr);
+                  saveChanges({ tags: cleanTags });
+                }} style={{ padding: "8px", borderRadius: "6px" }}>
+                  <option>Standard COD</option>
+                  <option>High risk COD</option>
+                  <option>Repeat customer</option>
                 </select>
               </label>
             </div>
-            {!canRecordRefund && <p className="shippingRuleHint">Only an Owner can approve or record refund details.</p>}
-            {restoringReturnedStock ? (
-              <p className="checkoutError">Final check: this will restore {items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} item(s) to stock once.</p>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => saveChanges()}
-              disabled={saving}
-              aria-busy={saving}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                cursor: saving ? "not-allowed" : "pointer"
-              }}
-            >
-              {saving ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : restoringReturnedStock ? (
-                "Confirm inspection & restore stock"
-              ) : (
-                "Save return workflow"
-              )}
-            </button>
           </section>
 
-          {/* Meta Pixel & Conversions API (CAPI) */}
-          <section className="adminCard orderOpsCard metaCapiOrderSection" style={{ background: "#f8fafc", border: "1px solid #e2e8f0", padding: "18px" }}>
-            <div className="inventoryListHead">
-              <div>
-                <h3 style={{ margin: 0, fontSize: "15px" }}>Meta Pixel &amp; Conversions API (CAPI)</h3>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>Conversion tracking and event deduplication</span>
+          {/* 8. Returns, Exchanges & Refunds (Clean Collapsible) */}
+          <details style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "14px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            <summary style={{ fontSize: "14px", fontWeight: 700, color: "#475569", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>🔄 Returns, Exchanges &amp; Refunds Workflow {returnStatus !== "No return" ? `(${returnStatus})` : ""}</span>
+              <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 600 }}>Click to expand ▼</span>
+            </summary>
+            <div style={{ marginTop: "14px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
+              <div className="formRow">
+                <label>
+                  Status
+                  <select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)}>
+                    {returnStatusOptions.map((status) => <option key={status}>{status}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Reason
+                  <input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Size, defect, incorrect item..." />
+                </label>
               </div>
-              <span className="statusBadge activeStatus" style={{ background: "#dcfce7", color: "#166534" }}>
-                CAPI Linked
-              </span>
-            </div>
-            <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#334155", marginTop: "8px" }}>
-              <div><b>Shared Event ID:</b> <code>{order.order_number || String(order.id).replace(/^#/, "")}</code></div>
-              <div><b>Conversion Value:</b> Rs. {savedMoney.total.toLocaleString()} (PKR)</div>
-            </div>
-            <div className="orderActionRow" style={{ marginTop: "10px" }}>
-              {onNavigateToEvents && (
-                <button type="button" onClick={() => onNavigateToEvents(order.order_number || order.id)}>
-                  🔍 View in Events Log
-                </button>
+              <div className="formRow">
+                <label>
+                  Resolution
+                  <textarea value={returnResolution} onChange={(event) => setReturnResolution(event.target.value)} rows="2" placeholder="Approved replacement, customer contacted..." />
+                </label>
+                <label>
+                  Tags
+                  <input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Urgent, DM, Exchange" />
+                </label>
+              </div>
+              <div className="formRow">
+                <label>
+                  Refund Amount (PKR)
+                  <input type="number" min="0" max={calculatedOrderTotal} step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} />
+                </label>
+                <label>
+                  Refund Method
+                  <select value={refundMethod} onChange={(event) => setRefundMethod(event.target.value)} disabled={!canRecordRefund}>
+                    <option value="">Select method</option>
+                    <option>Bank transfer</option>
+                    <option>Easypaisa</option>
+                    <option>JazzCash</option>
+                    <option>Card reversal</option>
+                    <option>Cash</option>
+                    <option>Other</option>
+                  </select>
+                </label>
+              </div>
+              {!canRecordRefund && <p className="shippingRuleHint">Only an Owner can approve or record refund details.</p>}
+              {restoringReturnedStock && (
+                <p className="checkoutError">Final check: this will restore {items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} item(s) to stock once.</p>
               )}
-              <button type="button" className="editProductButton" onClick={resyncOrderMetaPurchase} disabled={resyncingCapi || saving}>
-                {resyncingCapi ? "Dispatching..." : "⚡ Re-sync Meta Purchase"}
+              <button
+                type="button"
+                onClick={() => saveChanges()}
+                disabled={saving}
+                style={{ background: "#166534", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", marginTop: "10px" }}
+              >
+                {saving ? "Saving..." : restoringReturnedStock ? "Confirm inspection & restore stock" : "Save return workflow"}
               </button>
             </div>
-          </section>
+          </details>
 
-          {/* Order Timeline */}
-          <section className="adminCard orderOpsCard" style={{ padding: "18px" }}>
-            <h3>Order Timeline</h3>
-            <div className="orderTimeline">
-              <div><b>Order Created</b><span>{order.date}</span></div>
-              {order.tracking && <div><b>Tracking Assigned</b><span>{order.tracking}</span></div>}
-              {(order.operationEvents || []).map((event, index) => (
-                <div key={`${event.created_at || "event"}-${index}`}>
-                  <b>{event.event_type === "order_operation_updated" ? "Return / refund workflow updated" : formatOrderStatus(event.event_type)}</b>
-                  <span>{event.created_at ? new Date(event.created_at).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Just now"}</span>
+          {/* 9. Meta Pixel / CAPI & Order Timeline (Clean Collapsible) */}
+          <details style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "14px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            <summary style={{ fontSize: "14px", fontWeight: 700, color: "#475569", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>📡 Meta Pixel &amp; CAPI / Order Activity Timeline</span>
+              <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 600 }}>Click to expand ▼</span>
+            </summary>
+            <div style={{ marginTop: "14px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
+              <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#334155", background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0", marginBottom: "12px" }}>
+                <div><b>Shared Event ID:</b> <code>{order.order_number || String(order.id).replace(/^#/, "")}</code></div>
+                <div><b>Conversion Value:</b> Rs. {savedMoney.total.toLocaleString()} (PKR)</div>
+                <div style={{ marginTop: "6px", display: "flex", gap: "6px" }}>
+                  {onNavigateToEvents && (
+                    <button type="button" onClick={() => onNavigateToEvents(order.order_number || order.id)} style={{ padding: "4px 8px", fontSize: "11px", cursor: "pointer" }}>
+                      🔍 View in Events Log
+                    </button>
+                  )}
+                  <button type="button" className="editProductButton" onClick={resyncOrderMetaPurchase} disabled={resyncingCapi || saving} style={{ padding: "4px 8px", fontSize: "11px" }}>
+                    {resyncingCapi ? "Dispatching..." : "⚡ Re-sync Meta Purchase"}
+                  </button>
                 </div>
-              ))}
+              </div>
+
+              <h4 style={{ margin: "10px 0 6px", fontSize: "13px", color: "#0f172a" }}>Activity Timeline</h4>
+              <div className="orderTimeline">
+                <div><b>Order Created</b><span>{order.date}</span></div>
+                {order.tracking && <div><b>Tracking Assigned</b><span>{order.tracking}</span></div>}
+                {(order.operationEvents || []).map((event, index) => (
+                  <div key={`${event.created_at || "event"}-${index}`}>
+                    <b>{event.event_type === "order_operation_updated" ? "Return / refund workflow updated" : formatOrderStatus(event.event_type)}</b>
+                    <span>{event.created_at ? new Date(event.created_at).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Just now"}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </section>
+          </details>
         </div>
       </aside>
     </>
