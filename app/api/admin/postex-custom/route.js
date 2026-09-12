@@ -212,10 +212,14 @@ export async function POST(request) {
     await authorizeAdminRequest(request, "orders");
 
     const body = await request.json().catch(() => null);
-    const customer = body?.customer || {};
+    const rawCustomer = body?.customer || {};
+    const customer = {
+      ...rawCustomer,
+      name: String(rawCustomer.name || rawCustomer.fullName || "").trim(),
+    };
     const items = Array.isArray(body?.items) ? body.items : [];
     const shouldBookPostex = Boolean(body?.bookPostex);
-    if (!customer.name?.trim() || !customer.phone?.trim() || !customer.address?.trim() || !customer.city?.trim() || !items.length) {
+    if (!customer.name || !customer.phone?.trim() || !customer.address?.trim() || !customer.city?.trim() || !items.length) {
       return NextResponse.json({ error: "Please complete customer, address and item details before saving the order." }, { status: 400 });
     }
     if (String(customer.name || "").trim().length > 120) {
