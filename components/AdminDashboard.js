@@ -2880,6 +2880,14 @@ const customOrderStatusOptions = [
   "Un-Assigned By Me",
 ];
 
+const newOrderInitialStatusOptions = [
+  "Unbooked",
+  "On Hold",
+  "Manual Delivery",
+  "Customer Pickup",
+  "Booked",
+];
+
 const returnWorkflowTransitions = {
   "No return": ["No return", "Return requested", "Exchange requested", "Refund requested"],
   "Return requested": ["Return requested", "Return approved"],
@@ -6991,10 +6999,10 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
         <div className="formRow">
           <label>
             Delivery Method
-            <select name="deliveryMethod" defaultValue="Rider / same city">
-              <option value="Rider / same city">Rider / same city</option>
+            <select name="deliveryMethod" defaultValue="PostEx later">
               <option value="PostEx later">PostEx later (Unbooked)</option>
               <option value="PostEx">PostEx (Book courier dispatch now)</option>
+              <option value="Rider / same city">Rider / same city</option>
               <option value="Customer pickup">Customer pickup</option>
               <option value="Staff delivery">Staff delivery</option>
               <option value="Manual courier">Manual courier</option>
@@ -7003,7 +7011,7 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
           <label>
             Order Status
             <select name="status" defaultValue="Unbooked">
-              {customOrderStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+              {newOrderInitialStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
             </select>
           </label>
         </div>
