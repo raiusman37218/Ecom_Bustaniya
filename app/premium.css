@@ -1080,6 +1080,39 @@ html, body {
 .productDetailsAccordion {
   border-top: 1px solid var(--bs-hair-soft);
 }
+.productDetailsAccordion summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: 11px;
+  font-weight: 850;
+  color: var(--bs-forest, #0f3d24);
+  user-select: none;
+  list-style: none;
+  transition: color .2s ease;
+}
+.productDetailsAccordion summary::-webkit-details-marker { display: none; }
+.productDetailsAccordion summary::after {
+  content: "+";
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--bs-forest, #0f3d24);
+  margin-left: 12px;
+  transition: color .2s ease;
+}
+.productDetailsAccordion[open] summary::after {
+  content: "−";
+  font-size: 20px;
+  color: #15803d;
+}
+.productDetailsAccordion summary:hover {
+  color: #15803d;
+}
 .productDetailsTitle {
   font-size: 11.5px;
   font-weight: 850;

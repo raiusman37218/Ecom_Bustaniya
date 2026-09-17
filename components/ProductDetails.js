@@ -763,7 +763,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
 
           {/* Delivery Information Accordion */}
-          <details className="productDetailsAccordion deliveryAccordion" open>
+          <details className="productDetailsAccordion deliveryAccordion">
             <summary>Delivery &amp; shipping information</summary>
             <div className="productDetailsAccordionBody">
               <div className="deliveryAccordionHeader">
@@ -850,7 +850,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             </div>
           </details>
 
-          <details className="productDetailsAccordion" open>
+          <details className="productDetailsAccordion">
             <summary>Product details</summary>
             <div className="productDetailsAccordionBody">
               <h2 className="productDetailsTitle">Description</h2>

@@ -4354,8 +4354,38 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 .productPromises svg { width:20px; }
 .productPromises span { display:flex; flex-direction:column; font-size:10px; color:#748077; }
 .productPromises b { color:var(--forest); font-size:11px; }
-.productPurchase details { max-width:100%; min-width:0; overflow:hidden; border-bottom:1px solid var(--line); padding:17px 0; font-size:12px; }
-.productPurchase summary { cursor:pointer; text-transform:uppercase; letter-spacing:.07em; font-size:10px; }
+.productPurchase details { max-width:100%; min-width:0; overflow:hidden; border-bottom:1px solid var(--line); padding:0; font-size:12px; }
+.productPurchase summary {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:15px 0;
+  cursor:pointer;
+  text-transform:uppercase;
+  letter-spacing:.11em;
+  font-size:11px;
+  font-weight:800;
+  color:#0f3d24;
+  user-select:none;
+  list-style:none;
+  transition:color .2s ease;
+}
+.productPurchase summary::-webkit-details-marker { display:none; }
+.productPurchase summary::after {
+  content:"+";
+  font-size:19px;
+  font-weight:500;
+  line-height:1;
+  color:#0f3d24;
+  margin-left:12px;
+  transition:color .2s ease;
+}
+.productPurchase details[open] summary::after {
+  content:"−";
+  font-size:19px;
+  color:#15803d;
+}
+.productPurchase summary:hover { color:#15803d; }
 .productPurchase details p { color:#18241d; line-height:1.75; }
 .structuredProductDetails { display:flex; flex-direction:column; gap:11px; padding:12px 0 6px; }
 .structuredProductDetails h3 { margin:14px 0 4px; color:#0f3d24; font-size:13.5px; font-weight:850; letter-spacing:.03em; text-transform:uppercase; }
