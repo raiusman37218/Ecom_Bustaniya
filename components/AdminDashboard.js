@@ -9925,7 +9925,101 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
                         <div className="instagramManager" style={{ gridColumn: "1 / -1" }}>
                           <div className="instagramManagerIntro"><div><b>Instagram gallery</b><span>Show campaign posts in a full-width gallery. Each image opens its post or your profile.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.instagramEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, instagramEnabled: event.target.checked }))} /> Visible</label></div>
                           <label>Instagram handle<input value={storeSettings.instagramHandle || ""} placeholder="@bustaniya_" onChange={(event) => setStoreSettings((current) => ({ ...current, instagramHandle: event.target.value }))} /></label>
-                          <div className="instagramManagerPosts">{(storeSettings.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).map((post, postIndex) => <article className="instagramManagerPost" key={post.id || postIndex}><div className="instagramManagerPostHead"><b>Post {postIndex + 1}</b><button type="button" className="sectionRemoveBtn" aria-label={`Remove Instagram post ${postIndex + 1}`} onClick={() => setStoreSettings((current) => ({ ...current, instagramPosts: (current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).filter((_, itemIndex) => itemIndex !== postIndex) }))}><X size={14} /></button></div><label>Media type<select value={post.mediaType === "video" ? "video" : "image"} onChange={(event) => setStoreSettings((current) => { const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])]; posts[postIndex] = { ...posts[postIndex], mediaType: event.target.value }; return { ...current, instagramPosts: posts }; })}><option value="image">Image post</option><option value="video">Video / reel</option></select></label><label>{post.mediaType === "video" ? "Video URL" : "Image URL"}<input value={post.image || ""} placeholder="https://res.cloudinary.com/..." onChange={(event) => setStoreSettings((current) => { const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])]; posts[postIndex] = { ...posts[postIndex], image: event.target.value }; return { ...current, instagramPosts: posts }; })} /></label><label>Instagram post URL <small>Optional — otherwise the profile opens.</small><input value={post.url || ""} placeholder="https://www.instagram.com/p/..." onChange={(event) => setStoreSettings((current) => { const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])]; posts[postIndex] = { ...posts[postIndex], url: event.target.value }; return { ...current, instagramPosts: posts }; })} /></label><label>Hover caption <small>Optional</small><input value={post.caption || ""} placeholder="Short post description" onChange={(event) => setStoreSettings((current) => { const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])]; posts[postIndex] = { ...posts[postIndex], caption: event.target.value }; return { ...current, instagramPosts: posts }; })} /></label></article>)}</div>
+                          <div className="instagramManagerPosts">{(storeSettings.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).map((post, postIndex) => (
+                            <article className="instagramManagerPost" key={post.id || postIndex}>
+                              <div className="instagramManagerPostHead">
+                                <b>Post {postIndex + 1}</b>
+                                <button type="button" className="sectionRemoveBtn" aria-label={`Remove Instagram post ${postIndex + 1}`} onClick={() => setStoreSettings((current) => ({ ...current, instagramPosts: (current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).filter((_, itemIndex) => itemIndex !== postIndex) }))}>
+                                  <X size={14} />
+                                </button>
+                              </div>
+                              <label>
+                                Media type
+                                <select value={post.mediaType === "video" ? "video" : "image"} onChange={(event) => setStoreSettings((current) => {
+                                  const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
+                                  posts[postIndex] = { ...posts[postIndex], mediaType: event.target.value };
+                                  return { ...current, instagramPosts: posts };
+                                })}>
+                                  <option value="image">Image post</option>
+                                  <option value="video">Video / reel</option>
+                                </select>
+                              </label>
+                              <label>
+                                {post.mediaType === "video" ? "Video URL" : "Image URL (Upload or paste link)"}
+                                <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "4px" }}>
+                                  <input
+                                    value={post.image || ""}
+                                    placeholder="https://res.cloudinary.com/... or upload photo"
+                                    style={{ flex: 1 }}
+                                    onChange={(event) => setStoreSettings((current) => {
+                                      const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
+                                      posts[postIndex] = { ...posts[postIndex], image: event.target.value };
+                                      return { ...current, instagramPosts: posts };
+                                    })}
+                                  />
+                                  <label style={{ margin: 0, padding: "7px 12px", fontSize: "11px", fontWeight: "700", background: "#16452c", color: "#fff", borderRadius: "6px", cursor: "pointer", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                    Upload
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      style={{ display: "none" }}
+                                      onChange={async (event) => {
+                                        const file = event.target.files?.[0];
+                                        if (!file) return;
+                                        try {
+                                          const formData = new FormData();
+                                          formData.append("files", file);
+                                          const res = await fetch("/api/admin/uploads", { method: "POST", body: formData });
+                                          const data = await res.json();
+                                          if (data?.urls?.[0]) {
+                                            setStoreSettings((current) => {
+                                              const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
+                                              posts[postIndex] = { ...posts[postIndex], image: data.urls[0] };
+                                              return { ...current, instagramPosts: posts };
+                                            });
+                                          } else {
+                                            alert(data?.error || "Could not upload image");
+                                          }
+                                        } catch (err) {
+                                          alert("Upload failed: " + err.message);
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                </div>
+                                {post.image && (
+                                  <div style={{ marginTop: "6px", display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <img src={post.image} alt="Preview" style={{ width: "42px", height: "42px", objectFit: "cover", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                                    <small style={{ color: "#166534", fontWeight: "600" }}>✓ Image attached</small>
+                                  </div>
+                                )}
+                              </label>
+                              <label>
+                                Instagram post URL <small>Link of the post/reel on Instagram (e.g. https://www.instagram.com/p/...)</small>
+                                <input
+                                  value={post.url || ""}
+                                  placeholder="https://www.instagram.com/p/..."
+                                  onChange={(event) => setStoreSettings((current) => {
+                                    const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
+                                    posts[postIndex] = { ...posts[postIndex], url: event.target.value };
+                                    return { ...current, instagramPosts: posts };
+                                  })}
+                                />
+                              </label>
+                              <label>
+                                Hover caption <small>Optional — short text shown when hovering</small>
+                                <input
+                                  value={post.caption || ""}
+                                  placeholder="e.g. Summer Collection '26 | #Bustaniya"
+                                  onChange={(event) => setStoreSettings((current) => {
+                                    const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
+                                    posts[postIndex] = { ...posts[postIndex], caption: event.target.value };
+                                    return { ...current, instagramPosts: posts };
+                                  })}
+                                />
+                              </label>
+                            </article>
+                          ))}</div>
                           <button type="button" className="addInstagramPost" onClick={() => setStoreSettings((current) => ({ ...current, instagramPosts: [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []), { id: `instagram-${Date.now()}`, mediaType: "image", image: "", url: "", caption: "" }] }))}>+ Add Instagram post</button>
                         </div>
                       )}
