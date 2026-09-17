@@ -850,7 +850,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             </div>
           </details>
 
-          <details className="productDetailsAccordion">
+          <details className="productDetailsAccordion" open>
             <summary>Product details</summary>
             <div className="productDetailsAccordionBody">
               <h2 className="productDetailsTitle">Description</h2>
