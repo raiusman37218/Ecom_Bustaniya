@@ -373,6 +373,17 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     setMainImageUnavailable(false);
   }, [activeImgIndex]);
 
+  // Zero-delay instant gallery switching: prefetch all full-size photos into browser cache
+  useEffect(() => {
+    if (typeof window === "undefined" || !productImages || !productImages.length) return;
+    productImages.forEach((imgUrl) => {
+      if (!imgUrl) return;
+      const fullUrl = optimizedImageUrl(imgUrl, CLOUDINARY_IMAGE_PRESETS.product);
+      const preloader = new window.Image();
+      preloader.src = fullUrl;
+    });
+  }, [productImages]);
+
   function addToBag({ openDrawer = true } = {}) {
     if (outOfStock || isVariantOutOfStock) return;
     trackEvent("AddToCart", {
@@ -435,26 +446,61 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                     type="button"
                     className={`thumbBtn ${activeImgIndex === idx ? "active" : ""}`}
                     onClick={() => setActiveImgIndex(idx)}
+                    onMouseEnter={() => {
+                      if (activeImgIndex !== idx && typeof window !== "undefined") {
+                        const p = new window.Image();
+                        p.src = optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.product);
+                      }
+                    }}
                     aria-label={`View photo ${idx + 1}`}
                   >
-                    <img src={optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.thumbnail)} alt={`${product.name} thumbnail ${idx + 1}`} loading="lazy" decoding="async" />
+                    <img src={optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.thumbnail)} alt={`${product.name} thumbnail ${idx + 1}`} loading="eager" decoding="async" />
                   </button>
                 ))}
               </div>
             )}
 
-            {/* Main Featured Display Photo */}
+            {/* Main Featured Display Photo - Instant Zero-Lag Stack */}
             <div className="galleryMainView" onClick={() => !mainImageUnavailable && setLightboxOpen(true)}>
-              {!mainImageUnavailable ? <img
-                className="galleryMainImage"
-                src={useOriginalMainImage ? activeImage : optimizedImageUrl(activeImage, CLOUDINARY_IMAGE_PRESETS.product)}
-                alt={`${product.name} - View ${activeImgIndex + 1} by Bustaniya`}
-                fetchPriority="high"
-                onError={() => {
-                  if (!useOriginalMainImage) setUseOriginalMainImage(true);
-                  else setMainImageUnavailable(true);
-                }}
-              /> : <div className="galleryImageFallback"><b>Product image is unavailable</b><span>Please choose another photo or contact us for help.</span></div>}
+              {!mainImageUnavailable ? (
+                productImages.map((img, idx) => {
+                  const isActive = activeImgIndex === idx;
+                  const src = useOriginalMainImage ? img : optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.product);
+                  return (
+                    <img
+                      key={img || idx}
+                      className={`galleryMainImage ${isActive ? "active" : ""}`}
+                      src={src}
+                      alt={`${product.name} - View ${idx + 1} by Bustaniya`}
+                      loading="eager"
+                      fetchPriority={idx === 0 ? "high" : "auto"}
+                      decoding="async"
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        objectPosition: "center top",
+                        opacity: isActive ? 1 : 0,
+                        visibility: isActive ? "visible" : "hidden",
+                        transition: "opacity 0.15s ease-out, visibility 0.15s ease-out",
+                        pointerEvents: isActive ? "auto" : "none",
+                        zIndex: isActive ? 2 : 1,
+                      }}
+                      onError={() => {
+                        if (!useOriginalMainImage) setUseOriginalMainImage(true);
+                        else setMainImageUnavailable(true);
+                      }}
+                    />
+                  );
+                })
+              ) : (
+                <div className="galleryImageFallback">
+                  <b>Product image is unavailable</b>
+                  <span>Please choose another photo or contact us for help.</span>
+                </div>
+              )}
               <div className="galleryZoomHint">
                 <Maximize2 size={15} /> <span>Click to zoom</span>
               </div>
