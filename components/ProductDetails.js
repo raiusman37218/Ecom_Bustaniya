@@ -46,6 +46,31 @@ function getProductDetailsText(product, fallbackDescription) {
   return sections.filter(Boolean).join("\n\n");
 }
 
+function formatDetailContent(text) {
+  if (!text) return null;
+  // If line contains markdown bold **text**
+  if (text.includes("**")) {
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
+        return <strong key={i} className="detailHighlightedText">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  }
+  // If line starts with "Label:" (e.g. "Details:", "Fabric:", "Care:")
+  const match = text.match(/^([A-Za-z\s&/]{2,20}:)(\s+.*)?$/);
+  if (match) {
+    return (
+      <>
+        <strong className="detailKeyLabel">{match[1]}</strong>
+        {match[2] || ""}
+      </>
+    );
+  }
+  return text;
+}
+
 function StructuredProductDetails({ value }) {
   const blocks = [];
   let bullets = [];
@@ -77,9 +102,9 @@ function StructuredProductDetails({ value }) {
   return (
     <div className="structuredProductDetails">
       {blocks.map((block, index) => {
-        if (block.type === "heading") return <h3 key={`heading-${index}`}>{block.text}</h3>;
-        if (block.type === "bullets") return <ul key={`bullets-${index}`}>{block.items.map((item, itemIndex) => <li key={`${item}-${itemIndex}`}>{item}</li>)}</ul>;
-        return <p key={`paragraph-${index}`}>{block.text}</p>;
+        if (block.type === "heading") return <h3 key={`heading-${index}`}>{formatDetailContent(block.text)}</h3>;
+        if (block.type === "bullets") return <ul key={`bullets-${index}`}>{block.items.map((item, itemIndex) => <li key={`${item}-${itemIndex}`}>{formatDetailContent(item)}</li>)}</ul>;
+        return <p key={`paragraph-${index}`}>{formatDetailContent(block.text)}</p>;
       })}
     </div>
   );
@@ -711,10 +736,29 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             </a>
           </div>
 
-          <details id="size-guide" open>
+          <details className="productDetailsAccordion sizeGuideAccordion" id="size-guide">
             <summary>Size guide &amp; measurements</summary>
-            <p className="sizeChartInlineTitle">Size Chart (Inches)</p>
-            <SizeTable />
+            <div className="productDetailsAccordionBody">
+              <div className="sizeGuideAccordionHeader">
+                <div className="sizeGuideHeaderLeft">
+                  <div className="deliveryHeaderIconWrap">
+                    <Ruler size={18} />
+                  </div>
+                  <div>
+                    <h2 className="productDetailsTitle">Size Guide &amp; Measurements</h2>
+                    <p className="deliverySubtitle">Standard Ready-to-Wear measurements (Inches &amp; CM)</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="sizeGuideModalButton"
+                  onClick={() => setSizeChartOpen(true)}
+                >
+                  <Ruler size={13} /> Open Interactive Chart
+                </button>
+              </div>
+              <SizeTable chartData={product?.sizeChart || storeSettings?.sizeChartSettings} />
+            </div>
           </details>
 
 

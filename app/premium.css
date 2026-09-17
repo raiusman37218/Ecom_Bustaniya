@@ -1081,11 +1081,84 @@ html, body {
   border-top: 1px solid var(--bs-hair-soft);
 }
 .productDetailsTitle {
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 11.5px;
+  font-weight: 850;
   letter-spacing: .16em;
   text-transform: uppercase;
   color: var(--bs-forest);
+}
+.sizeGuideAccordionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(22, 69, 44, 0.08);
+}
+.sizeGuideHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sizeGuideSubtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #4b5563;
+}
+.sizeGuideModalButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--bs-forest, #16452c);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 700;
+  border: 1px solid var(--bs-forest, #16452c);
+  cursor: pointer;
+  transition: all .2s ease;
+}
+.sizeGuideModalButton:hover {
+  background: #15803d;
+  border-color: #15803d;
+  transform: translateY(-1px);
+}
+.structuredProductDetails {
+  color: #18241d;
+}
+.structuredProductDetails p {
+  color: #18241d !important;
+  font-size: 14px;
+  font-weight: 480;
+  line-height: 1.75;
+}
+.structuredProductDetails h3 {
+  color: #0f3d24 !important;
+  font-weight: 850;
+  font-size: 14px;
+  letter-spacing: .02em;
+}
+.structuredProductDetails ul {
+  color: #18241d !important;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.structuredProductDetails li {
+  color: #18241d !important;
+}
+.structuredProductDetails li::marker {
+  color: #15803d !important;
+}
+.detailHighlightedText {
+  color: #0f3d24;
+  font-weight: 750;
+}
+.detailKeyLabel {
+  color: #0f3d24;
+  font-weight: 800;
 }
 
 @media (max-width: 900px) {
