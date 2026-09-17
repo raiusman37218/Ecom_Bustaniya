@@ -29,6 +29,25 @@ export const DEFAULT_ANNOUNCEMENTS = [
   },
 ];
 
+export function getInstagramEmbedUrl(url) {
+  if (!url) return null;
+  try {
+    const raw = String(url).trim();
+    if (!raw) return null;
+    const clean = raw.split("?")[0].replace(/\/+$/, "");
+    const match = clean.match(/instagram\.com\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/i);
+    if (match && match[1]) {
+      return `https://www.instagram.com/p/${match[1]}/embed/`;
+    }
+    if (clean.includes("instagram.com/")) {
+      return `${clean}/embed/`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export const DEFAULT_INSTAGRAM_POSTS = [
   { id: "1", image: "/bustaniya-instagram-hero.jpg", url: "https://www.instagram.com/bustaniya_/", caption: "Crafted for every beautiful moment. #Bustaniya" },
   { id: "2", image: "/bustaniya-instagram-hero-v2.jpg", url: "https://www.instagram.com/bustaniya_/", caption: "Signature elegance in unstitched & prêt lawn. #Bustaniya" },

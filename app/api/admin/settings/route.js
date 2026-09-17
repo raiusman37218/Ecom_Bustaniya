@@ -30,19 +30,23 @@ async function validateHeroImageUrl(value) {
 
 async function validateInstagramPosts(settings) {
   const posts = Array.isArray(settings.instagramPosts) ? settings.instagramPosts : [];
-  if (posts.length > 12) throw new Error("Add no more than 12 Instagram posts.");
+  if (posts.length > 12) throw new Error("Add no more than 12 Instagram reels/posts.");
   for (const post of posts) {
-    const image = String(post?.image || "").trim();
-    if (!image) throw new Error("Each Instagram post needs an image URL or local image path.");
-    await validateHeroImageUrl(image);
     const link = String(post?.url || "").trim();
+    const image = String(post?.image || "").trim();
+    if (!link && !image) {
+      throw new Error("Each Instagram entry needs an Instagram Reel or post URL.");
+    }
     if (link) {
       try {
         const url = new URL(link);
         if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error();
       } catch {
-        throw new Error("Instagram post links must be valid http:// or https:// URLs.");
+        throw new Error("Instagram Reel links must be valid http:// or https:// URLs (e.g. https://www.instagram.com/reel/...)");
       }
+    }
+    if (image) {
+      await validateHeroImageUrl(image);
     }
   }
 }

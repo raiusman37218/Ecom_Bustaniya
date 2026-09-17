@@ -9627,6 +9627,74 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   opacity: 1;
 }
 
+/* Instagram Reel Card - Live native player embed */
+.instagramReelCard {
+  flex: 0 0 clamp(290px, 28vw, 350px);
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #dce5dd;
+  box-shadow: 0 4px 20px rgba(23, 61, 41, 0.05);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.instagramReelCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(23, 61, 41, 0.1);
+}
+.instagramReelIframeWrap {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  background: #000000;
+  overflow: hidden;
+}
+.instagramReelIframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+.instagramReelInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #ffffff;
+  border-top: 1px solid #edf2ee;
+}
+.instagramReelCaption {
+  font-size: 12px;
+  font-weight: 700;
+  color: #173d29;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+.instagramReelDirectLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #16452c;
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.instagramReelDirectLink:hover {
+  background: #16452c;
+  color: #ffffff;
+}
+
 /* Admin: managed homepage Instagram gallery. */
 .instagramManager { display:grid; gap:16px; padding:18px; border:1px solid #dbe7dc; border-radius:12px; background:#f8fcf8; }
 .instagramManagerIntro,.instagramManagerPostHead { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
@@ -9656,6 +9724,8 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
     gap: 9px;
   }
   .instagramPostCard { flex-basis:76vw; border-radius:10px; }
+  .instagramReelCard { flex-basis:82vw; max-width:340px; border-radius:12px; }
+  .instagramReelIframeWrap { height:480px; }
   .instagramCarouselButton { width:36px; height:36px; }
   .instagramManagerPosts { grid-template-columns:1fr; }
   .instagramManagerIntro,.instagramManagerPostHead { align-items:flex-start; flex-direction:column; }

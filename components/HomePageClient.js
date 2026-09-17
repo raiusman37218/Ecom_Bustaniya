@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, Minus, Play, Plus, Ruler, ShieldCheck, ShoppingBag, Sparkles, Truck, UserRound, X } from "lucide-react";
 
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
-import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
+import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
@@ -552,34 +552,65 @@ export default function Home({
                 <div className="instagramCarouselShell">
                   <button type="button" className="instagramCarouselButton instagramCarouselButton--previous" onClick={() => scrollInstagramRail(-1)} aria-label="Show previous Instagram posts"><ChevronLeft size={20} /></button>
                   <div className="instagramFeedGrid" ref={instagramRailRef} aria-label="Instagram Feed Gallery">
-                  {posts.map((post, idx) => (
-                    <a
-                      key={post.id || idx}
-                      href={post.url || profileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="instagramPostCard"
-                      title={post.caption || `Instagram post ${idx + 1}`}
-                    >
-                      <div className="instagramPostImageWrap">
-                        {post.mediaType === "video" ? (
-                          <video src={post.image} muted loop playsInline preload="none" aria-label={post.caption || "Bustaniya Instagram reel"} />
-                        ) : (
-                          <Image
-                            src={post.image || "/bustaniya-instagram-hero.jpg"}
-                            alt={post.caption || "Bustaniya Instagram post"}
-                            fill
-                            sizes="(max-width: 600px) 82vw, (max-width: 1000px) 43vw, 28vw"
-                          />
-                        )}
-                        <div className="instagramPostOverlay">
-                          {post.mediaType === "video" ? <Play size={28} fill="currentColor" /> : <Instagram size={28} />}
-                          <span className="instagramPostHandle">{handle}</span>
-                          {post.caption && <span className="instagramPostCaption">{post.caption}</span>}
+                  {posts.map((post, idx) => {
+                    const embedUrl = getInstagramEmbedUrl(post.url);
+                    if (embedUrl) {
+                      return (
+                        <article key={post.id || idx} className="instagramReelCard">
+                          <div className="instagramReelIframeWrap">
+                            <iframe
+                              src={embedUrl}
+                              className="instagramReelIframe"
+                              title={post.caption || `Instagram Reel ${idx + 1}`}
+                              loading="lazy"
+                              scrolling="no"
+                              frameBorder="0"
+                              allowFullScreen
+                              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                            />
+                          </div>
+                          {post.caption && (
+                            <div className="instagramReelInfo">
+                              <span className="instagramReelCaption">{post.caption}</span>
+                              <a href={post.url} target="_blank" rel="noreferrer" className="instagramReelDirectLink" title="Watch on Instagram">
+                                <Instagram size={13} />
+                                <span>Watch Reel</span>
+                              </a>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    }
+
+                    return (
+                      <a
+                        key={post.id || idx}
+                        href={post.url || profileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="instagramPostCard"
+                        title={post.caption || `Instagram post ${idx + 1}`}
+                      >
+                        <div className="instagramPostImageWrap">
+                          {post.mediaType === "video" ? (
+                            <video src={post.image} muted loop playsInline preload="none" aria-label={post.caption || "Bustaniya Instagram reel"} />
+                          ) : (
+                            <Image
+                              src={post.image || "/bustaniya-instagram-hero.jpg"}
+                              alt={post.caption || "Bustaniya Instagram post"}
+                              fill
+                              sizes="(max-width: 600px) 82vw, (max-width: 1000px) 43vw, 28vw"
+                            />
+                          )}
+                          <div className="instagramPostOverlay">
+                            {post.mediaType === "video" ? <Play size={28} fill="currentColor" /> : <Instagram size={28} />}
+                            <span className="instagramPostHandle">{handle}</span>
+                            {post.caption && <span className="instagramPostCaption">{post.caption}</span>}
+                          </div>
                         </div>
-                      </div>
-                    </a>
-                  ))}
+                      </a>
+                    );
+                  })}
                   </div>
                   <button type="button" className="instagramCarouselButton instagramCarouselButton--next" onClick={() => scrollInstagramRail(1)} aria-label="Show next Instagram posts"><ChevronRight size={20} /></button>
                 </div>

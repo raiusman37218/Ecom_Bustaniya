@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, Minus, Play, Plus, Ruler, ShieldCheck, ShoppingBag, Sparkles, Truck, UserRound, X } from "lucide-react";
 
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../../data/store";
-import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
+import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../lib/images";
 import { convertProductsToRegion, formatPrice, REGIONS } from "../../lib/regions";
 import UkHeader from "./UkHeader";
@@ -510,20 +510,51 @@ export default function UkHomePageClient({
                   </div>
                 </div>
                 <div className="instagramGrid instagramRail" ref={instagramRailRef}>
-                  {posts.map((post) => (
-                    <a href={post.url || "https://www.instagram.com/bustaniya_/"} target="_blank" rel="noopener noreferrer" className="instagramCard" key={post.id}>
-                      <Image
-                        src={optimizedImageUrl(post.image, CLOUDINARY_IMAGE_PRESETS.card)}
-                        alt={post.caption || "Bustaniya UK Instagram post"}
-                        fill
-                        sizes="(max-width: 600px) 70vw, 260px"
-                      />
-                      <div className="instagramOverlay">
-                        <Instagram size={24} />
-                        {post.caption && <p>{post.caption}</p>}
-                      </div>
-                    </a>
-                  ))}
+                  {posts.map((post, idx) => {
+                    const embedUrl = getInstagramEmbedUrl(post.url);
+                    if (embedUrl) {
+                      return (
+                        <article key={post.id || idx} className="instagramReelCard">
+                          <div className="instagramReelIframeWrap">
+                            <iframe
+                              src={embedUrl}
+                              className="instagramReelIframe"
+                              title={post.caption || `Instagram Reel ${idx + 1}`}
+                              loading="lazy"
+                              scrolling="no"
+                              frameBorder="0"
+                              allowFullScreen
+                              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                            />
+                          </div>
+                          {post.caption && (
+                            <div className="instagramReelInfo">
+                              <span className="instagramReelCaption">{post.caption}</span>
+                              <a href={post.url} target="_blank" rel="noopener noreferrer" className="instagramReelDirectLink" title="Watch on Instagram">
+                                <Instagram size={13} />
+                                <span>Watch Reel</span>
+                              </a>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    }
+
+                    return (
+                      <a href={post.url || "https://www.instagram.com/bustaniya_/"} target="_blank" rel="noopener noreferrer" className="instagramCard" key={post.id || idx}>
+                        <Image
+                          src={optimizedImageUrl(post.image || "/bustaniya-instagram-hero.jpg", CLOUDINARY_IMAGE_PRESETS.card)}
+                          alt={post.caption || "Bustaniya UK Instagram post"}
+                          fill
+                          sizes="(max-width: 600px) 70vw, 260px"
+                        />
+                        <div className="instagramOverlay">
+                          <Instagram size={24} />
+                          {post.caption && <p>{post.caption}</p>}
+                        </div>
+                      </a>
+                    );
+                  })}
                 </div>
               </section>
             );
