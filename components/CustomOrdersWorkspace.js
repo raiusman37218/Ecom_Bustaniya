@@ -498,6 +498,49 @@ export default function CustomOrdersWorkspace() {
                   {selectedOrder.measurements?.unit || "inches"})
                 </h4>
 
+                {/* Styling & Tailoring Cut Specifications */}
+                {(selectedOrder.measurements?.necklineStyle ||
+                  selectedOrder.measurements?.sleeveStyle ||
+                  selectedOrder.measurements?.damanStyle ||
+                  selectedOrder.measurements?.liningOption ||
+                  selectedOrder.measurements?.fittingPref) && (
+                  <div className="measCategoryBlock" style={{ marginBottom: 16 }}>
+                    <h5>Design & Styling Specifications</h5>
+                    <div className="measDetailsTable">
+                      {selectedOrder.measurements?.necklineStyle && (
+                        <div className="measCell">
+                          <span>Neckline:</span>
+                          <b>{selectedOrder.measurements.necklineStyle}</b>
+                        </div>
+                      )}
+                      {selectedOrder.measurements?.sleeveStyle && (
+                        <div className="measCell">
+                          <span>Sleeves:</span>
+                          <b>{selectedOrder.measurements.sleeveStyle}</b>
+                        </div>
+                      )}
+                      {selectedOrder.measurements?.damanStyle && (
+                        <div className="measCell">
+                          <span>Daman / Hem:</span>
+                          <b>{selectedOrder.measurements.damanStyle}</b>
+                        </div>
+                      )}
+                      {selectedOrder.measurements?.liningOption && (
+                        <div className="measCell">
+                          <span>Inner Lining:</span>
+                          <b>{selectedOrder.measurements.liningOption}</b>
+                        </div>
+                      )}
+                      {selectedOrder.measurements?.fittingPref && (
+                        <div className="measCell">
+                          <span>Fitting Cut:</span>
+                          <b>{selectedOrder.measurements.fittingPref}</b>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Shirt Table */}
                 <div className="measCategoryBlock">
                   <h5>Shirt / Kameez Measurements</h5>
