@@ -416,14 +416,14 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
   return (
     <>
-    <main className="productPage">
       <SiteHeader
         storeSettings={storeSettings}
         cartCount={cartCount}
         onOpenCart={() => setCartOpen(true)}
       />
 
-      <div className="productDetailLayout">
+      <main className="productPage">
+        <div className="productDetailLayout">
         <section className="productGallery mariabGallery">
           <nav className="productBreadcrumb" aria-label="Breadcrumb">
             <a href="/">Home</a>

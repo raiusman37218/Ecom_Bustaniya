@@ -67,10 +67,11 @@ export default function CartPage() {
   }
 
   return (
-    <main className="cartPageLayout">
+    <>
       <SiteHeader storeSettings={storeSettings} cartCount={cartCount} />
 
-      <div className="cartPageContainer">
+      <main className="cartPageLayout">
+        <div className="cartPageContainer">
         <div className="cartPageHeader">
           <div>
             <a href="/" className="cartBackLink">
@@ -265,6 +266,7 @@ export default function CartPage() {
           </div>
         )}
       </div>
-    </main>
+      </main>
+    </>
   );
 }

@@ -37,7 +37,7 @@ export default async function SubcategoryPage({ params }) {
   const siblings = subcategoryOptions(categories, slug);
 
   return (
-    <main className="categoryPage">
+    <>
       <JsonLd
         data={collectionSchema({
           name: `${details.name} ${parent.name}`,
@@ -53,7 +53,8 @@ export default async function SubcategoryPage({ params }) {
       ])} />
       <SiteHeader storeSettings={storeSettings} categories={categories} activeNav={slug} />
 
-      <section className="collectionHeader">
+      <main className="categoryPage">
+        <section className="collectionHeader">
         <nav className="collectionBreadcrumb" aria-label="Breadcrumb">
           <a href="/">Home</a>
           <span aria-hidden="true">/</span>
@@ -110,8 +111,9 @@ export default async function SubcategoryPage({ params }) {
           })}
         </div>
       </section>
+      </main>
 
       <SiteFooter categories={categories} storeSettings={storeSettings} />
-    </main>
+    </>
   );
 }

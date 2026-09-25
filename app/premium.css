@@ -46,19 +46,30 @@
   -webkit-backdrop-filter: saturate(1.4) blur(12px);
   border-bottom: 1px solid var(--bs-hair-soft);
   transition: box-shadow .3s var(--bs-ease), background .3s var(--bs-ease);
+  transform: none !important;
+  will-change: auto !important;
+  overflow-anchor: none;
+}
+.siteHeaderLucknawi .headerMiddleRow,
+.siteHeaderLucknawi .headerNavRow {
+  transform: none !important;
+  will-change: auto !important;
 }
 .siteHeaderLucknawi.isStuck {
   box-shadow: 0 10px 30px -22px rgba(23, 61, 41, .5);
 }
 .siteHeaderLucknawi .lucknawiAnnouncementBar {
+  max-height: 48px;
   overflow: hidden;
-  transition: min-height .35s var(--bs-ease), height .35s var(--bs-ease), opacity .25s var(--bs-ease);
+  transition: max-height .3s var(--bs-ease), opacity .25s var(--bs-ease);
 }
 .siteHeaderLucknawi.isStuck .lucknawiAnnouncementBar {
+  max-height: 0;
   min-height: 0;
-  height: 0;
   opacity: 0;
   pointer-events: none;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 .siteHeaderLucknawi .headerMiddleRow {
   transition: padding .35s var(--bs-ease);

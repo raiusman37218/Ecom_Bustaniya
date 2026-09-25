@@ -37,10 +37,36 @@ export default function SiteHeader({
   }, []);
 
   useEffect(() => {
-    const onScroll = () => setIsStuck(window.scrollY > 60);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    let rafId = null;
+    let lastStuck = false;
+
+    const handleScroll = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        const y = window.scrollY || window.pageYOffset || 0;
+        // Hysteresis dead-zone:
+        // Activate sticky compact state only after scrolling past 110px.
+        // Revert to full expanded state only when scrolling back up near the top (< 25px).
+        // This 85px buffer prevents any threshold flickering or layout shift vibration.
+        if (!lastStuck && y > 110) {
+          lastStuck = true;
+          setIsStuck(true);
+        } else if (lastStuck && y < 25) {
+          lastStuck = false;
+          setIsStuck(false);
+        }
+        rafId = null;
+      });
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
   }, []);
 
   const displayCartCount = typeof initialCartCount === "number" ? initialCartCount : localCartCount;

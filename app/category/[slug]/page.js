@@ -38,7 +38,7 @@ export default async function CategoryPage({ params }) {
   );
 
   return (
-    <main className="categoryPage">
+    <>
       <JsonLd
         data={collectionSchema({
           name: `${category.name} Collection`,
@@ -53,7 +53,8 @@ export default async function CategoryPage({ params }) {
       ])} />
       <SiteHeader storeSettings={storeSettings} categories={categories} activeNav={slug} />
 
-      <section className="collectionHeader">
+      <main className="categoryPage">
+        <section className="collectionHeader">
         <nav className="collectionBreadcrumb" aria-label="Breadcrumb">
           <a href="/">Home</a>
           <span aria-hidden="true">/</span>
@@ -107,8 +108,9 @@ export default async function CategoryPage({ params }) {
           })}
         </div>
       </section>
+      </main>
 
       <SiteFooter categories={categories} storeSettings={storeSettings} />
-    </main>
+    </>
   );
 }

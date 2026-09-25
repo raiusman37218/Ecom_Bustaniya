@@ -7192,6 +7192,8 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
 }
 
 function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, canRecordRefund, onNavigateToEvents }) {
+  const [drawerTab, setDrawerTab] = useState("order"); // "order" | "logistics" | "notes"
+  const [isEditingItems, setIsEditingItems] = useState(false);
   const [tracking, setTracking] = useState(order.tracking || "");
   const [orderStage, setOrderStage] = useState(order.postexStatus || order.status || "Un-Assigned By Me");
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || "COD pending");
@@ -7292,6 +7294,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
       productId: defaultProduct?.id || null,
     };
     setOrderItems((prev) => [...prev, newItem]);
+    setIsEditingItems(true);
   }
 
   function handleRemoveProductItem(index) {
@@ -7325,7 +7328,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
       if (!response.ok || result.success === false) {
         throw new Error(result.error || result.capiResult?.error || "Meta CAPI dispatch was not accepted.");
       }
-      setSaveMessage(`✅ Meta Purchase event dispatched successfully for order ${orderRef}! (Event ID: ${result.orderRef}, 200 OK)`);
+      setSaveMessage(`✅ Meta Purchase event dispatched successfully for order ${orderRef}!`);
     } catch (err) {
       setSaveError(`Meta CAPI error: ${err.message}`);
     } finally {
@@ -7371,11 +7374,11 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
           setOrderItems(normalizeOrderItems({ ...order, items: saved.items, order_items: saved.items }));
         }
         if (saved?.inventoryRestore?.restored) {
-          setSaveMessage(`Order changes saved. ${saved.inventoryRestore.restoredItems} item(s) restored to inventory.`);
+          setSaveMessage(`Order saved. ${saved.inventoryRestore.restoredItems} item(s) restored to stock.`);
         } else if (saved?.operationPersistence === "unavailable" || saved?.operationPersistence === "failed") {
-          setSaveMessage(saved.operationError || "Core order details saved, but return/refund workflow data was not saved.");
+          setSaveMessage(saved.operationError || "Core details saved, but return/refund workflow was not saved.");
         } else {
-          setSaveMessage("Order changes, items and notes saved successfully!");
+          setSaveMessage("✅ Order changes saved successfully!");
         }
       }
       return saved;
@@ -7403,9 +7406,6 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
           orderId: order.rawId || String(order.id).replace(/^#/, ""),
           orderRef: order.order_number || String(order.id).replace(/^#/, ""),
           total: savedMoney.total,
-          // Without these the server re-derived the money from current catalog
-          // prices and guessed "full advance" from a verified payment status,
-          // which handed PostEx a COD amount the customer never agreed to.
           paymentOption: savedMoney.isFullyAdvanced ? "full_advance" : savedMoney.hasAdvance ? "cod_delivery_advance" : "cod",
           deliveryCharges: savedMoney.delivery,
           advancePaid: savedMoney.advance,
@@ -7436,7 +7436,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
         postexStatus: result.courierStatus || "booked",
         fulfillmentStatus: "Booked with PostEx"
       });
-      setSaveMessage(`Successfully booked with PostEx! Tracking: ${trackingNumber}`);
+      setSaveMessage(`✅ Successfully booked with PostEx! Tracking: ${trackingNumber}`);
     } catch (error) {
       setSaveError(error.message || "Unable to create PostEx booking.");
     } finally {
@@ -7577,9 +7577,6 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
     });
   }
 
-  // Saved figures drive the PostEx booking; `preview` folds in the unsaved
-  // line-item and advance edits currently on screen so the operator sees what
-  // the courier will be told to collect once they press save.
   const savedMoney = orderMoney(order);
   const preview = orderMoney(order, { items: orderItems, advance: Number(advancePaidAmount || 0) });
   const calculatedItemsTotal = preview.subtotal;
@@ -7596,12 +7593,14 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   const isOutForDelivery = rawStatusLower.includes("out for delivery") || rawStatusLower.includes("attempt");
   const isInTransit = rawStatusLower.includes("transit") || rawStatusLower.includes("warehouse") || rawStatusLower.includes("transfer") || rawStatusLower.includes("rider");
   const isBooked = Boolean(tracking && !tracking.startsWith("MANUAL-")) || rawStatusLower.includes("book");
+  const isPacking = fulfillmentStatus === "Packing" || rawStatusLower.includes("pack");
+  const isConfirmed = order.confirmationStatus === "Confirmed" || paymentStatus === "Payment Verified" || paymentStatus === "Paid";
 
   let currentStepIndex = 0;
   if (isDelivered) currentStepIndex = 4;
-  else if (isOutForDelivery) currentStepIndex = 3;
-  else if (isInTransit) currentStepIndex = 2;
-  else if (isBooked) currentStepIndex = 1;
+  else if (isOutForDelivery || isInTransit) currentStepIndex = 3;
+  else if (isBooked) currentStepIndex = 2;
+  else if (isPacking || isConfirmed) currentStepIndex = 1;
   else currentStepIndex = 0;
 
   const waOrderRef = order.order_number || order.id || "";
@@ -7612,30 +7611,157 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   const waLink = `https://wa.me/${waPhone}?text=${waPrefilledText}`;
 
   const stepperSteps = [
-    { label: "1. Unbooked", sub: "At Warehouse", icon: "📦" },
-    { label: "2. Booked", sub: "CN Assigned", icon: "🏷️" },
-    { label: "3. In Transit", sub: "Courier Hub", icon: "🚚" },
-    { label: "4. Out For Delivery", sub: "Rider Dispatched", icon: "🛵" },
-    { label: "5. Delivered", sub: "Cash Collected", icon: "✅" },
+    { label: "1. Verification", sub: "کسٹمر تصدیق", icon: "💬" },
+    { label: "2. Packing", sub: "سوٹ تیاری", icon: "👗" },
+    { label: "3. Booked", sub: "PostEx CN", icon: "🏷️" },
+    { label: "4. Dispatched", sub: "کوریئر روانہ", icon: "🚚" },
+    { label: "5. Delivered", sub: "کیش وصولی", icon: "✅" },
   ];
+
+  const customerInitials = String(order.customer || "GC")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0].toUpperCase())
+    .join("") || "C";
+
+  let nextStepInfo = {
+    step: "Step 1: Contact & Verify (کسٹمر تصدیق)",
+    actionUrdu: "کسٹمر سے واٹس ایپ پر رابطہ کر کے ایڈریس اور سوٹ کا سائز کنفرم کریں",
+    actionEng: "Contact customer on WhatsApp to confirm delivery address and suit size",
+    badge: "Verification Needed",
+    bg: "#fffbeb",
+    border: "#fde68a",
+    text: "#92400e",
+    ctaText: "💬 WhatsApp Customer",
+    ctaType: "link",
+    ctaHref: waLink,
+    icon: "💬"
+  };
+
+  if (isDelivered) {
+    nextStepInfo = {
+      step: "Completed (مکمل شدہ)",
+      actionUrdu: `آرڈر کامیابی سے ڈیلیور ہو گیا اور کیش (Rs. ${currentCod.toLocaleString()}) وصول ہو گیا`,
+      actionEng: `Parcel delivered and COD cash (Rs. ${currentCod.toLocaleString()}) collected`,
+      badge: "Delivered",
+      bg: "#f0fdf4",
+      border: "#bbf7d0",
+      text: "#166534",
+      ctaText: "📄 View Invoice",
+      ctaType: "invoice",
+      icon: "✅"
+    };
+  } else if (isReturned) {
+    nextStepInfo = {
+      step: "Returned (واپسی)",
+      actionUrdu: "پارسل واپس آ گیا ہے۔ کسٹمر سے رابطہ کریں یا اسٹاک ریٹرن چیک کریں",
+      actionEng: "Parcel returned to merchant. Check stock restoration & customer notes",
+      badge: "Returned",
+      bg: "#fef2f2",
+      border: "#fecaca",
+      text: "#991b1b",
+      ctaText: "📝 Open Notes & Returns",
+      ctaType: "tab_notes",
+      icon: "↩️"
+    };
+  } else if (isCancelled) {
+    nextStepInfo = {
+      step: "Cancelled (منسوخ)",
+      actionUrdu: "یہ آرڈر کینسل ہو چکا ہے",
+      actionEng: "Order is marked as cancelled",
+      badge: "Cancelled",
+      bg: "#f8fafc",
+      border: "#cbd5e1",
+      text: "#475569",
+      icon: "❌"
+    };
+  } else if (isOutForDelivery) {
+    nextStepInfo = {
+      step: "Step 4: Out For Delivery (ڈلیوری روانہ)",
+      actionUrdu: `رائڈر ڈلیوری کے لیے نکل چکا ہے۔ کوریئر سے کیش (Rs. ${currentCod.toLocaleString()}) وصولی متوقع ہے`,
+      actionEng: `Rider dispatched for delivery. Cash due: Rs. ${currentCod.toLocaleString()}`,
+      badge: "Out for Delivery",
+      bg: "#faf5ff",
+      border: "#e9d5ff",
+      text: "#6b21a8",
+      ctaText: "🔄 Check Live Status",
+      ctaType: "check_status",
+      icon: "🛵"
+    };
+  } else if (isInTransit) {
+    nextStepInfo = {
+      step: "Step 4: In Transit (راستے میں)",
+      actionUrdu: `پارسل کوریئر کے ہب / راستے میں ہے۔ لائیو سٹیٹس ریفریش کر کے چیک کریں`,
+      actionEng: `Shipment is in transit at courier hub. Live tracking active`,
+      badge: "In Transit",
+      bg: "#eff6ff",
+      border: "#bfdbfe",
+      text: "#1e40af",
+      ctaText: "🔄 Check Live Status",
+      ctaType: "check_status",
+      icon: "🚚"
+    };
+  } else if (isBooked) {
+    nextStepInfo = {
+      step: "Step 3: Ready for Handover (ہینڈ اوور کے لیے تیار)",
+      actionUrdu: `PostEx بکنگ مکمل ہے (CN: ${tracking})۔ سلپ پرنٹ کر کے رائڈر کو پارسل ہینڈ اوور کریں`,
+      actionEng: `Booked with PostEx (CN: ${tracking}). Print slip and handover to rider`,
+      badge: "Booked with Courier",
+      bg: "#f0fdf4",
+      border: "#bbf7d0",
+      text: "#166534",
+      ctaText: "📦 Print Packing Slip",
+      ctaType: "packing_slip",
+      icon: "🏷️"
+    };
+  } else if (isConfirmed || isPacking) {
+    nextStepInfo = {
+      step: "Step 3: Courier Booking (کوریئر بکنگ)",
+      actionUrdu: "پیمنٹ اور تیاری مکمل ہے! نیچے '⚡ Book PostEx Courier' بٹن دبائیں",
+      actionEng: "Verified & ready! Click '⚡ Book PostEx Courier' to generate shipping CN",
+      badge: "Ready for Courier",
+      bg: "#f0fdf4",
+      border: "#86efac",
+      text: "#166534",
+      ctaText: "⚡ Book PostEx Courier",
+      ctaType: "book_postex",
+      icon: "⚡"
+    };
+  }
 
   return (
     <>
       <div className="adminOverlay" onClick={onClose} />
-      <aside className="orderDetailDrawer">
-        {/* Sticky Professional Top Header */}
-        <header style={{ position: "sticky", top: 0, zIndex: 30, background: "#ffffff", borderBottom: "1px solid #e2e8f0", padding: "14px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+      <aside className="orderDetailDrawer" style={{ width: "min(940px, 100%)", background: "#f8fafc", display: "flex", flexDirection: "column" }}>
+        {/* Luxury Boutique Header */}
+        <header style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 30,
+          background: "#ffffff",
+          borderBottom: "1px solid #e2e8f0",
+          padding: "14px 22px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "12px",
+          boxShadow: "0 2px 10px rgba(15, 23, 42, 0.03)"
+        }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
-                <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.01em" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ fontSize: "10px", fontWeight: 800, color: "#059669", background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "2px 6px", borderRadius: "4px", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  Bustaniya Order
+                </span>
+                <h2 style={{ margin: 0, fontSize: "21px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.01em", fontFamily: "var(--font-sans, sans-serif)" }}>
                   {order.id}
                 </h2>
                 <button
                   type="button"
                   onClick={copyOrderNumberToClipboard}
                   title="Copy order number"
-                  style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: "5px", padding: "3px 6px", fontSize: "11px", cursor: "pointer", color: "#475569" }}
+                  style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: "5px", padding: "2px 7px", fontSize: "11px", cursor: "pointer", color: "#475569", fontWeight: 600 }}
                 >
                   {copiedOrderNumber ? "✅ Copied" : "📋 Copy"}
                 </button>
@@ -7649,58 +7775,64 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 {paymentStatus}
               </span>
 
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 600, color: "#475569" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "2px 8px", borderRadius: "5px", fontSize: "11px", fontWeight: 600, color: "#475569" }}>
                 {orderSourceBadge(order.source).icon} {orderSourceBadge(order.source).label}
               </span>
             </div>
 
             <div style={{ fontSize: "12px", color: "#64748b" }}>
-              <b>{order.customer}</b> · <span style={{ color: "#166534", fontWeight: 700 }}>Rs. {calculatedOrderTotal.toLocaleString()}</span> · {order.date}
+              <b>{order.customer}</b> · <span style={{ color: "#0f172a", fontWeight: 600 }}>📍 {order.city || "Pakistan"}</span> · {order.date}
             </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={printInvoice}
-              style={{ background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", padding: "7px 11px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
-              title="Print Customer Invoice Receipt"
-            >
-              📄 Invoice
-            </button>
-            <button
-              type="button"
-              onClick={printPackingSlip}
-              style={{ background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", padding: "7px 11px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
-              title="Print Warehouse Packing Slip"
-            >
-              📦 Packing Slip
-            </button>
-            <button
-              type="button"
-              onClick={() => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
-              style={{ background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", padding: "7px 11px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
-              title="Print Workshop Stitching Slip"
-            >
-              🧵 Stitching Slip
-            </button>
+            {/* Unified Print Segment */}
+            <div style={{ display: "inline-flex", background: "#f1f5f9", padding: "3px", borderRadius: "8px", border: "1px solid #e2e8f0", gap: "2px" }}>
+              <button
+                type="button"
+                onClick={printInvoice}
+                style={{ background: "#ffffff", color: "#334155", border: "1px solid #cbd5e1", padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                title="Print Customer Invoice Receipt"
+              >
+                📄 Invoice
+              </button>
+              <button
+                type="button"
+                onClick={printPackingSlip}
+                style={{ background: "#ffffff", color: "#334155", border: "1px solid #cbd5e1", padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                title="Print Warehouse Packing Slip"
+              >
+                📦 Slip
+              </button>
+              <button
+                type="button"
+                onClick={() => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
+                style={{ background: "#ffffff", color: "#334155", border: "1px solid #cbd5e1", padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                title="Print Workshop Stitching Slip"
+              >
+                🧵 Stitching
+              </button>
+            </div>
+
+            {/* Primary Save Button */}
             <button
               type="button"
               onClick={() => saveChanges()}
               disabled={saving}
               style={{
-                background: "#166534",
+                background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
                 color: "#ffffff",
                 border: "none",
                 fontWeight: 700,
-                padding: "8px 16px",
-                borderRadius: "6px",
+                padding: "8px 18px",
+                borderRadius: "8px",
                 fontSize: "12px",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
                 cursor: saving ? "not-allowed" : "pointer",
-                boxShadow: "0 2px 8px rgba(22, 101, 52, 0.25)"
+                boxShadow: "0 2px 8px rgba(4, 120, 87, 0.35)",
+                transition: "all 0.15s ease"
               }}
             >
               {saving ? (
@@ -7709,77 +7841,79 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                   <span>Saving...</span>
                 </>
               ) : (
-                "💾 Save All Changes"
+                "💾 Save Changes"
               )}
             </button>
-            <button onClick={onClose} aria-label="Close details" className="drawerCloseBtn">
+
+            {/* Close Button */}
+            <button onClick={onClose} aria-label="Close details" className="drawerCloseBtn" style={{ width: "34px", height: "34px", borderRadius: "50%", border: "1px solid #cbd5e1", background: "#ffffff", display: "grid", placeItems: "center", cursor: "pointer", color: "#475569" }}>
               <X size={16} />
             </button>
           </div>
         </header>
 
-        <div className="orderDetailBody" style={{ padding: "16px 22px 100px", display: "flex", flexDirection: "column", gap: "14px", background: "#f8fafc" }}>
-          {/* Notifications & Warnings */}
+        <div className="orderDetailBody" style={{ padding: "16px 22px 80px", display: "flex", flexDirection: "column", gap: "12px", background: "#f8fafc", flex: 1, overflowY: "auto" }}>
+          {/* Notifications & Alert Banners */}
           {saveError && (
-            <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", color: "#991b1b", padding: "10px 14px", borderRadius: "8px", fontSize: "13px", fontWeight: 600 }}>
-              ⚠️ {saveError}
+            <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", color: "#991b1b", padding: "10px 14px", borderRadius: "10px", fontSize: "12px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>⚠️</span> {saveError}
             </div>
           )}
           {saveMessage && (
-            <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", color: "#166534", padding: "10px 14px", borderRadius: "8px", fontSize: "13px", fontWeight: 600 }}>
-              ✅ {saveMessage}
+            <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", color: "#166534", padding: "10px 14px", borderRadius: "10px", fontSize: "12px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>✅</span> {saveMessage}
             </div>
           )}
           {unsavedTotalChange && (
-            <div style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", color: "#1e40af", padding: "10px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 600 }}>
-              ℹ️ Unsaved edits: Subtotal or advance amounts modified on screen. Press <b>Save All Changes</b> to sync database before booking with courier.
+            <div style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", color: "#1e40af", padding: "10px 14px", borderRadius: "10px", fontSize: "12px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>ℹ️</span> Unsaved edits: Subtotal or advance modified. Press <b>Save Changes</b> in the header.
             </div>
           )}
           {savedMoney.codMismatch && (
-            <div style={{ background: "#fffbeb", border: "1.5px solid #fcd34d", color: "#92400e", padding: "10px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 600 }}>
-              ⚠️ PostEx booking COD mismatch: PostEx is set to collect Rs. {savedMoney.bookedCod?.toLocaleString()}. Advance received makes due amount Rs. {savedMoney.cod?.toLocaleString()}. Update courier shipment so rider collects correct cash.
+            <div style={{ background: "#fffbeb", border: "1.5px solid #fcd34d", color: "#92400e", padding: "10px 14px", borderRadius: "10px", fontSize: "12px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>⚠️</span> PostEx booking COD mismatch: PostEx is set to collect Rs. {savedMoney.bookedCod?.toLocaleString()}. Due amount is Rs. {savedMoney.cod?.toLocaleString()}.
             </div>
           )}
 
-          {/* 1. Visual Shipping Lifecycle Stepper */}
-          <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "14px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-              <span style={{ fontSize: "11px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Courier Delivery Lifecycle
-              </span>
-              <span style={{ fontSize: "12px", fontWeight: 700, color: isCancelled ? "#ef4444" : isReturned ? "#b91c1c" : isDelivered ? "#166534" : "#2563eb" }}>
-                {isCancelled ? "❌ Cancelled" : isReturned ? "↩️ Returned to Merchant" : isDelivered ? "✅ Delivered" : orderStage}
-              </span>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", overflowX: "auto", padding: "4px 0" }}>
+          {/* 🌟 1. INTERACTIVE ORDER WORKFLOW PIPELINE & SMART ACTION RIBBON */}
+          <section style={{
+            background: "#ffffff",
+            border: "1px solid #e2e8f0",
+            borderRadius: "14px",
+            padding: "14px 18px",
+            boxShadow: "0 2px 8px rgba(15, 23, 42, 0.03)"
+          }}>
+            {/* Visual 5-Stage Journey */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", overflowX: "auto", padding: "4px 0 8px" }}>
               {stepperSteps.map((step, idx) => {
                 const isPassed = currentStepIndex > idx;
                 const isCurrent = currentStepIndex === idx;
                 return (
                   <div key={step.label} style={{ display: "flex", alignItems: "center", flex: idx === stepperSteps.length - 1 ? "0 0 auto" : 1 }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: "90px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: "85px" }}>
                       <div style={{
-                        width: "34px",
-                        height: "34px",
+                        width: "32px",
+                        height: "32px",
                         borderRadius: "50%",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: "14px",
-                        background: isPassed ? "#dcfce7" : isCurrent ? "#166534" : "#f1f5f9",
+                        fontSize: "13px",
+                        background: isPassed ? "#dcfce7" : isCurrent ? "#059669" : "#f1f5f9",
                         color: isPassed ? "#166534" : isCurrent ? "#ffffff" : "#94a3b8",
-                        border: isCurrent ? "2px solid #166534" : isPassed ? "2px solid #86efac" : "2px solid #e2e8f0",
-                        boxShadow: isCurrent ? "0 0 0 4px #dcfce7" : "none",
-                        transition: "all 0.2s ease",
-                        fontWeight: 700
+                        border: isCurrent ? "2px solid #059669" : isPassed ? "2px solid #86efac" : "2px solid #e2e8f0",
+                        boxShadow: isCurrent ? "0 0 0 3px #dcfce7" : "none",
+                        fontWeight: 700,
+                        transition: "all 0.2s ease"
                       }}>
                         {isPassed ? "✓" : step.icon}
                       </div>
-                      <span style={{ fontSize: "11px", fontWeight: isCurrent ? 800 : 600, color: isCurrent ? "#166534" : isPassed ? "#1e293b" : "#94a3b8", marginTop: "4px", textAlign: "center", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: "11px", fontWeight: isCurrent ? 800 : 600, color: isCurrent ? "#059669" : isPassed ? "#1e293b" : "#94a3b8", marginTop: "5px", textAlign: "center", whiteSpace: "nowrap" }}>
                         {step.label}
                       </span>
-                      <span style={{ fontSize: "9px", color: "#94a3b8" }}>{step.sub}</span>
+                      <span style={{ fontSize: "10px", color: isCurrent ? "#047857" : "#94a3b8", textAlign: "center", whiteSpace: "nowrap" }}>
+                        {step.sub}
+                      </span>
                     </div>
 
                     {idx < stepperSteps.length - 1 && (
@@ -7787,7 +7921,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                         flex: 1,
                         height: "3px",
                         background: currentStepIndex > idx ? "#86efac" : "#e2e8f0",
-                        margin: "-14px 4px 0",
+                        margin: "-18px 6px 0",
                         borderRadius: "2px"
                       }} />
                     )}
@@ -7795,25 +7929,357 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 );
               })}
             </div>
+
+            {/* Smart Next Step Banner with Direct 1-Click Action */}
+            <div style={{
+              marginTop: "10px",
+              background: nextStepInfo.bg,
+              border: `1.5px solid ${nextStepInfo.border}`,
+              borderRadius: "10px",
+              padding: "10px 14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "20px" }}>{nextStepInfo.icon}</span>
+                <div>
+                  <div style={{ fontSize: "11px", fontWeight: 800, color: nextStepInfo.text, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    اگلا قدم (Next Action): {nextStepInfo.step}
+                  </div>
+                  <div style={{ fontSize: "13px", color: nextStepInfo.text, fontWeight: 700, marginTop: "1px" }}>
+                    {nextStepInfo.actionUrdu}
+                  </div>
+                  <div style={{ fontSize: "11px", color: nextStepInfo.text, opacity: 0.85 }}>
+                    {nextStepInfo.actionEng}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                {nextStepInfo.ctaText && (
+                  nextStepInfo.ctaType === "link" ? (
+                    <a
+                      href={nextStepInfo.ctaHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        background: "linear-gradient(135deg, #25d366 0%, #128c7e 100%)",
+                        color: "#ffffff",
+                        textDecoration: "none",
+                        padding: "7px 14px",
+                        borderRadius: "7px",
+                        fontSize: "12px",
+                        fontWeight: 800,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        boxShadow: "0 2px 8px rgba(37, 211, 102, 0.35)",
+                        cursor: "pointer"
+                      }}
+                    >
+                      {nextStepInfo.ctaText}
+                    </a>
+                  ) : nextStepInfo.ctaType === "book_postex" ? (
+                    <button
+                      type="button"
+                      onClick={bookWithPostex}
+                      disabled={saving || bookingPostex}
+                      style={{
+                        background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
+                        color: "#ffffff",
+                        border: "none",
+                        padding: "7px 14px",
+                        borderRadius: "7px",
+                        fontSize: "12px",
+                        fontWeight: 800,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        boxShadow: "0 2px 8px rgba(37, 99, 235, 0.35)",
+                        cursor: (saving || bookingPostex) ? "not-allowed" : "pointer"
+                      }}
+                    >
+                      {bookingPostex ? "Booking..." : nextStepInfo.ctaText}
+                    </button>
+                  ) : nextStepInfo.ctaType === "packing_slip" ? (
+                    <button
+                      type="button"
+                      onClick={printPackingSlip}
+                      style={{
+                        background: "#059669",
+                        color: "#ffffff",
+                        border: "none",
+                        padding: "7px 14px",
+                        borderRadius: "7px",
+                        fontSize: "12px",
+                        fontWeight: 800,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        boxShadow: "0 2px 8px rgba(5, 150, 105, 0.35)",
+                        cursor: "pointer"
+                      }}
+                    >
+                      {nextStepInfo.ctaText}
+                    </button>
+                  ) : nextStepInfo.ctaType === "check_status" ? (
+                    <button
+                      type="button"
+                      onClick={checkLivePostexStatus}
+                      disabled={checkingPostex}
+                      style={{
+                        background: "#2563eb",
+                        color: "#ffffff",
+                        border: "none",
+                        padding: "7px 14px",
+                        borderRadius: "7px",
+                        fontSize: "12px",
+                        fontWeight: 800,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        cursor: checkingPostex ? "not-allowed" : "pointer"
+                      }}
+                    >
+                      {checkingPostex ? "Checking..." : nextStepInfo.ctaText}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (nextStepInfo.ctaType === "tab_notes") setDrawerTab("notes");
+                        else if (nextStepInfo.ctaType === "invoice") printInvoice();
+                      }}
+                      style={{
+                        background: "#334155",
+                        color: "#ffffff",
+                        border: "none",
+                        padding: "7px 14px",
+                        borderRadius: "7px",
+                        fontSize: "12px",
+                        fontWeight: 800,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        cursor: "pointer"
+                      }}
+                    >
+                      {nextStepInfo.ctaText}
+                    </button>
+                  )
+                )}
+                <span style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  background: "#ffffff",
+                  color: nextStepInfo.text,
+                  border: `1px solid ${nextStepInfo.border}`,
+                  padding: "4px 9px",
+                  borderRadius: "6px"
+                }}>
+                  {nextStepInfo.badge}
+                </span>
+              </div>
+            </div>
           </section>
 
-          {/* 2. Priority Courier Operations & Booking Card */}
-          <section style={{ background: "#ffffff", border: tracking ? "1.5px solid #86efac" : "1.5px solid #e2e8f0", borderRadius: "12px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-            {!tracking ? (
+          {/* 🌟 2. TOP 3 EXECUTIVE SUMMARY CARDS */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px" }}>
+            {/* Card 1: Customer Profile & Contact */}
+            <div style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "14px",
+              padding: "16px",
+              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.03)",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between"
+            }}>
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "14px" }}>
-                  <div>
-                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#d97706", background: "#fef3c7", padding: "3px 8px", borderRadius: "6px", textTransform: "uppercase" }}>
-                      📦 Ready For Dispatch (At Warehouse)
-                    </span>
-                    <h3 style={{ margin: "6px 0 2px", fontSize: "17px", fontWeight: 800, color: "#0f172a" }}>
-                      PostEx Courier Booking
-                    </h3>
-                    <p style={{ margin: 0, fontSize: "12px", color: "#64748b" }}>
-                      Generate official PostEx consignment note and tracking number in 1 click.
-                    </p>
-                  </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "10px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    👤 Customer &amp; Delivery Destination
+                  </span>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#0f172a", background: "#f1f5f9", border: "1px solid #cbd5e1", padding: "1px 8px", borderRadius: "5px" }}>
+                    📍 {order.city || "Pakistan"}
+                  </span>
+                </div>
 
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg, #10b981 0%, #047857 100%)",
+                    color: "#ffffff",
+                    display: "grid",
+                    placeItems: "center",
+                    fontWeight: 800,
+                    fontSize: "14px",
+                    flexShrink: 0,
+                    boxShadow: "0 2px 6px rgba(4, 120, 87, 0.25)"
+                  }}>
+                    {customerInitials}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: "15px", fontWeight: 800, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {order.customer || "Guest Customer"}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#475569", fontWeight: 600 }}>
+                      📞 {order.phone || "No phone"}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: "8px", background: "#f8fafc", padding: "6px 10px", borderRadius: "6px", border: "1px solid #e2e8f0", fontSize: "11px", color: "#475569", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px" }}>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    🏠 {order.address || "No street address"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={copyAddressToClipboard}
+                    style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "4px", padding: "2px 6px", fontSize: "10px", fontWeight: 700, cursor: "pointer", color: "#334155", flexShrink: 0 }}
+                  >
+                    {copiedAddress ? "✅ Copied" : "📋 Copy"}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "6px", marginTop: "12px", flexWrap: "wrap" }}>
+                {rawPhoneDigits && (
+                  <a
+                    href={waLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      background: "linear-gradient(135deg, #25d366 0%, #128c7e 100%)",
+                      color: "#ffffff",
+                      padding: "6px 12px",
+                      borderRadius: "7px",
+                      fontSize: "12px",
+                      fontWeight: 800,
+                      textDecoration: "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                      boxShadow: "0 2px 8px rgba(37, 211, 102, 0.3)"
+                    }}
+                    title="Open WhatsApp with ready confirmation message in Urdu"
+                  >
+                    💬 WhatsApp
+                  </a>
+                )}
+                {rawPhoneDigits && (
+                  <a
+                    href={`tel:${order.phone}`}
+                    style={{
+                      background: "#f1f5f9",
+                      color: "#334155",
+                      padding: "6px 11px",
+                      borderRadius: "7px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      textDecoration: "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px"
+                    }}
+                  >
+                    📞 Call
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Card 2: Cash to Collect (COD Due) */}
+            <div style={{
+              background: "linear-gradient(135deg, #f0fdf4 0%, #f0f9ff 100%)",
+              border: "1.5px solid #bfdbfe",
+              borderRadius: "14px",
+              padding: "16px",
+              boxShadow: "0 2px 8px rgba(37, 99, 235, 0.04)",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between"
+            }}>
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "10px", fontWeight: 800, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    💰 Cash to Collect (Rider Due)
+                  </span>
+                  <span style={{ fontSize: "10px", fontWeight: 700, color: currentCod === 0 ? "#166534" : "#1d4ed8", background: "#ffffff", padding: "2px 8px", borderRadius: "5px", border: currentCod === 0 ? "1px solid #bbf7d0" : "1px solid #bfdbfe" }}>
+                    {currentCod === 0 ? "100% Prepaid" : "Cash on Delivery"}
+                  </span>
+                </div>
+
+                <div style={{ fontSize: "24px", fontWeight: 900, color: currentCod === 0 ? "#166534" : "#1d4ed8", marginTop: "4px", letterSpacing: "-0.01em" }}>
+                  {currentCod === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${currentCod.toLocaleString()}`}
+                </div>
+                <div style={{ fontSize: "11px", color: "#475569", marginTop: "2px", fontWeight: 600 }}>
+                  {currentCod === 0 ? "✅ 100% advance received — zero cash to collect" : "💡 Rider customer se yeh raqam wasool kare ga"}
+                </div>
+              </div>
+
+              <div style={{ fontSize: "11px", color: "#334155", marginTop: "8px", borderTop: "1px solid rgba(191, 219, 254, 0.8)", paddingTop: "6px", display: "flex", justifyContent: "space-between" }}>
+                <span>Total: <b style={{ color: "#0f172a" }}>Rs. {calculatedOrderTotal.toLocaleString()}</b></span>
+                <span>Advance: <b style={{ color: "#059669" }}>Rs. {currentAdvance.toLocaleString()}</b></span>
+              </div>
+            </div>
+
+            {/* Card 3: Courier / PostEx */}
+            <div style={{
+              background: "#ffffff",
+              border: tracking ? "1.5px solid #86efac" : "1.5px solid #cbd5e1",
+              borderRadius: "14px",
+              padding: "16px",
+              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.03)",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between"
+            }}>
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "10px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    🚚 Courier &amp; Dispatch ({deliveryMethod})
+                  </span>
+                  <span style={{ fontSize: "10px", fontWeight: 700, color: tracking ? "#166534" : "#d97706", background: tracking ? "#dcfce7" : "#fef3c7", padding: "2px 8px", borderRadius: "5px" }}>
+                    {tracking ? "Booked" : "Ready"}
+                  </span>
+                </div>
+
+                {!tracking ? (
+                  <div style={{ marginTop: "6px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#d97706" }}>
+                      📦 Unbooked · At Warehouse
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                      Ready to assign PostEx tracking:
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: "6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <code style={{ fontSize: "14px", fontWeight: 800, color: "#166534", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "3px 8px", borderRadius: "5px" }}>
+                        {tracking}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={copyTrackingToClipboard}
+                        style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: "4px", padding: "3px 7px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
+                      >
+                        {copiedTracking ? "✅ Copied" : "📋 Copy"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginTop: "10px" }}>
+                {!tracking ? (
                   <button
                     type="button"
                     onClick={bookWithPostex}
@@ -7823,80 +8289,27 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                       color: "#ffffff",
                       border: "none",
                       fontWeight: 800,
-                      padding: "10px 22px",
-                      borderRadius: "8px",
-                      fontSize: "13px",
+                      padding: "7px 14px",
+                      borderRadius: "7px",
+                      fontSize: "12px",
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: "8px",
+                      gap: "6px",
                       cursor: (saving || bookingPostex) ? "not-allowed" : "pointer",
-                      boxShadow: "0 4px 14px rgba(37, 99, 235, 0.3)"
+                      boxShadow: "0 2px 8px rgba(37, 99, 235, 0.28)"
                     }}
                   >
                     {bookingPostex ? (
                       <>
-                        <Loader2 size={16} className="animate-spin" />
-                        <span>Booking with PostEx...</span>
+                        <Loader2 size={13} className="animate-spin" />
+                        <span>Booking PostEx...</span>
                       </>
                     ) : (
-                      "⚡ Book with PostEx Courier"
+                      "⚡ Book PostEx (1-Click)"
                     )}
                   </button>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                  <div>
-                    <span style={{ fontSize: "10px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Destination City</span>
-                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a" }}>📍 {order.city || "Pakistan"}</div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "10px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>PostEx Cash To Collect</span>
-                    <div style={{ fontSize: "14px", fontWeight: 800, color: currentCod === 0 ? "#166534" : "#1d4ed8" }}>
-                      {currentCod === 0 ? "Rs. 0 (Prepaid - Do Not Collect)" : `Rs. ${currentCod.toLocaleString()} (COD)`}
-                    </div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "10px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Delivery Method</span>
-                    <select
-                      value={deliveryMethod}
-                      onChange={(e) => {
-                        setDeliveryMethod(e.target.value);
-                        saveChanges({ deliveryMethod: e.target.value });
-                      }}
-                      style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "5px", border: "1px solid #cbd5e1", background: "#ffffff", marginTop: "2px" }}
-                    >
-                      <option>PostEx</option>
-                      <option>Rider / same city</option>
-                      <option>Customer pickup</option>
-                      <option>Staff delivery</option>
-                      <option>Manual courier</option>
-                      <option>PostEx later</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "12px" }}>
-                  <div>
-                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#166534", background: "#dcfce7", padding: "3px 8px", borderRadius: "6px", textTransform: "uppercase" }}>
-                      🏷️ PostEx Shipment Active
-                    </span>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
-                      <code style={{ fontSize: "17px", fontWeight: 800, color: "#166534", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "3px 10px", borderRadius: "6px" }}>
-                        {tracking}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={copyTrackingToClipboard}
-                        style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "4px 10px", fontSize: "11px", fontWeight: 700, color: "#334155", cursor: "pointer" }}
-                      >
-                        {copiedTracking ? "✅ Copied" : "📋 Copy CN"}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+                ) : (
+                  <div style={{ display: "flex", gap: "5px", alignItems: "center", flexWrap: "wrap" }}>
                     {!tracking.startsWith("MANUAL-") && (
                       <a
                         href={`https://postex.pk/tracking?cn=${tracking}`}
@@ -7906,711 +8319,812 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                           background: "#eff6ff",
                           color: "#1d4ed8",
                           border: "1px solid #bfdbfe",
-                          padding: "7px 13px",
-                          borderRadius: "6px",
-                          fontSize: "12px",
+                          padding: "4px 9px",
+                          borderRadius: "5px",
+                          fontSize: "11px",
                           fontWeight: 700,
-                          textDecoration: "none",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "4px"
+                          textDecoration: "none"
                         }}
                       >
-                        🔗 Live PostEx.pk
+                        🔗 PostEx.pk
                       </a>
                     )}
                     <button
                       type="button"
                       onClick={checkLivePostexStatus}
                       disabled={saving || checkingPostex}
-                      style={{
-                        background: "#0f766e",
-                        color: "#ffffff",
-                        border: "none",
-                        fontWeight: 700,
-                        padding: "7px 14px",
-                        borderRadius: "6px",
-                        fontSize: "12px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "5px",
-                        cursor: (saving || checkingPostex) ? "not-allowed" : "pointer"
-                      }}
+                      style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "4px 9px", borderRadius: "5px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
                     >
-                      {checkingPostex ? (
-                        <>
-                          <Loader2 size={13} className="animate-spin" />
-                          <span>Checking...</span>
-                        </>
-                      ) : (
-                        "🔄 Check Live Status"
-                      )}
+                      {checkingPostex ? "Checking..." : "🔄 Status"}
                     </button>
                   </div>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f1f5f9", paddingTop: "10px", flexWrap: "wrap", gap: "8px", fontSize: "12px", color: "#64748b" }}>
-                  <div>
-                    Live Stage: <b style={{ color: "#0f172a" }}>{orderStage}</b> · PostEx Collection: <b style={{ color: currentCod === 0 ? "#166534" : "#1d4ed8" }}>{currentCod === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${currentCod.toLocaleString()}`}</b>
-                  </div>
-                  <div style={{ display: "flex", gap: "6px" }}>
-                    {orderStage.toLowerCase().includes("unbook") ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOrderStage("Booked");
-                          setFulfillmentStatus("Booked with PostEx");
-                          saveChanges({ status: "Booked", postexStatus: "Booked", orderStage: "Booked", fulfillmentStatus: "Booked with PostEx" });
-                        }}
-                        disabled={saving || checkingPostex}
-                        style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontWeight: 700, padding: "5px 12px", borderRadius: "6px", fontSize: "11px", cursor: "pointer" }}
-                      >
-                        🚚 Mark Dispatched
-                      </button>
-                    ) : !orderStage.toLowerCase().includes("deliver") ? (
-                      <button
-                        type="button"
-                        onClick={unbookOrder}
-                        disabled={saving || checkingPostex}
-                        style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", fontWeight: 700, padding: "5px 12px", borderRadius: "6px", fontSize: "11px", cursor: "pointer" }}
-                      >
-                        ↩️ Return to Warehouse (Unbook)
-                      </button>
-                    ) : (
-                      <span style={{ background: "#dcfce7", color: "#166534", padding: "4px 10px", borderRadius: "6px", fontWeight: 700, fontSize: "11px" }}>
-                        ✅ Parcel Delivered
-                      </span>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
-            )}
-          </section>
-
-          {/* 3. Customer & Delivery Address Card */}
-          <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px" }}>
-              <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#173d29", display: "flex", alignItems: "center", gap: "6px" }}>
-                👤 Customer &amp; Shipping Details
-              </h3>
-              <span style={{ fontSize: "11px", fontWeight: 600, color: "#475569", background: "#f1f5f9", padding: "2px 8px", borderRadius: "5px" }}>
-                Channel: {orderSourceBadge(order.source).label}
-              </span>
             </div>
+          </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
-              <div>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Customer Name</span>
-                <div style={{ fontSize: "15px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>{order.customer || "Guest Customer"}</div>
-                {order.email && <div style={{ fontSize: "12px", color: "#64748b" }}>{order.email}</div>}
-              </div>
+          {/* 🌟 3. MODERN SEGMENTED PILL TABS */}
+          <div style={{
+            display: "inline-flex",
+            background: "#e2e8f0",
+            padding: "4px",
+            borderRadius: "11px",
+            gap: "3px",
+            width: "fit-content",
+            marginTop: "4px"
+          }}>
+            <button
+              type="button"
+              onClick={() => setDrawerTab("order")}
+              style={{
+                border: "none",
+                background: drawerTab === "order" ? "#ffffff" : "transparent",
+                color: drawerTab === "order" ? "#0f172a" : "#64748b",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                fontWeight: drawerTab === "order" ? 800 : 600,
+                fontSize: "13px",
+                cursor: "pointer",
+                boxShadow: drawerTab === "order" ? "0 2px 6px rgba(0,0,0,0.08)" : "none",
+                transition: "all 0.15s ease",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px"
+              }}
+            >
+              👗 Ordered Items ({orderItems.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setDrawerTab("payment")}
+              style={{
+                border: "none",
+                background: drawerTab === "payment" ? "#ffffff" : "transparent",
+                color: drawerTab === "payment" ? "#0f172a" : "#64748b",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                fontWeight: drawerTab === "payment" ? 800 : 600,
+                fontSize: "13px",
+                cursor: "pointer",
+                boxShadow: drawerTab === "payment" ? "0 2px 6px rgba(0,0,0,0.08)" : "none",
+                transition: "all 0.15s ease",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px"
+              }}
+            >
+              💰 Payment &amp; Advance ({currentCod === 0 ? "Prepaid" : "COD"})
+            </button>
+            <button
+              type="button"
+              onClick={() => setDrawerTab("logistics")}
+              style={{
+                border: "none",
+                background: drawerTab === "logistics" ? "#ffffff" : "transparent",
+                color: drawerTab === "logistics" ? "#0f172a" : "#64748b",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                fontWeight: drawerTab === "logistics" ? 800 : 600,
+                fontSize: "13px",
+                cursor: "pointer",
+                boxShadow: drawerTab === "logistics" ? "0 2px 6px rgba(0,0,0,0.08)" : "none",
+                transition: "all 0.15s ease",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px"
+              }}
+            >
+              🚚 Logistics &amp; PostEx ({tracking ? "Booked" : "Unbooked"})
+            </button>
+            <button
+              type="button"
+              onClick={() => setDrawerTab("notes")}
+              style={{
+                border: "none",
+                background: drawerTab === "notes" ? "#ffffff" : "transparent",
+                color: drawerTab === "notes" ? "#0f172a" : "#64748b",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                fontWeight: drawerTab === "notes" ? 800 : 600,
+                fontSize: "13px",
+                cursor: "pointer",
+                boxShadow: drawerTab === "notes" ? "0 2px 6px rgba(0,0,0,0.08)" : "none",
+                transition: "all 0.15s ease",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px"
+              }}
+            >
+              📝 Notes &amp; History {notes ? "•" : ""}
+            </button>
+          </div>
 
-              <div>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Phone &amp; One-Click Contact</span>
-                <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>{order.phone || "No phone saved"}</div>
-                <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
-                  {rawPhoneDigits && (
-                    <a
-                      href={waLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        background: "#22c55e",
-                        color: "#ffffff",
-                        padding: "5px 12px",
-                        borderRadius: "6px",
-                        fontSize: "12px",
-                        fontWeight: 700,
-                        textDecoration: "none",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "4px"
-                      }}
-                      title="Open WhatsApp with ready order confirmation message"
-                    >
-                      💬 WhatsApp Customer
-                    </a>
-                  )}
-                  {rawPhoneDigits && (
-                    <a
-                      href={`tel:${order.phone}`}
-                      style={{
-                        background: "#f1f5f9",
-                        color: "#334155",
-                        padding: "5px 10px",
-                        borderRadius: "6px",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        textDecoration: "none"
-                      }}
-                    >
-                      📞 Call
-                    </a>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Delivery City</span>
-                <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>📍 {order.city || "—"}</div>
-              </div>
-
-              <div style={{ gridColumn: "1 / -1", background: "#f8fafc", padding: "12px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Complete Delivery Address</span>
+          {/* TAB 1: ORDERED ITEMS & PRODUCTS */}
+          {drawerTab === "order" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {/* Delivery Address Card */}
+              <section style={{
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "14px",
+                padding: "14px 18px",
+                boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    📍 Complete Delivery Address (ڈلیوری ایڈریس)
+                  </span>
                   <button
                     type="button"
                     onClick={copyAddressToClipboard}
-                    style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "5px", padding: "3px 8px", fontSize: "11px", fontWeight: 700, color: "#334155", cursor: "pointer" }}
+                    style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "5px", padding: "3px 9px", fontSize: "11px", fontWeight: 700, color: "#334155", cursor: "pointer" }}
                   >
-                    {copiedAddress ? "✅ Copied" : "📋 Copy Address"}
+                    {copiedAddress ? "✅ Copied Address" : "📋 Copy Address"}
                   </button>
                 </div>
-                <p style={{ margin: "4px 0 0", fontSize: "13px", lineHeight: "1.5", color: "#1e293b", fontWeight: 500 }}>
+                <div style={{ fontSize: "14px", lineHeight: "1.5", color: "#1e293b", fontWeight: 500 }}>
                   {order.address || order.city || "No address saved"}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* 4. Financial Breakdown & Advance Verification */}
-          <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px" }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#173d29" }}>
-                  💰 Financial Breakdown &amp; Advance Verification
-                </h3>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>Payment tracking, verified advance, and remaining COD cash collection</span>
-              </div>
-              <span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`}>
-                {paymentStatus}
-              </span>
-            </div>
-
-            {/* 5-KPI strip */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "8px", marginBottom: "14px" }}>
-              <div style={{ padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Items Subtotal</span>
-                <div style={{ fontSize: "15px", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>Rs. {calculatedItemsTotal.toLocaleString()}</div>
-              </div>
-              <div style={{ padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Delivery Fee</span>
-                <div style={{ fontSize: "15px", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>Rs. {deliveryChargeVal.toLocaleString()}</div>
-              </div>
-              <div style={{ padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Total Order</span>
-                <div style={{ fontSize: "15px", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>Rs. {calculatedOrderTotal.toLocaleString()}</div>
-              </div>
-              <div style={{ padding: "10px 12px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px" }}>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: "#166534", textTransform: "uppercase" }}>Advance Paid</span>
-                <div style={{ fontSize: "15px", fontWeight: 800, color: "#166534", marginTop: "2px" }}>Rs. {currentAdvance.toLocaleString()}</div>
-              </div>
-              <div style={{ padding: "10px 12px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "8px" }}>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: "#1e40af", textTransform: "uppercase" }}>PostEx COD Due</span>
-                <div style={{ fontSize: "15px", fontWeight: 800, color: currentCod === 0 ? "#166534" : "#1d4ed8", marginTop: "2px" }}>
-                  {currentCod === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${currentCod.toLocaleString()}`}
+                  {order.city && <div style={{ fontSize: "12px", color: "#64748b", marginTop: "3px" }}>Delivery City: <b style={{ color: "#0f172a" }}>{order.city}</b></div>}
                 </div>
-              </div>
-            </div>
+              </section>
 
-            {/* Advance shortcuts */}
-            <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "12px", background: "#f8fafc", padding: "8px 12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569" }}>Advance Shortcuts:</span>
-              <button
-                type="button"
-                style={{ fontSize: "11px", padding: "4px 8px", background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", borderRadius: "5px", cursor: "pointer", fontWeight: 700 }}
-                onClick={() => { setAdvancePaidAmount(calculatedOrderTotal); setPaymentStatus("Payment Verified"); }}
-              >
-                🟢 100% Full Advance (Rs. {calculatedOrderTotal.toLocaleString()})
-              </button>
-              <button
-                type="button"
-                style={{ fontSize: "11px", padding: "4px 8px", background: "#fefce8", color: "#854d0e", border: "1px solid #fde047", borderRadius: "5px", cursor: "pointer", fontWeight: 700 }}
-                onClick={() => { setAdvancePaidAmount(deliveryChargeVal || 250); setPaymentStatus("Payment Verified"); }}
-              >
-                🟡 Delivery Advance (Rs. {(deliveryChargeVal || 250).toLocaleString()})
-              </button>
-              <button
-                type="button"
-                style={{ fontSize: "11px", padding: "4px 8px", background: "#ffffff", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "5px", cursor: "pointer", fontWeight: 700 }}
-                onClick={() => { setAdvancePaidAmount(0); setPaymentStatus("COD pending"); }}
-              >
-                ⚪ Full COD (Rs. 0 Advance)
-              </button>
-            </div>
+              {/* Ordered Items List (Boutique Presentation) */}
+              <section style={{
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "14px",
+                padding: "18px",
+                boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", borderBottom: "1px solid #f1f5f9", paddingBottom: "10px", flexWrap: "wrap", gap: "8px" }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 800, color: "#0f172a" }}>
+                      👗 Ordered Suits &amp; Products ({orderItems.length})
+                    </h3>
+                    <span style={{ fontSize: "11px", color: "#64748b" }}>
+                      {items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} total suit piece(s)
+                    </span>
+                  </div>
 
-            <div className="formRow" style={{ marginTop: "8px" }}>
-              <label>
-                Advance Received (PKR)
-                <input
-                  type="number"
-                  min="0"
-                  max={calculatedOrderTotal}
-                  value={advancePaidAmount}
-                  onChange={(event) => setAdvancePaidAmount(event.target.value)}
-                  placeholder="Enter advance amount..."
-                />
-              </label>
-              <label>
-                Payment Reference ID / TID
-                <input
-                  value={paymentReference}
-                  onChange={(event) => setPaymentReference(event.target.value)}
-                  placeholder="NayaPay, Bank transfer, JazzCash reference"
-                />
-              </label>
-              <label>
-                Payment Status
-                <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
-                  <option>COD Pending</option>
-                  <option>Advance Pending</option>
-                  <option>Proof Submitted</option>
-                  <option>Payment Verified</option>
-                  <option>Paid</option>
-                  <option>Payment Rejected</option>
-                  <option>Refunded</option>
-                </select>
-              </label>
-            </div>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingItems((prev) => !prev)}
+                      style={{
+                        background: isEditingItems ? "#f1f5f9" : "#ffffff",
+                        color: "#334155",
+                        border: "1px solid #cbd5e1",
+                        fontWeight: 700,
+                        padding: "6px 13px",
+                        fontSize: "11px",
+                        borderRadius: "7px",
+                        cursor: "pointer"
+                      }}
+                    >
+                      {isEditingItems ? "✓ Done Editing" : "✏️ Edit Items / Size"}
+                    </button>
+                    {isEditingItems && (
+                      <button
+                        type="button"
+                        onClick={handleAddProductItem}
+                        style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontWeight: 700, padding: "6px 13px", fontSize: "11px", borderRadius: "7px", cursor: "pointer" }}
+                      >
+                        + Add Suit
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-            <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setPaymentStatus("Payment Verified");
-                  setFulfillmentStatus("Packing");
-                  saveChanges({ paymentStatus: "Payment Verified", paymentReference, amountPayableInAdvance: Number(advancePaidAmount || 0), fulfillmentStatus: "Packing", confirmationStatus: "Confirmed" });
-                }}
-                disabled={saving}
-                style={{ background: "#166534", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
-              >
-                ✅ Verify Payment &amp; Move to Packing
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPaymentStatus("Payment Rejected");
-                  saveChanges({ paymentStatus: "Payment Rejected", paymentReference, confirmationStatus: "Confirmed" });
-                }}
-                disabled={saving}
-                style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", padding: "8px 14px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
-              >
-                ❌ Reject Payment
-              </button>
-              <button
-                type="button"
-                onClick={() => saveChanges({ paymentStatus, paymentReference, amountPayableInAdvance: Number(advancePaidAmount || 0), confirmationStatus: "Confirmed" })}
-                disabled={saving}
-                style={{ background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", padding: "8px 14px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
-              >
-                💾 Save Payment Details
-              </button>
-            </div>
-          </section>
+                {/* Normal Clean View: Luxury Product Tiles */}
+                {!isEditingItems ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {orderItems.map((item, index) => {
+                      const qty = Number(item.quantity || 1);
+                      const price = Number(item.price || 0);
+                      const lineTotal = qty * price;
+                      const rawSize = String(item.size || "").trim();
+                      const isCustomSize = !rawSize || rawSize.toLowerCase().includes("custom") || isCustomItemSize(rawSize);
 
-          {/* 5. Ordered Suits & Product Items */}
-          <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px", flexWrap: "wrap", gap: "8px" }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#173d29" }}>
-                  👗 Ordered Suits &amp; Products ({orderItems.length})
-                </h3>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>Edit quantities, custom sizes, suit titles or add new line items</span>
-              </div>
-              <div style={{ display: "flex", gap: "6px" }}>
-                <button
-                  type="button"
-                  onClick={handleAddProductItem}
-                  style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontWeight: 700, padding: "6px 12px", fontSize: "12px", borderRadius: "6px", cursor: "pointer" }}
-                >
-                  + Add Product to Order
-                </button>
-                <button
-                  type="button"
-                  onClick={() => saveChanges({ items: orderItems })}
-                  disabled={saving}
-                  style={{ background: "#166534", color: "#ffffff", border: "none", fontWeight: 700, padding: "6px 14px", fontSize: "12px", borderRadius: "6px", cursor: saving ? "not-allowed" : "pointer" }}
-                >
-                  💾 Save Items
-                </button>
-              </div>
-            </div>
-
-            <div className="adminTableWrap" style={{ overflowX: "auto" }}>
-              <table className="adminTable" style={{ minWidth: "680px" }}>
-                <thead>
-                  <tr>
-                    <th style={{ minWidth: "220px" }}>Product Name / Suit</th>
-                    <th style={{ minWidth: "130px" }}>Size</th>
-                    <th style={{ minWidth: "120px" }}>Color</th>
-                    <th style={{ width: "65px" }}>Qty</th>
-                    <th style={{ width: "110px" }}>Unit Price</th>
-                    <th>Line Total</th>
-                    <th style={{ width: "40px" }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orderItems.map((item, index) => {
-                    const standardSizes = ["XS", "S", "M", "L", "XL", "XXL", "Free Size"];
-                    const isCustom = item.size && !standardSizes.includes(item.size);
-
-                    return (
-                      <tr key={item.id || index}>
-                        <td>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              {item.imageUrl && (
-                                <img src={item.imageUrl} alt={item.name} style={{ width: "36px", height: "36px", objectFit: "cover", borderRadius: "4px", flexShrink: 0 }} />
-                              )}
-                              <select
-                                value={catalogProducts.some((p) => p.name === (item.name || item.title)) ? (item.name || item.title) : "__custom__"}
-                                onChange={(e) => handleSelectProduct(index, e.target.value)}
-                                style={{ padding: "5px 8px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "#f8fafc", fontWeight: 700, color: "#1e293b", width: "100%" }}
-                              >
-                                <optgroup label="Store Catalog Products">
-                                  {catalogProducts.map((p) => (
-                                    <option key={p.id || p.name} value={p.name}>
-                                      {p.name} (Rs. {Number(p.price || 0).toLocaleString()})
-                                    </option>
-                                  ))}
-                                </optgroup>
-                                <option value="__custom__">✏️ Custom / Other Suit Name</option>
-                              </select>
+                      return (
+                        <div
+                          key={item.id || index}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "12px 14px",
+                            background: "#f8fafc",
+                            borderRadius: "10px",
+                            border: "1px solid #e2e8f0",
+                            gap: "14px",
+                            transition: "all 0.15s ease"
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                style={{ width: "48px", height: "48px", objectFit: "cover", borderRadius: "8px", flexShrink: 0, border: "1px solid #e2e8f0" }}
+                              />
+                            ) : (
+                              <div style={{ width: "48px", height: "48px", borderRadius: "8px", background: "#f1f5f9", display: "grid", placeItems: "center", fontSize: "20px", flexShrink: 0 }}>
+                                👗
+                              </div>
+                            )}
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: "14px", fontWeight: 800, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {item.name || item.title || "Custom Suit"}
+                              </div>
+                              <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "4px", flexWrap: "wrap" }}>
+                                <span style={{
+                                  background: isCustomSize ? "#fef3c7" : "#e2e8f0",
+                                  color: isCustomSize ? "#92400e" : "#1e293b",
+                                  border: isCustomSize ? "1px solid #fde68a" : "1px solid #cbd5e1",
+                                  padding: "2px 8px",
+                                  borderRadius: "5px",
+                                  fontSize: "11px",
+                                  fontWeight: 800
+                                }}>
+                                  {isCustomSize ? `✂️ Custom: ${item.size || "Measurements"}` : `Size: ${item.size || "Standard"}`}
+                                </span>
+                                {item.color && (
+                                  <span style={{ background: "#ffffff", border: "1px solid #cbd5e1", color: "#475569", padding: "2px 8px", borderRadius: "5px", fontSize: "11px", fontWeight: 600 }}>
+                                    Color: {item.color}
+                                  </span>
+                                )}
+                                {item.sku && (
+                                  <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+                                    SKU: {item.sku}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            {(!catalogProducts.some((p) => p.name === (item.name || item.title)) || item.name === "Custom Product" || item.title === "Custom Product") && (
-                              <input
-                                type="text"
-                                value={item.name || item.title || ""}
-                                onChange={(e) => updateItemField(index, "name", e.target.value)}
-                                placeholder="Enter custom suit title..."
-                                style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "4px", border: "1.5px solid #2563eb", background: "#fff", fontWeight: 600 }}
-                              />
-                            )}
                           </div>
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                            <select
-                              value={standardSizes.includes(item.size) ? item.size : "Custom"}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                updateItemField(index, "size", val === "Custom" ? (item.size || "Custom") : val);
-                              }}
-                              style={{ padding: "5px 8px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "#f8fafc", fontWeight: 700, color: "#1e293b" }}
-                            >
-                              <option value="XS">XS (Extra Small)</option>
-                              <option value="S">S (Small)</option>
-                              <option value="M">M (Medium)</option>
-                              <option value="L">L (Large)</option>
-                              <option value="XL">XL (Extra Large)</option>
-                              <option value="XXL">XXL (Double Extra Large)</option>
-                              <option value="Free Size">Free Size / Unstitched</option>
-                              <option value="Custom">Custom / Other Size...</option>
-                            </select>
-                            {(isCustom || item.size === "Custom") && (
-                              <input
-                                type="text"
-                                value={item.size || ""}
-                                onChange={(e) => updateItemField(index, "size", e.target.value)}
-                                placeholder="e.g. 38, Custom size"
-                                style={{ padding: "4px 8px", fontSize: "11px", borderRadius: "4px", border: "1px solid #94a3b8", background: "#fff" }}
-                              />
-                            )}
+
+                          <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            <div style={{ fontSize: "15px", fontWeight: 800, color: "#0f172a" }}>
+                              Rs. {lineTotal.toLocaleString()}
+                            </div>
+                            <div style={{ fontSize: "11px", color: "#64748b", marginTop: "1px" }}>
+                              {qty} piece{qty > 1 ? "s" : ""} × Rs. {price.toLocaleString()}
+                            </div>
                           </div>
-                        </td>
-                        <td>
-                          <input
-                            type="text"
-                            value={item.color || ""}
-                            onChange={(e) => updateItemField(index, "color", e.target.value)}
-                            placeholder="Color"
-                            style={{ padding: "5px 8px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "#f8fafc", width: "100%" }}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            min="1"
-                            max="99"
-                            value={item.quantity || 1}
-                            onChange={(e) => updateItemField(index, "quantity", Math.max(1, Number(e.target.value) || 1))}
-                            style={{ width: "48px", padding: "4px 6px", fontSize: "12px", textAlign: "center", borderRadius: "6px", border: "1px solid #cbd5e1" }}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            min="0"
-                            value={item.price || 0}
-                            onChange={(e) => updateItemField(index, "price", Math.max(0, Number(e.target.value) || 0))}
-                            style={{ width: "90px", padding: "4px 6px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1" }}
-                          />
-                        </td>
-                        <td style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
-                          <b>Rs. {(Number(item.price || 0) * Number(item.quantity || 1)).toLocaleString()}</b>
-                        </td>
-                        <td>
-                          {orderItems.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveProductItem(index)}
-                              style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px", padding: "4px" }}
-                              title="Remove item"
-                            >
-                              🗑️
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Edit Mode Table */
+                  <div className="adminTableWrap" style={{ overflowX: "auto" }}>
+                    <table className="adminTable" style={{ minWidth: "620px" }}>
+                      <thead>
+                        <tr>
+                          <th>Suit / Product</th>
+                          <th style={{ width: "130px" }}>Size</th>
+                          <th style={{ width: "100px" }}>Color</th>
+                          <th style={{ width: "60px" }}>Qty</th>
+                          <th style={{ width: "100px" }}>Price</th>
+                          <th>Total</th>
+                          <th style={{ width: "36px" }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orderItems.map((item, index) => {
+                          const standardSizes = ["XS", "S", "M", "L", "XL", "XXL", "Free Size"];
+                          const isCustom = item.size && !standardSizes.includes(item.size);
 
-            <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end", gap: "16px", fontSize: "13px", color: "#334155", borderTop: "1px solid #f1f5f9", paddingTop: "10px" }}>
-              <span>Items Subtotal: <b>Rs. {calculatedItemsTotal.toLocaleString()}</b></span>
-              <span>Delivery Charges: <b>Rs. {deliveryChargeVal.toLocaleString()}</b></span>
-              <span style={{ color: "#166534", fontWeight: 700 }}>Total Order Value: <b>Rs. {calculatedOrderTotal.toLocaleString()}</b></span>
-            </div>
-          </section>
+                          return (
+                            <tr key={item.id || index}>
+                              <td>
+                                <select
+                                  value={catalogProducts.some((p) => p.name === (item.name || item.title)) ? (item.name || item.title) : "__custom__"}
+                                  onChange={(e) => handleSelectProduct(index, e.target.value)}
+                                  style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", width: "100%" }}
+                                >
+                                  <optgroup label="Store Catalog Products">
+                                    {catalogProducts.map((p) => (
+                                      <option key={p.id || p.name} value={p.name}>
+                                        {p.name} (Rs. {Number(p.price || 0).toLocaleString()})
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                  <option value="__custom__">✏️ Custom Suit Name</option>
+                                </select>
+                                {(!catalogProducts.some((p) => p.name === (item.name || item.title)) || item.name === "Custom Product") && (
+                                  <input
+                                    type="text"
+                                    value={item.name || item.title || ""}
+                                    onChange={(e) => updateItemField(index, "name", e.target.value)}
+                                    placeholder="Enter suit name..."
+                                    style={{ padding: "4px 6px", fontSize: "11px", borderRadius: "4px", border: "1px solid #2563eb", marginTop: "4px", width: "100%" }}
+                                  />
+                                )}
+                              </td>
+                              <td>
+                                <select
+                                  value={standardSizes.includes(item.size) ? item.size : "Custom"}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    updateItemField(index, "size", val === "Custom" ? (item.size || "Custom") : val);
+                                  }}
+                                  style={{ padding: "4px", fontSize: "11px", borderRadius: "5px", width: "100%" }}
+                                >
+                                  {standardSizes.map((s) => <option key={s} value={s}>{s}</option>)}
+                                  <option value="Custom">Custom...</option>
+                                </select>
+                                {(isCustom || item.size === "Custom") && (
+                                  <input
+                                    type="text"
+                                    value={item.size || ""}
+                                    onChange={(e) => updateItemField(index, "size", e.target.value)}
+                                    placeholder="Custom size..."
+                                    style={{ padding: "3px 5px", fontSize: "10px", marginTop: "3px", width: "100%" }}
+                                  />
+                                )}
+                              </td>
+                              <td>
+                                <input
+                                  type="text"
+                                  value={item.color || ""}
+                                  onChange={(e) => updateItemField(index, "color", e.target.value)}
+                                  placeholder="Color"
+                                  style={{ padding: "4px", fontSize: "11px", width: "100%" }}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity || 1}
+                                  onChange={(e) => updateItemField(index, "quantity", Math.max(1, Number(e.target.value) || 1))}
+                                  style={{ width: "45px", padding: "4px", fontSize: "11px", textAlign: "center" }}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={item.price || 0}
+                                  onChange={(e) => updateItemField(index, "price", Math.max(0, Number(e.target.value) || 0))}
+                                  style={{ width: "80px", padding: "4px", fontSize: "11px" }}
+                                />
+                              </td>
+                              <td style={{ fontSize: "11px", fontWeight: 700 }}>
+                                Rs. {(Number(item.price || 0) * Number(item.quantity || 1)).toLocaleString()}
+                              </td>
+                              <td>
+                                {orderItems.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveProductItem(index)}
+                                    style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "13px" }}
+                                    title="Remove item"
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
-          {/* 6. Internal Notes & Remarks Card */}
-          <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "6px" }}>
+                {/* Subtotal & Delivery Line */}
+                <div style={{ marginTop: "14px", borderTop: "1px solid #f1f5f9", paddingTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                  <div style={{ fontSize: "12px", color: "#64748b" }}>
+                    Items Subtotal: <b>Rs. {calculatedItemsTotal.toLocaleString()}</b> + Delivery: <b>Rs. {deliveryChargeVal.toLocaleString()}</b>
+                  </div>
+                  <div style={{ fontSize: "15px", fontWeight: 800, color: "#166534", background: "#f0fdf4", padding: "5px 14px", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
+                    Total Order Value: Rs. {calculatedOrderTotal.toLocaleString()}
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* TAB 2: PAYMENT & ADVANCE VERIFICATION */}
+          {drawerTab === "payment" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {/* Payment & Advance Calculator (Digital Receipt) */}
+              <section style={{
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "14px",
+                padding: "18px",
+                boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", borderBottom: "1px solid #f1f5f9", paddingBottom: "10px" }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 800, color: "#0f172a" }}>
+                      💰 Payment &amp; Advance Verification
+                    </h3>
+                    <span style={{ fontSize: "11px", color: "#64748b" }}>Set advance received, transaction TID reference, or mark COD</span>
+                  </div>
+                  <span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`}>
+                    {paymentStatus}
+                  </span>
+                </div>
+
+                {/* Quick Advance Shortcuts */}
+                <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "14px", background: "#f8fafc", padding: "10px 14px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 800, color: "#475569" }}>Quick Accounting:</span>
+                  <button
+                    type="button"
+                    style={{ fontSize: "11px", padding: "6px 12px", background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", borderRadius: "6px", cursor: "pointer", fontWeight: 800 }}
+                    onClick={() => { setAdvancePaidAmount(calculatedOrderTotal); setPaymentStatus("Payment Verified"); }}
+                  >
+                    🟢 100% Full Advance (Rs. {calculatedOrderTotal.toLocaleString()})
+                  </button>
+                  <button
+                    type="button"
+                    style={{ fontSize: "11px", padding: "6px 12px", background: "#fefce8", color: "#854d0e", border: "1px solid #fde047", borderRadius: "6px", cursor: "pointer", fontWeight: 800 }}
+                    onClick={() => { setAdvancePaidAmount(deliveryChargeVal || 250); setPaymentStatus("Payment Verified"); }}
+                  >
+                    🟡 Delivery Advance (Rs. {(deliveryChargeVal || 250).toLocaleString()})
+                  </button>
+                  <button
+                    type="button"
+                    style={{ fontSize: "11px", padding: "6px 12px", background: "#ffffff", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "6px", cursor: "pointer", fontWeight: 800 }}
+                    onClick={() => { setAdvancePaidAmount(0); setPaymentStatus("COD pending"); }}
+                  >
+                    ⚪ Full COD (Rs. 0 Advance)
+                  </button>
+                </div>
+
+                <div className="formRow" style={{ marginTop: "4px" }}>
+                  <label>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569" }}>Advance Received (PKR)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={calculatedOrderTotal}
+                      value={advancePaidAmount}
+                      onChange={(event) => setAdvancePaidAmount(event.target.value)}
+                      placeholder="Advance amount..."
+                    />
+                  </label>
+                  <label>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569" }}>Payment Reference / TID</span>
+                    <input
+                      value={paymentReference}
+                      onChange={(event) => setPaymentReference(event.target.value)}
+                      placeholder="NayaPay, Bank, JazzCash TID..."
+                    />
+                  </label>
+                  <label>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569" }}>Payment Status</span>
+                    <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
+                      <option>COD pending</option>
+                      <option>Advance Pending</option>
+                      <option>Proof Submitted</option>
+                      <option>Payment Verified</option>
+                      <option>Paid</option>
+                      <option>Payment Rejected</option>
+                      <option>Refunded</option>
+                    </select>
+                  </label>
+                </div>
+
+                {/* Balance math breakdown */}
+                <div style={{ background: "#f8fafc", padding: "12px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>Order Total: <b>Rs. {calculatedOrderTotal.toLocaleString()}</b> − Advance Received: <b>Rs. {Number(advancePaidAmount || 0).toLocaleString()}</b></div>
+                    <div style={{ fontSize: "15px", fontWeight: 900, color: currentCod === 0 ? "#166534" : "#1d4ed8", marginTop: "2px" }}>
+                      Net Cash to Collect (Rider COD): Rs. {currentCod.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentStatus("Payment Verified");
+                        setFulfillmentStatus("Packing");
+                        saveChanges({ paymentStatus: "Payment Verified", paymentReference, amountPayableInAdvance: Number(advancePaidAmount || 0), fulfillmentStatus: "Packing", confirmationStatus: "Confirmed" });
+                      }}
+                      disabled={saving}
+                      style={{ background: "#166534", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: "7px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
+                    >
+                      ✅ Verify Payment &amp; Move to Packing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentStatus("Payment Rejected");
+                        saveChanges({ paymentStatus: "Payment Rejected", paymentReference, confirmationStatus: "Confirmed" });
+                      }}
+                      disabled={saving}
+                      style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", padding: "8px 14px", borderRadius: "7px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
+                    >
+                      ❌ Reject Payment
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* TAB 3: LOGISTICS & POSTEX */}
+          {drawerTab === "logistics" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {/* PostEx Booking Card */}
+              <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "18px", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", borderBottom: "1px solid #f1f5f9", paddingBottom: "10px" }}>
+                  <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 800, color: "#0f172a" }}>
+                    🚚 PostEx Shipment Details
+                  </h3>
+                  <span className={`statusBadge ${String(orderStage).replaceAll(" ", "").replaceAll("-", "").toLowerCase()}`}>
+                    {orderStage}
+                  </span>
+                </div>
+
+                {!tracking ? (
+                  <div>
+                    <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#64748b" }}>
+                      Parcel is ready for dispatch from warehouse. Click below to generate official PostEx tracking number &amp; consignment note:
+                    </p>
+                    <button
+                      type="button"
+                      onClick={bookWithPostex}
+                      disabled={saving || bookingPostex}
+                      style={{
+                        background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
+                        color: "#ffffff",
+                        border: "none",
+                        fontWeight: 800,
+                        padding: "10px 22px",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        cursor: (saving || bookingPostex) ? "not-allowed" : "pointer",
+                        boxShadow: "0 3px 12px rgba(37, 99, 235, 0.3)"
+                      }}
+                    >
+                      {bookingPostex ? "Booking with PostEx..." : "⚡ Book with PostEx Courier (1-Click)"}
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
+                      <code style={{ fontSize: "16px", fontWeight: 800, color: "#166534", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "6px 14px", borderRadius: "6px" }}>
+                        {tracking}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={copyTrackingToClipboard}
+                        style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "6px 12px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
+                      >
+                        {copiedTracking ? "✅ Copied" : "📋 Copy CN"}
+                      </button>
+                      {!tracking.startsWith("MANUAL-") && (
+                        <a
+                          href={`https://postex.pk/tracking?cn=${tracking}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            background: "#eff6ff",
+                            color: "#1d4ed8",
+                            border: "1px solid #bfdbfe",
+                            padding: "6px 12px",
+                            borderRadius: "6px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            textDecoration: "none"
+                          }}
+                        >
+                          🔗 Open PostEx.pk
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={checkLivePostexStatus}
+                        disabled={saving || checkingPostex}
+                        style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "6px 12px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
+                      >
+                        {checkingPostex ? "Checking..." : "🔄 Refresh Live Status"}
+                      </button>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "8px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
+                      {!orderStage.toLowerCase().includes("deliver") && (
+                        <button
+                          type="button"
+                          onClick={unbookOrder}
+                          disabled={saving || checkingPostex}
+                          style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", fontWeight: 700, padding: "6px 14px", borderRadius: "6px", fontSize: "11px", cursor: "pointer" }}
+                        >
+                          ↩️ Return to Warehouse (Unbook)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              {/* Status & Courier Overrides */}
+              <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "18px", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)" }}>
+                <h3 style={{ margin: "0 0 12px", fontSize: "14px", fontWeight: 800, color: "#0f172a" }}>
+                  ⚙️ Manual Status Overrides
+                </h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
+                  <label>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b" }}>Courier Stage</span>
+                    <select
+                      value={orderStage}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setOrderStage(val);
+                        const isUnbook = val.toLowerCase().includes("unbook");
+                        if (isUnbook) setFulfillmentStatus("Unfulfilled");
+                        saveChanges({ postexStatus: val, status: val, orderStage: val, ...(isUnbook ? { fulfillmentStatus: "Unfulfilled" } : {}) });
+                      }}
+                      style={{ padding: "7px", borderRadius: "6px", fontSize: "12px" }}
+                    >
+                      {customOrderStatusOptions.map((s) => <option key={s}>{s}</option>)}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b" }}>Delivery Method</span>
+                    <select
+                      value={deliveryMethod}
+                      onChange={(e) => {
+                        setDeliveryMethod(e.target.value);
+                        saveChanges({ deliveryMethod: e.target.value });
+                      }}
+                      style={{ padding: "7px", borderRadius: "6px", fontSize: "12px" }}
+                    >
+                      <option>PostEx</option>
+                      <option>Rider / same city</option>
+                      <option>Customer pickup</option>
+                      <option>Staff delivery</option>
+                      <option>Manual courier</option>
+                      <option>PostEx later</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b" }}>Fulfillment Status</span>
+                    <select
+                      value={fulfillmentStatus}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFulfillmentStatus(val);
+                        saveChanges({ fulfillmentStatus: val });
+                      }}
+                      style={{ padding: "7px", borderRadius: "6px", fontSize: "12px" }}
+                    >
+                      <option>Unfulfilled</option>
+                      <option>Packing</option>
+                      <option>Booked with PostEx</option>
+                      <option>Shipped</option>
+                      <option>Delivered</option>
+                      <option>On hold</option>
+                    </select>
+                  </label>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* TAB 4: NOTES & HISTORY */}
+          {drawerTab === "notes" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {/* Internal Notes */}
+              <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "18px", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)" }}>
+                <h3 style={{ margin: "0 0 6px", fontSize: "15px", fontWeight: 800, color: "#0f172a" }}>
                   📝 Internal Notes &amp; Special Remarks
                 </h3>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>Admin context, customer requests, rider timing, or custom stitching notes</span>
-              </div>
-              {notes && (
-                <span style={{ background: "#f1f5f9", color: "#334155", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700 }}>
-                  Active Note
-                </span>
-              )}
-            </div>
+                <p style={{ margin: "0 0 10px", fontSize: "12px", color: "#64748b" }}>
+                  Special customer requests, rider instructions, or workshop stitching notes:
+                </p>
 
-            {notes && (
-              <div style={{ background: "#f8fafc", padding: "12px 14px", borderRadius: "8px", border: "1px solid #e2e8f0", color: "#334155", fontSize: "13px", lineHeight: "1.6", whiteSpace: "pre-wrap", marginBottom: "12px" }}>
-                {notes}
-              </div>
-            )}
+                {notes && (
+                  <div style={{ background: "#f8fafc", padding: "12px 14px", borderRadius: "8px", border: "1px solid #e2e8f0", color: "#334155", fontSize: "13px", lineHeight: "1.5", whiteSpace: "pre-wrap", marginBottom: "12px" }}>
+                    {notes}
+                  </div>
+                )}
 
-            <label style={{ margin: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
-              <span style={{ fontSize: "12px", fontWeight: 700, color: "#475569" }}>
-                {notes ? "Edit / Append Internal Notes:" : "Add Internal Notes:"}
-              </span>
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                rows="2"
-                placeholder="Write customer request, DM context, phone verification, rider instructions..."
-                style={{ padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", width: "100%", fontSize: "13px" }}
-              />
-            </label>
+                <textarea
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  rows="3"
+                  placeholder="Write internal remarks, delivery timing, or stitching notes..."
+                  style={{ padding: "9px", borderRadius: "7px", border: "1px solid #cbd5e1", width: "100%", fontSize: "13px" }}
+                />
 
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "10px" }}>
-              <button
-                type="button"
-                onClick={() => saveChanges({ notes })}
-                disabled={saving}
-                style={{ background: "#334155", color: "#ffffff", border: "none", padding: "7px 16px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
-              >
-                💾 Save Note
-              </button>
-            </div>
-          </section>
-
-          {/* 7. Quick Status Overrides Grid */}
-          <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-            <div style={{ marginBottom: "10px", borderBottom: "1px solid #f1f5f9", paddingBottom: "6px" }}>
-              <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#173d29" }}>
-                ⚙️ Status &amp; Workflow Controls
-              </h3>
-              <span style={{ fontSize: "12px", color: "#64748b" }}>Manual overrides for courier, payment and packing stages</span>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
-              <label>
-                <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Courier Stage</span>
-                <select value={orderStage} onChange={(e) => {
-                  const val = e.target.value;
-                  setOrderStage(val);
-                  const isUnbook = val.toLowerCase().includes("unbook");
-                  if (isUnbook) setFulfillmentStatus("Unfulfilled");
-                  saveChanges({ postexStatus: val, status: val, orderStage: val, ...(isUnbook ? { fulfillmentStatus: "Unfulfilled" } : {}) });
-                }} style={{ padding: "8px", borderRadius: "6px" }}>
-                  {customOrderStatusOptions.map((s) => <option key={s}>{s}</option>)}
-                </select>
-              </label>
-
-              <label>
-                <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Payment Status</span>
-                <select value={paymentStatus} onChange={(e) => {
-                  const val = e.target.value;
-                  setPaymentStatus(val);
-                  saveChanges({ paymentStatus: val });
-                }} style={{ padding: "8px", borderRadius: "6px" }}>
-                  <option>COD Pending</option>
-                  <option>Advance Pending</option>
-                  <option>Proof Submitted</option>
-                  <option>Payment Verified</option>
-                  <option>Paid</option>
-                  <option>Payment Rejected</option>
-                  <option>Refunded</option>
-                </select>
-              </label>
-
-              <label>
-                <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Fulfillment Status</span>
-                <select value={fulfillmentStatus} onChange={(e) => {
-                  const val = e.target.value;
-                  setFulfillmentStatus(val);
-                  saveChanges({ fulfillmentStatus: val });
-                }} style={{ padding: "8px", borderRadius: "6px" }}>
-                  <option>Unfulfilled</option>
-                  <option>Packing</option>
-                  <option>Booked with PostEx</option>
-                  <option>Shipped</option>
-                  <option>Delivered</option>
-                  <option>On hold</option>
-                </select>
-              </label>
-
-              <label>
-                <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Delivery Method</span>
-                <select value={deliveryMethod} onChange={(e) => {
-                  const val = e.target.value;
-                  setDeliveryMethod(val);
-                  saveChanges({ deliveryMethod: val });
-                }} style={{ padding: "8px", borderRadius: "6px" }}>
-                  <option>PostEx</option>
-                  <option>Rider / same city</option>
-                  <option>Customer pickup</option>
-                  <option>Staff delivery</option>
-                  <option>Manual courier</option>
-                  <option>PostEx later</option>
-                </select>
-              </label>
-
-              <label>
-                <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Risk Assessment</span>
-                <select value={risk} onChange={(e) => {
-                  const val = e.target.value;
-                  setRisk(val);
-                  const currentTags = tags.split(",").map((t) => t.trim()).filter(Boolean);
-                  const cleanTags = currentTags.filter((t) => !t.toLowerCase().includes("risk") && t !== "Repeat customer");
-                  if (val !== "Standard COD") cleanTags.push(val);
-                  const nextTagsStr = cleanTags.join(", ");
-                  setTags(nextTagsStr);
-                  saveChanges({ tags: cleanTags });
-                }} style={{ padding: "8px", borderRadius: "6px" }}>
-                  <option>Standard COD</option>
-                  <option>High risk COD</option>
-                  <option>Repeat customer</option>
-                </select>
-              </label>
-            </div>
-          </section>
-
-          {/* 8. Returns, Exchanges & Refunds (Clean Collapsible) */}
-          <details style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "14px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-            <summary style={{ fontSize: "14px", fontWeight: 700, color: "#475569", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span>🔄 Returns, Exchanges &amp; Refunds Workflow {returnStatus !== "No return" ? `(${returnStatus})` : ""}</span>
-              <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 600 }}>Click to expand ▼</span>
-            </summary>
-            <div style={{ marginTop: "14px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
-              <div className="formRow">
-                <label>
-                  Status
-                  <select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)}>
-                    {returnStatusOptions.map((status) => <option key={status}>{status}</option>)}
-                  </select>
-                </label>
-                <label>
-                  Reason
-                  <input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Size, defect, incorrect item..." />
-                </label>
-              </div>
-              <div className="formRow">
-                <label>
-                  Resolution
-                  <textarea value={returnResolution} onChange={(event) => setReturnResolution(event.target.value)} rows="2" placeholder="Approved replacement, customer contacted..." />
-                </label>
-                <label>
-                  Tags
-                  <input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Urgent, DM, Exchange" />
-                </label>
-              </div>
-              <div className="formRow">
-                <label>
-                  Refund Amount (PKR)
-                  <input type="number" min="0" max={calculatedOrderTotal} step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} />
-                </label>
-                <label>
-                  Refund Method
-                  <select value={refundMethod} onChange={(event) => setRefundMethod(event.target.value)} disabled={!canRecordRefund}>
-                    <option value="">Select method</option>
-                    <option>Bank transfer</option>
-                    <option>Easypaisa</option>
-                    <option>JazzCash</option>
-                    <option>Card reversal</option>
-                    <option>Cash</option>
-                    <option>Other</option>
-                  </select>
-                </label>
-              </div>
-              {!canRecordRefund && <p className="shippingRuleHint">Only an Owner can approve or record refund details.</p>}
-              {restoringReturnedStock && (
-                <p className="checkoutError">Final check: this will restore {items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} item(s) to stock once.</p>
-              )}
-              <button
-                type="button"
-                onClick={() => saveChanges()}
-                disabled={saving}
-                style={{ background: "#166534", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", marginTop: "10px" }}
-              >
-                {saving ? "Saving..." : restoringReturnedStock ? "Confirm inspection & restore stock" : "Save return workflow"}
-              </button>
-            </div>
-          </details>
-
-          {/* 9. Meta Pixel / CAPI & Order Timeline (Clean Collapsible) */}
-          <details style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "14px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-            <summary style={{ fontSize: "14px", fontWeight: 700, color: "#475569", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span>📡 Meta Pixel &amp; CAPI / Order Activity Timeline</span>
-              <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 600 }}>Click to expand ▼</span>
-            </summary>
-            <div style={{ marginTop: "14px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
-              <div style={{ fontSize: "12px", lineHeight: 1.8, color: "#334155", background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0", marginBottom: "12px" }}>
-                <div><b>Shared Event ID:</b> <code>{order.order_number || String(order.id).replace(/^#/, "")}</code></div>
-                <div><b>Conversion Value:</b> Rs. {savedMoney.total.toLocaleString()} (PKR)</div>
-                <div style={{ marginTop: "6px", display: "flex", gap: "6px" }}>
-                  {onNavigateToEvents && (
-                    <button type="button" onClick={() => onNavigateToEvents(order.order_number || order.id)} style={{ padding: "4px 8px", fontSize: "11px", cursor: "pointer" }}>
-                      🔍 View in Events Log
-                    </button>
-                  )}
-                  <button type="button" className="editProductButton" onClick={resyncOrderMetaPurchase} disabled={resyncingCapi || saving} style={{ padding: "4px 8px", fontSize: "11px" }}>
-                    {resyncingCapi ? "Dispatching..." : "⚡ Re-sync Meta Purchase"}
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "10px" }}>
+                  <button
+                    type="button"
+                    onClick={() => saveChanges({ notes })}
+                    disabled={saving}
+                    style={{ background: "#334155", color: "#ffffff", border: "none", padding: "8px 18px", borderRadius: "7px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    💾 Save Note
                   </button>
                 </div>
-              </div>
+              </section>
 
-              <h4 style={{ margin: "10px 0 6px", fontSize: "13px", color: "#0f172a" }}>Activity Timeline</h4>
-              <div className="orderTimeline">
-                <div><b>Order Created</b><span>{order.date}</span></div>
-                {order.tracking && <div><b>Tracking Assigned</b><span>{order.tracking}</span></div>}
-                {(order.operationEvents || []).map((event, index) => (
-                  <div key={`${event.created_at || "event"}-${index}`}>
-                    <b>{event.event_type === "order_operation_updated" ? "Return / refund workflow updated" : formatOrderStatus(event.event_type)}</b>
-                    <span>{event.created_at ? new Date(event.created_at).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Just now"}</span>
+              {/* Returns & Refunds (Collapsible) */}
+              <details style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "14px 18px", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)" }}>
+                <summary style={{ fontSize: "13px", fontWeight: 700, color: "#334155", cursor: "pointer", display: "flex", justifyContent: "space-between" }}>
+                  <span>🔄 Returns &amp; Exchanges Workflow {returnStatus !== "No return" ? `(${returnStatus})` : ""}</span>
+                  <span style={{ fontSize: "11px", color: "#94a3b8" }}>Expand ▼</span>
+                </summary>
+                <div style={{ marginTop: "12px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
+                  <div className="formRow">
+                    <label>
+                      Status
+                      <select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)}>
+                        {returnStatusOptions.map((status) => <option key={status}>{status}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      Reason
+                      <input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Size, defect, etc." />
+                    </label>
                   </div>
-                ))}
-              </div>
+                  <div className="formRow">
+                    <label>
+                      Resolution
+                      <textarea value={returnResolution} onChange={(event) => setReturnResolution(event.target.value)} rows="2" placeholder="Resolution notes..." />
+                    </label>
+                    <label>
+                      Refund Amount (PKR)
+                      <input type="number" min="0" max={calculatedOrderTotal} step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} />
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => saveChanges()}
+                    disabled={saving}
+                    style={{ background: "#166534", color: "#ffffff", border: "none", padding: "7px 16px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, marginTop: "10px", cursor: "pointer" }}
+                  >
+                    Save Return Workflow
+                  </button>
+                </div>
+              </details>
+
+              {/* Meta Pixel & Order Timeline */}
+              <details style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "14px 18px", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)" }}>
+                <summary style={{ fontSize: "13px", fontWeight: 700, color: "#334155", cursor: "pointer", display: "flex", justifyContent: "space-between" }}>
+                  <span>📡 Meta CAPI &amp; Order Activity Timeline</span>
+                  <span style={{ fontSize: "11px", color: "#94a3b8" }}>Expand ▼</span>
+                </summary>
+                <div style={{ marginTop: "12px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
+                  <div style={{ fontSize: "12px", background: "#f8fafc", padding: "12px", borderRadius: "8px", marginBottom: "12px", border: "1px solid #e2e8f0" }}>
+                    <div><b>Shared Event ID:</b> <code>{order.order_number || String(order.id).replace(/^#/, "")}</code></div>
+                    <div><b>Conversion Value:</b> Rs. {savedMoney.total.toLocaleString()}</div>
+                    <div style={{ marginTop: "8px", display: "flex", gap: "6px" }}>
+                      {onNavigateToEvents && (
+                        <button type="button" onClick={() => onNavigateToEvents(order.order_number || order.id)} style={{ padding: "4px 9px", fontSize: "11px" }}>
+                          🔍 View in Events Log
+                        </button>
+                      )}
+                      <button type="button" onClick={resyncOrderMetaPurchase} disabled={resyncingCapi || saving} style={{ padding: "4px 9px", fontSize: "11px" }}>
+                        {resyncingCapi ? "Dispatching..." : "⚡ Re-sync Meta Purchase"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <h4 style={{ margin: "10px 0 6px", fontSize: "13px", color: "#0f172a" }}>Activity Timeline</h4>
+                  <div className="orderTimeline">
+                    <div><b>Order Created</b><span>{order.date}</span></div>
+                    {order.tracking && <div><b>Tracking Assigned</b><span>{order.tracking}</span></div>}
+                    {(order.operationEvents || []).map((event, index) => (
+                      <div key={`${event.created_at || "event"}-${index}`}>
+                        <b>{event.event_type === "order_operation_updated" ? "Return / refund workflow updated" : formatOrderStatus(event.event_type)}</b>
+                        <span>{event.created_at ? new Date(event.created_at).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Just now"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </details>
             </div>
-          </details>
+          )}
         </div>
       </aside>
     </>
