@@ -5,12 +5,13 @@ import {
   Activity, AlertCircle, Bell, Boxes, Check, CheckCircle2, ChevronDown, ChevronUp, CircleDollarSign,
   Copy, ExternalLink, Eye, FileText, Info, Landmark, LayoutDashboard, Loader2, LogOut, Menu, MessageSquare,
   Minus, MoreHorizontal, Package, Phone, Plus, ReceiptText, RefreshCw, Search, Settings,
-  ShoppingBag, Store, Tags, TrendingUp, Truck, Users, WalletCards, X
+  ShoppingBag, Store, Tags, TrendingUp, Truck, Users, WalletCards, X, Scissors
 } from "lucide-react";
 import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, products as initialProducts, slugifyCategory } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import FinanceWorkspace from "./FinanceWorkspace";
 import EventsWorkspace from "./EventsWorkspace";
+import CustomOrdersWorkspace from "./CustomOrdersWorkspace";
 import { apparelSizes, fashionColors } from "../data/variantOptions";
 import AdminLogin from "./AdminLogin";
 
@@ -850,6 +851,7 @@ const navItems = [
   { name: "Dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
   { name: "Events", icon: Activity, section: "OVERVIEW" },
   { name: "Orders", icon: ShoppingBag, section: "COMMERCE" },
+  { name: "Custom Orders", icon: Scissors, section: "COMMERCE" },
   { name: "Products", icon: Package, section: "COMMERCE" },
   { name: "Categories", icon: Tags, section: "COMMERCE" },
   { name: "Inventory", icon: Boxes, section: "COMMERCE" },
@@ -864,6 +866,7 @@ const navPermissionMap = {
   Dashboard: "dashboard",
   Events: "dashboard",
   Orders: "orders",
+  "Custom Orders": "orders",
   Products: "products",
   Categories: "products",
   Inventory: "inventory",
@@ -1780,6 +1783,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
           {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} onNavigateToEvents={() => navigateAdminSection("Events")} />}
+          {canAccessActive && active === "Custom Orders" && <CustomOrdersWorkspace />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}

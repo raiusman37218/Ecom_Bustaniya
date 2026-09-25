@@ -77,6 +77,7 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
                 <a href={`/category/${category.slug}`}>{category.name}</a>
               </li>
             ))}
+            <li><a href="/custom-order">✨ Custom Dress &amp; Tailoring</a></li>
             <li><a href="/cart">Shopping Bag</a></li>
           </ul>
         </div>

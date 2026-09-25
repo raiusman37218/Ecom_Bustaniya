@@ -7,6 +7,13 @@ export const DEFAULT_ANNOUNCEMENTS = [
     enabled: true,
   },
   {
+    id: "default-custom-dress",
+    text: "✨ Custom Made-to-Measure Dress & Tailoring Available",
+    linkLabel: "Design yours now",
+    linkHref: "/custom-order",
+    enabled: true,
+  },
+  {
     id: "default-quality",
     text: "Thoughtfully made, premium-quality eastern wear",
     linkLabel: "",
@@ -105,6 +112,15 @@ export const DEFAULT_HOMEPAGE_SECTIONS = [
     subtitle: "New collections, styling inspiration and 10% off your first order.",
   },
   {
+    id: "custom-order",
+    type: "custom_order",
+    enabled: true,
+    label: "Custom Dress & Tailoring",
+    heading: "Design Your Dream Dress",
+    eyebrow: "BESPOKE ATELIER & STITCHING",
+    subtitle: "Upload reference photos, enter custom measurements, and get an instant quote on WhatsApp.",
+  },
+  {
     id: "instagram-feed",
     type: "instagram_feed",
     enabled: true,
@@ -122,6 +138,7 @@ export const DEFAULT_STORE_SETTINGS = {
     categories: "#ffffff",
     story: "#fffefb",
     newsletter: "#f7f2e8",
+    customOrder: "#10291c",
     instagram: "#ffffff",
   },
   sectionTextColors: {
@@ -130,6 +147,7 @@ export const DEFAULT_STORE_SETTINGS = {
     categories: "#173d29",
     story: "#173d29",
     newsletter: "#173d29",
+    customOrder: "#fcf9f2",
     instagram: "#173d29",
   },
   heroEnabled: true,

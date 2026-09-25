@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, Minus, Play, Plus, Ruler, ShieldCheck, ShoppingBag, Sparkles, Truck, UserRound, X } from "lucide-react";
+import { ArrowRight, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, MessageSquare, Minus, Play, Plus, Ruler, Scissors, ShieldCheck, ShoppingBag, Sparkles, Truck, UserRound, X } from "lucide-react";
 
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../data/storeSettings";
@@ -255,11 +255,22 @@ export default function Home({
 
   const homepageSectionsToRender = useMemo(() => {
     const configured = (safeSettings.homepageSections && safeSettings.homepageSections.length) ? safeSettings.homepageSections : DEFAULT_HOMEPAGE_SECTIONS;
-    // Defensive client-side fallback for an existing store setting that was
-    // saved before the Instagram feed feature existed.
-    const hasInstagramFeed = configured.some((section) => section?.type === "instagram_feed");
+    // Defensive client-side fallback for custom_order and instagram_feed
+    const hasCustomOrder = configured.some((section) => section?.type === "custom_order");
+    const customOrderDefaults = DEFAULT_HOMEPAGE_SECTIONS.find((section) => section.type === "custom_order");
+    let withCustom = configured;
+    if (!hasCustomOrder && customOrderDefaults) {
+      const insertIdx = withCustom.findIndex((s) => s?.type === "newsletter" || s?.type === "instagram_feed");
+      if (insertIdx > -1) {
+        withCustom = [...withCustom.slice(0, insertIdx), customOrderDefaults, ...withCustom.slice(insertIdx)];
+      } else {
+        withCustom = [...withCustom, customOrderDefaults];
+      }
+    }
+
+    const hasInstagramFeed = withCustom.some((section) => section?.type === "instagram_feed");
     const instagramDefaults = DEFAULT_HOMEPAGE_SECTIONS.find((section) => section.type === "instagram_feed");
-    const raw = hasInstagramFeed || !instagramDefaults ? configured : [...configured, instagramDefaults];
+    const raw = hasInstagramFeed || !instagramDefaults ? withCustom : [...withCustom, instagramDefaults];
     // Legacy stores may still have the old "Our Story" block saved. Keep its
     // position, but turn it into Best Sellers so no obsolete brand-story copy
     // reaches the storefront.
@@ -523,6 +534,110 @@ export default function Home({
                 <h2>{section.heading || defaults.heading}</h2>
                 <p>{section.subtitle || defaults.subtitle}</p>
                 <form onSubmit={(e) => e.preventDefault()}><input type="email" placeholder="Your email address" /><button aria-label="Subscribe"><ArrowRight /></button></form>
+              </section>
+            );
+          }
+
+          if (section.type === "custom_order") {
+            const bg = sectionColors.customOrder || "#10291c";
+            const textColor = sectionTextColors.customOrder || "#fcf9f2";
+            return (
+              <section
+                key={section.id}
+                className="homeCustomSection scrollReveal"
+                data-scroll-reveal
+                style={{ "--section-bg": bg, "--section-text": textColor }}
+              >
+                <div className="homeCustomContainer">
+                  <div className="homeCustomCopy">
+                    <span className="homeCustomEyebrow">
+                      <Scissors size={14} /> {section.eyebrow || defaults.eyebrow || "BESPOKE ATELIER & STITCHING"}
+                    </span>
+                    <h2 className="homeCustomHeading">
+                      {section.heading || defaults.heading || "Design Your Dream Dress"}
+                    </h2>
+                    <p className="homeCustomSubtitle">
+                      {section.subtitle || defaults.subtitle || "Have a design in mind from Pinterest or Instagram? Share your reference photo and exact custom measurements. Our master tailors will stitch it to perfection and we'll quote price directly on WhatsApp."}
+                    </p>
+
+                    <div className="homeCustomPillGrid">
+                      <div className="homeCustomPill">
+                        <Camera size={16} />
+                        <div>
+                          <strong>Upload Reference Photos</strong>
+                          <span>Any style, neckline or sleeves inspiration</span>
+                        </div>
+                      </div>
+                      <div className="homeCustomPill">
+                        <Ruler size={16} />
+                        <div>
+                          <strong>Exact Body Measurements</strong>
+                          <span>Kameez, Trouser or Standard Sizes</span>
+                        </div>
+                      </div>
+                      <div className="homeCustomPill">
+                        <MessageSquare size={16} />
+                        <div>
+                          <strong>WhatsApp Quote & Confirmation</strong>
+                          <span>Direct chat with our styling experts</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="homeCustomActions">
+                      <a href="/custom-order" className="homeCustomPrimaryBtn">
+                        <Scissors size={18} />
+                        <span>Start Custom Dress Order</span>
+                        <ArrowRight size={16} />
+                      </a>
+                      <a
+                        href={`https://wa.me/${(safeSettings.whatsappNumber || "923000000000").replace(/[^0-9]/g, "")}?text=${encodeURIComponent("Salam Bustaniya! I want to inquire about custom dress tailoring.")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="homeCustomSecondaryBtn"
+                      >
+                        <MessageSquare size={16} />
+                        <span>Ask on WhatsApp</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="homeCustomVisual">
+                    <div className="homeCustomVisualCard">
+                      <div className="homeCustomVisualHeader">
+                        <span className="homeCustomVisualBadge">Handcrafted Elegance</span>
+                        <span className="homeCustomVisualStep">How It Works</span>
+                      </div>
+                      <ul className="homeCustomStepList">
+                        <li>
+                          <span className="homeCustomStepNum">01</span>
+                          <div>
+                            <strong>Choose Outfit & Upload Photo</strong>
+                            <p>Select 2-piece, 3-piece, maxi or kurti with reference images.</p>
+                          </div>
+                        </li>
+                        <li>
+                          <span className="homeCustomStepNum">02</span>
+                          <div>
+                            <strong>Provide Your Sizes</strong>
+                            <p>Enter exact measurements (in inches or cm) or choose standard sizes.</p>
+                          </div>
+                        </li>
+                        <li>
+                          <span className="homeCustomStepNum">03</span>
+                          <div>
+                            <strong>Get Price & Place Order</strong>
+                            <p>We review your request, quote price, and confirm order on WhatsApp.</p>
+                          </div>
+                        </li>
+                      </ul>
+                      <div className="homeCustomVisualFooter">
+                        <Sparkles size={16} className="textGold" />
+                        <span>Premium stitching • Authentic Pakistani fabrics • Nationwide COD</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </section>
             );
           }

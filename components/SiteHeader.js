@@ -160,6 +160,13 @@ export default function SiteHeader({
         ))}
         <a
           onClick={() => setMobileOpen(false)}
+          className={activeNav === "custom-order" ? "navItem active navItemHighlight" : "navItem navItemHighlight"}
+          href="/custom-order"
+        >
+          CUSTOM DRESS
+        </a>
+        <a
+          onClick={() => setMobileOpen(false)}
           className={activeNav === "about" ? "navItem active" : "navItem"}
           href="/about"
         >
