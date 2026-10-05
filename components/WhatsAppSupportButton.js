@@ -8,7 +8,7 @@ function normaliseWhatsAppNumber(value) {
 
 export default function WhatsAppSupportButton({ phoneNumber, storeName = "Bustaniya" }) {
   const pathname = usePathname();
-  const number = normaliseWhatsAppNumber(phoneNumber || "923227811989");
+  const number = normaliseWhatsAppNumber(phoneNumber || "923053530008");
   if (!number) return null;
 
   // Completely remove floating WhatsApp button on checkout and admin pages
@@ -26,7 +26,7 @@ export default function WhatsAppSupportButton({ phoneNumber, storeName = "Bustan
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat on WhatsApp"
-      title="Chat on WhatsApp (+92 322 7811989)"
+      title="Chat on WhatsApp (+92 305 3530008)"
     >
       <img
         src="/whatsapp-icon.png"

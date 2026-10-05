@@ -31,7 +31,7 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
     storeSettings?.paymentSettings?.whatsappNumber ||
     storeSettings?.whatsappNumber ||
     DEFAULT_STORE_SETTINGS.paymentSettings?.whatsappNumber ||
-    "923227811989"
+    "923053530008"
   ).replace(/[^0-9]/g, "");
 
   const instagramRaw = String(
@@ -91,7 +91,7 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
             <li><a href="/exchange-return-policy">Return &amp; Exchange Policy</a></li>
             <li>
               <a
-                href={rawWhatsapp ? `https://wa.me/${rawWhatsapp}?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need assistance with an order.")}` : "https://wa.me/923227811989"}
+                href={rawWhatsapp ? `https://wa.me/${rawWhatsapp}?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need assistance with an order.")}` : "https://wa.me/923053530008"}
                 target="_blank"
                 rel="noopener noreferrer"
               >

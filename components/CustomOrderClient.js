@@ -244,7 +244,7 @@ export default function CustomOrderClient({ storeSettings }) {
   // Guide modal
   const [showGuide, setShowGuide] = useState(false);
 
-  const whatsappSupportNumber = storeSettings?.whatsappSupportNumber || "923000000000";
+  const whatsappSupportNumber = storeSettings?.whatsappSupportNumber || storeSettings?.paymentSettings?.whatsappNumber || "923053530008";
 
   function handleMeasurementChange(field, value) {
     setMeasurements((prev) => ({ ...prev, [field]: value }));

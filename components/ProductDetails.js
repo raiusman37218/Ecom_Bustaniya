@@ -222,7 +222,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     storeSettings?.paymentSettings?.whatsappNumber ||
     storeSettings?.whatsappNumber ||
     DEFAULT_STORE_SETTINGS.paymentSettings?.whatsappNumber ||
-    "923227811989"
+    "923053530008"
   ).replace(/\D/g, "");
 
   const [productUrl, setProductUrl] = useState(`https://bustaniya.pk/product/${product.id}`);
