@@ -553,21 +553,27 @@ a { text-decoration:none; }
 .productCard--connected:hover .productImage img { transform:scale(1.035) !important; }
 .productCard--connected .badge,
 .productCard--connected .saleBadge {
-  top:0;
-  left:0;
+  top:10px;
+  left:10px;
   right:auto;
   border:0;
-  border-radius:0 !important;
-  padding:8px 10px;
+  border-radius:2px !important;
+  padding:4px 9px;
   background:#fff !important;
   color:#173d29 !important;
   font-size:8px;
   font-weight:800;
-  letter-spacing:.12em;
-  line-height:1;
+  letter-spacing:.08em;
+  line-height:1.15;
+  box-shadow:0 1px 4px rgba(0,0,0,0.08);
 }
-.productCard--connected .saleBadge { background:#173d29 !important; color:#fff !important; }
-.productCard--connected .badge + .saleBadge { left:auto; right:0; }
+.productCard--connected .saleBadge {
+  left:auto;
+  right:10px;
+  background:#7b1b3a !important;
+  color:#fff !important;
+}
+.productCard--connected .badge + .saleBadge { left:auto; right:10px; }
 .productCard--connected .quickViewButton,
 .productCard--connected .quickAdd { display:none !important; }
 .productCard--connected .connectedCardAction {
@@ -3798,17 +3804,20 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   font-weight:900;
 }
 .categoryPage .collectionTop {
-  align-items:flex-end;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
   margin:0 0 28px;
-  padding:18px 20px;
-  border:1px solid #dce7dd;
-  border-radius:18px;
-  background:#fffefbdd;
-  box-shadow:0 12px 30px rgba(23,61,41,.07);
+  padding:14px 0;
+  border:0;
+  border-bottom:1px solid #e8e2d8;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
 }
 .categoryPage .collectionTop p {
   margin:0;
-  color:#53675c;
+  color:#173d29;
   font-weight:850;
 }
 .categoryPage .productGrid {
@@ -9093,8 +9102,7 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   .quickViewModal { grid-template-columns:1fr; }
   .quickViewImage { min-height:280px; }
   .quickViewDetails { padding:24px 20px; }
-  .productImage { aspect-ratio:.72; background:#f7f2ea; }
-  .badge { left:8px; top:8px; padding:5px 7px; font-size:7px; }
+  .badge { left:6px; top:6px; padding:2.5px 6px; font-size:7px; letter-spacing:.05em; border-radius:2px; }
   .heart { right:8px; top:8px; width:32px; height:32px; }
   .quickAdd { left:0; right:0; bottom:0; min-height:38px; height:auto; padding:0 10px; font-size:11px; }
   .productInfo { min-height:0; padding:10px 2px 13px; }
@@ -9162,10 +9170,18 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
     font-size:34px;
   }
   .categoryPage .collectionTop {
-    align-items:flex-start;
-    flex-direction:column;
-    gap:8px;
-    padding:15px;
+    display:flex;
+    align-items:center;
+    flex-direction:row;
+    justify-content:space-between;
+    gap:10px;
+    padding:12px 0 14px;
+    margin:8px 0 18px;
+    border:0;
+    border-bottom:1px solid #e8e2d8;
+    border-radius:0;
+    background:transparent;
+    box-shadow:none;
   }
   .checkoutHeader { position:sticky; top:0; z-index:50; height:74px; padding:0 16px; background:var(--checkout-bg); backdrop-filter:blur(12px); }
   .checkoutHeader .brand { width:135px; }

@@ -304,33 +304,42 @@
   transform: scale(1.045) !important;
 }
 
-/* Badges — flat, typographic, no chrome */
+/* Badges — refined, subtle micro-pill, unobtrusive */
 .badge,
 .productCard--connected .badge {
-  left: 0 !important;
-  top: 14px !important;
-  padding: 6px 12px !important;
+  left: 10px !important;
+  top: 10px !important;
+  right: auto !important;
+  bottom: auto !important;
+  padding: 4px 9px !important;
   border: 0 !important;
-  border-radius: 0 !important;
-  background: var(--bs-paper) !important;
-  color: var(--bs-forest) !important;
-  font-size: 9px !important;
+  border-radius: 2px !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: var(--bs-forest, #173d29) !important;
+  font-size: 8.5px !important;
   font-weight: 800 !important;
-  letter-spacing: .14em !important;
+  letter-spacing: .08em !important;
   text-transform: uppercase;
+  line-height: 1.15 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 .saleBadge,
 .productCard--connected .saleBadge {
-  right: 0 !important;
+  right: 10px !important;
   left: auto !important;
-  top: 14px !important;
-  padding: 6px 11px !important;
-  border-radius: 0 !important;
-  background: var(--bs-berry) !important;
+  top: 10px !important;
+  bottom: auto !important;
+  padding: 4px 8px !important;
+  border-radius: 2px !important;
+  background: var(--bs-berry, #7b1b3a) !important;
   color: #fff !important;
-  font-size: 9px !important;
+  font-size: 8.5px !important;
   font-weight: 800 !important;
-  letter-spacing: .1em !important;
+  letter-spacing: .06em !important;
+  line-height: 1.15 !important;
+  box-shadow: 0 1px 4px rgba(123, 27, 58, 0.2) !important;
 }
 
 /* Hover action bar — quiet until you want it */
@@ -646,6 +655,55 @@
   .categoryMinimalHeader h2 { font-size: clamp(26px, 7.5vw, 34px); }
 }
 
+@media (max-width: 768px) {
+  /* Mobile product badge — compact micro-pill, positioned in top corner, never covers model's face */
+  .badge,
+  .productCard--connected .badge,
+  .khaadiTopPicks .badge,
+  .productCard:not(.productCard--connected) .badge {
+    left: 6px !important;
+    top: 6px !important;
+    right: auto !important;
+    bottom: auto !important;
+    padding: 2.5px 6px !important;
+    font-size: 7px !important;
+    font-weight: 700 !important;
+    letter-spacing: .05em !important;
+    line-height: 1.15 !important;
+    border-radius: 2px !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    color: #173d29 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+    border: 1px solid rgba(23, 61, 41, 0.08) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    max-width: 55% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .saleBadge,
+  .productCard--connected .saleBadge,
+  .khaadiTopPicks .saleBadge,
+  .productCard:not(.productCard--connected) .saleBadge {
+    right: 6px !important;
+    left: auto !important;
+    top: 6px !important;
+    bottom: auto !important;
+    padding: 2.5px 5.5px !important;
+    font-size: 7px !important;
+    font-weight: 700 !important;
+    letter-spacing: .04em !important;
+    line-height: 1.15 !important;
+    border-radius: 2px !important;
+    background: #7b1b3a !important;
+    color: #fff !important;
+    box-shadow: 0 1px 3px rgba(123, 27, 58, 0.2) !important;
+    max-width: 45% !important;
+    white-space: nowrap !important;
+  }
+}
+
 @media (hover: none) {
   /* No hover on touch: show the second image never, and keep the
      first frame crisp. */
@@ -760,25 +818,32 @@
 
 /* --- Badges --------------------------------------------------------- */
 .khaadiTopPicks .badge {
-  left: 0;
-  top: 14px;
-  padding: 6px 12px;
+  left: 10px;
+  top: 10px;
+  padding: 4px 9px;
   border: 0;
-  border-radius: 0;
-  background: var(--bs-paper);
-  color: var(--bs-forest);
-  font-size: 9px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--bs-forest, #173d29);
+  font-size: 8.5px;
   font-weight: 800;
-  letter-spacing: .14em;
+  letter-spacing: .08em;
+  line-height: 1.15;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 .khaadiTopPicks .saleBadge {
-  right: 0;
+  right: 10px;
   left: auto;
-  top: 14px;
-  border-radius: 0;
-  background: var(--bs-berry);
-  font-size: 9px;
-  letter-spacing: .1em;
+  top: 10px;
+  padding: 4px 8px;
+  border-radius: 2px;
+  background: var(--bs-berry, #7b1b3a);
+  color: #fff;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  line-height: 1.15;
+  box-shadow: 0 1px 4px rgba(123, 27, 58, 0.2);
 }
 .productCard:not(.productCard--connected) .badge { display: inline-block; }
 
@@ -1774,16 +1839,36 @@ html, body {
   background: transparent;
 }
 .categoryPage .collectionTop {
-  padding-bottom: 14px;
-  margin-bottom: clamp(20px, 2.4vw, 30px);
-  border-bottom: 1px solid var(--bs-hair-soft);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--bs-muted);
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--bs-hair-soft, #e8e2d8) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 14px 0 !important;
+  margin: 10px 0 clamp(20px, 2.4vw, 30px) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+  color: var(--bs-muted, #777) !important;
 }
-.categoryPage .collectionTop p { color: var(--bs-forest); font-weight: 800; }
+.categoryPage .collectionTop p {
+  margin: 0 !important;
+  color: var(--bs-forest, #173d29) !important;
+  font-weight: 800 !important;
+  font-size: 11px !important;
+  letter-spacing: .1em !important;
+}
+.categoryPage .collectionTop span {
+  color: var(--bs-muted, #777) !important;
+  font-weight: 600 !important;
+  font-size: 10.5px !important;
+  letter-spacing: .08em !important;
+}
 
 @media (max-width: 700px) {
   /* One scrollable row rather than three stacked lines of pills. */
@@ -1856,18 +1941,39 @@ html, body {
     font-size: 12px;
   }
 
-  /* --- Count/sort bar: 69px stacked -> one 34px line --- */
+  /* --- Count/sort bar: clean typographic row with proper vertical centering --- */
   .categoryPage .collectionTop {
-    flex-direction: row;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 0 0 10px;
-    margin-bottom: 14px;
-    font-size: 10px;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--bs-hair-soft, #e8e2d8) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 12px 0 14px !important;
+    margin: 8px 0 18px !important;
+    font-size: 10px !important;
+    letter-spacing: .08em !important;
+    text-transform: uppercase !important;
+  }
+  .categoryPage .collectionTop p {
+    margin: 0 !important;
+    font-size: 10.5px !important;
+    font-weight: 800 !important;
+    color: var(--bs-forest, #173d29) !important;
+    letter-spacing: .08em !important;
+  }
+  .categoryPage .collectionTop span {
+    font-size: 9.5px !important;
+    font-weight: 600 !important;
+    color: var(--bs-muted, #777) !important;
+    letter-spacing: .08em !important;
   }
   .categoryPage .collectionArea {
-    padding: 16px 14px 56px;
+    padding: 14px 14px 56px;
   }
 
   /* --- Card copy ---
