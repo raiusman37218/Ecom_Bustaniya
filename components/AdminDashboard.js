@@ -2,9 +2,9 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, AlertCircle, Bell, Boxes, Check, CheckCircle2, ChevronDown, ChevronUp, CircleDollarSign,
+  Activity, AlertCircle, Bell, Boxes, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleDollarSign,
   Copy, ExternalLink, Eye, FileText, Info, Landmark, LayoutDashboard, Loader2, LogOut, Menu, MessageSquare,
-  Minus, MoreHorizontal, Package, Phone, Plus, ReceiptText, RefreshCw, Search, Settings,
+  Minus, MoreHorizontal, Package, Phone, Plus, ReceiptText, RefreshCw, Save, Search, Settings,
   ShoppingBag, Store, Tags, TrendingUp, Truck, Users, WalletCards, X, Scissors
 } from "lucide-react";
 import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, products as initialProducts, slugifyCategory } from "../data/store";
@@ -9978,7 +9978,8 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
     setStoreSettings((current) => {
       const defaultImg = field === "heroDesktopImages" ? DEFAULT_STORE_SETTINGS.heroDesktopImage : DEFAULT_STORE_SETTINGS.heroMobileImage;
       const legacyField = field === "heroDesktopImages" ? "heroDesktopImage" : "heroMobileImage";
-      const currentList = normalizeHeroImages(current[field] || current[legacyField], defaultImg);
+      const raw = current[field] !== undefined ? current[field] : (current[legacyField] ? [current[legacyField]] : []);
+      const currentList = Array.isArray(raw) ? raw : [raw].filter(Boolean);
       const isOnlyDefault = currentList.length === 1 && (
         currentList[0] === DEFAULT_STORE_SETTINGS.heroDesktopImage ||
         currentList[0] === DEFAULT_STORE_SETTINGS.heroMobileImage ||
@@ -9993,6 +9994,47 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
       };
     });
     setHeroUrlInputs((current) => ({ ...current, [field]: "" }));
+  }
+
+  function removeHeroSlide(field, idx) {
+    setStoreSettings((current) => {
+      const legacyField = field === "heroDesktopImages" ? "heroDesktopImage" : "heroMobileImage";
+      const raw = current[field] !== undefined ? current[field] : (current[legacyField] ? [current[legacyField]] : []);
+      const currentList = Array.isArray(raw) ? raw : [raw].filter(Boolean);
+      const nextImages = currentList.filter((_, i) => i !== idx);
+      return {
+        ...current,
+        [field]: nextImages,
+        [legacyField]: nextImages[0] || "",
+      };
+    });
+  }
+
+  function moveHeroSlide(field, fromIdx, toIdx) {
+    setStoreSettings((current) => {
+      const legacyField = field === "heroDesktopImages" ? "heroDesktopImage" : "heroMobileImage";
+      const raw = current[field] !== undefined ? current[field] : (current[legacyField] ? [current[legacyField]] : []);
+      const list = [...(Array.isArray(raw) ? raw : [raw].filter(Boolean))];
+      if (toIdx < 0 || toIdx >= list.length) return current;
+      const [item] = list.splice(fromIdx, 1);
+      list.splice(toIdx, 0, item);
+      return {
+        ...current,
+        [field]: list,
+        [legacyField]: list[0] || "",
+      };
+    });
+  }
+
+  function clearHeroSlides(field) {
+    setStoreSettings((current) => {
+      const legacyField = field === "heroDesktopImages" ? "heroDesktopImage" : "heroMobileImage";
+      return {
+        ...current,
+        [field]: [],
+        [legacyField]: "",
+      };
+    });
   }
 
   function updateHeroContent(device, changes) {
@@ -10290,37 +10332,166 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
           <div className="formRow"><label>Instagram Handle<input value={storeSettings.instagramHandle || "@bustaniya_"} onChange={(event) => setStoreSettings((current) => ({ ...current, instagramHandle: event.target.value }))} placeholder="@bustaniya_" /></label></div>
 
           <section className="heroSettingsEditor">
-            <div className="heroSettingsHeading"><div><p>HOMEPAGE BANNERS</p><h2>Hero Carousel & Messaging</h2><span>Manage desktop and mobile campaign images, headings and primary call-to-actions.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.heroEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEnabled: event.target.checked }))} /> Enabled</label></div>
-            {[{ field: "heroDesktopImages", legacyField: "heroDesktopImage", label: "Desktop Hero Slides", hint: "Select multiple wide campaign images · recommended 16:8" }, { field: "heroMobileImages", legacyField: "heroMobileImage", label: "Mobile Hero Slides", hint: "Select multiple portrait campaign images · recommended 4:5" }].map((item) => {
+            <div className="heroSettingsHeading">
+              <div>
+                <p>HOMEPAGE BANNERS</p>
+                <h2>Hero Carousel & Messaging</h2>
+                <span>Manage desktop and mobile campaign images, headings and primary call-to-actions.</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                <label className="switchLabel">
+                  <input type="checkbox" checked={storeSettings.heroEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEnabled: event.target.checked }))} /> Enabled
+                </label>
+                <button
+                  type="button"
+                  className="heroQuickSaveBtn"
+                  disabled={storeSettingsLoading}
+                  onClick={saveStoreSettings}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "7px 15px",
+                    background: "#173d29",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontWeight: "600",
+                    fontSize: "12px",
+                    cursor: storeSettingsLoading ? "not-allowed" : "pointer",
+                    boxShadow: "0 2px 6px rgba(23,61,41,0.18)"
+                  }}
+                >
+                  {storeSettingsLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  Save Hero Banners
+                </button>
+              </div>
+            </div>
+            {[{ field: "heroDesktopImages", legacyField: "heroDesktopImage", label: "Desktop Hero Slides", hint: "Wide campaign images · recommended 1920x800" }, { field: "heroMobileImages", legacyField: "heroMobileImage", label: "Mobile Hero Slides", hint: "Portrait campaign images · recommended 1080x1350 (4:5)" }].map((item) => {
               const defaultImg = item.field === "heroDesktopImages" ? DEFAULT_STORE_SETTINGS.heroDesktopImage : DEFAULT_STORE_SETTINGS.heroMobileImage;
-              const list = normalizeHeroImages(storeSettings[item.field] || storeSettings[item.legacyField], defaultImg);
+              const raw = storeSettings[item.field] !== undefined ? storeSettings[item.field] : (storeSettings[item.legacyField] ? [storeSettings[item.legacyField]] : [defaultImg]);
+              const list = Array.isArray(raw) ? raw : [raw].filter(Boolean);
               return (
                 <div className={`heroSlideManager ${item.field === "heroDesktopImages" ? "heroDesktopManager" : "heroMobileManager"}`} key={item.field}>
-                  <div className="heroSlideHead"><div><b>{item.label}</b><span>{item.hint}</span></div><small>{list.length} slide{list.length === 1 ? "" : "s"}</small></div>
-                  <div className="heroSlideGrid">
-                    {list.map((url, idx) => (
-                      <div className="heroSlideCard" key={`${url}-${idx}`}>
-                        <div className="heroSlideMedia"><img src={url} alt={`${item.label} ${idx + 1}`} />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const nextList = list.filter((_, i) => i !== idx);
-                              const finalImages = nextList.length ? nextList : [defaultImg];
-                              setStoreSettings((current) => ({
-                                ...current,
-                                [item.field]: finalImages,
-                                [item.legacyField]: finalImages[0] || "",
-                              }));
-                            }}
-                            title="Remove slide"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                        <span className="heroSlidePath">{url}</span>
-                      </div>
-                    ))}
+                  <div className="heroSlideHead">
+                    <div>
+                      <b>{item.label}</b>
+                      <span>{item.hint}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      {list.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => clearHeroSlides(item.field)}
+                          title="Remove all slides"
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "#bd194b",
+                            fontSize: "11px",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            padding: "3px 6px"
+                          }}
+                        >
+                          Clear all
+                        </button>
+                      )}
+                      <small>{list.length} slide{list.length === 1 ? "" : "s"}</small>
+                    </div>
                   </div>
+                  {list.length === 0 ? (
+                    <div style={{ padding: "16px", textAlign: "center", background: "#f8faf7", border: "1px dashed #d5ded3", borderRadius: "6px", color: "#5d6d61", fontSize: "12px", margin: "10px 0" }}>
+                      No slides configured. Add an image URL below or click{" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStoreSettings((current) => ({
+                            ...current,
+                            [item.field]: [defaultImg],
+                            [item.legacyField]: defaultImg,
+                          }));
+                        }}
+                        style={{ background: "none", border: "none", color: "#173d29", textDecoration: "underline", cursor: "pointer", fontWeight: "600" }}
+                      >
+                        Restore default banner
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="heroSlideGrid">
+                      {list.map((url, idx) => (
+                        <div className="heroSlideCard" key={`${url}-${idx}`}>
+                          <div className="heroSlideMedia">
+                            <img src={url} alt={`${item.label} ${idx + 1}`} />
+                            <div style={{ position: "absolute", top: "6px", right: "6px", display: "flex", gap: "4px", zIndex: 3 }}>
+                              {idx > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => moveHeroSlide(item.field, idx, idx - 1)}
+                                  title="Move left"
+                                  style={{
+                                    width: "26px",
+                                    height: "26px",
+                                    padding: 0,
+                                    borderRadius: "50%",
+                                    background: "rgba(255,255,255,0.92)",
+                                    border: "1px solid #d0d7cf",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    cursor: "pointer",
+                                    color: "#173d29"
+                                  }}
+                                >
+                                  <ChevronLeft size={13} />
+                                </button>
+                              )}
+                              {idx < list.length - 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => moveHeroSlide(item.field, idx, idx + 1)}
+                                  title="Move right"
+                                  style={{
+                                    width: "26px",
+                                    height: "26px",
+                                    padding: 0,
+                                    borderRadius: "50%",
+                                    background: "rgba(255,255,255,0.92)",
+                                    border: "1px solid #d0d7cf",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    cursor: "pointer",
+                                    color: "#173d29"
+                                  }}
+                                >
+                                  <ChevronRight size={13} />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => removeHeroSlide(item.field, idx)}
+                                title="Remove slide"
+                                style={{
+                                  width: "26px",
+                                  height: "26px",
+                                  padding: 0,
+                                  borderRadius: "50%",
+                                  background: "#fee2e2",
+                                  border: "1px solid #fca5a5",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  cursor: "pointer",
+                                  color: "#991b1b"
+                                }}
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          </div>
+                          <span className="heroSlidePath" title={url}>{url}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="heroUrlInputRow">
                     <input
                       value={heroUrlInputs[item.field] || ""}

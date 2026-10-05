@@ -61,7 +61,7 @@ function CampaignHeroImage({ desktopSrc, mobileSrc, alt }) {
   const isCloudinaryMobile = typeof safeMobile === "string" && safeMobile.includes("res.cloudinary.com");
 
   const desktopSrcSet = isCloudinaryDesktop ? heroSrcSet(safeDesktop, CLOUDINARY_IMAGE_PRESETS.heroDesktop, [1280, 1600, 1920, 2560]) : "";
-  const mobileSrcSet = isCloudinaryMobile ? heroSrcSet(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile, [480, 640, 750, 900, 1125]) : "";
+  const mobileSrcSet = isCloudinaryMobile ? heroSrcSet(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile, [480, 640, 750, 900, 1080]) : "";
   const desktopUrl = optimizedImageUrl(safeDesktop, CLOUDINARY_IMAGE_PRESETS.heroDesktop);
   const mobileUrl = optimizedImageUrl(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile);
 
@@ -332,7 +332,7 @@ export default function Home({
             return (
               <section
                 key={section.id}
-                className={`campaignHero campaignHero--position-${desktopHero.position || "left"} campaignHero--align-${desktopHero.alignment || "left"} campaignHero--mobile-position-${mobileHero.position || "bottom"} campaignHero--mobile-align-${mobileHero.alignment || "left"}`}
+                className={`campaignHero campaignHero--position-${desktopHero.position || "left"} campaignHero--align-${desktopHero.alignment || "left"} campaignHero--mobile-position-${mobileHero.position || "bottom"} campaignHero--mobile-align-${mobileHero.alignment || "left"} ${hasAnyContent ? "hasContent" : "mediaOnly"}`}
                 id="new"
                 style={{
                   "--campaign-overlay": hasAnyContent ? (overlayIntensity / 100) : 0,
@@ -341,12 +341,27 @@ export default function Home({
                 }}
               >
                 <div className="campaignHeroMedia">
-                  <CampaignHeroImage
-                    key={heroSlide}
-                    desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
-                    mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
-                    alt="Bustaniya eastern wear campaign"
-                  />
+                  {!hasAnyContent ? (
+                    <a
+                      href={desktopHero.primaryButtonLink || mobileHero.primaryButtonLink || "#products"}
+                      className="campaignHeroMediaLink"
+                      aria-label="Shop collection"
+                    >
+                      <CampaignHeroImage
+                        key={heroSlide}
+                        desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
+                        mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
+                        alt="Bustaniya eastern wear campaign"
+                      />
+                    </a>
+                  ) : (
+                    <CampaignHeroImage
+                      key={heroSlide}
+                      desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
+                      mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
+                      alt="Bustaniya eastern wear campaign"
+                    />
+                  )}
                 </div>
                 {hasAnyContent && overlayIntensity > 0 && <div className="campaignHeroOverlay" />}
                 {hasAnyContent && (

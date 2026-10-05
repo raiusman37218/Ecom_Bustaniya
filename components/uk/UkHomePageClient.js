@@ -278,12 +278,27 @@ export default function UkHomePageClient({
                 data-mobile-pos={mobileHero.position}
               >
                 <div className="campaignHeroMedia">
-                  <CampaignHeroImage
-                    key={heroSlide}
-                    desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
-                    mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
-                    alt="Bustaniya UK eastern wear campaign"
-                  />
+                  {!hasAnyContent ? (
+                    <a
+                      href={desktopHero.primaryButtonLink || mobileHero.primaryButtonLink || "#products"}
+                      className="campaignHeroMediaLink"
+                      aria-label="Shop collection"
+                    >
+                      <CampaignHeroImage
+                        key={heroSlide}
+                        desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
+                        mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
+                        alt="Bustaniya UK eastern wear campaign"
+                      />
+                    </a>
+                  ) : (
+                    <CampaignHeroImage
+                      key={heroSlide}
+                      desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
+                      mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
+                      alt="Bustaniya UK eastern wear campaign"
+                    />
+                  )}
                 </div>
                 {hasAnyContent && overlayIntensity > 0 && <div className="campaignHeroOverlay" />}
                 {hasAnyContent && (

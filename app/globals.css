@@ -3376,7 +3376,10 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
    more editorial flow across category, story, newsletter and footer sections. */
 .campaignHero {
   position:relative;
-  min-height:clamp(500px,62vh,670px);
+  width:100%;
+  aspect-ratio:1920 / 800;
+  height:auto;
+  min-height:0;
   overflow:hidden;
   isolation:isolate;
   background:#102a1d;
@@ -8698,7 +8701,12 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   .hero { min-height:auto; }
   .heroContent { padding-inline:clamp(1rem,5vw,2rem); }
   .campaignHero {
-    min-height:540px;
+    position:relative;
+    width:100%;
+    aspect-ratio:4 / 5 !important;
+    min-height:0 !important;
+    height:auto !important;
+    max-height:none !important;
   }
   .campaignHeroInner {
     padding:120px 18px 42px;
