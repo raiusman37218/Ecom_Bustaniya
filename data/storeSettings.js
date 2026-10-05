@@ -190,6 +190,7 @@ export const DEFAULT_STORE_SETTINGS = {
   announcementEnabled: true,
   instagramEnabled: true,
   instagramHandle: "@bustaniya_",
+  tiktokHandle: "@bustaniya_",
   instagramPosts: DEFAULT_INSTAGRAM_POSTS,
   announcementText: "Free delivery on advance payment orders. Cash on Delivery available nationwide.",
   announcementLinkLabel: "Shop now",

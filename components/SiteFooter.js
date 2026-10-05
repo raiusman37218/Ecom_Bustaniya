@@ -19,6 +19,14 @@ function InstagramIcon({ size = 18, className = "" }) {
   );
 }
 
+function TikTokIcon({ size = 18, className = "" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.29 0 .58.04.85.12V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.82 4.49 6.3 6.3 0 0 0 1.89-4.48V8.71a8.21 8.21 0 0 0 4.88 1.6V6.86a4.88 4.88 0 0 1-1-.17z" />
+    </svg>
+  );
+}
+
 const DEFAULT_CATEGORY_NAV = [
   { name: "Kurtis", slug: "kurtis" },
   { name: "Co-ord Sets", slug: "coord-sets" },
@@ -44,6 +52,17 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
   const instagramUrl = instagramRaw.startsWith("http")
     ? instagramRaw
     : `https://www.instagram.com/${instagramRaw.replace("@", "")}/`;
+
+  const tiktokRaw = String(
+    storeSettings?.tiktokHandle ||
+    storeSettings?.tiktokUrl ||
+    DEFAULT_STORE_SETTINGS.tiktokHandle ||
+    "@bustaniya_"
+  ).trim();
+
+  const tiktokUrl = tiktokRaw.startsWith("http")
+    ? tiktokRaw
+    : `https://www.tiktok.com/${tiktokRaw.startsWith("@") ? tiktokRaw : `@${tiktokRaw}`}`;
 
   const categoryList = (categories || []).filter((c) => c && !c.parentSlug);
   const displayCategories = categoryList.length ? categoryList : DEFAULT_CATEGORY_NAV;
@@ -131,6 +150,22 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
               <div className="socialDetails">
                 <b>Instagram</b>
                 <small>{instagramRaw.startsWith("@") ? instagramRaw : "@bustaniya_"}</small>
+              </div>
+            </a>
+
+            <a
+              href={tiktokUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="footerSocialItem"
+              aria-label="TikTok"
+            >
+              <div className="socialIconWrap socialIcon--tiktok">
+                <TikTokIcon size={16} />
+              </div>
+              <div className="socialDetails">
+                <b>TikTok</b>
+                <small>{tiktokRaw.startsWith("@") ? tiktokRaw : `@${tiktokRaw}`}</small>
               </div>
             </a>
 

@@ -3042,6 +3042,11 @@ footer {
   color: #ffffff;
 }
 
+.socialIcon--tiktok {
+  background: #010101;
+  color: #ffffff;
+}
+
 .socialDetails {
   display: flex;
   flex-direction: column;

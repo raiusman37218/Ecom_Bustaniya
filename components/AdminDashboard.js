@@ -10329,7 +10329,10 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
             ))}
           </section>
           <div className="settingsOption"><div><b>Instagram feed gallery</b><span>Display 6-column Instagram feed (House of Lucknawi style) on homepage.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.instagramEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, instagramEnabled: event.target.checked }))} /> Enabled</label></div>
-          <div className="formRow"><label>Instagram Handle<input value={storeSettings.instagramHandle || "@bustaniya_"} onChange={(event) => setStoreSettings((current) => ({ ...current, instagramHandle: event.target.value }))} placeholder="@bustaniya_" /></label></div>
+          <div className="formRow">
+            <label>Instagram Handle<input value={storeSettings.instagramHandle || "@bustaniya_"} onChange={(event) => setStoreSettings((current) => ({ ...current, instagramHandle: event.target.value }))} placeholder="@bustaniya_" /></label>
+            <label>TikTok Handle<input value={storeSettings.tiktokHandle || "@bustaniya_"} onChange={(event) => setStoreSettings((current) => ({ ...current, tiktokHandle: event.target.value }))} placeholder="@bustaniya_" /></label>
+          </div>
 
           <section className="heroSettingsEditor">
             <div className="heroSettingsHeading">
