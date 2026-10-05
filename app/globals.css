@@ -193,16 +193,23 @@ a { text-decoration:none; }
     max-height:42px;
   }
   .mobileMenuBtn {
-    display:grid;
-    place-items:center;
-    width:44px;
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    width:auto;
+    min-width:40px;
     height:44px;
-    padding:0;
-    border:1px solid #d8e5d8;
-    border-radius:50%;
+    padding:4px 0;
+    border:none;
+    border-radius:0;
     color:#173d29;
-    background:#fff;
-    box-shadow:0 7px 18px rgba(23,61,41,.08);
+    background:transparent;
+    box-shadow:none;
+    cursor:pointer;
+  }
+  .mobileMenuBtn svg {
+    width:26px;
+    height:26px;
   }
   .headerRightActions { gap:4px; }
   .headerRightActions .actionIconLink,.headerRightActions .actionIconBtn:not(.cartBtn) { display:none; }
