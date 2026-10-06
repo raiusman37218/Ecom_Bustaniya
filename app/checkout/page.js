@@ -364,15 +364,17 @@ export default function CheckoutPage() {
     setSubmitting(true);
     setError("");
 
-    const completeAddress = [form.address, form.apartment].filter(Boolean).join(", ");
+    const completeAddress = [form.address, form.apartment].map((s) => String(s || "").trim()).filter(Boolean).join(", ");
     const customer = {
-      ...form,
-      fullName: form.fullName || [form.firstName, form.lastName].filter(Boolean).join(" "),
-      address: completeAddress,
-      houseNo: form.address,
-      street: form.apartment || "",
-      block: form.address,
-      landmark: form.apartment || "",
+      firstName: form.firstName?.trim() || "",
+      lastName: form.lastName?.trim() || "",
+      fullName: [form.firstName, form.lastName].filter(Boolean).join(" ").trim() || form.fullName?.trim() || "",
+      phone: form.phone?.trim() || "",
+      email: form.email?.trim() || "",
+      address: completeAddress || form.address?.trim() || "",
+      apartment: form.apartment?.trim() || "",
+      city: form.city?.trim() || "",
+      postalCode: form.postalCode?.trim() || "",
     };
 
     const checkoutAttemptId =

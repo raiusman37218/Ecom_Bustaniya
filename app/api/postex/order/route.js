@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const CHECKOUT_WINDOW_MS = 10 * 60 * 1000;
-const CHECKOUT_MAX_ATTEMPTS = 8;
+const CHECKOUT_MAX_ATTEMPTS = 30;
 const DUPLICATE_ORDER_WINDOW_MS = 2 * 60 * 1000;
 const checkoutAttempts = new Map();
 const activeCheckoutFingerprints = new Map();
@@ -89,9 +89,11 @@ async function ensureOrderItems(orderId, items) {
 }
 
 function normalizePhone(value = "") {
-  const digits = value.replace(/\D/g, "");
+  let digits = String(value || "").replace(/\D/g, "");
+  if (digits.startsWith("0092") && digits.length === 14) digits = digits.slice(2);
   if (digits.startsWith("92") && digits.length === 12) return `0${digits.slice(2)}`;
-  return digits || String(value).trim();
+  if (digits.startsWith("3") && digits.length === 10) return `0${digits}`;
+  return digits || String(value || "").trim();
 }
 
 function isValidPakistanMobile(value = "") {
@@ -340,12 +342,12 @@ export async function POST(request) {
     const fullName = cleanText(customer.fullName || `${customer.firstName || ""} ${customer.lastName || ""}`, 120);
     const [firstName, ...lastNameParts] = fullName.split(/\s+/);
     const lastName = lastNameParts.join(" ") || "-";
-    const deliveryAddress = buildShippingAddress(customer);
-    const hasAnyStructuredAddress = [customer.houseNo, customer.street, customer.block, customer.landmark]
-      .some((value) => Boolean(String(value || "").trim()));
-    const hasValidAddress = hasAnyStructuredAddress
-      ? hasStructuredShippingAddress(customer)
-      : Boolean(customer.address?.trim());
+    const deliveryAddress = cleanText(customer.address, 500) || buildShippingAddress(customer);
+    const hasValidAddress = Boolean(
+      (deliveryAddress && deliveryAddress.trim().length >= 3) ||
+      (customer.address && String(customer.address).trim().length >= 3) ||
+      hasStructuredShippingAddress(customer)
+    );
     const normalizedCustomer = {
       ...customer,
       address: deliveryAddress,
