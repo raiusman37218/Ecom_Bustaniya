@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Check, CheckCircle2, ChevronDown, Loader2, Lock, MessageCircle, Search, ShoppingBag } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  HelpCircle,
+  Loader2,
+  Lock,
+  MessageCircle,
+  ShoppingBag,
+} from "lucide-react";
+import "./checkout.css";
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
@@ -25,6 +36,11 @@ const MAJOR_CITIES = [
   "Abbottabad",
 ];
 
+function formatPrice(amount) {
+  const num = Number(amount || 0);
+  return `Rs ${num.toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function isValidPakistanMobile(value = "") {
   const digits = value.replace(/\D/g, "");
   const normalized = digits.startsWith("92") && digits.length === 12 ? `0${digits.slice(2)}` : digits;
@@ -33,28 +49,27 @@ function isValidPakistanMobile(value = "") {
 
 function validateCheckoutForm(form) {
   const errors = {};
-  if (!form.fullName?.trim()) {
-    errors.fullName = "Full name is required";
+  if (!form.firstName?.trim() && !form.fullName?.trim()) {
+    errors.firstName = "Enter a first name";
   }
-  if (!form.phone?.trim()) {
-    errors.phone = "Phone number is required";
-  } else if (!isValidPakistanMobile(form.phone)) {
-    errors.phone = "Please enter a valid Pakistani mobile number (e.g. 03001234567)";
+  if (!form.lastName?.trim() && (!form.fullName?.trim() || !form.fullName.trim().includes(" "))) {
+    if (!form.lastName?.trim()) {
+      errors.lastName = "Enter a last name";
+    }
   }
-  if (form.email?.trim() && !/\S+@\S+\.\S+/.test(form.email.trim())) {
-    errors.email = "Please enter a valid email address";
-  }
-  if (!form.houseNo?.trim()) {
-    errors.houseNo = "House / Flat number is required";
-  }
-  if (!form.street?.trim()) {
-    errors.street = "Street / Road name is required";
-  }
-  if (!form.block?.trim()) {
-    errors.block = "Block / Area is required";
+  if (!form.address?.trim()) {
+    errors.address = "Enter an address";
   }
   if (!form.city?.trim()) {
-    errors.city = "Delivery city is required";
+    errors.city = "Enter a city";
+  }
+  if (!form.phone?.trim()) {
+    errors.phone = "Enter a phone number";
+  } else if (!isValidPakistanMobile(form.phone)) {
+    errors.phone = "Enter a valid Pakistani mobile number (e.g. 03001234567)";
+  }
+  if (form.email?.trim() && !/\S+@\S+\.\S+/.test(form.email.trim())) {
+    errors.email = "Enter a valid email address";
   }
   return errors;
 }
@@ -91,132 +106,85 @@ function CityCombobox({ value, onChange, cities, loading, disabled, error }) {
     onChange({ target: { name: "city", value: city } });
     setSearch("");
     setIsOpen(false);
-    if (containerRef.current) {
-      const searchInput = containerRef.current.querySelector(".citySearchInput");
-      if (searchInput) searchInput.blur();
-    }
   }
 
   return (
-    <div className="cityComboboxContainer" ref={containerRef}>
-      <input
-        tabIndex={-1}
-        readOnly
-        aria-hidden="true"
-        name="city"
-        value={value}
-        className="cityHiddenInput"
-      />
-
-      <div
-        className={`cityDisplayBox ${isOpen ? "isOpen" : ""} ${error ? "fieldInputIsError" : ""}`}
-        onClick={() => {
-          if (!disabled && !loading) setIsOpen(true);
-        }}
-      >
-        <Search size={15} className="citySearchIcon" />
+    <div className="shopifyCityComboboxContainer" ref={containerRef}>
+      <div className="shopifyInputWrapper">
         <input
           type="text"
-          className="citySearchInput"
-          placeholder={loading ? "Loading delivery cities..." : "Search or select delivery city..."}
-          value={isOpen ? search : value || search}
+          name="city"
+          autoComplete="address-level2"
+          className={`shopifyInput ${error ? "hasError" : ""}`}
+          placeholder={loading ? "Loading cities..." : "City"}
+          value={isOpen ? search : value || ""}
           disabled={disabled || loading}
-          onFocus={() => setIsOpen(true)}
+          onFocus={() => {
+            setSearch(value || "");
+            setIsOpen(true);
+          }}
           onChange={(e) => {
             setSearch(e.target.value);
+            onChange({ target: { name: "city", value: e.target.value } });
             if (!isOpen) setIsOpen(true);
           }}
         />
-        {value && !isOpen && (
-          <button
-            type="button"
-            className="cityClearBtn"
-            title="Clear city selection"
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange({ target: { name: "city", value: "" } });
-              setSearch("");
-            }}
-          >
-            &times;
-          </button>
-        )}
-        <ChevronDown size={15} className={`cityArrowIcon ${isOpen ? "isOpen" : ""}`} />
+        <ChevronDown size={15} style={{ position: "absolute", right: 12, color: "#737373", pointerEvents: "none" }} />
       </div>
-      {error && <small className="inlineFieldError"><AlertCircle size={12} /> {error}</small>}
+      {error && (
+        <div className="shopifyInputErrorMsg">
+          <AlertCircle size={12} /> {error}
+        </div>
+      )}
 
-      {isOpen && (
-        <div className="cityDropdownMenu">
+      {isOpen && cities.length > 0 && (
+        <div className="shopifyCityDropdownMenu">
           {popularCitiesFiltered.length > 0 && (
-            <div className="cityPopularSection">
-              <span className="cityPopularLabel">POPULAR CITIES</span>
-              <div className="cityPopularChips">
-                {popularCitiesFiltered.map((city) => (
-                  <button
-                    key={city}
-                    type="button"
-                    className={`cityChip ${value === city ? "isSelected" : ""}`}
-                    onClick={() => handleSelect(city)}
-                  >
-                    {city}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <div className="shopifyCityDropdownHeader">Popular Cities</div>
           )}
-
-          <div className="cityListOptions">
-            <span className="cityListHeader">
-              {search.trim() ? `SEARCH RESULTS (${filteredCities.length})` : "ALL CITIES"}
-            </span>
-            {filteredCities.length === 0 ? (
-              <div className="cityNoResult">No city matching &quot;{search}&quot; found</div>
-            ) : (
-              filteredCities.map((city) => (
-                <button
-                  key={city}
-                  type="button"
-                  className={`cityOptionItem ${value === city ? "isSelected" : ""}`}
-                  onClick={() => handleSelect(city)}
-                >
-                  <span>{city}</span>
-                  {value === city && <Check size={14} className="cityCheckIcon" />}
-                </button>
-              ))
-            )}
+          {popularCitiesFiltered.map((city) => (
+            <div
+              key={city}
+              className="shopifyCityDropdownItem"
+              onClick={() => handleSelect(city)}
+            >
+              {city}
+            </div>
+          ))}
+          <div className="shopifyCityDropdownHeader">
+            {search.trim() ? `Matching Cities (${filteredCities.length})` : "All Cities"}
           </div>
+          {filteredCities.slice(0, 30).map((city) => (
+            <div
+              key={city}
+              className="shopifyCityDropdownItem"
+              onClick={() => handleSelect(city)}
+            >
+              {city}
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function paymentInstructionPoints(value) {
-  if (!value) return [];
-
-  const raw = String(value || "").replace(/\r\n?/g, "\n").trim();
-  if (!raw) return [];
-
-  return raw
-    .split(/(?<=\.)\s+|\n+|[•●]/)
-    .map((line) => line.trim().replace(/^[\-–—]\s*/, ""))
-    .filter((line) => line.length > 5)
-    .slice(0, 5);
-}
-
 export default function CheckoutPage() {
   const [cart, setCart] = useState([]);
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [form, setForm] = useState({
-    fullName: "",
-    phone: "",
     email: "",
-    houseNo: "",
-    street: "",
-    block: "",
-    landmark: "",
+    firstName: "",
+    lastName: "",
+    fullName: "",
+    address: "",
+    apartment: "",
     city: "",
     postalCode: "",
+    phone: "",
+    saveInfo: true,
+    newsOffers: false,
+    billingSameAsShipping: true,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -242,7 +210,17 @@ export default function CheckoutPage() {
     if (raw) {
       try {
         const saved = JSON.parse(raw);
-        setForm((current) => ({ ...current, ...saved }));
+        const nameParts = (saved.fullName || "").trim().split(" ");
+        const firstName = saved.firstName || nameParts[0] || "";
+        const lastName = saved.lastName || nameParts.slice(1).join(" ") || "";
+        setForm((current) => ({
+          ...current,
+          ...saved,
+          firstName: current.firstName || firstName,
+          lastName: current.lastName || lastName,
+          address: current.address || saved.houseNo || saved.address || "",
+          apartment: current.apartment || saved.landmark || saved.apartment || "",
+        }));
       } catch {}
     }
   }, []);
@@ -266,9 +244,13 @@ export default function CheckoutPage() {
         setPaymentSettings(nextPaymentSettings);
         setPaymentMethod((current) => {
           const configuredDefault = normalizePaymentMethod(result.checkoutSettings?.defaultPayment);
-          if (nextPaymentSettings.codEnabled === false && nextPaymentSettings.manualTransferEnabled !== false) return PAYMENT_METHODS.FULL_ADVANCE;
-          if (nextPaymentSettings.manualTransferEnabled === false && nextPaymentSettings.codEnabled !== false) return "cod";
-          return current === "cod" && configuredDefault === PAYMENT_METHODS.FULL_ADVANCE ? configuredDefault : current;
+          if (nextPaymentSettings.codEnabled === false && nextPaymentSettings.manualTransferEnabled !== false)
+            return PAYMENT_METHODS.FULL_ADVANCE;
+          if (nextPaymentSettings.manualTransferEnabled === false && nextPaymentSettings.codEnabled !== false)
+            return "cod";
+          return current === "cod" && configuredDefault === PAYMENT_METHODS.FULL_ADVANCE
+            ? configuredDefault
+            : current;
         });
       })
       .catch(() => {});
@@ -278,7 +260,10 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (isCartLoaded && cart.length > 0 && !hasTrackedCheckout.current) {
       hasTrackedCheckout.current = true;
-      const totalVal = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+      const totalVal = cart.reduce(
+        (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
+        0
+      );
       const contentIds = cart.map((item) => String(item.articleNumber || item.article_number || item.id || ""));
       const contents = cart.map((item) => ({
         id: String(item.articleNumber || item.article_number || item.id || ""),
@@ -291,8 +276,8 @@ export default function CheckoutPage() {
         userData: {
           phone: form.phone,
           email: form.email,
-          firstName: (form.fullName || form.name || "").split(" ")[0] || undefined,
-          lastName: (form.fullName || form.name || "").split(" ").slice(1).join(" ") || undefined,
+          firstName: form.firstName || (form.fullName || "").split(" ")[0] || undefined,
+          lastName: form.lastName || (form.fullName || "").split(" ").slice(1).join(" ") || undefined,
           city: form.city,
           country: "pk",
         },
@@ -310,41 +295,38 @@ export default function CheckoutPage() {
     () => cart.reduce((total, item) => total + item.price * item.quantity, 0),
     [cart]
   );
-  const totalSavings = useMemo(
-    () => cart.reduce((sum, item) => {
-      const original = Number(item.compareAtPrice || item.comparePrice || item.compare_at_price || item.originalPrice || 0);
-      const price = Number(item.price || 0);
-      const diff = original > price ? (original - price) * Number(item.quantity || 1) : 0;
-      return sum + diff;
-    }, 0),
-    [cart]
-  );
+
   const paymentAmounts = useMemo(
     () => calculatePaymentAmounts({ subtotal, paymentMethod, paymentSettings }),
     [subtotal, paymentMethod, paymentSettings]
   );
 
-  const selectedInstructions = paymentMethod === PAYMENT_METHODS.FULL_ADVANCE
-    ? paymentSettings.instructions
-    : paymentSettings.codInstructions;
-  const instructionPoints = useMemo(() => paymentInstructionPoints(selectedInstructions), [selectedInstructions]);
+  const shippingPriceDisplay = useMemo(() => {
+    if (paymentAmounts.deliveryCharges === 0 && paymentMethod === PAYMENT_METHODS.FULL_ADVANCE) {
+      return "Free";
+    }
+    const charge = paymentAmounts.deliveryCharges || paymentSettings.codDeliveryChargePkr || 350;
+    return formatPrice(charge);
+  }, [paymentAmounts.deliveryCharges, paymentSettings.codDeliveryChargePkr, paymentMethod]);
 
   function updateField(event) {
-    const { name, value } = event.target;
-    let nextValue = value;
+    const { name, value, type, checked } = event.target;
+    let nextValue = type === "checkbox" ? checked : value;
 
     if (name === "phone") {
-      // Live input filtering: restrict to digits and optional leading +
       nextValue = value.replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
     }
 
     setForm((current) => {
       const next = { ...current, [name]: nextValue };
-      if (["phone", "email", "fullName", "name", "city"].includes(name) && nextValue) {
+      if (name === "firstName" || name === "lastName") {
+        next.fullName = [next.firstName, next.lastName].filter(Boolean).join(" ").trim();
+      }
+      if (["phone", "email", "fullName", "city"].includes(name) && nextValue) {
         saveConsentedCustomerData({
           phone: next.phone,
           email: next.email,
-          name: next.fullName || next.name,
+          name: next.fullName,
           city: next.city,
         });
       }
@@ -365,11 +347,7 @@ export default function CheckoutPage() {
 
     if (Object.keys(validationErrors).length > 0) {
       const firstErrorField = Object.keys(validationErrors)[0];
-      let errorElem = document.querySelector(`[name="${firstErrorField}"]`);
-
-      if (!errorElem && firstErrorField === "city") {
-        errorElem = document.querySelector(`.citySearchInput`) || document.querySelector(`.cityDisplayBox`);
-      }
+      const errorElem = document.querySelector(`[name="${firstErrorField}"]`);
 
       if (errorElem) {
         errorElem.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -384,8 +362,18 @@ export default function CheckoutPage() {
 
     setSubmitting(true);
     setError("");
-    const completeAddress = buildShippingAddress(form);
-    const customer = { ...form, address: completeAddress };
+
+    const completeAddress = [form.address, form.apartment].filter(Boolean).join(", ");
+    const customer = {
+      ...form,
+      fullName: form.fullName || [form.firstName, form.lastName].filter(Boolean).join(" "),
+      address: completeAddress,
+      houseNo: form.address,
+      street: form.apartment || "",
+      block: form.address,
+      landmark: form.apartment || "",
+    };
+
     const checkoutAttemptId =
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
@@ -414,31 +402,29 @@ export default function CheckoutPage() {
 
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Failed to place order.");
+
       if (typeof window !== "undefined") {
-        localStorage.setItem(
-          "bustaniya_last_checkout_fields",
-          JSON.stringify({
-            fullName: form.fullName,
-            phone: form.phone,
-            email: form.email,
-            houseNo: form.houseNo,
-            street: form.street,
-            block: form.block,
-            landmark: form.landmark,
-            city: form.city,
-            postalCode: form.postalCode,
-          })
-        );
+        if (form.saveInfo) {
+          localStorage.setItem(
+            "bustaniya_last_checkout_fields",
+            JSON.stringify({
+              firstName: form.firstName,
+              lastName: form.lastName,
+              fullName: customer.fullName,
+              phone: form.phone,
+              email: form.email,
+              address: form.address,
+              apartment: form.apartment,
+              city: form.city,
+              postalCode: form.postalCode,
+            })
+          );
+        }
         localStorage.removeItem("bustaniya-cart");
         localStorage.removeItem("bustaniya_cart");
         window.dispatchEvent(new Event("cartUpdated"));
       }
-      // result.order (when present) uses different field names (deliveryCharges,
-      // amountPayableInAdvance, amountPayableOnDelivery) than what this page and
-      // <OrderConfirmation> read (delivery, advanceAmount, payableOnDelivery), so
-      // always normalize from the top-level response fields instead of spreading
-      // result.order directly — otherwise the confirmation screen shows "Rs. 0" /
-      // "Free" even though the real order total was calculated correctly.
+
       const createdOrder = {
         ...(result.order || {}),
         ...result,
@@ -454,9 +440,12 @@ export default function CheckoutPage() {
         paymentStatus: result.paymentStatus || "Awaiting Payment",
       };
 
-      const orderEventId = createdOrder.order_number || createdOrder.orderRef || createdOrder.orderId || createdOrder.id || `BST-${Date.now()}`;
+      const orderEventId =
+        createdOrder.order_number || createdOrder.orderRef || createdOrder.orderId || createdOrder.id || `BST-${Date.now()}`;
       const totalOrderVal = Number(createdOrder.total || paymentAmounts.totalOrderValue || 0);
-      const orderContentIds = (createdOrder.items || cart).map((item) => String(item.article_number || item.articleNumber || item.productId || item.id || ""));
+      const orderContentIds = (createdOrder.items || cart).map((item) =>
+        String(item.article_number || item.articleNumber || item.productId || item.id || "")
+      );
       const orderContents = (createdOrder.items || cart).map((item) => ({
         id: String(item.article_number || item.articleNumber || item.productId || item.id || ""),
         quantity: Number(item.quantity || 1),
@@ -464,11 +453,10 @@ export default function CheckoutPage() {
       }));
       const orderNumItems = (createdOrder.items || cart).reduce((sum, item) => sum + Number(item.quantity || 1), 0);
 
-      // Save consented customer profile for browser tracking persistence
       saveConsentedCustomerData({
         phone: form.phone,
         email: form.email,
-        name: form.fullName || form.name,
+        name: customer.fullName,
         city: form.city,
       });
 
@@ -477,16 +465,13 @@ export default function CheckoutPage() {
         userData: {
           phone: form.phone,
           email: form.email,
-          firstName: (form.fullName || form.name || "").split(" ")[0] || undefined,
-          lastName: (form.fullName || form.name || "").split(" ").slice(1).join(" ") || undefined,
+          firstName: form.firstName || (customer.fullName || "").split(" ")[0] || undefined,
+          lastName: form.lastName || (customer.fullName || "").split(" ").slice(1).join(" ") || undefined,
           city: form.city,
           country: "pk",
-          externalId: orderEventId,
         },
         customData: {
           value: totalOrderVal,
-          currency: "PKR",
-          orderId: orderEventId,
           contentIds: orderContentIds,
           contents: orderContents,
           numItems: orderNumItems,
@@ -495,7 +480,7 @@ export default function CheckoutPage() {
 
       setOrder(createdOrder);
     } catch (err) {
-      const errorMsg = err.message || "An error occurred while placing your order.";
+      const errorMsg = err.message || "An unexpected error occurred while placing the order.";
       setError(errorMsg);
 
       if (errorMsg.toLowerCase().includes("phone") || errorMsg.toLowerCase().includes("pakistani mobile")) {
@@ -517,15 +502,19 @@ export default function CheckoutPage() {
 
   if (!isCartLoaded) {
     return (
-      <main className="checkoutPage">
-        <header className="checkoutHeader">
-          <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
-          <span><Lock size={14} /> Secure checkout</span>
+      <main className="shopifyCheckoutPage">
+        <header className="shopifyCheckoutHeader">
+          <a href="/" className="shopifyCheckoutLogoLink">
+            <img src="/bustaniya-logo-v2.png" alt="Bustaniya" className="shopifyCheckoutLogo" />
+          </a>
+          <span className="shopifyHeaderSecure">
+            <Lock size={14} /> Secure checkout
+          </span>
         </header>
         <div style={{ minHeight: "50vh", display: "grid", placeItems: "center" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", color: "#6b7280" }}>
-            <Loader2 className="animate-spin" size={24} style={{ color: "#16452c" }} />
-            <span style={{ fontSize: "13px", fontWeight: 500 }}>Loading checkout...</span>
+            <Loader2 className="animate-spin" size={24} style={{ color: "#1773b0" }} />
+            <span style={{ fontSize: "14px", fontWeight: 500 }}>Loading checkout...</span>
           </div>
         </div>
       </main>
@@ -534,78 +523,205 @@ export default function CheckoutPage() {
 
   if (!cart.length) {
     return (
-      <main className="checkoutPage">
-        <header className="checkoutHeader">
-          <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
-          <span><Lock size={14} /> Checkout</span>
+      <main className="shopifyCheckoutPage">
+        <header className="shopifyCheckoutHeader">
+          <a href="/" className="shopifyCheckoutLogoLink">
+            <img src="/bustaniya-logo-v2.png" alt="Bustaniya" className="shopifyCheckoutLogo" />
+          </a>
+          <span className="shopifyHeaderSecure">
+            <Lock size={14} /> Checkout
+          </span>
         </header>
-        <div className="checkoutEmpty">
-          <ShoppingBag size={48} />
-          <p>Your cart is empty.</p>
-          <a href="/">Shop collection</a>
+        <div style={{ textAlign: "center", padding: "80px 20px" }}>
+          <ShoppingBag size={48} style={{ color: "#9ca3af", margin: "0 auto 16px" }} />
+          <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#333", margin: "0 0 8px" }}>Your cart is empty</h2>
+          <p style={{ color: "#6b7280", margin: "0 0 24px", fontSize: "14px" }}>Looks like you haven&apos;t added any items to your cart yet.</p>
+          <a
+            href="/"
+            style={{
+              display: "inline-block",
+              backgroundColor: "#005bd3",
+              color: "#fff",
+              padding: "12px 24px",
+              borderRadius: "6px",
+              textDecoration: "none",
+              fontWeight: 600,
+              fontSize: "14px",
+            }}
+          >
+            Continue shopping
+          </a>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="checkoutPage">
-      <header className="checkoutHeader">
-        <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
-        <span><Lock size={14} /> Secure checkout</span>
+    <main className="shopifyCheckoutPage">
+      {/* 1. Header with Bustaniya Logo */}
+      <header className="shopifyCheckoutHeader">
+        <a href="/" className="shopifyCheckoutLogoLink" aria-label="Bustaniya Home">
+          <img src="/bustaniya-logo-v2.png" alt="Bustaniya" className="shopifyCheckoutLogo" />
+        </a>
       </header>
 
-      <div className="checkoutLayout">
-        <section className="checkoutForm">
-          <h1 className="checkoutVisuallyHidden">Bustaniya checkout</h1>
-          <form onSubmit={placeOrder} noValidate>
-            <div className="checkoutSectionHeading"><span>01</span><div><b>Contact</b><small>We use these details only for order confirmation and delivery updates.</small></div></div>
-            <label>
-              Full name
-              <input name="fullName" value={form.fullName} onChange={updateField} placeholder="Your full name" className={fieldErrors.fullName ? "fieldInputIsError" : ""} />
-              {fieldErrors.fullName && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.fullName}</small>}
-            </label>
-            <label>
-              Phone number
-              <input name="phone" value={form.phone} onChange={updateField} type="tel" inputMode="tel" placeholder="Phone / WhatsApp number (e.g. 03001234567)" className={fieldErrors.phone ? "fieldInputIsError" : ""} />
-              {fieldErrors.phone && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.phone}</small>}
-            </label>
-            <label>
-              Email address (optional)
-              <input name="email" value={form.email} onChange={updateField} type="email" placeholder="you@example.com" className={fieldErrors.email ? "fieldInputIsError" : ""} />
-              {fieldErrors.email && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.email}</small>}
-            </label>
-            <div className="checkoutSectionHeading"><span>02</span><div><b>Delivery</b><small>Enter the address in separate parts so the courier can find you easily.</small></div></div>
-            <fieldset className="checkoutAddressFields">
-              <legend>Delivery address</legend>
-              <div className="checkoutAddressGrid">
-                <label>
-                  House / Flat No.
-                  <input name="houseNo" value={form.houseNo} onChange={updateField} autoComplete="address-line1" placeholder="e.g. House 24, Flat 3B" className={fieldErrors.houseNo ? "fieldInputIsError" : ""} />
-                  {fieldErrors.houseNo && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.houseNo}</small>}
-                </label>
-                <label>
-                  Street / Road
-                  <input name="street" value={form.street} onChange={updateField} autoComplete="address-line2" placeholder="e.g. Street 8, Main Boulevard" className={fieldErrors.street ? "fieldInputIsError" : ""} />
-                  {fieldErrors.street && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.street}</small>}
-                </label>
-                <label>
-                  Block / Area
-                  <input name="block" value={form.block} onChange={updateField} placeholder="e.g. Block C, Gulberg III" className={fieldErrors.block ? "fieldInputIsError" : ""} />
-                  {fieldErrors.block && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.block}</small>}
-                </label>
-                <label>Nearby landmark <em>(optional)</em><input name="landmark" value={form.landmark} onChange={updateField} placeholder="e.g. Near Central Mosque" /></label>
+      {/* Mobile Accordion Summary Banner */}
+      <div
+        className="shopifyMobileSummaryBanner"
+        onClick={() => setSummaryOpen((prev) => !prev)}
+      >
+        <div className="shopifyMobileBannerContent">
+          <div className="shopifyMobileBannerLeft">
+            <ShoppingBag size={16} />
+            <span>{summaryOpen ? "Hide order summary" : "Show order summary"}</span>
+            <ChevronDown
+              size={14}
+              style={{
+                transform: summaryOpen ? "rotate(180deg)" : "none",
+                transition: "transform 0.2s ease",
+              }}
+            />
+          </div>
+          <div className="shopifyMobileBannerRight">
+            {formatPrice(paymentAmounts.totalOrderValue)}
+          </div>
+        </div>
+      </div>
+
+      <div className="shopifyCheckoutLayout">
+        {/* Left Column: Form */}
+        <section className="shopifyCheckoutFormColumn">
+          <div className="shopifyCheckoutFormInner">
+            <form onSubmit={placeOrder} noValidate>
+              {/* CONTACT SECTION */}
+              <div className="shopifyContactHeader">
+                <h2 className="shopifySectionHeading">Contact</h2>
+                <a href="/admin" className="shopifySignInLink">
+                  Sign in
+                </a>
               </div>
-            </fieldset>
-            <div className="formRow">
-              <div className="cityFormGroup">
-                <span className="cityFormLabelText">City</span>
-                {citiesError ? (
-                  <>
-                    <input name="city" value={form.city} onChange={updateField} placeholder="Enter delivery city" className={fieldErrors.city ? "fieldInputIsError" : ""} />
-                    {fieldErrors.city && <small className="inlineFieldError"><AlertCircle size={12} /> {fieldErrors.city}</small>}
-                  </>
-                ) : (
+
+              <div className="shopifyInputWrapper">
+                <input
+                  type="email"
+                  name="email"
+                  className={`shopifyInput shopifyInputWithIcon ${fieldErrors.email ? "hasError" : ""}`}
+                  placeholder="Email"
+                  value={form.email}
+                  onChange={updateField}
+                  autoComplete="email"
+                />
+                <span
+                  className="shopifyInputHelpIcon"
+                  title="In case we need to contact you about your order"
+                >
+                  <HelpCircle size={16} />
+                </span>
+              </div>
+              {fieldErrors.email && (
+                <div className="shopifyInputErrorMsg">
+                  <AlertCircle size={12} /> {fieldErrors.email}
+                </div>
+              )}
+
+              <label className="shopifyCheckboxWrapper">
+                <input
+                  type="checkbox"
+                  name="newsOffers"
+                  checked={form.newsOffers}
+                  onChange={updateField}
+                  className="shopifyCheckbox"
+                />
+                <span className="shopifyCheckboxLabel">Email me with news and offers</span>
+              </label>
+
+              {/* DELIVERY SECTION */}
+              <div className="shopifyDeliverySection">
+                <h2 className="shopifySectionHeading">Delivery</h2>
+
+                {/* Country / Region */}
+                <div className="shopifyCountryBox">
+                  <div className="shopifyCountryContent">
+                    <span className="shopifyCountryLabel">Country/region</span>
+                    <span className="shopifyCountryValue">Pakistan</span>
+                  </div>
+                  <ChevronDown size={16} className="shopifyCountryChevron" />
+                </div>
+
+                {/* First name & Last name */}
+                <div className="shopifyFormRow2">
+                  <div>
+                    <div className="shopifyInputWrapper">
+                      <input
+                        type="text"
+                        name="firstName"
+                        className={`shopifyInput ${fieldErrors.firstName ? "hasError" : ""}`}
+                        placeholder="First name"
+                        value={form.firstName}
+                        onChange={updateField}
+                        autoComplete="given-name"
+                      />
+                    </div>
+                    {fieldErrors.firstName && (
+                      <div className="shopifyInputErrorMsg">
+                        <AlertCircle size={12} /> {fieldErrors.firstName}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="shopifyInputWrapper">
+                      <input
+                        type="text"
+                        name="lastName"
+                        className={`shopifyInput ${fieldErrors.lastName ? "hasError" : ""}`}
+                        placeholder="Last name"
+                        value={form.lastName}
+                        onChange={updateField}
+                        autoComplete="family-name"
+                      />
+                    </div>
+                    {fieldErrors.lastName && (
+                      <div className="shopifyInputErrorMsg">
+                        <AlertCircle size={12} /> {fieldErrors.lastName}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Address */}
+                <div className="shopifyInputWrapper">
+                  <input
+                    type="text"
+                    name="address"
+                    className={`shopifyInput ${fieldErrors.address ? "hasError" : ""}`}
+                    placeholder="Address"
+                    value={form.address}
+                    onChange={updateField}
+                    autoComplete="address-line1"
+                  />
+                </div>
+                {fieldErrors.address && (
+                  <div className="shopifyInputErrorMsg">
+                    <AlertCircle size={12} /> {fieldErrors.address}
+                  </div>
+                )}
+
+                {/* Apartment, suite, etc. */}
+                <div className="shopifyInputWrapper">
+                  <input
+                    type="text"
+                    name="apartment"
+                    className="shopifyInput"
+                    placeholder="Apartment, suite, etc. (optional)"
+                    value={form.apartment}
+                    onChange={updateField}
+                    autoComplete="address-line2"
+                  />
+                </div>
+
+                {/* City & Postal code */}
+                <div className="shopifyFormRow2">
                   <CityCombobox
                     value={form.city}
                     onChange={updateField}
@@ -614,147 +730,281 @@ export default function CheckoutPage() {
                     disabled={citiesLoading}
                     error={fieldErrors.city}
                   />
-                )}
-              </div>
-              <label>Postal code (optional)<input name="postalCode" value={form.postalCode} onChange={updateField} placeholder="Postal code" /></label>
-            </div>
 
-            <div className="checkoutSectionHeading"><span>03</span><div><b>Shipping method</b><small>Standard delivery is available for your selected city.</small></div></div>
-            <div className="shippingMethodBox"><span><b>Standard delivery</b><small>Delivered by our courier partner</small></span><b>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</b></div>
+                  <div>
+                    <div className="shopifyInputWrapper">
+                      <input
+                        type="text"
+                        name="postalCode"
+                        className="shopifyInput"
+                        placeholder="Postal code (optional)"
+                        value={form.postalCode}
+                        onChange={updateField}
+                        autoComplete="postal-code"
+                      />
+                    </div>
+                  </div>
+                </div>
 
-            <div className="checkoutSectionHeading"><span>04</span><div><b>Payment</b><small>Select your payment method below.</small></div></div>
-            <label className={paymentMethod === "cod" ? "paymentBox isSelected" : "paymentBox paymentChoice"}>
-              <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} disabled={paymentSettings.codEnabled === false} onChange={() => setPaymentMethod("cod")} />
-              <div className="paymentMethodCopy">
-                <div className="paymentMethodTitle"><b>Cash on Delivery (COD)</b><span>Pay the full amount in cash when your order is delivered.</span></div>
-                {paymentMethod === "cod" && <ul className="paymentOptionList">
-                  <li><span><strong>Pay on delivery</strong><small>Total payable in cash to courier</small></span><b>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</b></li>
-                  <li><span><strong>Advance payment</strong><small>No advance fee required</small></span><b>Rs. 0</b></li>
-                </ul>}
-              </div>
-            </label>
-            {paymentSettings.manualTransferEnabled !== false && (
-              <label className={paymentMethod === PAYMENT_METHODS.FULL_ADVANCE ? "paymentBox isSelected" : "paymentBox paymentChoice"}>
-                <input type="radio" name="paymentMethod" value="full_advance" checked={paymentMethod === PAYMENT_METHODS.FULL_ADVANCE} onChange={() => setPaymentMethod(PAYMENT_METHODS.FULL_ADVANCE)} />
-                <div className="paymentMethodCopy">
-                  <div className="paymentMethodTitle"><b>Advance Payment (Bank / Wallet) <em>Free delivery</em></b><span>Pay via online bank transfer / JazzCash / Easypaisa & get Free Delivery.</span></div>
-                  {paymentMethod === PAYMENT_METHODS.FULL_ADVANCE && <ul className="paymentOptionList">
-                    <li><span><strong>Pay now</strong><small>Complete product payment</small></span><b>Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</b></li>
-                    <li><span><strong>Delivery</strong><small>Included with prepaid order</small></span><b>Free</b></li>
-                    <li><span><strong>Pay on delivery</strong><small>Nothing left to pay on delivery</small></span><b>Rs. 0</b></li>
-                  </ul>}
+                {/* Phone */}
+                <div className="shopifyInputWrapper">
+                  <input
+                    type="tel"
+                    name="phone"
+                    className={`shopifyInput shopifyInputWithIcon ${fieldErrors.phone ? "hasError" : ""}`}
+                    placeholder="Phone"
+                    value={form.phone}
+                    onChange={updateField}
+                    autoComplete="tel"
+                  />
+                  <span
+                    className="shopifyInputHelpIcon"
+                    title="In case we need to contact you about your order"
+                  >
+                    <HelpCircle size={16} />
+                  </span>
                 </div>
-              </label>
-            )}
-            {paymentMethod === PAYMENT_METHODS.FULL_ADVANCE ? (
-              <div className="advancePaymentNote">
-                <b>{paymentSettings.advanceHeading || "Full Advance Payment Instructions"}</b>
-                {instructionPoints.length > 0 && <ul className="paymentInstructionList">{instructionPoints.map((point, index) => <li key={`${point}-${index}`}>{point}</li>)}</ul>}
-                <div className="checkoutPaymentBreakdown">
-                  <span>Product subtotal <b>Rs. {paymentAmounts.productSubtotal.toLocaleString()}</b></span>
-                  <span>Delivery charges <b>Free</b></span>
-                  <span>Total order value <b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></span>
-                  <span>Pay now (Advance) <b>Rs. {paymentAmounts.amountPayableInAdvance.toLocaleString()}</b></span>
-                  <span>Pay on delivery <b>Rs. 0</b></span>
-                </div>
-                {(paymentSettings.bankName || paymentSettings.bankTitle || paymentSettings.bankAccountNumber || paymentSettings.bankIban) && (
-                  <div className="bankPaymentDetails">
-                    {paymentSettings.bankName && <span><b>Bank / Wallet</b><small>{paymentSettings.bankName}</small></span>}
-                    {paymentSettings.bankTitle && <span><b>Account Title</b><small>{paymentSettings.bankTitle}</small></span>}
-                    {paymentSettings.bankAccountNumber && <span><b>Account No.</b><small>{paymentSettings.bankAccountNumber}</small></span>}
-                    {paymentSettings.bankIban && <span><b>IBAN</b><small>{paymentSettings.bankIban}</small></span>}
+                {fieldErrors.phone && (
+                  <div className="shopifyInputErrorMsg">
+                    <AlertCircle size={12} /> {fieldErrors.phone}
                   </div>
                 )}
+
+                {/* Save info checkbox */}
+                <label className="shopifyCheckboxWrapper">
+                  <input
+                    type="checkbox"
+                    name="saveInfo"
+                    checked={form.saveInfo}
+                    onChange={updateField}
+                    className="shopifyCheckbox"
+                  />
+                  <span className="shopifyCheckboxLabel">Save this information for next time</span>
+                </label>
               </div>
-            ) : (
-              <div className="advancePaymentNote" style={{ background: "#f8faf8", borderColor: "#dce7dc" }}>
-                <b>{paymentSettings.codHeading || "Cash on Delivery Instructions"}</b>
-                <p style={{ margin: "4px 0 0", color: "#4b5563", fontSize: "13px", lineHeight: "1.5" }}>
-                  Please keep exact cash of <b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b> ready at the time of delivery. Our courier partner will collect the full amount when handing over your parcel.
-                </p>
-                <div className="checkoutPaymentBreakdown" style={{ marginTop: "10px" }}>
-                  <span>Product subtotal <b>Rs. {paymentAmounts.productSubtotal.toLocaleString()}</b></span>
-                  <span>Delivery charges <b>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</b></span>
-                  <span>Total payable on delivery <b>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</b></span>
+
+              {/* SHIPPING METHOD SECTION */}
+              <div className="shopifyShippingSection">
+                <h2 className="shopifySectionHeading">Shipping method</h2>
+                <div className="shopifyShippingMethodCard">
+                  <span className="shopifyShippingMethodName">Standard</span>
+                  <span className="shopifyShippingMethodPrice">{shippingPriceDisplay}</span>
                 </div>
               </div>
-            )}
-            {error && <p className="checkoutError" role="alert">{error}</p>}
-            <div className="checkoutSubmitBar">
-              <div><span>Total</span><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div>
-              <button className="placeOrder" type="submit" disabled={!cart.length || submitting}>
-                {submitting ? (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-                    <Loader2 className="animate-spin" size={16} /> Placing order...
-                  </span>
-                ) : (
-                  "Complete order"
-                )}
-              </button>
-            </div>
-            <p className="checkoutPrivacy"><Lock size={13} /> Your information is used only to process this order securely.</p>
-            <p className="checkoutInlineHelp">Need help? <a href={`https://wa.me/923053530008?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need help with my checkout.")}`} target="_blank" rel="noreferrer"><MessageCircle size={13} /> Chat on WhatsApp</a></p>
-            <nav className="checkoutPolicyLinks" aria-label="Checkout policies"><a href="/exchange-return-policy">Return &amp; Exchange Policy</a><a href="/shipping-policy">Shipping</a><a href="/privacy-policy">Privacy policy</a><a href="/terms-and-conditions">Terms of service</a></nav>
-          </form>
+
+              {/* PAYMENT SECTION */}
+              <div className="shopifyPaymentSection">
+                <h2 className="shopifySectionHeading">Payment</h2>
+                <p className="shopifySectionSubtitle">All transactions are secure and encrypted.</p>
+
+                <div className="shopifyAccordionCard">
+                  {/* COD Option */}
+                  <div
+                    className={`shopifyAccordionRow ${paymentMethod === "cod" ? "isActive" : ""}`}
+                    onClick={() => setPaymentMethod("cod")}
+                  >
+                    <span className={`shopifyRadioDot ${paymentMethod === "cod" ? "isSelected" : ""}`} />
+                    <span className="shopifyAccordionTitle">Cash on Delivery (COD)</span>
+                  </div>
+
+                  {paymentMethod === "cod" && (
+                    <div className="shopifyAccordionSubpanel">
+                      <p className="shopifyAccordionNoticeText">
+                        {paymentSettings.codInstructions ||
+                          "You'll receive a WhatsApp message within 24 hours for order confirmation. Please note, Rs500 advance is required for confirmation and the remaining amount will be cash on delivery."}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Bank Deposit Option */}
+                  <div
+                    className={`shopifyAccordionRow hasBorderTop ${paymentMethod === PAYMENT_METHODS.FULL_ADVANCE ? "isActive" : ""}`}
+                    onClick={() => setPaymentMethod(PAYMENT_METHODS.FULL_ADVANCE)}
+                  >
+                    <span
+                      className={`shopifyRadioDot ${paymentMethod === PAYMENT_METHODS.FULL_ADVANCE ? "isSelected" : ""}`}
+                    />
+                    <span className="shopifyAccordionTitle">Bank Deposit</span>
+                  </div>
+
+                  {paymentMethod === PAYMENT_METHODS.FULL_ADVANCE && (
+                    <div className="shopifyAccordionSubpanel">
+                      <p className="shopifyAccordionNoticeText">
+                        {paymentSettings.instructions ||
+                          "Please transfer the total amount to our bank account. Send your payment screenshot on WhatsApp for order confirmation."}
+                      </p>
+                      {(paymentSettings.bankName ||
+                        paymentSettings.bankTitle ||
+                        paymentSettings.bankAccountNumber ||
+                        paymentSettings.bankIban) && (
+                        <div className="shopifyBankGrid">
+                          {paymentSettings.bankName && (
+                            <div className="shopifyBankRow">
+                              <span className="shopifyBankLabel">Bank / Wallet</span>
+                              <span className="shopifyBankVal">{paymentSettings.bankName}</span>
+                            </div>
+                          )}
+                          {paymentSettings.bankTitle && (
+                            <div className="shopifyBankRow">
+                              <span className="shopifyBankLabel">Account Title</span>
+                              <span className="shopifyBankVal">{paymentSettings.bankTitle}</span>
+                            </div>
+                          )}
+                          {paymentSettings.bankAccountNumber && (
+                            <div className="shopifyBankRow">
+                              <span className="shopifyBankLabel">Account No.</span>
+                              <span className="shopifyBankVal">{paymentSettings.bankAccountNumber}</span>
+                            </div>
+                          )}
+                          {paymentSettings.bankIban && (
+                            <div className="shopifyBankRow">
+                              <span className="shopifyBankLabel">IBAN</span>
+                              <span className="shopifyBankVal">{paymentSettings.bankIban}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* BILLING ADDRESS SECTION */}
+              <div className="shopifyBillingSection">
+                <h2 className="shopifySectionHeading">Billing address</h2>
+                <div className="shopifyAccordionCard">
+                  <div
+                    className={`shopifyAccordionRow ${form.billingSameAsShipping ? "isActive" : ""}`}
+                    onClick={() => setForm((prev) => ({ ...prev, billingSameAsShipping: true }))}
+                  >
+                    <span
+                      className={`shopifyRadioDot ${form.billingSameAsShipping ? "isSelected" : ""}`}
+                    />
+                    <span className="shopifyAccordionTitle">Same as shipping address</span>
+                  </div>
+
+                  <div
+                    className={`shopifyAccordionRow hasBorderTop ${!form.billingSameAsShipping ? "isActive" : ""}`}
+                    onClick={() => setForm((prev) => ({ ...prev, billingSameAsShipping: false }))}
+                  >
+                    <span
+                      className={`shopifyRadioDot ${!form.billingSameAsShipping ? "isSelected" : ""}`}
+                    />
+                    <span className="shopifyAccordionTitle">Use a different billing address</span>
+                  </div>
+                </div>
+              </div>
+
+              {error && (
+                <div
+                  style={{
+                    margin: "20px 0 0",
+                    padding: "14px 16px",
+                    borderRadius: "6px",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    color: "#b91c1c",
+                    fontSize: "13px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <AlertCircle size={16} />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* COMPLETE ORDER BUTTON */}
+              <div className="shopifySubmitWrapper">
+                <button
+                  type="submit"
+                  className="shopifyCompleteOrderBtn"
+                  disabled={!cart.length || submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="animate-spin" size={18} />
+                      <span>Processing order...</span>
+                    </>
+                  ) : (
+                    "Complete order"
+                  )}
+                </button>
+              </div>
+
+              {/* FOOTER POLICY LINKS */}
+              <footer className="shopifyPolicyFooter">
+                <a href="/exchange-return-policy" className="shopifyPolicyLink">
+                  Refund policy
+                </a>
+                <a href="/shipping-policy" className="shopifyPolicyLink">
+                  Shipping
+                </a>
+                <a href="/privacy-policy" className="shopifyPolicyLink">
+                  Privacy policy
+                </a>
+                <a href="/terms-and-conditions" className="shopifyPolicyLink">
+                  Terms of service
+                </a>
+              </footer>
+            </form>
+          </div>
         </section>
 
-        <aside className={`orderSummary ${summaryOpen ? "isOpen" : ""}`}>
-          <button className="orderSummaryToggle" type="button" onClick={() => setSummaryOpen((current) => !current)} aria-expanded={summaryOpen} aria-controls="checkout-order-summary">
-            <span><ShoppingBag size={16} /> {summaryOpen ? "Hide order summary" : "Show order summary"} <ChevronDown size={14} className="toggleChevron" /></span>
-            <b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b>
-          </button>
-          <div id="checkout-order-summary" className="orderSummaryContent">
-            <div className="orderSummaryHead">
-              <p>SUMMARY</p>
-              <h2>Your order <span>({cart.reduce((n, item) => n + item.quantity, 0)})</span></h2>
+        {/* Right Column: Order Summary */}
+        <aside
+          className={`shopifyCheckoutSummaryColumn ${summaryOpen ? "isMobileExpanded" : ""}`}
+        >
+          <div className="shopifyCheckoutSummaryInner">
+            <div className="shopifySummaryItemsList">
+              {cart.map((item) => (
+                <div className="shopifySummaryItem" key={`${item.id}-${item.size || "cart"}`}>
+                  <div className="shopifySummaryThumbWrapper">
+                    <img
+                      src={item.image || "/bustaniya-logo-v2.png"}
+                      alt={item.name}
+                      className="shopifySummaryThumbImg"
+                    />
+                    <span className="shopifySummaryQtyBadge">{item.quantity}</span>
+                  </div>
+                  <div className="shopifySummaryItemDetails">
+                    <h3 className="shopifySummaryItemTitle">{item.name}</h3>
+                    <p className="shopifySummaryItemVariant">
+                      {[item.size && `${item.size}`, item.color].filter(Boolean).join(" / ")}
+                    </p>
+                  </div>
+                  <div className="shopifySummaryItemPrice">
+                    {formatPrice(item.price * item.quantity)}
+                  </div>
+                </div>
+              ))}
             </div>
-            {cart.map((item) => {
-              const originalPrice = Number(item.compareAtPrice || item.comparePrice || item.compare_at_price || item.originalPrice || 0);
-              const price = Number(item.price || 0);
-              const hasDiscount = originalPrice > price;
-              const unitSaving = hasDiscount ? originalPrice - price : 0;
-              const itemTotalSaving = unitSaving * item.quantity;
 
-              return (
-                <div className="summaryItem" key={`${item.id}-${item.size || "cart"}`}>
-                  <div className="summaryImage" style={{ backgroundImage: `url(${item.image})` }}><span>{item.quantity}</span></div>
-                  <div>
-                    <b>{item.name}</b>
-                    <small>{[item.category, item.size && `Size ${item.size}`, item.color].filter(Boolean).join(" · ")}</small>
-                    {hasDiscount && itemTotalSaving > 0 && (
-                      <span className="checkoutItemSavingsTag">You saved Rs. {itemTotalSaving.toLocaleString()}</span>
-                    )}
-                  </div>
-                  <div className="summaryItemPriceCol">
-                    <p>Rs. {(item.price * item.quantity).toLocaleString()}</p>
-                    {hasDiscount && <small className="summaryItemOriginalPrice">Rs. {(originalPrice * item.quantity).toLocaleString()}</small>}
-                  </div>
+            <div className="shopifyCostBreakdown">
+              <div className="shopifyCostRow">
+                <span className="shopifyCostLabel">Subtotal</span>
+                <span className="shopifyCostVal">{formatPrice(subtotal)}</span>
+              </div>
+              <div className="shopifyCostRow">
+                <span className="shopifyCostLabel">
+                  Shipping
+                  <span className="shopifyCostHelpIcon" title="Standard delivery across Pakistan">
+                    <HelpCircle size={14} />
+                  </span>
+                </span>
+                <span className="shopifyCostVal">{shippingPriceDisplay}</span>
+              </div>
+              <div className="shopifyTotalRow">
+                <span className="shopifyTotalLabel">Total</span>
+                <div className="shopifyTotalValContainer">
+                  <span className="shopifyCurrencyCode">PKR</span>
+                  <span className="shopifyTotalAmount">
+                    {formatPrice(paymentAmounts.totalOrderValue)}
+                  </span>
                 </div>
-              );
-            })}
-
-            <div className="summaryTotals">
-              <div><span>Subtotal</span><span>Rs. {subtotal.toLocaleString()}</span></div>
-              {totalSavings > 0 && (
-                <div className="summarySavingsRow">
-                  <span>Product discounts</span>
-                  <b className="checkoutSavingsHighlight">- Rs. {totalSavings.toLocaleString()}</b>
-                </div>
-              )}
-              <div><span>Delivery</span><span>{paymentAmounts.deliveryCharges ? `Rs. ${paymentAmounts.deliveryCharges.toLocaleString()}` : "Free"}</span></div>
-              {paymentMethod === PAYMENT_METHODS.FULL_ADVANCE && <div><span>Prepaid discount</span><span>- Rs. {Number(paymentSettings.codDeliveryChargePkr ?? 250).toLocaleString()} (Free Delivery)</span></div>}
-              {totalSavings > 0 && (
-                <div className="checkoutSavingsSummaryBanner">
-                  ✨ Total savings on this order: <b>Rs. {totalSavings.toLocaleString()}</b>
-                </div>
-              )}
-              <div className="totalLine"><b>Total</b><b>Rs. {paymentAmounts.totalOrderValue.toLocaleString()}</b></div>
-              <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "8px", fontSize: "13px", color: "#4b5563", borderTop: "1px dashed #e5e7eb" }}>
-                <span>Payable on delivery</span>
-                <b style={{ color: "#111827" }}>Rs. {paymentAmounts.amountPayableOnDelivery.toLocaleString()}</b>
               </div>
             </div>
-
           </div>
         </aside>
       </div>
@@ -773,128 +1023,182 @@ function OrderConfirmation({ order, items }) {
     .map((item) => `• ${item.name}${item.size ? ` (Size: ${item.size})` : ""} x${item.quantity}`)
     .join("\n");
 
-  const deliveryChargeAmount = Number(order.delivery || 0);
-
   const whatsappMessage = isFullAdvance
-    ? `Assalam-o-Alaikum Bustaniya! 🌸\nI have transferred Rs. ${paymentAmount.toLocaleString()} for Order #${order.orderRef}.\n\n📋 *Order Summary:*\n- Customer: ${order.customer?.fullName || ""}\n- City: ${order.customer?.city || ""}\n- Method: Full Advance Payment (Free Delivery)\n- Amount Transferred: Rs. ${paymentAmount.toLocaleString()}\n\n📦 *Items:*\n${itemsText}\n\n📎 *Payment Screenshot Attached Below:*`
-    : `Assalam-o-Alaikum Bustaniya! 🌸\nI placed COD Order #${order.orderRef}.\n\n📋 *Order Summary:*\n- Customer: ${order.customer?.fullName || ""}\n- City: ${order.customer?.city || ""}\n- Method: Cash on Delivery (COD)\n- Total Payable on Delivery: Rs. ${payableOnDelivery.toLocaleString()}\n\n📦 *Items:*\n${itemsText}`;
+    ? `Assalam-o-Alaikum Bustaniya! 🌸\nI have transferred Rs. ${paymentAmount.toLocaleString()} for Order #${order.orderRef || order.order_number}.\n\n📋 *Order Summary:*\n- Customer: ${order.customer?.fullName || ""}\n- City: ${order.customer?.city || ""}\n- Method: Full Advance Payment (Free Delivery)\n- Amount: Rs. ${paymentAmount.toLocaleString()}\n\n📦 *Items:*\n${itemsText}\n\n📎 *Payment Screenshot Attached Below:*`
+    : `Assalam-o-Alaikum Bustaniya! 🌸\nI placed COD Order #${order.orderRef || order.order_number}.\n\n📋 *Order Summary:*\n- Customer: ${order.customer?.fullName || ""}\n- City: ${order.customer?.city || ""}\n- Method: Cash on Delivery (COD)\n- Total Payable on Delivery: Rs. ${payableOnDelivery.toLocaleString()}\n\n📦 *Items:*\n${itemsText}`;
 
-  const whatsappHref = whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}` : "";
+  const whatsappHref = whatsappNumber
+    ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`
+    : "";
 
-  const fullAddress = [order.customer?.houseNo, order.customer?.street, order.customer?.block, order.customer?.landmark, order.customer?.city].filter(Boolean).join(", ");
+  const fullAddress = [
+    order.customer?.address,
+    order.customer?.houseNo,
+    order.customer?.street,
+    order.customer?.city,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
-    <main className="checkoutPage">
-      <header className="checkoutHeader">
-        <a className="brand" href="/"><img src="/bustaniya-logo-v2.png" alt="Bustaniya" /></a>
-        <span><Lock size={14} /> Order Confirmed</span>
+    <main className="shopifyCheckoutPage">
+      <header className="shopifyCheckoutHeader">
+        <a href="/" className="shopifyCheckoutLogoLink">
+          <img src="/bustaniya-logo-v2.png" alt="Bustaniya" className="shopifyCheckoutLogo" />
+        </a>
+        <span className="shopifyHeaderSecure">
+          <Lock size={14} /> Order Confirmed
+        </span>
       </header>
-      
-      <div className="confirmationContainer">
-        {/* 1. Thank You / Order # / Status Confirmation Block (Very Top) */}
-        <div className="confirmationHero">
-          <span className="successMark"><CheckCircle2 size={24} /></span>
+
+      <div style={{ maxWidth: "780px", margin: "40px auto", padding: "0 20px" }}>
+        {/* Hero Success Block */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "16px",
+            marginBottom: "32px",
+            paddingBottom: "24px",
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "50%",
+              backgroundColor: "#e8f5e9",
+              color: "#2e7d32",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <CheckCircle2 size={28} />
+          </div>
           <div>
-            <p className="eyebrow">ORDER #{order.orderRef}</p>
-            <h1>Thank you, {order.customer?.fullName || "there"}!</h1>
-            {isFullAdvance ? (
-              <p>Your order is confirmed. If you selected Full Advance, transfer <b>Rs.&nbsp;{paymentAmount.toLocaleString()}</b> and send the screenshot on WhatsApp for payment verification. This verification is tracked separately from order confirmation.</p>
-            ) : (
-              <p>Your order has been placed via <b>Cash on Delivery</b>! We will process and dispatch your parcel soon. Please keep <b>Rs.&nbsp;{payableOnDelivery.toLocaleString()}</b> ready for the courier rider.</p>
-            )}
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "#1773b0", textTransform: "uppercase" }}>
+              ORDER #{order.orderRef || order.order_number}
+            </span>
+            <h1 style={{ fontSize: "26px", fontWeight: 700, color: "#111827", margin: "4px 0 8px" }}>
+              Thank you, {order.customer?.firstName || order.customer?.fullName || "there"}!
+            </h1>
+            <p style={{ color: "#4b5563", fontSize: "14px", lineHeight: "1.5", margin: 0 }}>
+              {isFullAdvance
+                ? `Your order is reserved. Please transfer Rs. ${paymentAmount.toLocaleString()} to complete payment verification.`
+                : `Your order has been placed via Cash on Delivery. Please keep Rs. ${payableOnDelivery.toLocaleString()} ready for the courier rider upon delivery.`}
+            </p>
           </div>
         </div>
 
-        {/* 2. Itemized Order Summary (Below Hero) */}
-        <div className="confirmationCard confirmedSummaryCard">
-          <h2>Order summary <span>({items.reduce((n, item) => n + item.quantity, 0)} {items.reduce((n, item) => n + item.quantity, 0) === 1 ? "item" : "items"})</span></h2>
-          <div className="summaryItemsList">
-            {items.map((item) => (
-              <div className="summaryItem" key={`${item.id}-${item.size || "confirmed"}`}>
-                <div className="summaryImage" style={{ backgroundImage: `url(${item.image})` }}><span>{item.quantity}</span></div>
-                <div><b>{item.name}</b><small>{[item.size && `Size ${item.size}`, item.color].filter(Boolean).join(" · ")}</small></div>
-                <p>Rs. {(item.price * item.quantity).toLocaleString()}</p>
-              </div>
-            ))}
-          </div>
-          <div className="summaryTotals">
-            <div><span>Subtotal</span><span>Rs. {Number(order.subtotal || 0).toLocaleString()}</span></div>
-            <div><span>Delivery</span><span>{Number(order.delivery || 0) ? `Rs. ${Number(order.delivery).toLocaleString()}` : "Free"}</span></div>
-            <div className="totalLine"><b>Total</b><b>Rs. {Number(order.total).toLocaleString()}</b></div>
-          </div>
-        </div>
-
-        {/* 3. Step 1 / Payment Details Card for Full Advance vs COD Notice */}
-        {isFullAdvance ? (
-          <>
-            <div className="confirmationCard paymentVerificationCard">
-              <div className="stepHeader">
-                <span className="stepNumber">1</span>
-                <div>
-                  <h2>Transfer Full Payment</h2>
-                  <p>Transfer <b>Rs. {paymentAmount.toLocaleString()}</b> using the account details below. Your order is already confirmed.</p>
-                </div>
-              </div>
-              <div className="bankPaymentDetails">
-                {paymentDetails.bankName && <span><b>Bank / Wallet</b><small>{paymentDetails.bankName}</small></span>}
-                {paymentDetails.bankTitle && <span><b>Account Title</b><small>{paymentDetails.bankTitle}</small></span>}
-                {paymentDetails.bankAccountNumber && <span><b>Account No.</b><small>{paymentDetails.bankAccountNumber}</small></span>}
-                {paymentDetails.bankIban && <span><b>IBAN</b><small>{paymentDetails.bankIban}</small></span>}
-                <span className="requiredTransferRow"><b>Required Transfer</b><small>Rs. {paymentAmount.toLocaleString()} (Full Advance Payment)</small></span>
-              </div>
-            </div>
-
-            {whatsappHref && (
-              <div className="confirmationCard whatsappConfirmMainCard">
-                <div className="whatsappConfirmHeader">
-                  <span className="stepNumber step2Number">2</span>
-                  <div>
-                    <h2>Send Payment Screenshot on WhatsApp</h2>
-                    <p>Tap below to open WhatsApp with your order reference, then attach your screenshot for payment verification.</p>
-                  </div>
-                </div>
-                <a className="whatsappPrimaryConfirmBtn" href={whatsappHref} target="_blank" rel="noreferrer">
-                  📸 Send Screenshot on WhatsApp
-                </a>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="confirmationCard" style={{ background: "#f8faf8", border: "1px solid #dce7dc" }}>
-            <h2 style={{ fontSize: "16px", color: "#16452c", marginBottom: "8px" }}>📦 Cash on Delivery Instructions</h2>
-            <p style={{ color: "#374151", fontSize: "13px", lineHeight: "1.6", margin: "0 0 10px" }}>
-              Please keep <b>Rs. {payableOnDelivery.toLocaleString()}</b> ready in cash to pay the courier delivery rider when your parcel arrives.
+        {/* WhatsApp Action Card if Advance */}
+        {isFullAdvance && whatsappHref && (
+          <div
+            style={{
+              background: "#f0fdf4",
+              border: "1px solid #bbf7d0",
+              borderRadius: "8px",
+              padding: "20px",
+              marginBottom: "24px",
+            }}
+          >
+            <h3 style={{ margin: "0 0 6px", fontSize: "16px", color: "#166534", fontWeight: 600 }}>
+              Send Payment Screenshot on WhatsApp
+            </h3>
+            <p style={{ margin: "0 0 16px", fontSize: "13px", color: "#374151" }}>
+              Tap below to open WhatsApp with your order details and attach your payment receipt.
             </p>
-            <p style={{ color: "#6b7280", fontSize: "12px", margin: 0 }}>
-              💡 You will receive tracking details via SMS and WhatsApp as soon as your order is dispatched.
-            </p>
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#16a34a",
+                color: "#fff",
+                padding: "10px 20px",
+                borderRadius: "6px",
+                fontWeight: 600,
+                fontSize: "14px",
+                textDecoration: "none",
+              }}
+            >
+              <MessageCircle size={18} />
+              Open WhatsApp Chat
+            </a>
           </div>
         )}
 
-        {/* 4. Customer & Shipping Recap Card */}
-        <div className="confirmationCard confirmationRecapCard">
-          <div className="confirmationRecapRow">
-            <span className="recapLabel">Contact</span>
-            <span className="recapValue">{order.customer?.phone || "Not provided"}{order.customer?.email ? ` · ${order.customer.email}` : ""}</span>
-          </div>
-          <div className="confirmationRecapRow">
-            <span className="recapLabel">Ship to</span>
-            <span className="recapValue">{fullAddress || "Not provided"}</span>
-          </div>
-          <div className="confirmationRecapRow">
-            <span className="recapLabel">Method</span>
-            <span className="recapValue">{isFullAdvance ? "Full Advance Payment (Free Delivery)" : "Cash on Delivery (COD)"}</span>
-          </div>
-          <div className="confirmationRecapRow">
-            <span className="recapLabel">Pay on delivery</span>
-            <span className="recapValue">Rs. {payableOnDelivery.toLocaleString()}</span>
+        {/* Order Details Card */}
+        <div
+          style={{
+            background: "#ffffff",
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            padding: "24px",
+            marginBottom: "24px",
+          }}
+        >
+          <h2 style={{ fontSize: "16px", fontWeight: 600, margin: "0 0 16px", color: "#111827" }}>
+            Order details
+          </h2>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+            <div>
+              <span style={{ fontSize: "12px", color: "#6b7280", display: "block", marginBottom: "4px" }}>
+                Contact information
+              </span>
+              <p style={{ margin: 0, fontSize: "14px", color: "#111827", fontWeight: 500 }}>
+                {order.customer?.phone}
+                {order.customer?.email && <><br />{order.customer.email}</>}
+              </p>
+            </div>
+            <div>
+              <span style={{ fontSize: "12px", color: "#6b7280", display: "block", marginBottom: "4px" }}>
+                Payment method
+              </span>
+              <p style={{ margin: 0, fontSize: "14px", color: "#111827", fontWeight: 500 }}>
+                {isFullAdvance ? "Bank Deposit" : "Cash on Delivery (COD)"}
+              </p>
+            </div>
+            <div>
+              <span style={{ fontSize: "12px", color: "#6b7280", display: "block", marginBottom: "4px" }}>
+                Shipping address
+              </span>
+              <p style={{ margin: 0, fontSize: "14px", color: "#111827", fontWeight: 500 }}>
+                {fullAddress}
+              </p>
+            </div>
+            <div>
+              <span style={{ fontSize: "12px", color: "#6b7280", display: "block", marginBottom: "4px" }}>
+                Shipping method
+              </span>
+              <p style={{ margin: 0, fontSize: "14px", color: "#111827", fontWeight: 500 }}>
+                Standard delivery
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* 5. Action Buttons */}
-        <div className="confirmationActions">
-          <a className="primaryButton" href="/">Continue shopping</a>
-          {whatsappHref && <a className="secondaryButton" href={whatsappHref} target="_blank" rel="noreferrer">WhatsApp Support</a>}
+        <div style={{ textAlign: "center", marginTop: "32px" }}>
+          <a
+            href="/"
+            style={{
+              display: "inline-block",
+              background: "#005bd3",
+              color: "#fff",
+              padding: "12px 28px",
+              borderRadius: "6px",
+              fontSize: "14px",
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            Continue shopping
+          </a>
         </div>
       </div>
     </main>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { authorizeAdminSession, adminAuthErrorResponse } from "../../../../lib/adminAuth";
 import { getAdminOrdersPage } from "../../../../lib/adminOrders";
-import { parseOrderUpdateRequest, updateAdminOrder } from "../../../../lib/adminOrderOperations";
+import { parseOrderUpdateRequest, updateAdminOrder, deleteAdminOrder } from "../../../../lib/adminOrderOperations";
 import { syncCourierShipment, syncAllActiveShipments } from "../../../../lib/courierOperations";
 
 export const dynamic = "force-dynamic";
@@ -62,3 +62,25 @@ export async function PATCH(request) {
     return NextResponse.json({ success: false, error: { code: status === 404 ? "ORDER_NOT_FOUND" : "ORDER_UPDATE_FAILED", message: error?.message || "Order changes could not be saved." } }, { status });
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const { user } = await authorizeAdminSession(request, "orders");
+    const body = await request.json().catch(() => ({}));
+    const orderId = body?.orderId || request.nextUrl.searchParams.get("orderId") || request.nextUrl.searchParams.get("id");
+    if (!orderId) {
+      return NextResponse.json({ success: false, error: { code: "ORDER_ID_REQUIRED", message: "Order ID is required." } }, { status: 400 });
+    }
+    const result = await deleteAdminOrder({ orderId, actor: user });
+    return NextResponse.json({ success: true, ...result });
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      const auth = adminAuthErrorResponse(error);
+      return NextResponse.json({ success: false, error: { code: auth.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN", message: auth.error } }, { status: auth.status });
+    }
+    const status = error?.status === 404 ? 404 : 500;
+    console.error("Admin order deletion failed", { message: error?.message, status: error?.status });
+    return NextResponse.json({ success: false, error: { code: status === 404 ? "ORDER_NOT_FOUND" : "ORDER_DELETE_FAILED", message: error?.message || "Order could not be deleted from Supabase." } }, { status });
+  }
+}
+

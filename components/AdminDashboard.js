@@ -4160,6 +4160,9 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
   const [creatingDraft, setCreatingDraft] = useState(false);
   const [exportingOrders, setExportingOrders] = useState(false);
   const [orderEdits, setOrderEdits] = useState({});
+  const [orderToDelete, setOrderToDelete] = useState(null);
+  const [deletingOrder, setDeletingOrder] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const allRows = useMemo(() => {
     const localIds = new Set(localOrders.map((order) => order.id));
     return [
@@ -4397,6 +4400,33 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
     }
   }
 
+  async function confirmDeleteOrder() {
+    if (!orderToDelete) return;
+    setDeletingOrder(true);
+    setDeleteError("");
+    try {
+      const targetId = orderToDelete.rawId || orderToDelete.raw?.id || orderToDelete.id || orderToDelete.order_number;
+      const response = await fetch("/api/admin/orders", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: targetId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result?.error?.message || "Order delete nahi ho saka.");
+
+      setLocalOrders((current) => current.filter((o) => o.id !== orderToDelete.id && o.rawId !== orderToDelete.rawId));
+      if (selectedId === orderToDelete.id) {
+        setSelectedId("");
+      }
+      setOrderToDelete(null);
+      await onRetry?.();
+    } catch (err) {
+      setDeleteError(err.message || "Order delete karte waqt masla pesh aya.");
+    } finally {
+      setDeletingOrder(false);
+    }
+  }
+
 
 
   async function exportOrders() {
@@ -4542,6 +4572,10 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
             onToggleSelectAll={toggleSelectAll}
             onPrintStitchingOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
             onPrintSingleOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "invoice" })}
+            onDeleteOrder={(order) => {
+              setDeleteError("");
+              setOrderToDelete(order);
+            }}
           />
         )}
 
@@ -4555,7 +4589,164 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       </section>
 
       {showDraft && <DraftOrderDialog products={products} onClose={() => setShowDraft(false)} onCreate={createDraft} saving={creatingDraft} />}
-      {selectedOrder && <OrderDetailDrawer order={selectedOrder} catalogProducts={products} onClose={() => setSelectedId("")} onUpdate={persistOrderUpdate} canRecordRefund={currentAdminUser?.role === "Owner"} onNavigateToEvents={onNavigateToEvents} />}
+      {selectedOrder && (
+        <OrderDetailDrawer
+          order={selectedOrder}
+          catalogProducts={products}
+          onClose={() => setSelectedId("")}
+          onUpdate={persistOrderUpdate}
+          canRecordRefund={currentAdminUser?.role === "Owner"}
+          onNavigateToEvents={onNavigateToEvents}
+          onDelete={(order) => {
+            setDeleteError("");
+            setOrderToDelete(order);
+          }}
+        />
+      )}
+
+      {orderToDelete && (
+        <>
+          <div className="adminOverlay" onClick={() => !deletingOrder && setOrderToDelete(null)} />
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 100,
+              width: "min(520px, 92vw)",
+              background: "#ffffff",
+              borderRadius: "14px",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.08)",
+              padding: "26px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+              fontFamily: "var(--font-sans, sans-serif)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+              <div
+                style={{
+                  width: "46px",
+                  height: "46px",
+                  borderRadius: "50%",
+                  background: "#fee2e2",
+                  color: "#dc2626",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "24px",
+                  flexShrink: 0,
+                }}
+              >
+                ⚠️
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "19px", fontWeight: 800, color: "#111827" }}>
+                  Delete Order Confirmation
+                </h3>
+                <span style={{ fontSize: "13px", color: "#6b7280" }}>
+                  Kya aap waqayi yeh order delete karna chahte hain?
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "#fef2f2",
+                border: "1px solid #fecaca",
+                borderRadius: "10px",
+                padding: "16px",
+                fontSize: "13px",
+                color: "#991b1b",
+                lineHeight: "1.5",
+              }}
+            >
+              <p style={{ margin: "0 0 10px 0", fontWeight: 700, fontSize: "13.5px" }}>
+                🚨 Ghalati se delete na ho, barah-e-karam tasdeeq karein:
+              </p>
+              <div style={{ background: "#ffffff", padding: "12px 14px", borderRadius: "8px", border: "1px solid #fee2e2", marginBottom: "10px", display: "grid", gap: "4px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#6b7280" }}>Order ID:</span>
+                  <b style={{ color: "#111827" }}>{orderToDelete.id || orderToDelete.order_number}</b>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#6b7280" }}>Customer:</span>
+                  <b style={{ color: "#111827" }}>{orderToDelete.customer}</b>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#6b7280" }}>City:</span>
+                  <span style={{ color: "#111827" }}>{orderToDelete.city || "Pakistan"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#6b7280" }}>Total Amount:</span>
+                  <b style={{ color: "#059669" }}>Rs. {orderMoney(orderToDelete).total?.toLocaleString()}</b>
+                </div>
+              </div>
+              <p style={{ margin: 0, fontSize: "12px", color: "#b91c1c", fontWeight: 500 }}>
+                Yeh order <b>Supabase database</b> aur saare related order items se <b>permanent delete</b> ho jayega. Yeh action wapas nahi ho sakta!
+              </p>
+            </div>
+
+            {deleteError && (
+              <div style={{ background: "#fef2f2", color: "#dc2626", padding: "10px 14px", borderRadius: "8px", fontSize: "12.5px", border: "1px solid #fca5a5" }}>
+                ❌ {deleteError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "4px" }}>
+              <button
+                type="button"
+                disabled={deletingOrder}
+                onClick={() => setOrderToDelete(null)}
+                style={{
+                  background: "#f3f4f6",
+                  color: "#374151",
+                  border: "1px solid #d1d5db",
+                  padding: "10px 18px",
+                  borderRadius: "8px",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: deletingOrder ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancel (Nahi)
+              </button>
+              <button
+                type="button"
+                disabled={deletingOrder}
+                onClick={confirmDeleteOrder}
+                style={{
+                  background: "#dc2626",
+                  color: "#ffffff",
+                  border: "none",
+                  padding: "10px 20px",
+                  borderRadius: "8px",
+                  fontWeight: 700,
+                  fontSize: "13px",
+                  cursor: deletingOrder ? "not-allowed" : "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxShadow: "0 2px 10px rgba(220, 38, 38, 0.4)",
+                }}
+              >
+                {deletingOrder ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    <span>Supabase se delete ho raha hai...</span>
+                  </>
+                ) : (
+                  "🗑️ Haan, Permanently Delete Karein"
+                )}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </>}
   </>;
 }
@@ -7195,7 +7386,7 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
   );
 }
 
-function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, canRecordRefund, onNavigateToEvents }) {
+function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, canRecordRefund, onNavigateToEvents, onDelete }) {
   const [drawerTab, setDrawerTab] = useState("order"); // "order" | "logistics" | "notes"
   const [isEditingItems, setIsEditingItems] = useState(false);
   const [tracking, setTracking] = useState(order.tracking || "");
@@ -7848,6 +8039,31 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 "💾 Save Changes"
               )}
             </button>
+
+            {/* Delete Order Button */}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(order)}
+                style={{
+                  background: "#fee2e2",
+                  color: "#b91c1c",
+                  border: "1px solid #fca5a5",
+                  fontWeight: 700,
+                  padding: "8px 14px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+                title="Delete this order permanently from Supabase"
+              >
+                🗑️ Delete
+              </button>
+            )}
 
             {/* Close Button */}
             <button onClick={onClose} aria-label="Close details" className="drawerCloseBtn" style={{ width: "34px", height: "34px", borderRadius: "50%", border: "1px solid #cbd5e1", background: "#ffffff", display: "grid", placeItems: "center", cursor: "pointer", color: "#475569" }}>
@@ -9174,6 +9390,7 @@ function OrderTable({
   onToggleSelectAll,
   onPrintStitchingOrder,
   onPrintSingleOrder,
+  onDeleteOrder,
 }) {
   const [expandedId, setExpandedId] = useState(null);
   const selectable = Boolean(onToggleSelectOrder);
@@ -9426,6 +9643,20 @@ function OrderTable({
                           title="Print Customer Invoice"
                         >
                           📄 Invoice
+                        </button>
+                      )}
+                      {onDeleteOrder && (
+                        <button
+                          type="button"
+                          className="orderActionGhost"
+                          style={{ color: "#dc2626", borderColor: "#fecaca" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteOrder(order);
+                          }}
+                          title="Delete this order permanently from Supabase"
+                        >
+                          🗑️ Del
                         </button>
                       )}
                       <button

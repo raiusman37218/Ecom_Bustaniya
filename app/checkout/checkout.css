@@ -1,0 +1,723 @@
+/* ==========================================================================
+   SHOPIFY-EXACT CHECKOUT STYLES - BUSTANIYA
+   Matches modern Shopify checkout aesthetic 1:1
+   ========================================================================== */
+
+.shopifyCheckoutPage {
+  min-height: 100vh;
+  background-color: #ffffff;
+  color: #333333;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Header */
+.shopifyCheckoutHeader {
+  border-bottom: 1px solid #e6e6e6;
+  background-color: #ffffff;
+  padding: 20px clamp(16px, 4vw, 48px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.shopifyCheckoutLogoLink {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.shopifyCheckoutLogo {
+  height: 48px;
+  width: auto;
+  max-width: 170px;
+  object-fit: contain;
+}
+
+.shopifyHeaderSecure {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #666666;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Layout Grid */
+.shopifyCheckoutLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(380px, 0.85fr);
+  min-height: calc(100vh - 89px);
+}
+
+/* Left Column: Form */
+.shopifyCheckoutFormColumn {
+  display: flex;
+  justify-content: flex-end;
+  background-color: #ffffff;
+  padding: 36px clamp(16px, 4vw, 56px) 64px;
+}
+
+.shopifyCheckoutFormInner {
+  width: 100%;
+  max-width: 580px;
+}
+
+/* Right Column: Sticky Summary */
+.shopifyCheckoutSummaryColumn {
+  background-color: #fafafa;
+  border-left: 1px solid #e1e1e1;
+  padding: 36px clamp(16px, 4vw, 56px) 64px;
+}
+
+.shopifyCheckoutSummaryInner {
+  width: 100%;
+  max-width: 440px;
+  position: sticky;
+  top: 36px;
+}
+
+/* Typography & Headings */
+.shopifySectionHeading {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333333;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.shopifySectionSubtitle {
+  font-size: 13px;
+  color: #737373;
+  margin: 4px 0 14px 0;
+  line-height: 1.4;
+}
+
+/* Contact Header */
+.shopifyContactHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.shopifySignInLink {
+  color: #1773b0;
+  font-size: 13px;
+  text-decoration: none;
+  font-weight: 400;
+  transition: color 0.15s ease;
+}
+
+.shopifySignInLink:hover {
+  color: #0d4e78;
+  text-decoration: underline;
+}
+
+/* Form Fields */
+.shopifyInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.shopifyInputWrapper:last-child {
+  margin-bottom: 0;
+}
+
+.shopifyInput {
+  width: 100%;
+  height: 46px;
+  padding: 0 12px;
+  background-color: #ffffff;
+  border: 1px solid #d9d9d9;
+  border-radius: 5px;
+  font-size: 14px;
+  color: #333333;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.shopifyInput::placeholder {
+  color: #737373;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.shopifyInput:focus {
+  border-color: #1773b0 !important;
+  box-shadow: 0 0 0 1px #1773b0 !important;
+}
+
+.shopifyInput.hasError {
+  border-color: #e22120 !important;
+  box-shadow: 0 0 0 1px #e22120 !important;
+}
+
+.shopifyInputWithIcon {
+  padding-right: 36px;
+}
+
+.shopifyInputHelpIcon {
+  position: absolute;
+  right: 12px;
+  color: #737373;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: help;
+}
+
+.shopifyInputErrorMsg {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #e22120;
+  font-size: 12px;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+/* Two Column Row */
+.shopifyFormRow2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* Country Selector (Styled Dropdown) */
+.shopifyCountryBox {
+  width: 100%;
+  height: 52px;
+  padding: 6px 12px;
+  background-color: #ffffff;
+  border: 1px solid #d9d9d9;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+  cursor: default;
+}
+
+.shopifyCountryContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.shopifyCountryLabel {
+  font-size: 11px;
+  color: #737373;
+  line-height: 1.2;
+}
+
+.shopifyCountryValue {
+  font-size: 14px;
+  color: #333333;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.shopifyCountryChevron {
+  color: #737373;
+}
+
+/* Checkbox Style */
+.shopifyCheckboxWrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  margin-bottom: 24px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.shopifyCheckbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid #d9d9d9;
+  accent-color: #1773b0;
+  cursor: pointer;
+  margin: 0;
+}
+
+.shopifyCheckboxLabel {
+  font-size: 13px;
+  color: #333333;
+  line-height: 1.3;
+}
+
+/* Delivery Section Spacing */
+.shopifyDeliverySection {
+  margin-top: 24px;
+}
+
+.shopifyDeliverySection .shopifySectionHeading {
+  margin-bottom: 14px;
+}
+
+/* Shipping Method Box */
+.shopifyShippingSection {
+  margin-top: 28px;
+}
+
+.shopifyShippingSection .shopifySectionHeading {
+  margin-bottom: 12px;
+}
+
+.shopifyShippingMethodCard {
+  border: 1.5px solid #1773b0;
+  background-color: #f7fafc;
+  border-radius: 6px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.shopifyShippingMethodName {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333333;
+}
+
+.shopifyShippingMethodPrice {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333333;
+}
+
+/* Payment Section */
+.shopifyPaymentSection {
+  margin-top: 28px;
+}
+
+.shopifyAccordionCard {
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #ffffff;
+}
+
+.shopifyAccordionRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.shopifyAccordionRow.isActive {
+  background-color: #ffffff;
+}
+
+.shopifyAccordionRow.hasBorderTop {
+  border-top: 1px solid #d9d9d9;
+}
+
+.shopifyRadioDot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid #d9d9d9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease;
+}
+
+.shopifyRadioDot.isSelected {
+  border-color: #1773b0;
+  border-width: 5px;
+}
+
+.shopifyAccordionTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333333;
+  flex: 1;
+}
+
+.shopifyAccordionSubpanel {
+  background-color: #f5f5f5;
+  border-top: 1px solid #d9d9d9;
+  padding: 16px 20px;
+}
+
+.shopifyAccordionNoticeText {
+  font-size: 13px;
+  color: #545454;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Bank Details in Subpanel */
+.shopifyBankGrid {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #d1d5db;
+}
+
+.shopifyBankRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.shopifyBankLabel {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.shopifyBankVal {
+  color: #111827;
+  font-weight: 600;
+}
+
+/* Billing Address Section */
+.shopifyBillingSection {
+  margin-top: 28px;
+}
+
+.shopifyBillingSection .shopifySectionHeading {
+  margin-bottom: 12px;
+}
+
+/* Complete Order Button */
+.shopifySubmitWrapper {
+  margin-top: 28px;
+}
+
+.shopifyCompleteOrderBtn {
+  width: 100%;
+  min-height: 52px;
+  padding: 16px 24px;
+  background-color: #005bd3;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.15s ease, transform 0.05s ease;
+}
+
+.shopifyCompleteOrderBtn:hover:not(:disabled) {
+  background-color: #004bb5;
+}
+
+.shopifyCompleteOrderBtn:active:not(:disabled) {
+  transform: scale(0.995);
+}
+
+.shopifyCompleteOrderBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Policy Links Footer */
+.shopifyPolicyFooter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid #e6e6e6;
+}
+
+.shopifyPolicyLink {
+  color: #1773b0;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+.shopifyPolicyLink:hover {
+  color: #0d4e78;
+}
+
+/* ==========================================================================
+   RIGHT COLUMN: ORDER SUMMARY
+   ========================================================================== */
+
+.shopifySummaryItemsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.shopifySummaryItem {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.shopifySummaryThumbWrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  border: 1px solid #e1e1e1;
+  background-color: #ffffff;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.shopifySummaryThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 7px;
+}
+
+.shopifySummaryQtyBadge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #000000;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.shopifySummaryItemDetails {
+  flex: 1;
+  min-width: 0;
+}
+
+.shopifySummaryItemTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333333;
+  margin: 0 0 2px 0;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shopifySummaryItemVariant {
+  font-size: 12px;
+  color: #737373;
+  margin: 0;
+}
+
+.shopifySummaryItemPrice {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333333;
+  white-space: nowrap;
+}
+
+/* Cost Lines */
+.shopifyCostBreakdown {
+  border-top: 1px solid #e1e1e1;
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.shopifyCostRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.shopifyCostLabel {
+  color: #545454;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.shopifyCostVal {
+  color: #333333;
+  font-weight: 500;
+}
+
+.shopifyCostHelpIcon {
+  color: #737373;
+  display: inline-flex;
+  cursor: help;
+}
+
+/* Total Row */
+.shopifyTotalRow {
+  border-top: 1px solid #e1e1e1;
+  padding-top: 16px;
+  margin-top: 4px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.shopifyTotalLabel {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333333;
+}
+
+.shopifyTotalValContainer {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.shopifyCurrencyCode {
+  font-size: 11px;
+  color: #737373;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.shopifyTotalAmount {
+  font-size: 22px;
+  font-weight: 700;
+  color: #333333;
+  letter-spacing: -0.01em;
+}
+
+/* Mobile Collapsible Banner */
+.shopifyMobileSummaryBanner {
+  display: none;
+  background-color: #fafafa;
+  border-bottom: 1px solid #e1e1e1;
+  padding: 16px 20px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.shopifyMobileBannerContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.shopifyMobileBannerLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1773b0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.shopifyMobileBannerRight {
+  font-size: 17px;
+  font-weight: 700;
+  color: #333333;
+}
+
+/* City Combobox Styling in Shopify Theme */
+.shopifyCityComboboxContainer {
+  position: relative;
+  width: 100%;
+}
+
+.shopifyCityDisplay {
+  position: relative;
+  width: 100%;
+}
+
+.shopifyCityDisplay input {
+  padding-right: 32px;
+}
+
+.shopifyCityDropdownMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.shopifyCityDropdownItem {
+  padding: 10px 14px;
+  font-size: 14px;
+  color: #333333;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.shopifyCityDropdownItem:hover {
+  background-color: #f3f4f6;
+  color: #1773b0;
+}
+
+.shopifyCityDropdownHeader {
+  padding: 8px 14px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+}
+
+/* Responsive Media Queries */
+@media (max-width: 960px) {
+  .shopifyCheckoutLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .shopifyMobileSummaryBanner {
+    display: block;
+  }
+
+  .shopifyCheckoutSummaryColumn {
+    display: none;
+    border-left: none;
+    border-bottom: 1px solid #e1e1e1;
+    padding: 24px 20px;
+  }
+
+  .shopifyCheckoutSummaryColumn.isMobileExpanded {
+    display: block;
+  }
+
+  .shopifyCheckoutSummaryInner {
+    max-width: 100%;
+    position: static;
+  }
+
+  .shopifyCheckoutFormColumn {
+    justify-content: center;
+    padding: 28px 20px 48px;
+  }
+
+  .shopifyCheckoutFormInner {
+    max-width: 100%;
+  }
+}
