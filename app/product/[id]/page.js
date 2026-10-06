@@ -5,7 +5,7 @@ import { getCatalogProducts } from "../../../lib/catalog";
 import { JsonLd, breadcrumbSchema, buildMetadata, productDescription, productSchema, productSlug } from "../../../lib/seo";
 import { getStoreSettings } from "../../../lib/storeSettings";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 function legacyArticleNumber(id) {
   const numericId = Number(id);

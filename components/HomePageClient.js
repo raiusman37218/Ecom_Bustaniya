@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, MessageSquare, Minus, Play, Plus, Ruler, Scissors, ShieldCheck, ShoppingBag, Sparkles, Truck, UserRound, X } from "lucide-react";
 
@@ -379,10 +380,10 @@ export default function Home({
                       {mobileHero.supportingText && <span className="campaignHeroMobileOnly">{mobileHero.supportingText}</span>}
                       {(desktopHero.primaryButtonText || mobileHero.primaryButtonText || desktopHero.secondaryButtonText || mobileHero.secondaryButtonText) && (
                         <div className="campaignHeroActions">
-                          {desktopHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroDesktopOnly" href={desktopHero.primaryButtonLink || "#products"}>{desktopHero.primaryButtonText}<ArrowRight size={17} /></a>}
-                          {mobileHero.primaryButtonText && <a className="campaignHeroPrimary campaignHeroMobileOnly" href={mobileHero.primaryButtonLink || "#products"}>{mobileHero.primaryButtonText}<ArrowRight size={14} /></a>}
-                          {desktopHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroDesktopOnly" href={desktopHero.secondaryButtonLink || "#products"}>{desktopHero.secondaryButtonText}</a>}
-                          {mobileHero.secondaryButtonText && <a className="campaignHeroSecondary campaignHeroMobileOnly" href={mobileHero.secondaryButtonLink || "#products"}>{mobileHero.secondaryButtonText}</a>}
+                          {desktopHero.primaryButtonText && <Link className="campaignHeroPrimary campaignHeroDesktopOnly" href={desktopHero.primaryButtonLink || "#products"}>{desktopHero.primaryButtonText}<ArrowRight size={17} /></Link>}
+                          {mobileHero.primaryButtonText && <Link className="campaignHeroPrimary campaignHeroMobileOnly" href={mobileHero.primaryButtonLink || "#products"}>{mobileHero.primaryButtonText}<ArrowRight size={14} /></Link>}
+                          {desktopHero.secondaryButtonText && <Link className="campaignHeroSecondary campaignHeroDesktopOnly" href={desktopHero.secondaryButtonLink || "#products"}>{desktopHero.secondaryButtonText}</Link>}
+                          {mobileHero.secondaryButtonText && <Link className="campaignHeroSecondary campaignHeroMobileOnly" href={mobileHero.secondaryButtonLink || "#products"}>{mobileHero.secondaryButtonText}</Link>}
                         </div>
                       )}
                     </div>
@@ -413,7 +414,7 @@ export default function Home({
                   {categoryNames.map((category) => <button key={category} className={category === activeCategory ? "active" : ""} onClick={() => setActiveCategory(category)}>{category}</button>)}
                 </div>
                 <div className="productGrid">
-                  {visibleProducts.map((product) => (
+                  {visibleProducts.map((product, index) => (
                     <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
                       <div className="productImage">
                         <Image
@@ -421,6 +422,7 @@ export default function Home({
                           src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                           alt={`${product.name} - ${product.category} by Bustaniya`}
                           fill
+                          priority={index < 4}
                           sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                         />
                         {hoverImageOf(product) && (
@@ -430,16 +432,17 @@ export default function Home({
                             alt=""
                             aria-hidden="true"
                             fill
+                            loading="lazy"
                             sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                           />
                         )}
-                        <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
+                        <Link className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
                         {product.badge && <span className="badge">{product.badge}</span>}
                         {salePercent(product) > 0 && <span className="saleBadge">{salePercent(product)}% OFF</span>}
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
                       </div>
                       <div className="productInfo">
-                        <div><p>{product.category}</p><h3><a href={`/product/${product.id}`}>{product.name}</a></h3>{Array.isArray(product.colors) && product.colors.length > 0 && <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>{product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}{product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}</div>}</div>
+                        <div><p>{product.category}</p><h3><Link href={`/product/${product.id}`}>{product.name}</Link></h3>{Array.isArray(product.colors) && product.colors.length > 0 && <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>{product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}{product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}</div>}</div>
                         <div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span>{salePercent(product) > 0 && <del>Rs. {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</del>}</div>
                       </div>
                     </article>
@@ -466,7 +469,7 @@ export default function Home({
                   </div>
                   <div className="categoryMinimalGrid" aria-label="Shop by category">
                     {categoryCards.map((category) => (
-                      <a className="categoryMinimalCard" href={`/category/${category.slug}`} key={category.slug}>
+                      <Link className="categoryMinimalCard" href={`/category/${category.slug}`} key={category.slug}>
                         <div className="categoryMinimalImageWrap">
                           <Image
                             src={optimizedImageUrl(category.image || "/bustaniya-campaign-hero-v4.png", CLOUDINARY_IMAGE_PRESETS.category)}
@@ -482,7 +485,7 @@ export default function Home({
                           <span>{category.name}</span>
                           <ArrowRight size={14} className="categoryTitleArrow" />
                         </h3>
-                      </a>
+                      </Link>
                     ))}
                   </div>
                 </section>
@@ -502,14 +505,14 @@ export default function Home({
                 </header>
                 <div className="categoryCards" aria-label="Shop by category">
                   {categoryCards.map((category, index) => (
-                    <a className={`categoryCard card${index + 1}`} href={`/category/${category.slug}`} key={category.slug} style={category.image ? { backgroundImage: `url(${optimizedImageUrl(category.image, CLOUDINARY_IMAGE_PRESETS.category)})` } : undefined}>
+                    <Link className={`categoryCard card${index + 1}`} href={`/category/${category.slug}`} key={category.slug} style={category.image ? { backgroundImage: `url(${optimizedImageUrl(category.image, CLOUDINARY_IMAGE_PRESETS.category)})` } : undefined}>
                       <div className="categoryCardContent">
                         <small>Collection {String(index + 1).padStart(2, "0")}</small>
                         <p>{category.description || "Curated essentials, made for everyday elegance."}</p>
                         <h3>{category.name}</h3>
                         <b>Explore collection <ArrowRight size={15} aria-hidden="true" /></b>
                       </div>
-                    </a>
+                    </Link>
                   ))}
                 </div>
               </section>
@@ -528,12 +531,12 @@ export default function Home({
                     <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
                       <div className="productImage">
                         <Image className="productImagePrimary" src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
-                        {hoverImageOf(product) && <Image className="productImageHover" src={optimizedImageUrl(hoverImageOf(product), CLOUDINARY_IMAGE_PRESETS.card)} alt="" aria-hidden="true" fill sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />}
-                        <a className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
+                        {hoverImageOf(product) && <Image className="productImageHover" src={optimizedImageUrl(hoverImageOf(product), CLOUDINARY_IMAGE_PRESETS.card)} alt="" aria-hidden="true" fill loading="lazy" sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />}
+                        <Link className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
                         <span className="badge">Best seller</span>
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
                       </div>
-                      <div className="productInfo"><div><p>{product.category}</p><h3><a href={`/product/${product.id}`}>{product.name}</a></h3></div><div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span></div></div>
+                      <div className="productInfo"><div><p>{product.category}</p><h3><Link href={`/product/${product.id}`}>{product.name}</Link></h3></div><div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span></div></div>
                     </article>
                   ))}
                 </div>
@@ -600,11 +603,11 @@ export default function Home({
                     </div>
 
                     <div className="homeCustomActions">
-                      <a href="/custom-order" className="homeCustomPrimaryBtn">
+                      <Link href="/custom-order" className="homeCustomPrimaryBtn">
                         <Scissors size={18} />
                         <span>Start Custom Dress Order</span>
                         <ArrowRight size={16} />
-                      </a>
+                      </Link>
                       <a
                         href={`https://wa.me/${(safeSettings.whatsappNumber || "923000000000").replace(/[^0-9]/g, "")}?text=${encodeURIComponent("Salam Bustaniya! I want to inquire about custom dress tailoring.")}`}
                         target="_blank"
@@ -803,9 +806,9 @@ export default function Home({
                 >
                   {Number(quickViewProduct.stock || 0) > 0 ? `Add to bag (${quickViewSize})` : "Out of stock"}
                 </button>
-                <a className="viewFullDetailsLink" href={`/product/${quickViewProduct.id}`}>
+                <Link className="viewFullDetailsLink" href={`/product/${quickViewProduct.id}`}>
                   View full details <ArrowRight size={15} />
-                </a>
+                </Link>
               </div>
             </div>
           </section>
@@ -873,7 +876,7 @@ export default function Home({
             </div>
           )}
           <p>Delivery charges calculated at checkout.</p>
-          <a className="checkoutButton" href="/checkout">Checkout <ArrowRight size={18} /></a>
+          <Link className="checkoutButton" href="/checkout">Checkout <ArrowRight size={18} /></Link>
           <button className="shopMoreButton" onClick={() => setCartOpen(false)}>Shop more</button>
         </div>}
       </aside>

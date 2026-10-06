@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   AlertCircle,
   Check,
@@ -504,9 +505,9 @@ export default function CheckoutPage() {
     return (
       <main className="shopifyCheckoutPage">
         <header className="shopifyCheckoutHeader">
-          <a href="/" className="shopifyCheckoutLogoLink">
+          <Link href="/" className="shopifyCheckoutLogoLink">
             <img src="/bustaniya-logo-v2.png" alt="Bustaniya" className="shopifyCheckoutLogo" />
-          </a>
+          </Link>
           <span className="shopifyHeaderSecure">
             <Lock size={14} /> Secure checkout
           </span>
@@ -525,9 +526,9 @@ export default function CheckoutPage() {
     return (
       <main className="shopifyCheckoutPage">
         <header className="shopifyCheckoutHeader">
-          <a href="/" className="shopifyCheckoutLogoLink">
+          <Link href="/" className="shopifyCheckoutLogoLink">
             <img src="/bustaniya-logo-v2.png" alt="Bustaniya" className="shopifyCheckoutLogo" />
-          </a>
+          </Link>
           <span className="shopifyHeaderSecure">
             <Lock size={14} /> Checkout
           </span>
@@ -536,7 +537,7 @@ export default function CheckoutPage() {
           <ShoppingBag size={48} style={{ color: "#9ca3af", margin: "0 auto 16px" }} />
           <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#333", margin: "0 0 8px" }}>Your cart is empty</h2>
           <p style={{ color: "#6b7280", margin: "0 0 24px", fontSize: "14px" }}>Looks like you haven&apos;t added any items to your cart yet.</p>
-          <a
+          <Link
             href="/"
             style={{
               display: "inline-block",
@@ -550,7 +551,7 @@ export default function CheckoutPage() {
             }}
           >
             Continue shopping
-          </a>
+          </Link>
         </div>
       </main>
     );
@@ -560,9 +561,9 @@ export default function CheckoutPage() {
     <main className="shopifyCheckoutPage">
       {/* 1. Header with Bustaniya Logo */}
       <header className="shopifyCheckoutHeader">
-        <a href="/" className="shopifyCheckoutLogoLink" aria-label="Bustaniya Home">
+        <Link href="/" className="shopifyCheckoutLogoLink" aria-label="Bustaniya Home">
           <img src="/bustaniya-logo-v2.png" alt="Bustaniya" className="shopifyCheckoutLogo" />
-        </a>
+        </Link>
       </header>
 
       {/* Mobile Accordion Summary Banner */}
@@ -935,18 +936,18 @@ export default function CheckoutPage() {
 
               {/* FOOTER POLICY LINKS */}
               <footer className="shopifyPolicyFooter">
-                <a href="/exchange-return-policy" className="shopifyPolicyLink">
+                <Link href="/exchange-return-policy" className="shopifyPolicyLink">
                   Refund policy
-                </a>
-                <a href="/shipping-policy" className="shopifyPolicyLink">
+                </Link>
+                <Link href="/shipping-policy" className="shopifyPolicyLink">
                   Shipping
-                </a>
-                <a href="/privacy-policy" className="shopifyPolicyLink">
+                </Link>
+                <Link href="/privacy-policy" className="shopifyPolicyLink">
                   Privacy policy
-                </a>
-                <a href="/terms-and-conditions" className="shopifyPolicyLink">
+                </Link>
+                <Link href="/terms-and-conditions" className="shopifyPolicyLink">
                   Terms of service
-                </a>
+                </Link>
               </footer>
             </form>
           </div>
@@ -1043,9 +1044,9 @@ function OrderConfirmation({ order, items }) {
   return (
     <main className="shopifyCheckoutPage">
       <header className="shopifyCheckoutHeader">
-        <a href="/" className="shopifyCheckoutLogoLink">
+        <Link href="/" className="shopifyCheckoutLogoLink">
           <img src="/bustaniya-logo-v2.png" alt="Bustaniya" className="shopifyCheckoutLogo" />
-        </a>
+        </Link>
         <span className="shopifyHeaderSecure">
           <Lock size={14} /> Order Confirmed
         </span>

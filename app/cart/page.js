@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ArrowLeft, ArrowRight, Banknote, Check, Minus, Plus, ShieldCheck, ShoppingBag, Sparkles, Trash2, Truck } from "lucide-react";
 import SiteHeader from "../../components/SiteHeader";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
@@ -74,9 +75,9 @@ export default function CartPage() {
         <div className="cartPageContainer">
         <div className="cartPageHeader">
           <div>
-            <a href="/" className="cartBackLink">
+            <Link href="/" className="cartBackLink">
               <ArrowLeft size={16} /> Continue shopping
-            </a>
+            </Link>
             <h1>Shopping Bag</h1>
             <p className="cartSubheading">
               {cartCount === 1 ? "1 item in your bag" : `${cartCount} items in your bag`}
@@ -89,9 +90,9 @@ export default function CartPage() {
             <ShoppingBag size={56} className="emptyCartIcon" />
             <h2>Your shopping bag is empty</h2>
             <p>Explore our latest eastern wear collections, kurtis, and co-ords.</p>
-            <a href="/" className="primaryButton cartEmptyCta">
+            <Link href="/" className="primaryButton cartEmptyCta">
               Explore collections <ArrowRight size={16} />
-            </a>
+            </Link>
           </div>
         ) : (
           <div className="cartPageGrid">
@@ -127,19 +128,19 @@ export default function CartPage() {
 
                   return (
                     <div className="cartPageItemCard" key={`${item.id}-${item.size || "default"}-${item.color || "default"}`}>
-                      <a href={`/product/${item.id}`} className="cartPageItemThumb">
+                      <Link href={`/product/${item.id}`} className="cartPageItemThumb">
                         <img
                           src={optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
                           alt={item.name}
                         />
-                      </a>
+                      </Link>
 
                       <div className="cartPageItemDetails">
                         <div className="cartPageItemTop">
                           <div>
                             <span className="cartPageCategory">{item.category || "Boutique Collection"}</span>
                             <h3 className="cartPageItemTitle">
-                              <a href={`/product/${item.id}`}>{item.name}</a>
+                              <Link href={`/product/${item.id}`}>{item.name}</Link>
                             </h3>
                           </div>
                           <button
@@ -242,9 +243,9 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                <a href="/checkout" className="primaryButton cartCheckoutBtn">
+                <Link href="/checkout" className="primaryButton cartCheckoutBtn">
                   Proceed to Checkout <ArrowRight size={18} />
-                </a>
+                </Link>
 
                 {/* Trust Badges */}
                 <div className="cartTrustList">

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import SiteHeader from "../../../../components/SiteHeader";
 import SiteFooter from "../../../../components/SiteFooter";
@@ -9,7 +10,7 @@ import { JsonLd, breadcrumbSchema, buildMetadata, collectionSchema } from "../..
 import { getStoreSettings } from "../../../../lib/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../../../lib/images";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateMetadata({ params }) {
   const { slug, subcategory } = await params;
@@ -56,9 +57,9 @@ export default async function SubcategoryPage({ params }) {
       <main className="categoryPage">
         <section className="collectionHeader">
         <nav className="collectionBreadcrumb" aria-label="Breadcrumb">
-          <a href="/">Home</a>
+          <Link href="/">Home</Link>
           <span aria-hidden="true">/</span>
-          <a href={`/category/${slug}`}>{parent.name}</a>
+          <Link href={`/category/${slug}`}>{parent.name}</Link>
           <span aria-hidden="true">/</span>
           <span className="collectionBreadcrumbCurrent">{details.name}</span>
         </nav>
@@ -67,15 +68,15 @@ export default async function SubcategoryPage({ params }) {
 
         {!!siblings.length && (
           <nav className="subCategoryNav" aria-label={`Shop ${parent.name} by style`}>
-            <a className="subCategoryPill" href={`/category/${slug}`}>All {parent.name}</a>
+            <Link className="subCategoryPill" href={`/category/${slug}`}>All {parent.name}</Link>
             {siblings.map((item) => (
-              <a
+              <Link
                 className={item.slug === subcategory ? "subCategoryPill isActive" : "subCategoryPill"}
                 href={`/category/${slug}/${item.slug}`}
                 key={item.slug}
               >
                 {item.name}
-              </a>
+              </Link>
             ))}
           </nav>
         )}
@@ -92,7 +93,7 @@ export default async function SubcategoryPage({ params }) {
             const onSale = compareAtPrice > product.price;
             return (
             <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
-              <a href={`/product/${product.id}`} className="productImage">
+              <Link href={`/product/${product.id}`} className="productImage">
                 <Image
                   src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                   alt={`${product.name} - ${details.name} by Bustaniya`}
@@ -101,9 +102,9 @@ export default async function SubcategoryPage({ params }) {
                 />
                 {product.badge && <span className="badge">{product.badge}</span>}
                 <span className="quickAdd">Choose options</span>
-              </a>
+              </Link>
               <div className="productInfo">
-                <div><p>{details.name}</p><h3><a href={`/product/${product.id}`}>{product.name}</a></h3></div>
+                <div><p>{details.name}</p><h3><Link href={`/product/${product.id}`}>{product.name}</Link></h3></div>
                 <div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span>{onSale && <del>Rs. {compareAtPrice.toLocaleString()}</del>}</div>
               </div>
             </article>

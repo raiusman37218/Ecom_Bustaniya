@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { UserRound, Heart, ShoppingBag, Menu, X } from "lucide-react";
 import AnnouncementBar from "./AnnouncementBar";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
@@ -83,8 +84,6 @@ export default function SiteHeader({
     if (typeof onOpenCart === "function") {
       e.preventDefault();
       onOpenCart();
-    } else {
-      window.location.href = "/cart";
     }
   }
 
@@ -108,19 +107,19 @@ export default function SiteHeader({
           </button>
         </div>
 
-        <a href="/" className="headerBrandLogo" aria-label="Bustaniya Home">
+        <Link href="/" className="headerBrandLogo" aria-label="Bustaniya Home">
           <img src="/bustaniya-logo-v2.png" alt="Bustaniya" />
-        </a>
+        </Link>
 
         <div className="headerRightActions">
-          <a href="/admin" aria-label="Account" className="actionIconLink" title="Admin Account">
+          <Link href="/admin" aria-label="Account" className="actionIconLink" title="Admin Account">
             <UserRound size={22} />
-          </a>
+          </Link>
           <button type="button" aria-label="Wishlist" className="actionIconBtn" title="Wishlist">
             <Heart size={22} />
             <span className="actionBadge">0</span>
           </button>
-          <a
+          <Link
             href="/cart"
             aria-label="Shopping Bag"
             className="actionIconBtn cartBtn"
@@ -129,7 +128,7 @@ export default function SiteHeader({
           >
             <ShoppingBag size={22} />
             {displayCartCount > 0 && <span className="actionBadge">{displayCartCount}</span>}
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -141,44 +140,44 @@ export default function SiteHeader({
             <X size={20} />
           </button>
         </div>
-        <a
+        <Link
           onClick={() => setMobileOpen(false)}
           className={activeNav === "home" ? "navItem active" : "navItem"}
           href="/"
         >
           HOME
-        </a>
+        </Link>
         {navigationCategories.map((category) => (
-          <a
+          <Link
             onClick={() => setMobileOpen(false)}
             className={activeNav === category.slug ? "navItem active" : "navItem"}
             href={`/category/${category.slug}`}
             key={category.slug}
           >
             {category.name.toUpperCase()}
-          </a>
+          </Link>
         ))}
-        <a
+        <Link
           onClick={() => setMobileOpen(false)}
           className={activeNav === "custom-order" ? "navItem active navItemHighlight" : "navItem navItemHighlight"}
           href="/custom-order"
         >
           CUSTOM DRESS
-        </a>
-        <a
+        </Link>
+        <Link
           onClick={() => setMobileOpen(false)}
           className={activeNav === "about" ? "navItem active" : "navItem"}
           href="/about"
         >
           ABOUT US
-        </a>
-        <a
+        </Link>
+        <Link
           onClick={() => setMobileOpen(false)}
           className={activeNav === "contact" ? "navItem active" : "navItem"}
           href="/contact"
         >
           CONTACT US
-        </a>
+        </Link>
         <a
           className="mobileNavInstagram"
           href="https://www.instagram.com/bustaniya_/"

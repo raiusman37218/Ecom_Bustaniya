@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ShieldCheck, Truck } from "lucide-react";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 
@@ -73,9 +74,9 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
       <div className="footerMainGrid">
         {/* Brand Bio Column */}
         <div className="footerBrandCol">
-          <a className="footerLogoLink" href="/" aria-label="Bustaniya home">
+          <Link className="footerLogoLink" href="/" aria-label="Bustaniya home">
             <img src="/bustaniya-logo-v2.png" alt="Bustaniya" />
-          </a>
+          </Link>
           <p className="footerTagline">Pakistani clothing, rooted in grace.</p>
           <span className="footerBio">
             Thoughtfully designed eastern silhouettes crafted with pure fabrics, fine embroidery, and modern tailoring for everyday elegance and festive occasions.
@@ -90,14 +91,14 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
         <div className="footerNavCol">
           <h4 className="footerColHeading">Shop</h4>
           <ul className="footerNavList">
-            <li><a href="/">Home</a></li>
+            <li><Link href="/">Home</Link></li>
             {displayCategories.map((category) => (
               <li key={category.slug}>
-                <a href={`/category/${category.slug}`}>{category.name}</a>
+                <Link href={`/category/${category.slug}`}>{category.name}</Link>
               </li>
             ))}
-            <li><a href="/custom-order">✨ Custom Dress &amp; Tailoring</a></li>
-            <li><a href="/cart">Shopping Bag</a></li>
+            <li><Link href="/custom-order">✨ Custom Dress &amp; Tailoring</Link></li>
+            <li><Link href="/cart">Shopping Bag</Link></li>
           </ul>
         </div>
 
@@ -105,9 +106,9 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
         <div className="footerNavCol">
           <h4 className="footerColHeading">Customer Care</h4>
           <ul className="footerNavList">
-            <li><a href="/contact">Contact Us</a></li>
-            <li><a href="/shipping-policy">Shipping &amp; Delivery Info</a></li>
-            <li><a href="/exchange-return-policy">Return &amp; Exchange Policy</a></li>
+            <li><Link href="/contact">Contact Us</Link></li>
+            <li><Link href="/shipping-policy">Shipping &amp; Delivery Info</Link></li>
+            <li><Link href="/exchange-return-policy">Return &amp; Exchange Policy</Link></li>
             <li>
               <a
                 href={rawWhatsapp ? `https://wa.me/${rawWhatsapp}?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need assistance with an order.")}` : "https://wa.me/923053530008"}
@@ -124,11 +125,11 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
         <div className="footerNavCol">
           <h4 className="footerColHeading">Quick Help</h4>
           <ul className="footerNavList">
-            <li><a href="/track-order">Track My Order</a></li>
-            <li><a href="/faqs">Frequently Asked Questions</a></li>
-            <li><a href="/contact">Email Support</a></li>
-            <li><a href="/privacy-policy">Privacy Policy</a></li>
-            <li><a href="/terms">Terms of Service</a></li>
+            <li><Link href="/track-order">Track My Order</Link></li>
+            <li><Link href="/faqs">Frequently Asked Questions</Link></li>
+            <li><Link href="/contact">Email Support</Link></li>
+            <li><Link href="/privacy-policy">Privacy Policy</Link></li>
+            <li><Link href="/terms">Terms of Service</Link></li>
           </ul>
         </div>
 

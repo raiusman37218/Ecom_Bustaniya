@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import SiteHeader from "../../../components/SiteHeader";
 import SiteFooter from "../../../components/SiteFooter";
@@ -9,7 +10,7 @@ import { JsonLd, breadcrumbSchema, buildMetadata, collectionSchema } from "../..
 import { getStoreSettings } from "../../../lib/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../../lib/images";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
@@ -56,7 +57,7 @@ export default async function CategoryPage({ params }) {
       <main className="categoryPage">
         <section className="collectionHeader">
         <nav className="collectionBreadcrumb" aria-label="Breadcrumb">
-          <a href="/">Home</a>
+          <Link href="/">Home</Link>
           <span aria-hidden="true">/</span>
           <span className="collectionBreadcrumbCurrent">{category.name}</span>
         </nav>
@@ -65,11 +66,11 @@ export default async function CategoryPage({ params }) {
 
         {!!subcategories.length && (
           <nav className="subCategoryNav" aria-label={`Shop ${category.name} by style`}>
-            <a className="subCategoryPill isActive" href={`/category/${category.slug}`}>All {category.name}</a>
+            <Link className="subCategoryPill isActive" href={`/category/${category.slug}`}>All {category.name}</Link>
             {subcategories.map((item) => (
-              <a className="subCategoryPill" href={`/category/${category.slug}/${item.slug}`} key={item.slug}>
+              <Link className="subCategoryPill" href={`/category/${category.slug}/${item.slug}`} key={item.slug}>
                 {item.name}
-              </a>
+              </Link>
             ))}
           </nav>
         )}
@@ -86,7 +87,7 @@ export default async function CategoryPage({ params }) {
             const onSale = compareAtPrice > product.price;
             return (
             <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
-              <a href={`/product/${product.id}`} className="productImage">
+              <Link href={`/product/${product.id}`} className="productImage">
                 <Image
                   src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                   alt={`${product.name} - ${product.category} by Bustaniya`}
@@ -95,11 +96,11 @@ export default async function CategoryPage({ params }) {
                 />
                 {product.badge && <span className="badge">{product.badge}</span>}
                 <span className="quickAdd">Choose options</span>
-              </a>
+              </Link>
               <div className="productInfo">
                 <div>
                   <p>{product.category}</p>
-                  <h3><a href={`/product/${product.id}`}>{product.name}</a></h3>
+                  <h3><Link href={`/product/${product.id}`}>{product.name}</Link></h3>
                 </div>
                 <div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span>{onSale && <del>Rs. {compareAtPrice.toLocaleString()}</del>}</div>
               </div>

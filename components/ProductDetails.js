@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { ArrowLeft, ArrowRight, Banknote, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, Heart, Maximize2, Minus, Plus, Ruler, ShieldCheck, ShoppingBag, Sparkles, Truck, X } from "lucide-react";
@@ -426,15 +427,15 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         <div className="productDetailLayout">
         <section className="productGallery mariabGallery">
           <nav className="productBreadcrumb" aria-label="Breadcrumb">
-            <a href="/">Home</a>
+            <Link href="/">Home</Link>
             <span aria-hidden="true">/</span>
-            <a href={categoryHref}>{product.category}</a>
+            <Link href={categoryHref}>{product.category}</Link>
             <span aria-hidden="true">/</span>
             <span className="productBreadcrumbCurrent">{product.name}</span>
           </nav>
-          <a className="productBack" href={categoryHref}>
+          <Link className="productBack" href={categoryHref}>
             <ArrowLeft size={16} /> Back to {product.category}
-          </a>
+          </Link>
 
           <div className={`galleryWorkspace ${productImages.length > 1 ? "hasThumbnails" : "singleImage"}`}>
             {/* Thumbnails Sidebar Column */}
@@ -743,9 +744,9 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           ) : sizes.length > 0 && !size ? (
             <span className="buyNowButton disabledBuy">Select a size first</span>
           ) : (
-            <a className="buyNowButton" href="/checkout" onClick={() => addToBag({ openDrawer: false })}>
+            <Link className="buyNowButton" href="/checkout" onClick={() => addToBag({ openDrawer: false })}>
               Buy it now
-            </a>
+            </Link>
           )}
 
           {/* WhatsApp & Instagram Direct Action Buttons */}
@@ -912,7 +913,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         <h2>Complete the look</h2>
         <div className="productGrid">
           {related.map((item) => <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={item.id}>
-            <a className="productImage" href={`/product/${item.id}`}>
+            <Link className="productImage" href={`/product/${item.id}`}>
               <Image
                 src={optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.card)}
                 alt={`${item.name} - ${item.category} by Bustaniya`}
@@ -921,8 +922,8 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               />
               {item.badge && <span className="badge">{item.badge}</span>}
               <span className="quickAdd">Choose options</span>
-            </a>
-            <div className="productInfo"><div><p>{item.category}</p><h3><a href={`/product/${item.id}`}>{item.name}</a></h3></div><div className="productPrice"><span>Rs. {item.price.toLocaleString()}</span><small>Regular price Rs. {item.price.toLocaleString()}</small></div></div>
+            </Link>
+            <div className="productInfo"><div><p>{item.category}</p><h3><Link href={`/product/${item.id}`}>{item.name}</Link></h3></div><div className="productPrice"><span>Rs. {item.price.toLocaleString()}</span><small>Regular price Rs. {item.price.toLocaleString()}</small></div></div>
           </article>)}
         </div>
       </section>}
@@ -988,7 +989,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           </div>
         )}
         <p>Delivery charges calculated at checkout.</p>
-        <a className="checkoutButton" href="/checkout">Checkout <ArrowRight size={18} /></a>
+        <Link className="checkoutButton" href="/checkout">Checkout <ArrowRight size={18} /></Link>
         <button className="shopMoreButton" onClick={() => setCartOpen(false)}>Shop more</button>
       </div>}
     </aside>
