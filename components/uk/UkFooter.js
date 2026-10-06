@@ -181,7 +181,7 @@ export default function UkFooter({ categories = [], storeSettings = DEFAULT_STOR
       <div className="footerBottomBar">
         <div className="footerBottomContent">
           <p className="footerCopyright">
-            &copy; {new Date().getFullYear()} Bustaniya UK. BUSTANIYA LTD (Company no. 17414024). All rights reserved.
+            &copy; {`${new Date().getFullYear()} Bustaniya UK`}. BUSTANIYA LTD (Company no. 17414024). All rights reserved.
           </p>
 
           <div className="footerPaymentBadges">

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import SiteHeader from "../../../components/SiteHeader";
 import SiteFooter from "../../../components/SiteFooter";
+import CategoryProductsGrid from "../../../components/CategoryProductsGrid";
 import { normalizeCategory } from "../../../data/store";
 import { getCatalogCategories, subcategoryOptions } from "../../../lib/categories";
 import { getCatalogProducts } from "../../../lib/catalog";
@@ -77,37 +78,11 @@ export default async function CategoryPage({ params }) {
       </section>
 
       <section className="collectionArea">
-        <div className="collectionTop">
-          <p>{categoryProducts.length} products</p>
-          <span>Sort by: Featured</span>
-        </div>
-        <div className="productGrid">
-          {categoryProducts.map((product) => {
-            const compareAtPrice = Number(product.compareAtPrice || product.compare_at_price || 0);
-            const onSale = compareAtPrice > product.price;
-            return (
-            <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
-              <Link href={`/product/${product.id}`} className="productImage">
-                <Image
-                  src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
-                  alt={`${product.name} - ${product.category} by Bustaniya`}
-                  fill
-                  sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
-                />
-                {product.badge && <span className="badge">{product.badge}</span>}
-                <span className="quickAdd">Choose options</span>
-              </Link>
-              <div className="productInfo">
-                <div>
-                  <p>{product.category}</p>
-                  <h3><Link href={`/product/${product.id}`}>{product.name}</Link></h3>
-                </div>
-                <div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span>{onSale && <del>Rs. {compareAtPrice.toLocaleString()}</del>}</div>
-              </div>
-            </article>
-            );
-          })}
-        </div>
+        <CategoryProductsGrid
+          initialProducts={categoryProducts}
+          storeSettings={storeSettings}
+          categoryName={category.name}
+        />
       </section>
       </main>
 

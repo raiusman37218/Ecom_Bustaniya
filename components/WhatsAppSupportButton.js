@@ -3,7 +3,11 @@
 import { usePathname } from "next/navigation";
 
 function normaliseWhatsAppNumber(value) {
-  return String(value || "").replace(/\D/g, "");
+  let cleaned = String(value || "").replace(/\D/g, "");
+  if (!cleaned) return "923053530008";
+  if (cleaned.startsWith("0")) cleaned = "92" + cleaned.slice(1);
+  else if (cleaned.startsWith("3") && cleaned.length === 10) cleaned = "92" + cleaned;
+  return cleaned;
 }
 
 export default function WhatsAppSupportButton({ phoneNumber, storeName = "Bustaniya" }) {

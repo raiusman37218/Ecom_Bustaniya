@@ -127,7 +127,7 @@ function InstagramIcon({ size = 18, className = "" }) {
   );
 }
 
-export default function ProductDetails({ product, related, storeSettings = DEFAULT_STORE_SETTINGS }) {
+export default function ProductDetails({ product, related, storeSettings = DEFAULT_STORE_SETTINGS, categories = [] }) {
 
 
   const colors = useMemo(() => Array.isArray(product.colors) && product.colors.length ? product.colors : [], [product.colors]);
@@ -421,6 +421,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         storeSettings={storeSettings}
         cartCount={cartCount}
         onOpenCart={() => setCartOpen(true)}
+        categories={categories}
       />
 
       <main className="productPage">

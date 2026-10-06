@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { normalizeCategory } from "../../../data/store";
 import ProductDetails from "../../../components/ProductDetails";
 import { getCatalogProducts } from "../../../lib/catalog";
+import { getCatalogCategories } from "../../../lib/categories";
 import { JsonLd, breadcrumbSchema, buildMetadata, productDescription, productSchema, productSlug } from "../../../lib/seo";
 import { getStoreSettings } from "../../../lib/storeSettings";
 
@@ -36,9 +37,10 @@ export async function generateMetadata({ params }) {
 
 export default async function ProductPage({ params }) {
   const { id } = await params;
-  const [products, storeSettings] = await Promise.all([
+  const [products, storeSettings, categories] = await Promise.all([
     getCatalogProducts(),
     getStoreSettings(),
+    getCatalogCategories(),
   ]);
   const product = findProduct(products, id);
   if (!product) notFound();
@@ -54,7 +56,7 @@ export default async function ProductPage({ params }) {
         { name: product.name, path: productSlug(product) },
       ])} />
       <JsonLd data={productSchema(product)} />
-      <ProductDetails product={product} related={related} storeSettings={storeSettings} />
+      <ProductDetails product={product} related={related} storeSettings={storeSettings} categories={categories} />
     </>
   );
 }

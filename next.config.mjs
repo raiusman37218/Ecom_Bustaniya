@@ -18,6 +18,30 @@ const nextConfig = {
       { protocol: "https", hostname: "rjkdjbcmyexcbawxgjrd.supabase.co" },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/terms",
+        destination: "/terms-and-conditions",
+        permanent: true,
+      },
+      {
+        source: "/terms-of-service",
+        destination: "/terms-and-conditions",
+        permanent: true,
+      },
+      {
+        source: "/faq",
+        destination: "/faqs",
+        permanent: true,
+      },
+      {
+        source: "/track",
+        destination: "/track-order",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

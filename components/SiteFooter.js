@@ -28,20 +28,34 @@ function TikTokIcon({ size = 18, className = "" }) {
   );
 }
 
-const DEFAULT_CATEGORY_NAV = [
+function formatWhatsAppNumber(phone) {
+  let cleaned = String(phone || "").replace(/\D/g, "");
+  if (!cleaned) return "923053530008";
+  if (cleaned.startsWith("0")) cleaned = "92" + cleaned.slice(1);
+  else if (cleaned.startsWith("3") && cleaned.length === 10) cleaned = "92" + cleaned;
+  return cleaned;
+}
+
+const STANDARD_CATEGORY_NAV = [
   { name: "Kurtis", slug: "kurtis" },
   { name: "Co-ord Sets", slug: "coord-sets" },
-  { name: "Bottoms & Trousers", slug: "bottoms" },
   { name: "3 Piece Suits", slug: "3-piece-suits" },
+  { name: "Bottoms & Trousers", slug: "bottoms" },
 ];
 
 export default function SiteFooter({ categories = [], storeSettings = DEFAULT_STORE_SETTINGS }) {
-  const rawWhatsapp = String(
+  const rawWhatsapp = formatWhatsAppNumber(
     storeSettings?.paymentSettings?.whatsappNumber ||
     storeSettings?.whatsappNumber ||
     DEFAULT_STORE_SETTINGS.paymentSettings?.whatsappNumber ||
     "923053530008"
-  ).replace(/[^0-9]/g, "");
+  );
+
+  const supportEmail = String(
+    storeSettings?.supportEmail ||
+    storeSettings?.email ||
+    "support@bustaniya.pk"
+  ).trim();
 
   const instagramRaw = String(
     storeSettings?.instagramHandle ||
@@ -65,8 +79,7 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
     ? tiktokRaw
     : `https://www.tiktok.com/${tiktokRaw.startsWith("@") ? tiktokRaw : `@${tiktokRaw}`}`;
 
-  const categoryList = (categories || []).filter((c) => c && !c.parentSlug);
-  const displayCategories = categoryList.length ? categoryList : DEFAULT_CATEGORY_NAV;
+  const displayCategories = STANDARD_CATEGORY_NAV;
 
   return (
     <footer id="footer" className="siteFooterWrapper">
@@ -87,7 +100,7 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
           </div>
         </div>
 
-        {/* Column 1: Shop */}
+        {/* Column 1: Shop (Uniform across all pages) */}
         <div className="footerNavCol">
           <h4 className="footerColHeading">Shop</h4>
           <ul className="footerNavList">
@@ -111,7 +124,7 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
             <li><Link href="/exchange-return-policy">Return &amp; Exchange Policy</Link></li>
             <li>
               <a
-                href={rawWhatsapp ? `https://wa.me/${rawWhatsapp}?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need assistance with an order.")}` : "https://wa.me/923053530008"}
+                href={`https://wa.me/${rawWhatsapp}?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya! I need assistance with an order.")}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -127,9 +140,9 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
           <ul className="footerNavList">
             <li><Link href="/track-order">Track My Order</Link></li>
             <li><Link href="/faqs">Frequently Asked Questions</Link></li>
-            <li><Link href="/contact">Email Support</Link></li>
+            <li><a href={`mailto:${supportEmail}`}>Email Support</a></li>
             <li><Link href="/privacy-policy">Privacy Policy</Link></li>
-            <li><Link href="/terms">Terms of Service</Link></li>
+            <li><Link href="/terms-and-conditions">Terms of Service</Link></li>
           </ul>
         </div>
 
@@ -204,7 +217,7 @@ export default function SiteFooter({ categories = [], storeSettings = DEFAULT_ST
       <div className="footerBottomBar">
         <div className="footerBottomContent">
           <p className="footerCopyright">
-            &copy; {new Date().getFullYear()} Bustaniya. Crafted with pride in Pakistan. All rights reserved.
+            &copy; {`${new Date().getFullYear()} Bustaniya`}. Crafted with pride in Pakistan. All rights reserved.
           </p>
 
           <div className="footerPaymentBadges">
