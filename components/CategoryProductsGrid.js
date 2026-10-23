@@ -68,7 +68,7 @@ export default function CategoryProductsGrid({
 
       {/* Products Grid */}
       <div className="productGrid">
-        {sortedProducts.map((product) => {
+        {sortedProducts.map((product, idx) => {
           const price = Number(product.price || 0);
           const compareAtPrice = Number(product.compareAtPrice || product.compare_at_price || 0);
           const onSale = compareAtPrice > price && price > 0;
@@ -85,6 +85,7 @@ export default function CategoryProductsGrid({
                   src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                   alt={`${product.name} - ${displayCategory} by Bustaniya`}
                   fill
+                  priority={idx < 4}
                   sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                 />
                 {product.badge && <span className="badge">{product.badge}</span>}

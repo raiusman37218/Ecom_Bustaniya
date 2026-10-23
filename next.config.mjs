@@ -9,9 +9,11 @@ const nextConfig = {
   images: {
     loader: "custom",
     loaderFile: "./lib/cloudinaryLoader.js",
+    deviceSizes: [480, 640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [32, 48, 64, 96, 120, 240, 384],
     formats: ["image/avif", "image/webp"],
     qualities: [75, 85],
-    minimumCacheTTL: 2592000,
+    minimumCacheTTL: 31536000,
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "res.cloudinary.com" },

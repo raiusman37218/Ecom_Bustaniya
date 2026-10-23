@@ -554,10 +554,10 @@ export default function Home({
                   <a href="#products">View all pieces <ArrowRight size={16} /></a>
                 </div>
                 <div className="productGrid">
-                  {bestSellers.map((product) => (
+                  {bestSellers.map((product, pIdx) => (
                     <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
                       <div className="productImage">
-                        <Image className="productImagePrimary" src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
+                        <Image className="productImagePrimary" src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill priority={pIdx < 4} sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
                         {hoverImageOf(product) && <Image className="productImageHover" src={optimizedImageUrl(hoverImageOf(product), CLOUDINARY_IMAGE_PRESETS.card)} alt="" aria-hidden="true" fill loading="lazy" sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />}
                         <Link className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
                         <span className="badge">Best seller</span>

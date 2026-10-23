@@ -45,6 +45,19 @@ export default function HeaderSearchModal({ isOpen, onClose }) {
     }
   }, [catalogProducts.length]);
 
+  // Pre-warm top product thumbnails in browser cache so search results render with zero delay
+  useEffect(() => {
+    if (catalogProducts.length > 0 && typeof window !== "undefined") {
+      const prefetchBatch = catalogProducts.slice(0, 12);
+      prefetchBatch.forEach((p) => {
+        if (p.image) {
+          const img = new window.Image();
+          img.src = optimizedImageUrl(p.image, CLOUDINARY_IMAGE_PRESETS.searchThumb);
+        }
+      });
+    }
+  }, [catalogProducts]);
+
   // Autofocus input on open
   useEffect(() => {
     if (!isOpen) return;
@@ -312,11 +325,13 @@ export default function HeaderSearchModal({ isOpen, onClose }) {
                     >
                       <div className="bustaniyaSearchThumb">
                         {product.image ? (
-                          <Image
-                            src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
+                          <img
+                            src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.searchThumb)}
                             alt={product.name}
-                            fill
-                            sizes="48px"
+                            width={48}
+                            height={60}
+                            loading="eager"
+                            decoding="async"
                           />
                         ) : (
                           <div className="bustaniyaThumbFallback">

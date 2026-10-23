@@ -388,6 +388,17 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const mountPhoto = (idx) => setMountedPhotos((prev) => (prev.has(idx) ? prev : new Set(prev).add(idx)));
   useEffect(() => { mountPhoto(activeImgIndex); }, [activeImgIndex]);
 
+  // Pre-mount remaining photos after the primary photo starts downloading
+  // so tapping/clicking any other photo on mobile or desktop is 100% instantaneous with zero lag.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      productImages.forEach((_, idx) => {
+        if (idx > 0) mountPhoto(idx);
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [photoKey]);
+
   function addToBag({ openDrawer = true } = {}) {
     if (outOfStock || isVariantOutOfStock) return;
     trackEvent("AddToCart", {
@@ -459,7 +470,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                     aria-label={`View photo ${idx + 1}`}
                   >
                     <Image
-                      src={img}
+                      src={optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
                       alt={`${product.name} thumbnail ${idx + 1}`}
                       width={120}
                       height={160}

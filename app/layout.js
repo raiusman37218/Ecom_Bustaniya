@@ -88,6 +88,10 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="en-PK" className={`${cormorant.variable} ${manrope.variable}`}>
+      <head>
+        <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+      </head>
       <body>
         <MetaPixel pixelId={metaPixelId} />
         {gtmId && (
