@@ -374,16 +374,19 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     setMainImageUnavailable(false);
   }, [activeImgIndex]);
 
-  // Zero-delay instant gallery switching: prefetch all full-size photos into browser cache
-  useEffect(() => {
-    if (typeof window === "undefined" || !productImages || !productImages.length) return;
-    productImages.forEach((imgUrl) => {
-      if (!imgUrl) return;
-      const fullUrl = optimizedImageUrl(imgUrl, CLOUDINARY_IMAGE_PRESETS.product);
-      const preloader = new window.Image();
-      preloader.src = fullUrl;
-    });
-  }, [productImages]);
+  // Which gallery photos have been mounted. Only the first is needed to show
+  // the product; mounting the rest up front meant every photo downloaded at
+  // full size on arrival, all competing for the connection the visible one
+  // needed. Hovering a thumbnail mounts it early, so switching stays instant.
+  const [mountedPhotos, setMountedPhotos] = useState(() => new Set([0]));
+  // Keyed on the URLs, not on the array. `productImages` is rebuilt whenever
+  // `activeColorImages` changes identity, so depending on the array reset the
+  // mounted set on unrelated re-renders and the photo you had just clicked
+  // unmounted again.
+  const photoKey = productImages.join("|");
+  useEffect(() => { setMountedPhotos(new Set([0])); }, [photoKey]);
+  const mountPhoto = (idx) => setMountedPhotos((prev) => (prev.has(idx) ? prev : new Set(prev).add(idx)));
+  useEffect(() => { mountPhoto(activeImgIndex); }, [activeImgIndex]);
 
   function addToBag({ openDrawer = true } = {}) {
     if (outOfStock || isVariantOutOfStock) return;
@@ -448,15 +451,21 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                     type="button"
                     className={`thumbBtn ${activeImgIndex === idx ? "active" : ""}`}
                     onClick={() => setActiveImgIndex(idx)}
-                    onMouseEnter={() => {
-                      if (activeImgIndex !== idx && typeof window !== "undefined") {
-                        const p = new window.Image();
-                        p.src = optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.product);
-                      }
-                    }}
+                    // Mounting the photo on hover lets it download at the size
+                    // the slot needs, so the click that follows is instant
+                    // without preloading every photo on arrival.
+                    onMouseEnter={() => mountPhoto(idx)}
+                    onFocus={() => mountPhoto(idx)}
                     aria-label={`View photo ${idx + 1}`}
                   >
-                    <img src={optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.thumbnail)} alt={`${product.name} thumbnail ${idx + 1}`} loading="eager" decoding="async" />
+                    <Image
+                      src={img}
+                      alt={`${product.name} thumbnail ${idx + 1}`}
+                      width={120}
+                      height={160}
+                      sizes="120px"
+                      quality={70}
+                    />
                   </button>
                 ))}
               </div>
@@ -466,22 +475,28 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             <div className="galleryMainView" onClick={() => !mainImageUnavailable && setLightboxOpen(true)}>
               {!mainImageUnavailable ? (
                 productImages.map((img, idx) => {
+                  if (!mountedPhotos.has(idx)) return null;
                   const isActive = activeImgIndex === idx;
-                  const src = useOriginalMainImage ? img : optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.product);
                   return (
-                    <img
+                    <Image
                       key={img || idx}
                       className={`galleryMainImage ${isActive ? "active" : ""}`}
-                      src={src}
+                      src={useOriginalMainImage ? img : optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.product)}
                       alt={`${product.name} - View ${idx + 1} by Bustaniya`}
-                      loading="eager"
-                      fetchPriority={idx === 0 ? "high" : "auto"}
-                      decoding="async"
+                      fill
+                      // The slot sits beside the buy box on desktop and goes
+                      // full width once it stacks. Without this every photo
+                      // came down at w_1080 for what is a 525px slot.
+                      sizes="(max-width: 900px) 100vw, 45vw"
+                      priority={idx === 0}
+                      // Mounted photos are deliberate — the first one, plus
+                      // any the shopper hovered or selected. They must not be
+                      // lazy: a lazy image sitting at visibility:hidden in the
+                      // stack is never fetched by Chrome, so switching to it
+                      // showed an empty frame.
+                      loading={idx === 0 ? undefined : "eager"}
+                      quality={80}
                       style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: "100%",
-                        height: "100%",
                         objectFit: "cover",
                         objectPosition: "center top",
                         opacity: isActive ? 1 : 0,
