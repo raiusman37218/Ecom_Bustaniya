@@ -559,11 +559,11 @@ export default function Home({
                       <div className="productImage">
                         <Image className="productImagePrimary" src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill priority={pIdx < 4} sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
                         {hoverImageOf(product) && <Image className="productImageHover" src={optimizedImageUrl(hoverImageOf(product), CLOUDINARY_IMAGE_PRESETS.card)} alt="" aria-hidden="true" fill loading="lazy" sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />}
-                        <Link className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
+                        <Link className="productCardLink" href={`/product/${product.id}`} prefetch={true} aria-label={`View ${product.name}`} />
                         <span className="badge">Best seller</span>
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
                       </div>
-                      <div className="productInfo"><div><p>{product.category}</p><h3><Link href={`/product/${product.id}`}>{product.name}</Link></h3></div><div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span></div></div>
+                      <div className="productInfo"><div><p>{product.category}</p><h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3></div><div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span></div></div>
                     </article>
                   ))}
                 </div>

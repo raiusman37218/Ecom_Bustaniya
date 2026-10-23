@@ -318,6 +318,7 @@ export default function HeaderSearchModal({ isOpen, onClose }) {
                     <Link
                       key={product.id}
                       href={`/product/${product.id}`}
+                      prefetch={true}
                       className={`bustaniyaSearchResultItem ${isSelected ? "isSelected" : ""}`}
                       onClick={onClose}
                       role="option"

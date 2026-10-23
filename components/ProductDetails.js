@@ -940,7 +940,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         <h2>Complete the look</h2>
         <div className="productGrid">
           {related.map((item) => <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={item.id}>
-            <Link className="productImage" href={`/product/${item.id}`}>
+            <Link className="productImage" href={`/product/${item.id}`} prefetch={true}>
               <Image
                 src={optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.card)}
                 alt={`${item.name} - ${item.category} by Bustaniya`}
@@ -950,7 +950,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               {item.badge && <span className="badge">{item.badge}</span>}
               <span className="quickAdd">Choose options</span>
             </Link>
-            <div className="productInfo"><div><p>{item.category}</p><h3><Link href={`/product/${item.id}`}>{item.name}</Link></h3></div><div className="productPrice"><span>Rs. {item.price.toLocaleString()}</span><small>Regular price Rs. {item.price.toLocaleString()}</small></div></div>
+            <div className="productInfo"><div><p>{item.category}</p><h3><Link href={`/product/${item.id}`} prefetch={true}>{item.name}</Link></h3></div><div className="productPrice"><span>Rs. {item.price.toLocaleString()}</span><small>Regular price Rs. {item.price.toLocaleString()}</small></div></div>
           </article>)}
         </div>
       </section>}

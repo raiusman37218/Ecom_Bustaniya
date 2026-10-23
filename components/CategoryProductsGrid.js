@@ -80,7 +80,7 @@ export default function CategoryProductsGrid({
               className={`productCard productCard--${cardStyle}`}
               key={product.id}
             >
-              <Link href={`/product/${product.id}`} className="productImage">
+              <Link href={`/product/${product.id}`} className="productImage" prefetch={true}>
                 <Image
                   src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                   alt={`${product.name} - ${displayCategory} by Bustaniya`}
@@ -97,7 +97,7 @@ export default function CategoryProductsGrid({
                 <div>
                   <p>{displayCategory}</p>
                   <h3>
-                    <Link href={`/product/${product.id}`}>{product.name}</Link>
+                    <Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link>
                   </h3>
                 </div>
 

@@ -8,6 +8,17 @@ import { getStoreSettings } from "../../../lib/storeSettings";
 
 export const revalidate = 60;
 
+export async function generateStaticParams() {
+  try {
+    const products = await getCatalogProducts();
+    return (products || []).map((product) => ({
+      id: String(product.id),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 function legacyArticleNumber(id) {
   const numericId = Number(id);
   if (!Number.isInteger(numericId) || numericId <= 0) return "";
