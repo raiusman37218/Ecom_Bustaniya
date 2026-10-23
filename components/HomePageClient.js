@@ -158,19 +158,46 @@ export default function Home({
     const sections = [...document.querySelectorAll("[data-scroll-reveal]")];
     if (!sections.length) return undefined;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion || !("IntersectionObserver" in window)) {
-      sections.forEach((section) => section.classList.add("is-revealed"));
-      return undefined;
-    }
+    if (reducedMotion || !("IntersectionObserver" in window)) return undefined;
+
+    // Sections are only hidden once this class confirms JS is running and can
+    // reveal them again. Previously the CSS hid them outright, so any script
+    // failure left the whole page below the hero invisible.
+    document.documentElement.classList.add("js-reveal");
+
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
+        // A section that arrives already covering half the screen did not
+        // slide into view — the reader jumped to it, or flicked past the head
+        // start. Fading that in means a blank screen, so it appears at once.
+        if (entry.intersectionRect.height > window.innerHeight * 0.5) {
+          entry.target.classList.add("is-instant");
+        }
         entry.target.classList.add("is-revealed");
         observer.unobserve(entry.target);
       });
-    }, { threshold: 0.12, rootMargin: "0px 0px -48px" });
-    sections.forEach((section) => observer.observe(section));
-    return () => observer.disconnect();
+    // threshold 0 with a head start above the fold: a section begins its fade
+    // just before it scrolls into view, so it has settled by the time it is
+    // worth looking at. The old 0.12 threshold meant a 850px section waited
+    // until 100px of it was already on screen, which read as a blank gap.
+    }, { threshold: 0, rootMargin: "120px 0px -40px 0px" });
+    sections.forEach((section) => {
+      const rect = section.getBoundingClientRect();
+      const alreadyOnScreen = rect.top < window.innerHeight && rect.bottom > 0;
+      if (alreadyOnScreen) {
+        // Reload, a back navigation or an anchor jump can land the reader
+        // part-way down the page. Fading those sections in would mean staring
+        // at a blank screen, so whatever is already in view appears at once.
+        section.classList.add("is-revealed", "is-instant");
+        return;
+      }
+      observer.observe(section);
+    });
+    return () => {
+      observer.disconnect();
+      document.documentElement.classList.remove("js-reveal");
+    };
   }, []);
 
   const visibleProducts = useMemo(() => (products || []).filter((product) => {

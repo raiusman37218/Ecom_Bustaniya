@@ -568,3 +568,75 @@ body:has(.cartOpen) .bs-region {
 @media (min-width: 900px) {
   .bs-productLoading { grid-template-columns: 1.15fr 1fr; gap: var(--bs-space-16); }
 }
+
+/* -------------------------------------------------------------
+   SCROLL REVEAL — refined
+   Replaces the layered reveal in globals.css, which faded a whole
+   section over 0.8s and then faded its heading and cards again on
+   a 0.08s delay. Two overlapping animations on one block is what
+   made scrolling feel unsettled on desktop, where several large
+   sections are on screen at once.
+
+   Now: one short fade with a small lift, on the section only.
+   Loaded after globals.css, so these win without !important.
+   ------------------------------------------------------------- */
+
+/* Content is visible by default. It is hidden only under .js-reveal,
+   which the page adds once the observer is live — so a script error
+   can no longer leave the homepage blank. */
+.scrollReveal {
+  opacity: 1;
+  transform: none;
+  /* Slow of the three durations, paired with the observer's 120px head
+     start: the fade begins just below the fold and you catch its last
+     moments as the section arrives. Fast enough never to be waited on. */
+  transition:
+    opacity var(--bs-duration-slow) var(--bs-ease-out),
+    transform var(--bs-duration-slow) var(--bs-ease-out);
+}
+
+.js-reveal .scrollReveal:not(.is-revealed) {
+  opacity: 0;
+  /* 10px, down from 30px: enough to read as motion, not as a jump. */
+  transform: translateY(10px);
+}
+.js-reveal .scrollReveal.is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* Stand down the nested child reveal entirely — the section is the
+   only thing that animates now. */
+.scrollReveal .sectionHeading,
+.scrollReveal > h2,
+.scrollReveal > .eyebrow,
+.scrollReveal .storyImage,
+.scrollReveal .storyContent,
+.scrollReveal .categoryCards,
+.scrollReveal form,
+.js-reveal .scrollReveal:not(.is-revealed) .sectionHeading,
+.js-reveal .scrollReveal:not(.is-revealed) > h2,
+.js-reveal .scrollReveal:not(.is-revealed) > .eyebrow,
+.js-reveal .scrollReveal:not(.is-revealed) .storyImage,
+.js-reveal .scrollReveal:not(.is-revealed) .storyContent,
+.js-reveal .scrollReveal:not(.is-revealed) .categoryCards,
+.js-reveal .scrollReveal:not(.is-revealed) form {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+/* The OS setting wins outright: nothing hides, nothing moves. */
+@media (prefers-reduced-motion: reduce) {
+  .scrollReveal,
+  .js-reveal .scrollReveal:not(.is-revealed),
+  .js-reveal .scrollReveal.is-revealed {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Sections already on screen when the observer starts appear at once — a
+   reload or a jump deep into the page must never fade a full screen in. */
+.scrollReveal.is-instant { transition: none; }
