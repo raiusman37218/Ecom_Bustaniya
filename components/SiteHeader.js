@@ -10,8 +10,8 @@ import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 
 const DEFAULT_NAV_CATEGORIES = [
   { name: "Kurtis", slug: "kurtis" },
-  { name: "Co-ord Sets", slug: "coord-sets" },
   { name: "Bottoms", slug: "bottoms" },
+  { name: "Co-ord Sets", slug: "coord-sets" },
   { name: "3 Piece Suits", slug: "3-piece-suits" },
 ];
 
@@ -83,10 +83,19 @@ export default function SiteHeader({
 
     const base = valid.length > 0 ? valid : DEFAULT_NAV_CATEGORIES;
     const hasSuits = base.some((c) => c.slug === "3-piece-suits" || c.name.toLowerCase().includes("3 piece"));
-    if (!hasSuits) {
-      return [...base, { name: "3 Piece Suits", slug: "3-piece-suits" }];
-    }
-    return base;
+    const withSuits = hasSuits ? base : [...base, { name: "3 Piece Suits", slug: "3-piece-suits" }];
+
+    // Guarantee canonical brand order: Kurtis -> Bottoms -> Co-ord Sets -> 3 Piece Suits
+    const getOrder = (slug = "") => {
+      const s = slug.toLowerCase();
+      if (s.includes("kurti")) return 1;
+      if (s.includes("bottom")) return 2;
+      if (s.includes("coord") || s.includes("co-ord")) return 3;
+      if (s.includes("3-piece") || s.includes("suit")) return 4;
+      return 10;
+    };
+
+    return [...withSuits].sort((a, b) => getOrder(a.slug) - getOrder(b.slug));
   }, [categories]);
 
   function handleCartClick(e) {
@@ -124,10 +133,11 @@ export default function SiteHeader({
           <div className="headerRightActions">
             <button
               type="button"
-              aria-label="Search"
-              className="actionIconBtn searchBtn"
-              onClick={() => setSearchOpen(true)}
+              aria-label="Search products"
+              className={`actionIconBtn searchBtn ${searchOpen ? "active" : ""}`}
+              onClick={() => setSearchOpen((current) => !current)}
               title="Search products"
+              aria-expanded={searchOpen}
             >
               <Search size={21} />
             </button>
@@ -163,18 +173,6 @@ export default function SiteHeader({
             <span>MENU</span>
             <button type="button" onClick={() => setMobileOpen(false)} aria-label="Close navigation menu">
               <X size={20} />
-            </button>
-          </div>
-          <div className="mobileNavSearchWrap">
-            <button
-              type="button"
-              className="mobileNavSearchBtn"
-              onClick={() => {
-                setMobileOpen(false);
-                setSearchOpen(true);
-              }}
-            >
-              <Search size={16} /> Search kurtis, suits, co-ords...
             </button>
           </div>
         <Link

@@ -1,0 +1,259 @@
+/* =============================================================
+   BUSTANIYA — DESIGN SYSTEM / TOKEN LAYER
+   =============================================================
+
+   Loaded FIRST, before globals.css. This file paints nothing: it
+   only defines the vocabulary that every later stylesheet draws
+   from, so a spacing or colour decision is made once here instead
+   of being re-argued in 16,000 lines of accumulated overrides.
+
+   Naming: everything is prefixed `--bs-`, matching the prefix
+   premium.css already established. The short legacy names it owns
+   (--bs-forest, --bs-berry, --bs-cream, --bs-card-*, --bs-ease)
+   are deliberately NOT redefined here — premium.css still owns
+   those and keeps its current values, so adding this file changes
+   nothing on screen. They get folded in during page migration.
+
+   Direction: evolve the existing Maria B-inspired look toward a
+   calmer, more editorial feel — more air, a real type scale, and
+   shadows tinted with the brand green rather than flat black.
+   ============================================================= */
+
+:root {
+  /* ---------------------------------------------------------
+     1. COLOUR — RAW PALETTE
+     Raw values live here; nothing in a component should use a
+     raw ramp step directly. Use the semantic roles in §2.
+     --------------------------------------------------------- */
+
+  /* Brand green. Deepened one step from the legacy #16452c so
+     large fills read richer rather than muddy. */
+  --bs-green-50:  #f1f6f1;
+  --bs-green-100: #dfebe1;
+  --bs-green-200: #bdd6c3;
+  --bs-green-300: #8fb79b;
+  --bs-green-400: #5c9070;
+  --bs-green-500: #366c4a;
+  --bs-green-600: #235138;
+  --bs-green-700: #173d29;   /* primary — premium.css --bs-forest */
+  --bs-green-800: #0e2f1d;
+  --bs-green-900: #092317;
+
+  /* Berry accent. Reserved for emphasis: sale, eyebrow rules,
+     the one primary action on a screen. Never for body text. */
+  --bs-berry-50:  #fdf2f5;
+  --bs-berry-100: #fae0e8;
+  --bs-berry-200: #f4bccd;
+  --bs-berry-300: #e88aa8;
+  --bs-berry-400: #d64d7c;
+  --bs-berry-500: #bd194b;   /* accent — premium.css --bs-berry */
+  --bs-berry-600: #a2123f;
+  --bs-berry-700: #7d0d31;
+
+  /* Warm neutrals, tinted toward the cream so nothing on the page
+     reads as cold grey against the paper background. */
+  --bs-sand-0:   #fffefb;    /* paper */
+  --bs-sand-50:  #fcfaf5;    /* page background */
+  --bs-sand-100: #f7f3ea;
+  --bs-sand-200: #f0eadd;
+  --bs-sand-300: #e6e0d4;    /* hairline */
+  --bs-sand-400: #cfc7b7;
+  --bs-sand-500: #a89f8e;
+  --bs-sand-600: #7b8a80;    /* muted text */
+  --bs-sand-700: #56604f;
+  --bs-sand-800: #333c35;
+  --bs-sand-900: #1d2a22;    /* ink */
+
+  /* Status. Hue-matched to the warm palette so they do not look
+     bolted on from a generic UI kit. */
+  --bs-success-bg: #eaf5ee;
+  --bs-success-border: #c7e6d2;
+  --bs-success-fg: #124d2e;
+  --bs-warning-bg: #fdf8e7;
+  --bs-warning-border: #f2e0af;
+  --bs-warning-fg: #8a6208;
+  --bs-danger-bg: #fdf0f0;
+  --bs-danger-border: #f7c9cc;
+  --bs-danger-fg: #9c222c;
+  --bs-info-bg: #eff5fd;
+  --bs-info-border: #cbdcf4;
+  --bs-info-fg: #1f4f96;
+
+  /* ---------------------------------------------------------
+     2. COLOUR — SEMANTIC ROLES
+     This is what components should reference. Swapping a brand
+     colour later means editing §1, not hunting through pages.
+     --------------------------------------------------------- */
+  --bs-bg: var(--bs-sand-50);
+  --bs-bg-subtle: var(--bs-sand-100);
+  --bs-surface: var(--bs-sand-0);
+  --bs-surface-sunken: var(--bs-sand-100);
+  --bs-surface-inverse: var(--bs-green-700);
+
+  --bs-border: var(--bs-sand-300);
+  --bs-border-subtle: var(--bs-sand-200);
+  --bs-border-strong: var(--bs-sand-400);
+  --bs-border-focus: var(--bs-green-500);
+
+  --bs-text: var(--bs-sand-900);
+  --bs-text-muted: var(--bs-sand-600);
+  --bs-text-subtle: var(--bs-sand-500);
+  --bs-text-inverse: var(--bs-sand-0);
+  --bs-text-brand: var(--bs-green-700);
+  --bs-text-accent: var(--bs-berry-500);
+
+  --bs-primary: var(--bs-green-700);
+  --bs-primary-hover: var(--bs-green-800);
+  --bs-primary-fg: var(--bs-sand-0);
+  --bs-accent: var(--bs-berry-500);
+  --bs-accent-hover: var(--bs-berry-600);
+  --bs-accent-fg: var(--bs-sand-0);
+
+  /* ---------------------------------------------------------
+     3. TYPOGRAPHY
+     Two families, already loaded by layout.js via next/font:
+     Cormorant Garamond for display, Manrope for everything the
+     user reads or clicks.
+     --------------------------------------------------------- */
+  --bs-font-display: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --bs-font-sans: var(--font-manrope), "Manrope", -apple-system, system-ui, Arial, sans-serif;
+
+  /* Fluid display sizes. clamp() means no breakpoint-by-breakpoint
+     font-size rules, which is where much of the old media-query
+     sprawl came from. */
+  --bs-display-xl: clamp(2.75rem, 1.6rem + 4.6vw, 5rem);
+  --bs-display-lg: clamp(2.25rem, 1.5rem + 3vw, 3.75rem);
+  --bs-display-md: clamp(1.875rem, 1.4rem + 1.9vw, 2.75rem);
+  --bs-display-sm: clamp(1.5rem, 1.25rem + 1vw, 2rem);
+
+  --bs-text-2xl: 1.5rem;
+  --bs-text-xl: 1.25rem;
+  --bs-text-lg: 1.0625rem;
+  --bs-text-md: 0.9375rem;   /* body default */
+  --bs-text-sm: 0.8125rem;
+  --bs-text-xs: 0.75rem;
+  --bs-text-2xs: 0.6875rem;  /* micro labels, eyebrows */
+
+  --bs-leading-tight: 1.05;  /* display */
+  --bs-leading-snug: 1.25;   /* headings */
+  --bs-leading-normal: 1.55; /* body */
+  --bs-leading-relaxed: 1.7; /* long-form policy copy */
+
+  --bs-weight-regular: 400;
+  --bs-weight-medium: 500;
+  --bs-weight-semibold: 600;
+  --bs-weight-bold: 700;
+  --bs-weight-heavy: 800;
+
+  /* Display type is set tight; small uppercase labels need the
+     opposite treatment or they turn into a solid block. */
+  --bs-tracking-display: -0.02em;
+  --bs-tracking-normal: 0;
+  --bs-tracking-wide: 0.06em;
+  --bs-tracking-label: 0.14em;
+
+  /* ---------------------------------------------------------
+     4. SPACING — 4px base
+     --------------------------------------------------------- */
+  --bs-space-1: 0.25rem;   /*  4 */
+  --bs-space-2: 0.5rem;    /*  8 */
+  --bs-space-3: 0.75rem;   /* 12 */
+  --bs-space-4: 1rem;      /* 16 */
+  --bs-space-5: 1.25rem;   /* 20 */
+  --bs-space-6: 1.5rem;    /* 24 */
+  --bs-space-8: 2rem;      /* 32 */
+  --bs-space-10: 2.5rem;   /* 40 */
+  --bs-space-12: 3rem;     /* 48 */
+  --bs-space-16: 4rem;     /* 64 */
+  --bs-space-20: 5rem;     /* 80 */
+  --bs-space-24: 6rem;     /* 96 */
+  --bs-space-32: 8rem;     /* 128 */
+
+  /* Vertical rhythm between page sections. The "more air" half of
+     the premium brief lives mostly in this one pair of values. */
+  --bs-section-y: clamp(3.5rem, 2rem + 5vw, 7rem);
+  --bs-section-y-tight: clamp(2.5rem, 1.5rem + 3vw, 4.5rem);
+
+  /* ---------------------------------------------------------
+     5. LAYOUT
+     --------------------------------------------------------- */
+  --bs-container: 1280px;
+  --bs-container-wide: 1480px;
+  --bs-container-narrow: 760px;   /* policy / long-form reading width */
+  --bs-gutter: clamp(1rem, 0.5rem + 2.2vw, 2.75rem);
+  --bs-grid-gap: clamp(0.75rem, 0.4rem + 1.1vw, 1.5rem);
+
+  /* ---------------------------------------------------------
+     6. RADIUS
+     Restrained on purpose — heavy rounding reads fast-fashion,
+     not editorial.
+     --------------------------------------------------------- */
+  --bs-radius-none: 0;
+  --bs-radius-sm: 2px;
+  --bs-radius-md: 4px;
+  --bs-radius-lg: 8px;
+  --bs-radius-xl: 14px;
+  --bs-radius-full: 999px;
+
+  /* ---------------------------------------------------------
+     7. ELEVATION
+     Tinted with the brand green instead of black: a neutral-black
+     shadow over warm cream reads dirty.
+     --------------------------------------------------------- */
+  --bs-shadow-xs: 0 1px 2px rgba(23, 61, 41, .06);
+  --bs-shadow-sm: 0 2px 8px -2px rgba(23, 61, 41, .10);
+  --bs-shadow-md: 0 10px 28px -14px rgba(23, 61, 41, .26);
+  --bs-shadow-lg: 0 24px 56px -28px rgba(23, 61, 41, .34);
+  --bs-shadow-focus: 0 0 0 3px rgba(54, 108, 74, .26);
+
+  /* ---------------------------------------------------------
+     8. MOTION
+     --bs-ease is already defined by premium.css with this exact
+     curve; repeated here only so this file reads as a complete
+     system, not because the value differs.
+     --------------------------------------------------------- */
+  --bs-duration-fast: 140ms;
+  --bs-duration-base: 240ms;
+  --bs-duration-slow: 420ms;
+  --bs-ease-standard: cubic-bezier(.22, .61, .36, 1);
+  --bs-ease-out: cubic-bezier(.16, 1, .3, 1);
+
+  /* ---------------------------------------------------------
+     9. Z-INDEX
+     One ladder, so a new overlay never has to guess a number.
+     --------------------------------------------------------- */
+  --bs-z-base: 1;
+  --bs-z-raised: 10;
+  --bs-z-sticky: 40;
+  --bs-z-header: 60;
+  --bs-z-overlay: 80;
+  --bs-z-drawer: 90;
+  --bs-z-modal: 100;
+  --bs-z-toast: 120;
+
+  /* ---------------------------------------------------------
+     10. CONTROL SIZING
+     Shared by buttons, inputs and selects so a button and the
+     field beside it always line up.
+     --------------------------------------------------------- */
+  --bs-control-sm: 36px;
+  --bs-control-md: 44px;   /* default — also the min touch target */
+  --bs-control-lg: 52px;
+}
+
+/* Breakpoints cannot be custom properties in a media query, so they
+   are recorded here as the single reference for every stylesheet:
+     sm 480px · md 768px · lg 1024px · xl 1280px · 2xl 1480px
+   Write them mobile-first (min-width) in new work. The legacy
+   max-width queries in globals.css are being retired page by page. */
+
+/* Respect the OS setting. The storefront leans on reveal and hover
+   motion, which is exactly what this preference exists to switch
+   off; honouring it is also a baseline accessibility requirement. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --bs-duration-fast: 0ms;
+    --bs-duration-base: 0ms;
+    --bs-duration-slow: 0ms;
+  }
+}

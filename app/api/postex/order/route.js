@@ -413,6 +413,7 @@ export async function POST(request) {
       subtotal: cartTotalBeforeDelivery,
       paymentMethod,
       paymentSettings,
+      deliverySettings: settings.deliverySettings || {},
     });
     const paymentDetails = paymentSnapshot(paymentSettings);
     if (paymentMethod === "cod") {

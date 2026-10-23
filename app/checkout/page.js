@@ -194,6 +194,8 @@ export default function CheckoutPage() {
   const [citiesLoading, setCitiesLoading] = useState(true);
   const [citiesError, setCitiesError] = useState(false);
   const [paymentSettings, setPaymentSettings] = useState(DEFAULT_STORE_SETTINGS.paymentSettings);
+  // Carries freeDeliveryThreshold, which decides whether the fee applies at all.
+  const [deliverySettings, setDeliverySettings] = useState(DEFAULT_STORE_SETTINGS.deliverySettings);
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -243,6 +245,7 @@ export default function CheckoutPage() {
       .then((result) => {
         const nextPaymentSettings = result.paymentSettings || DEFAULT_STORE_SETTINGS.paymentSettings;
         setPaymentSettings(nextPaymentSettings);
+        setDeliverySettings(result.deliverySettings || DEFAULT_STORE_SETTINGS.deliverySettings);
         setPaymentMethod((current) => {
           const configuredDefault = normalizePaymentMethod(result.checkoutSettings?.defaultPayment);
           if (nextPaymentSettings.codEnabled === false && nextPaymentSettings.manualTransferEnabled !== false)
@@ -298,17 +301,16 @@ export default function CheckoutPage() {
   );
 
   const paymentAmounts = useMemo(
-    () => calculatePaymentAmounts({ subtotal, paymentMethod, paymentSettings }),
-    [subtotal, paymentMethod, paymentSettings]
+    () => calculatePaymentAmounts({ subtotal, paymentMethod, paymentSettings, deliverySettings }),
+    [subtotal, paymentMethod, paymentSettings, deliverySettings]
   );
 
   const shippingPriceDisplay = useMemo(() => {
-    if (paymentAmounts.deliveryCharges === 0 && paymentMethod === PAYMENT_METHODS.FULL_ADVANCE) {
-      return "Free";
-    }
-    const charge = paymentAmounts.deliveryCharges || paymentSettings.codDeliveryChargePkr || 350;
-    return formatPrice(charge);
-  }, [paymentAmounts.deliveryCharges, paymentSettings.codDeliveryChargePkr, paymentMethod]);
+    // A zero here is a real "free", not a missing value: the old `|| 350`
+    // fallback re-displayed a fee that free delivery had just removed.
+    if (paymentAmounts.deliveryCharges === 0) return "Free";
+    return formatPrice(paymentAmounts.deliveryCharges);
+  }, [paymentAmounts.deliveryCharges]);
 
   function updateField(event) {
     const { name, value, type, checked } = event.target;

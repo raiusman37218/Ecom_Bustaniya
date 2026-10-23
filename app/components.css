@@ -1,0 +1,570 @@
+/* =============================================================
+   BUSTANIYA — COMPONENT PRIMITIVES
+   =============================================================
+
+   Loaded LAST, after premium.css. Every class here is namespaced
+   `bs-` so it cannot collide with the ~1,370 existing selectors in
+   globals.css; being last means that once a page is migrated onto
+   these classes, the primitive wins without needing !important.
+
+   This file is additive. Nothing on the site uses it yet — pages
+   move onto it one at a time in the migration phase, deleting the
+   legacy rules they relied on as they go.
+
+   Everything draws from design-system.css. No raw hex, no magic
+   pixel values: if something is missing, add a token first.
+   ============================================================= */
+
+/* -------------------------------------------------------------
+   LAYOUT
+   ------------------------------------------------------------- */
+.bs-container {
+  width: 100%;
+  max-width: var(--bs-container);
+  margin-inline: auto;
+  padding-inline: var(--bs-gutter);
+}
+.bs-container--wide { max-width: var(--bs-container-wide); }
+.bs-container--narrow { max-width: var(--bs-container-narrow); }
+
+.bs-section { padding-block: var(--bs-section-y); }
+.bs-section--tight { padding-block: var(--bs-section-y-tight); }
+.bs-section--sunken { background: var(--bs-bg-subtle); }
+
+.bs-stack { display: flex; flex-direction: column; gap: var(--bs-space-4); }
+.bs-stack--sm { gap: var(--bs-space-2); }
+.bs-stack--lg { gap: var(--bs-space-8); }
+.bs-row { display: flex; align-items: center; gap: var(--bs-space-3); flex-wrap: wrap; }
+
+/* Product / collection grid. auto-fill keeps the last row from
+   stretching into oversized cards when only one item matches a
+   filter — a thing the legacy fixed-column grids got wrong. */
+.bs-grid {
+  display: grid;
+  gap: var(--bs-grid-gap);
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+}
+.bs-grid--2up { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 768px) {
+  .bs-grid--roomy { grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
+}
+
+/* -------------------------------------------------------------
+   TYPOGRAPHY HELPERS
+   ------------------------------------------------------------- */
+.bs-display {
+  font-family: var(--bs-font-display);
+  font-size: var(--bs-display-lg);
+  font-weight: var(--bs-weight-medium);
+  line-height: var(--bs-leading-tight);
+  letter-spacing: var(--bs-tracking-display);
+  color: var(--bs-text-brand);
+  margin: 0;
+}
+.bs-display--xl { font-size: var(--bs-display-xl); }
+.bs-display--md { font-size: var(--bs-display-md); }
+.bs-display--sm { font-size: var(--bs-display-sm); }
+
+.bs-eyebrow {
+  display: block;
+  font-family: var(--bs-font-sans);
+  font-size: var(--bs-text-2xs);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: var(--bs-tracking-label);
+  text-transform: uppercase;
+  color: var(--bs-text-accent);
+  margin: 0;
+}
+
+.bs-body { font-size: var(--bs-text-md); line-height: var(--bs-leading-normal); color: var(--bs-text); margin: 0; }
+.bs-body--muted { color: var(--bs-text-muted); }
+.bs-body--sm { font-size: var(--bs-text-sm); }
+.bs-prose { max-width: 68ch; line-height: var(--bs-leading-relaxed); color: var(--bs-text); }
+.bs-prose > * + * { margin-top: var(--bs-space-4); }
+
+/* Section heading: eyebrow, display title, optional "view all".
+   Repeated on nearly every page of the storefront. */
+.bs-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--bs-space-6);
+  flex-wrap: wrap;
+  margin-bottom: var(--bs-space-10);
+}
+.bs-section-head__text { display: flex; flex-direction: column; gap: var(--bs-space-2); min-width: 0; }
+.bs-section-head--center {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.bs-section-head--center .bs-section-head__text { align-items: center; }
+/* The thin berry rule under a centred section title. */
+.bs-section-head--center .bs-display::after {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 1px;
+  margin: var(--bs-space-4) auto 0;
+  background: var(--bs-accent);
+}
+
+/* -------------------------------------------------------------
+   BUTTONS
+   One base, three tones, three sizes. Every state is defined here
+   so no page has to invent a disabled or loading look again.
+   ------------------------------------------------------------- */
+.bs-btn {
+  --_btn-bg: transparent;
+  --_btn-fg: var(--bs-text);
+  --_btn-border: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bs-space-2);
+  min-height: var(--bs-control-md);
+  padding-inline: var(--bs-space-6);
+  border: 1px solid var(--_btn-border);
+  border-radius: var(--bs-radius-md);
+  background: var(--_btn-bg);
+  color: var(--_btn-fg);
+  font-family: var(--bs-font-sans);
+  font-size: var(--bs-text-2xs);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: var(--bs-tracking-label);
+  text-transform: uppercase;
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background var(--bs-duration-fast) var(--bs-ease-standard),
+    border-color var(--bs-duration-fast) var(--bs-ease-standard),
+    color var(--bs-duration-fast) var(--bs-ease-standard),
+    transform var(--bs-duration-fast) var(--bs-ease-standard);
+}
+.bs-btn:hover { transform: translateY(-1px); }
+.bs-btn:active { transform: translateY(0); }
+.bs-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--bs-shadow-focus);
+}
+.bs-btn[disabled],
+.bs-btn[aria-disabled="true"] {
+  opacity: .5;
+  cursor: not-allowed;
+  transform: none;
+}
+/* aria-busy drives the spinner, so a loading button needs no extra
+   class and stays announced correctly to screen readers. */
+.bs-btn[aria-busy="true"] { pointer-events: none; }
+.bs-btn[aria-busy="true"]::before {
+  content: "";
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: var(--bs-radius-full);
+  animation: bs-spin 640ms linear infinite;
+}
+@keyframes bs-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .bs-btn[aria-busy="true"]::before { animation-duration: 1800ms; }
+}
+
+.bs-btn--primary {
+  --_btn-bg: var(--bs-primary);
+  --_btn-fg: var(--bs-primary-fg);
+  --_btn-border: var(--bs-primary);
+}
+.bs-btn--primary:hover { --_btn-bg: var(--bs-primary-hover); --_btn-border: var(--bs-primary-hover); }
+
+.bs-btn--accent {
+  --_btn-bg: var(--bs-accent);
+  --_btn-fg: var(--bs-accent-fg);
+  --_btn-border: var(--bs-accent);
+}
+.bs-btn--accent:hover { --_btn-bg: var(--bs-accent-hover); --_btn-border: var(--bs-accent-hover); }
+
+.bs-btn--secondary {
+  --_btn-bg: var(--bs-surface);
+  --_btn-fg: var(--bs-text-brand);
+  --_btn-border: var(--bs-border);
+}
+.bs-btn--secondary:hover { --_btn-border: var(--bs-primary); --_btn-bg: var(--bs-green-50); }
+
+.bs-btn--ghost { --_btn-fg: var(--bs-text-brand); }
+.bs-btn--ghost:hover { --_btn-bg: var(--bs-green-50); }
+
+/* Quiet text action — "view all", "clear filters". */
+.bs-btn--link {
+  --_btn-fg: var(--bs-text-brand);
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--bs-border-strong);
+  border-radius: 0;
+}
+.bs-btn--link:hover { --_btn-fg: var(--bs-accent); border-bottom-color: var(--bs-accent); transform: none; }
+
+.bs-btn--sm { min-height: var(--bs-control-sm); padding-inline: var(--bs-space-4); }
+.bs-btn--lg { min-height: var(--bs-control-lg); padding-inline: var(--bs-space-8); font-size: var(--bs-text-xs); }
+.bs-btn--block { width: 100%; }
+
+/* -------------------------------------------------------------
+   FORM FIELDS
+   ------------------------------------------------------------- */
+.bs-field { display: flex; flex-direction: column; gap: var(--bs-space-2); min-width: 0; }
+.bs-label {
+  font-size: var(--bs-text-2xs);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: var(--bs-tracking-wide);
+  text-transform: uppercase;
+  color: var(--bs-text-muted);
+}
+.bs-label__optional { color: var(--bs-text-subtle); font-weight: var(--bs-weight-medium); text-transform: none; letter-spacing: 0; }
+
+.bs-input,
+.bs-select,
+.bs-textarea {
+  width: 100%;
+  min-height: var(--bs-control-md);
+  padding: var(--bs-space-3) var(--bs-space-4);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-md);
+  background: var(--bs-surface);
+  color: var(--bs-text);
+  font-family: var(--bs-font-sans);
+  /* 16px on iOS or Safari zooms the page on focus. */
+  font-size: max(16px, var(--bs-text-md));
+  line-height: var(--bs-leading-normal);
+  transition: border-color var(--bs-duration-fast) var(--bs-ease-standard),
+              box-shadow var(--bs-duration-fast) var(--bs-ease-standard);
+}
+.bs-textarea { min-height: 120px; resize: vertical; }
+.bs-input::placeholder,
+.bs-textarea::placeholder { color: var(--bs-text-subtle); }
+.bs-input:focus-visible,
+.bs-select:focus-visible,
+.bs-textarea:focus-visible {
+  outline: none;
+  border-color: var(--bs-border-focus);
+  box-shadow: var(--bs-shadow-focus);
+}
+.bs-input[disabled],
+.bs-select[disabled],
+.bs-textarea[disabled] { background: var(--bs-surface-sunken); color: var(--bs-text-subtle); cursor: not-allowed; }
+.bs-input[aria-invalid="true"],
+.bs-select[aria-invalid="true"],
+.bs-textarea[aria-invalid="true"] { border-color: var(--bs-danger-fg); }
+
+.bs-field__help { font-size: var(--bs-text-xs); color: var(--bs-text-muted); }
+.bs-field__error { font-size: var(--bs-text-xs); font-weight: var(--bs-weight-semibold); color: var(--bs-danger-fg); }
+
+.bs-check { display: flex; align-items: flex-start; gap: var(--bs-space-3); cursor: pointer; font-size: var(--bs-text-sm); color: var(--bs-text); }
+.bs-check input { width: 18px; height: 18px; margin-top: 1px; flex: 0 0 auto; accent-color: var(--bs-primary); cursor: pointer; }
+
+/* -------------------------------------------------------------
+   BADGES
+   ------------------------------------------------------------- */
+.bs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bs-space-1);
+  padding: var(--bs-space-1) var(--bs-space-3);
+  border: 1px solid var(--bs-border-subtle);
+  border-radius: var(--bs-radius-full);
+  background: var(--bs-surface-sunken);
+  color: var(--bs-text-muted);
+  font-size: var(--bs-text-2xs);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: var(--bs-tracking-wide);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.bs-badge--new { background: var(--bs-surface); color: var(--bs-text-brand); border-color: var(--bs-border); }
+.bs-badge--sale { background: var(--bs-berry-500); color: var(--bs-accent-fg); border-color: var(--bs-berry-500); }
+.bs-badge--success { background: var(--bs-success-bg); color: var(--bs-success-fg); border-color: var(--bs-success-border); }
+.bs-badge--warning { background: var(--bs-warning-bg); color: var(--bs-warning-fg); border-color: var(--bs-warning-border); }
+.bs-badge--danger { background: var(--bs-danger-bg); color: var(--bs-danger-fg); border-color: var(--bs-danger-border); }
+.bs-badge--soldout { background: var(--bs-sand-900); color: var(--bs-text-inverse); border-color: var(--bs-sand-900); }
+
+/* -------------------------------------------------------------
+   PRODUCT CARD
+   The canonical definition. globals.css currently carries three
+   competing ones (.productCard, .productCard--connected and the
+   premium.css override layer); pages move onto this and those go.
+   ------------------------------------------------------------- */
+.bs-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: transparent;
+}
+.bs-card__media {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: var(--bs-card-ratio, .66);
+  background: var(--bs-surface-sunken);
+  border-radius: var(--bs-radius-sm);
+}
+.bs-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: var(--bs-card-fit, cover);
+  object-position: var(--bs-card-focus, center 30%);
+  transition: transform var(--bs-duration-slow) var(--bs-ease-out);
+}
+.bs-card:hover .bs-card__media img { transform: scale(1.03); }
+/* Second photo revealed on hover, when the product has one. */
+.bs-card__media img + img { position: absolute; inset: 0; opacity: 0; transition: opacity var(--bs-duration-base) var(--bs-ease-standard); }
+.bs-card:hover .bs-card__media img + img { opacity: 1; }
+
+.bs-card__badges {
+  position: absolute;
+  inset: var(--bs-space-3) var(--bs-space-3) auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--bs-space-2);
+  pointer-events: none;
+  z-index: var(--bs-z-raised);
+}
+
+.bs-card__body { display: flex; flex-direction: column; gap: var(--bs-space-1); padding-top: var(--bs-space-4); text-align: center; }
+.bs-card__category { font-size: var(--bs-text-2xs); font-weight: var(--bs-weight-bold); letter-spacing: var(--bs-tracking-label); text-transform: uppercase; color: var(--bs-text-subtle); }
+.bs-card__title {
+  font-family: var(--bs-font-display);
+  font-size: var(--bs-text-xl);
+  font-weight: var(--bs-weight-medium);
+  line-height: var(--bs-leading-snug);
+  color: var(--bs-text-brand);
+  margin: 0;
+  /* Catalogue names run long; two lines keeps the grid even. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bs-card__title a { color: inherit; text-decoration: none; }
+/* The whole card is clickable, but only the title is a real link —
+   keeps one link per card for screen readers and keyboard users. */
+.bs-card__title a::after { content: ""; position: absolute; inset: 0; z-index: var(--bs-z-base); }
+
+.bs-card__price { display: flex; align-items: baseline; justify-content: center; gap: var(--bs-space-2); margin-top: var(--bs-space-1); font-size: var(--bs-text-sm); }
+.bs-card__price b { font-weight: var(--bs-weight-bold); color: var(--bs-text); font-variant-numeric: tabular-nums; }
+.bs-card__price s { color: var(--bs-text-subtle); text-decoration-thickness: 1px; font-variant-numeric: tabular-nums; }
+
+.bs-card__swatches { display: flex; justify-content: center; gap: var(--bs-space-1); margin-top: var(--bs-space-1); }
+.bs-card__swatch { width: 9px; height: 9px; border-radius: var(--bs-radius-full); border: 1px solid var(--bs-border-strong); }
+
+/* -------------------------------------------------------------
+   BREADCRUMBS / PAGINATION
+   ------------------------------------------------------------- */
+.bs-breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: var(--bs-space-2); font-size: var(--bs-text-xs); color: var(--bs-text-muted); }
+.bs-breadcrumb a { color: inherit; text-decoration: none; }
+.bs-breadcrumb a:hover { color: var(--bs-text-accent); }
+.bs-breadcrumb li + li::before { content: "/"; margin-right: var(--bs-space-2); color: var(--bs-text-subtle); }
+.bs-breadcrumb [aria-current="page"] { color: var(--bs-text); font-weight: var(--bs-weight-semibold); }
+
+.bs-pagination { display: flex; align-items: center; justify-content: center; gap: var(--bs-space-2); margin-top: var(--bs-space-12); }
+
+/* -------------------------------------------------------------
+   EMPTY STATE
+   ------------------------------------------------------------- */
+.bs-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bs-space-3);
+  padding: var(--bs-space-20) var(--bs-space-6);
+  text-align: center;
+}
+.bs-empty__title { font-family: var(--bs-font-display); font-size: var(--bs-display-sm); font-weight: var(--bs-weight-medium); color: var(--bs-text-brand); margin: 0; }
+.bs-empty__text { max-width: 44ch; font-size: var(--bs-text-sm); line-height: var(--bs-leading-normal); color: var(--bs-text-muted); margin: 0; }
+
+/* -------------------------------------------------------------
+   SKELETON
+   A loading placeholder shaped like the content that replaces it,
+   so the layout does not jump when data arrives.
+   ------------------------------------------------------------- */
+.bs-skeleton {
+  display: block;
+  border-radius: var(--bs-radius-sm);
+  background: linear-gradient(100deg, var(--bs-sand-200) 20%, var(--bs-sand-100) 42%, var(--bs-sand-200) 64%);
+  background-size: 220% 100%;
+  animation: bs-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes bs-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -120% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .bs-skeleton { animation: none; }
+}
+.bs-skeleton--card { aspect-ratio: var(--bs-card-ratio, .66); }
+.bs-skeleton--line { height: 0.75em; }
+
+/* -------------------------------------------------------------
+   UTILITIES
+   ------------------------------------------------------------- */
+.bs-visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.bs-divider { height: 1px; border: 0; margin: 0; background: var(--bs-border-subtle); }
+
+/* -------------------------------------------------------------
+   REGION SWITCHER
+   Floating country/currency control, bottom-left. A composed
+   component rather than a primitive, but it belongs to this layer
+   because it is the first piece built entirely on the tokens.
+
+   Sits opposite the WhatsApp button (fixed bottom-right, z 80) and
+   below it in the stack, so drawers and modals cover both.
+   ------------------------------------------------------------- */
+.bs-region {
+  position: fixed;
+  left: var(--bs-space-6);
+  bottom: var(--bs-space-6);
+  z-index: var(--bs-z-sticky);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--bs-space-2);
+}
+
+/* Match the existing behaviour of the WhatsApp button: get out of the way
+   while the cart drawer is open. */
+body:has(.cartOpen) .bs-region {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.bs-region__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bs-space-2);
+  min-height: var(--bs-control-sm);
+  padding: var(--bs-space-2) var(--bs-space-3);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-full);
+  background: var(--bs-surface);
+  color: var(--bs-text);
+  font-family: var(--bs-font-sans);
+  font-size: var(--bs-text-sm);
+  font-weight: var(--bs-weight-bold);
+  cursor: pointer;
+  box-shadow: var(--bs-shadow-md);
+  transition: border-color var(--bs-duration-fast) var(--bs-ease-standard),
+              transform var(--bs-duration-fast) var(--bs-ease-standard);
+}
+.bs-region__toggle:hover { border-color: var(--bs-border-strong); transform: translateY(-1px); }
+.bs-region__toggle:focus-visible { outline: none; box-shadow: var(--bs-shadow-md), var(--bs-shadow-focus); }
+
+.bs-region__flag {
+  width: 22px;
+  height: 15px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+  /* A white flag on a white pill needs an edge to read as a flag. */
+  box-shadow: inset 0 0 0 1px rgba(29, 42, 34, .16);
+}
+.bs-region__current { letter-spacing: var(--bs-tracking-wide); }
+.bs-region__chevron {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--bs-text-subtle);
+  transition: transform var(--bs-duration-base) var(--bs-ease-standard);
+}
+.bs-region__toggle[aria-expanded="true"] .bs-region__chevron { transform: rotate(180deg); }
+
+/* The panel opens upward — there is no room below a bottom-pinned control. */
+.bs-region__menu {
+  list-style: none;
+  margin: 0;
+  padding: var(--bs-space-2);
+  min-width: 232px;
+  border: 1px solid var(--bs-border-subtle);
+  border-radius: var(--bs-radius-lg);
+  background: var(--bs-surface);
+  box-shadow: var(--bs-shadow-lg);
+  animation: bs-region-rise var(--bs-duration-base) var(--bs-ease-out);
+}
+@keyframes bs-region-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bs-region__option {
+  display: flex;
+  align-items: center;
+  gap: var(--bs-space-3);
+  width: 100%;
+  padding: var(--bs-space-3);
+  border: 0;
+  border-radius: var(--bs-radius-md);
+  background: transparent;
+  color: var(--bs-text);
+  font-family: var(--bs-font-sans);
+  font-size: var(--bs-text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--bs-duration-fast) var(--bs-ease-standard);
+}
+.bs-region__option:hover { background: var(--bs-bg-subtle); }
+.bs-region__option:focus-visible { outline: none; box-shadow: var(--bs-shadow-focus); }
+.bs-region__option.is-selected { background: var(--bs-green-50); }
+
+.bs-region__name { flex: 1; font-weight: var(--bs-weight-semibold); }
+.bs-region__code {
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: var(--bs-tracking-wide);
+  color: var(--bs-text-subtle);
+}
+.bs-region__option.is-selected .bs-region__code { color: var(--bs-text-brand); }
+
+@media (max-width: 767px) {
+  .bs-region {
+    left: var(--bs-space-4);
+    bottom: var(--bs-space-4);
+  }
+  .bs-region__menu { min-width: 208px; }
+}
+
+/* -------------------------------------------------------------
+   CART — ADVANCE / COD SPLIT
+   The advance is part of the order total, not an extra charge, so
+   it reads as a breakdown beneath the total rather than another
+   line item added to it.
+   ------------------------------------------------------------- */
+.cartAdvanceSplit {
+  margin-top: var(--bs-space-3);
+  padding-top: var(--bs-space-3);
+  border-top: 1px dashed var(--bs-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-1);
+}
+.cartAdvanceSplit .summaryRow span { color: var(--bs-text-muted); font-size: var(--bs-text-sm); }
+.cartAdvanceSplit .summaryRow b { color: var(--bs-text-brand); font-variant-numeric: tabular-nums; }
+
+/* -------------------------------------------------------------
+   PRODUCT PAGE LOADING SKELETON
+   Mirrors the real gallery + buy-box split so the layout does not
+   shift when the product arrives.
+   ------------------------------------------------------------- */
+.bs-productLoading {
+  display: grid;
+  gap: var(--bs-space-10);
+  grid-template-columns: 1fr;
+}
+@media (min-width: 900px) {
+  .bs-productLoading { grid-template-columns: 1.15fr 1fr; gap: var(--bs-space-16); }
+}

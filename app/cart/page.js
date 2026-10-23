@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Banknote, Check, Minus, Plus, ShieldCheck, Shopp
 import SiteHeader from "../../components/SiteHeader";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../lib/images";
+import { calculatePaymentAmounts } from "../../lib/paymentRules";
 
 export default function CartPage() {
   const [cart, setCart] = useState([]);
@@ -47,8 +48,13 @@ export default function CartPage() {
   }, [cart]);
 
   const deliverySettings = storeSettings?.deliverySettings || DEFAULT_STORE_SETTINGS.deliverySettings || {};
+  const paymentSettings = storeSettings?.paymentSettings || DEFAULT_STORE_SETTINGS.paymentSettings || {};
+  // The cart quotes through the same calculator checkout uses, so the total
+  // shown here is the total that gets charged. It used to hardcode Rs. 200
+  // while checkout billed the configured Rs. 250.
+  const cartAmounts = calculatePaymentAmounts({ subtotal, paymentMethod: "cod", paymentSettings, deliverySettings });
   const freeThreshold = Number(deliverySettings.freeDeliveryThreshold || 5000);
-  const isFreeDelivery = subtotal >= freeThreshold;
+  const isFreeDelivery = cartAmounts.freeDeliveryApplied;
   const freeDeliveryRemaining = Math.max(0, freeThreshold - subtotal);
   const freeDeliveryProgress = Math.min(100, Math.round((subtotal / freeThreshold) * 100));
 
@@ -231,7 +237,7 @@ export default function CartPage() {
 
                   <div className="summaryRow">
                     <span>Estimated Shipping</span>
-                    <b>{isFreeDelivery ? "FREE" : "Rs. 200"}</b>
+                    <b>{isFreeDelivery ? "FREE" : `Rs. ${cartAmounts.deliveryCharges.toLocaleString()}`}</b>
                   </div>
 
                   <div className="summaryTotalRow">
@@ -239,8 +245,24 @@ export default function CartPage() {
                       <b>Estimated Total</b>
                       <small>Taxes and shipping confirmed at checkout</small>
                     </div>
-                    <b>Rs. {(subtotal + (isFreeDelivery ? 0 : 200)).toLocaleString()}</b>
+                    <b>Rs. {cartAmounts.totalOrderValue.toLocaleString()}</b>
                   </div>
+
+                  {/* The advance is part of the total, not an extra charge.
+                      Showing the split here means checkout never surprises
+                      anyone with a payment they did not expect. */}
+                  {cartAmounts.codAdvanceRequired > 0 && (
+                    <div className="cartAdvanceSplit">
+                      <div className="summaryRow">
+                        <span>Advance to confirm order</span>
+                        <b>Rs. {cartAmounts.codAdvanceRequired.toLocaleString()}</b>
+                      </div>
+                      <div className="summaryRow">
+                        <span>Balance on delivery (COD)</span>
+                        <b>Rs. {cartAmounts.amountPayableOnDelivery.toLocaleString()}</b>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <Link href="/checkout" className="primaryButton cartCheckoutBtn">

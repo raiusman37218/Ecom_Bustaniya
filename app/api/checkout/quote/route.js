@@ -8,8 +8,12 @@ export async function POST(request) {
     const { items = [], paymentMethod = "cod" } = await request.json();
     const hasItems = Array.isArray(items) && items.some((item) => Number(item?.quantity || 0) > 0);
     const settings = await getStoreSettings();
-    const amounts = calculatePaymentAmounts({ subtotal: 0, paymentMethod, paymentSettings: settings.paymentSettings });
-    return NextResponse.json({ delivery: hasItems ? amounts.deliveryCharges : 0, paymentMethod: amounts.paymentMethod });
+    const amounts = calculatePaymentAmounts({ subtotal: 0, paymentMethod, paymentSettings: settings.paymentSettings, deliverySettings: settings.deliverySettings });
+    return NextResponse.json({
+      delivery: hasItems ? amounts.deliveryCharges : 0,
+      paymentMethod: amounts.paymentMethod,
+      advanceRequired: amounts.codAdvanceRequired,
+    });
   } catch {
     return NextResponse.json({ delivery: 0 });
   }

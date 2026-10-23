@@ -1,25 +1,39 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Search, X, ArrowRight, Sparkles } from "lucide-react";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
 
-const QUICK_TAGS = ["Kurtis", "Co-ord Sets", "3 Piece Suits", "Bottoms", "Summer", "Festive"];
+const POPULAR_SEARCH_CHIPS = ["Kurtis", "Co-Ord Sets", "3 Piece Suits", "Custom Dress"];
 
 export default function HeaderSearchModal({ isOpen, onClose }) {
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [catalogProducts, setCatalogProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [isDebouncing, setIsDebouncing] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+
   const inputRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const resultsListRef = useRef(null);
 
-  // Fetch catalog on first open so search is instantaneous
+  // Client hydration check for portals
   useEffect(() => {
-    if (!isOpen) return;
+    setMounted(true);
+  }, []);
 
+  // Preload catalog on mount so search is instant on first click
+  useEffect(() => {
     if (catalogProducts.length === 0) {
-      setLoading(true);
+      setCatalogLoading(true);
       fetch("/api/catalog")
         .then((res) => res.json())
         .then((data) => {
@@ -27,42 +41,74 @@ export default function HeaderSearchModal({ isOpen, onClose }) {
           setCatalogProducts(list);
         })
         .catch(() => {})
-        .finally(() => setLoading(false));
+        .finally(() => setCatalogLoading(false));
     }
+  }, [catalogProducts.length]);
 
-    // Auto-focus input
-    const timer = setTimeout(() => {
-      inputRef.current?.focus();
-    }, 80);
-
-    // Escape key closes modal
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, catalogProducts.length, onClose]);
-
-  // Lock body scroll when search is open
+  // Autofocus input on open
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-      setQuery("");
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
+    if (!isOpen) return;
+
+    const focusTimer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 60);
+
+    return () => clearTimeout(focusTimer);
   }, [isOpen]);
 
-  const searchResults = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
+  // Debounce input typing by 300ms
+  useEffect(() => {
+    if (!query) {
+      setDebouncedQuery("");
+      setIsDebouncing(false);
+      return;
+    }
+
+    setIsDebouncing(true);
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+      setIsDebouncing(false);
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [query]);
+
+  // Lock body scroll on mobile when open, reset query on close
+  useEffect(() => {
+    if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      setSelectedIndex(-1);
+
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    } else {
+      setQuery("");
+      setDebouncedQuery("");
+      setSelectedIndex(-1);
+    }
+  }, [isOpen]);
+
+  // Handle Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDownGlobal = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDownGlobal);
+    return () => window.removeEventListener("keydown", handleKeyDownGlobal);
+  }, [isOpen, onClose]);
+
+  // Search filtering
+  const allMatchingResults = useMemo(() => {
+    const q = debouncedQuery.toLowerCase();
+    if (!q || q.length < 2) return [];
 
     return catalogProducts.filter((product) => {
       const name = String(product.name || "").toLowerCase();
@@ -71,6 +117,7 @@ export default function HeaderSearchModal({ isOpen, onClose }) {
       const desc = String(product.description || "").toLowerCase();
       const fabric = String(product.fabricDetails || product.fabric_details || "").toLowerCase();
       const colors = Array.isArray(product.colors) ? product.colors.join(" ").toLowerCase() : "";
+      const sku = String(product.sku || product.articleNumber || "").toLowerCase();
 
       return (
         name.includes(q) ||
@@ -78,156 +125,258 @@ export default function HeaderSearchModal({ isOpen, onClose }) {
         subcat.includes(q) ||
         desc.includes(q) ||
         fabric.includes(q) ||
-        colors.includes(q)
+        colors.includes(q) ||
+        sku.includes(q)
       );
     });
-  }, [query, catalogProducts]);
+  }, [debouncedQuery, catalogProducts]);
+
+  // Limit to max 6 results for dropdown
+  const visibleResults = useMemo(() => {
+    return allMatchingResults.slice(0, 6);
+  }, [allMatchingResults]);
+
+  const showLoading = (isDebouncing && query.trim().length >= 2) || (catalogLoading && query.trim().length >= 2);
+  const showEmpty = !showLoading && debouncedQuery.length >= 2 && allMatchingResults.length === 0;
+  const showResults = !showLoading && debouncedQuery.length >= 2 && allMatchingResults.length > 0;
+  const showPopular = !query.trim() || query.trim().length < 2;
+
+  // Clicking a popular search chip
+  function handlePopularChipClick(chipText) {
+    setQuery(chipText);
+    setDebouncedQuery(chipText.trim());
+    setIsDebouncing(false);
+    inputRef.current?.focus();
+  }
+
+  // Keyboard navigation
+  function handleInputKeyDown(e) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const maxIndex = visibleResults.length; // max index is visibleResults.length (represents "View all")
+      setSelectedIndex((prev) => (prev < maxIndex ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const maxIndex = visibleResults.length;
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : maxIndex));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < visibleResults.length) {
+        // Open selected product
+        const selected = visibleResults[selectedIndex];
+        router.push(`/product/${selected.id}`);
+        onClose();
+      } else if (query.trim()) {
+        // Submit search page query
+        router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+        onClose();
+      }
+    }
+  }
 
   if (!isOpen) return null;
 
   return (
-    <div className="headerSearchModalBackdrop" onClick={onClose} role="presentation">
-      <div className="headerSearchModalDialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Search products">
-        {/* Search Bar Input Row */}
-        <div className="headerSearchInputWrap">
-          <Search size={22} className="headerSearchInputIcon" />
-          <input
-            ref={inputRef}
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search kurtis, co-ords, suits, bottoms, colors..."
-            className="headerSearchInput"
-            aria-label="Search keywords"
-          />
-          {query && (
+    <>
+      {/* Backdrop overlay dims the page behind */}
+      {mounted &&
+        createPortal(
+          <div
+            className="bustaniyaSearchBackdrop"
+            onClick={onClose}
+            aria-hidden="true"
+          />,
+          document.body
+        )}
+
+      {/* Expanding Search Bar Panel (under header on desktop, full-screen on mobile) */}
+      <div
+        ref={dropdownRef}
+        className="bustaniyaSearchDropdown"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Product Search"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bustaniyaSearchContainer">
+          {/* Top Search Input Row */}
+          <div className="bustaniyaSearchInputRow">
+            <div className={`bustaniyaSearchPill ${isFocused ? "isFocused" : ""}`}>
+              <Search size={19} className="bustaniyaSearchPillIcon" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setSelectedIndex(-1);
+                }}
+                onKeyDown={handleInputKeyDown}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                placeholder="Search kurtis, co-ord sets, 3 piece suits..."
+                className="bustaniyaSearchInput"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck="false"
+                aria-label="Search kurtis, co-ord sets, 3 piece suits"
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="bustaniyaSearchClearBtn"
+                  onClick={() => {
+                    setQuery("");
+                    setDebouncedQuery("");
+                    setSelectedIndex(-1);
+                    inputRef.current?.focus();
+                  }}
+                  aria-label="Clear search"
+                  title="Clear text"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+
             <button
               type="button"
-              className="headerSearchClearBtn"
-              onClick={() => {
-                setQuery("");
-                inputRef.current?.focus();
-              }}
-              aria-label="Clear search"
+              className="bustaniyaSearchCloseBtn"
+              onClick={onClose}
+              aria-label="Close search"
+              title="Close (Esc)"
             >
-              <X size={18} />
+              <span className="bustaniyaCloseText">ESC</span>
+              <X size={20} className="bustaniyaCloseIcon" />
             </button>
-          )}
-          <button type="button" className="headerSearchCloseBtn" onClick={onClose} aria-label="Close search">
-            ESC
-          </button>
-        </div>
+          </div>
 
-        {/* Quick Suggestion Tags */}
-        <div className="headerSearchTagsRow">
-          <span className="headerSearchTagsLabel">Popular:</span>
-          {QUICK_TAGS.map((tag) => (
-            <button
-              type="button"
-              key={tag}
-              className={`headerSearchTagChip ${query.toLowerCase() === tag.toLowerCase() ? "isActive" : ""}`}
-              onClick={() => {
-                setQuery(tag);
-                inputRef.current?.focus();
-              }}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-
-        {/* Results Area */}
-        <div className="headerSearchResultsArea">
-          {loading && (
-            <div className="headerSearchLoading">
-              <span>Loading collection...</span>
+          {/* Popular Searches Chips (when input is empty or < 2 characters) */}
+          {showPopular && (
+            <div className="bustaniyaSearchPopularRow">
+              <span className="bustaniyaPopularLabel">Popular Searches:</span>
+              <div className="bustaniyaPopularChips">
+                {POPULAR_SEARCH_CHIPS.map((chip) => (
+                  <button
+                    type="button"
+                    key={chip}
+                    className="bustaniyaPopularChip"
+                    onClick={() => handlePopularChipClick(chip)}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
-          {!loading && query.trim() && searchResults.length > 0 && (
-            <div>
-              <div className="headerSearchResultsHeader">
-                <span>{searchResults.length} {searchResults.length === 1 ? "piece" : "pieces"} found for &ldquo;<b>{query}</b>&rdquo;</span>
+          {/* Loading Skeleton */}
+          {showLoading && (
+            <div className="bustaniyaSearchSkeletonWrap" aria-busy="true" aria-label="Searching products">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bustaniyaSearchSkeletonItem">
+                  <div className="bustaniyaSkeletonThumb shimmer" />
+                  <div className="bustaniyaSkeletonDetails">
+                    <div className="bustaniyaSkeletonLine bustaniyaSkeletonLineShort shimmer" />
+                    <div className="bustaniyaSkeletonLine bustaniyaSkeletonLineLong shimmer" />
+                  </div>
+                  <div className="bustaniyaSkeletonLine bustaniyaSkeletonLinePrice shimmer" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Live Search Results (Max 6) */}
+          {showResults && (
+            <div className="bustaniyaSearchResultsSection">
+              <div className="bustaniyaSearchResultsMeta">
+                <span>
+                  Showing {visibleResults.length} of {allMatchingResults.length} results for &ldquo;<b>{debouncedQuery}</b>&rdquo;
+                </span>
               </div>
-              <div className="headerSearchResultsGrid">
-                {searchResults.slice(0, 8).map((product) => {
+
+              <div className="bustaniyaSearchResultsList" ref={resultsListRef} role="listbox">
+                {visibleResults.map((product, idx) => {
                   const compareAtPrice = Number(product.compareAtPrice || product.compare_at_price || 0);
                   const onSale = compareAtPrice > product.price;
+                  const isSelected = selectedIndex === idx;
 
                   return (
                     <Link
                       key={product.id}
                       href={`/product/${product.id}`}
-                      className="headerSearchResultCard"
+                      className={`bustaniyaSearchResultItem ${isSelected ? "isSelected" : ""}`}
                       onClick={onClose}
+                      role="option"
+                      aria-selected={isSelected}
                     >
-                      <div className="headerSearchResultImg">
-                        <Image
-                          src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
-                          alt={product.name}
-                          fill
-                          sizes="80px"
-                        />
+                      <div className="bustaniyaSearchThumb">
+                        {product.image ? (
+                          <Image
+                            src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
+                            alt={product.name}
+                            fill
+                            sizes="48px"
+                          />
+                        ) : (
+                          <div className="bustaniyaThumbFallback">
+                            <Search size={16} />
+                          </div>
+                        )}
                       </div>
-                      <div className="headerSearchResultDetails">
-                        <span className="headerSearchResultCategory">{product.category}</span>
-                        <h4 className="headerSearchResultTitle">{product.name}</h4>
-                        <div className="headerSearchResultPrice">
-                          <span>Rs. {Number(product.price || 0).toLocaleString()}</span>
-                          {onSale && <del>Rs. {compareAtPrice.toLocaleString()}</del>}
-                        </div>
+
+                      <div className="bustaniyaSearchInfo">
+                        {product.category && (
+                          <span className="bustaniyaSearchCategory">{product.category}</span>
+                        )}
+                        <h4 className="bustaniyaSearchName">{product.name}</h4>
+                      </div>
+
+                      <div className="bustaniyaSearchPrice">
+                        <span>Rs. {Number(product.price || 0).toLocaleString()}</span>
+                        {onSale && <del>Rs. {compareAtPrice.toLocaleString()}</del>}
                       </div>
                     </Link>
                   );
                 })}
               </div>
+
+              {/* View all results footer link */}
+              <Link
+                href={`/search?q=${encodeURIComponent(debouncedQuery)}`}
+                onClick={onClose}
+                className={`bustaniyaSearchViewAllBtn ${selectedIndex === visibleResults.length ? "isSelected" : ""}`}
+              >
+                <span>View all {allMatchingResults.length} results</span>
+                <ArrowRight size={15} />
+              </Link>
             </div>
           )}
 
-          {!loading && query.trim() && searchResults.length === 0 && (
-            <div className="headerSearchEmptyState">
-              <Sparkles size={28} className="headerSearchEmptyIcon" />
-              <h3>No pieces found for &ldquo;{query}&rdquo;</h3>
-              <p>Try searching by style (e.g. &ldquo;Kurtis&rdquo;, &ldquo;Co-ord Sets&rdquo;, &ldquo;3 Piece Suits&rdquo;) or color.</p>
-              <div className="headerSearchEmptySuggestions">
-                <Link href="/category/kurtis" onClick={onClose} className="headerSearchEmptyLink">
-                  View Kurtis <ArrowRight size={14} />
-                </Link>
-                <Link href="/category/coord-sets" onClick={onClose} className="headerSearchEmptyLink">
-                  View Co-ord Sets <ArrowRight size={14} />
-                </Link>
-                <Link href="/category/3-piece-suits" onClick={onClose} className="headerSearchEmptyLink">
-                  View 3 Piece Suits <ArrowRight size={14} />
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {!query.trim() && !loading && (
-            <div className="headerSearchInitialState">
-              <p className="headerSearchInitialPrompt">Search for your favorite silhouettes, fabrics, colors, or collections.</p>
-              <div className="headerSearchQuickCategories">
-                <Link href="/category/kurtis" onClick={onClose} className="headerSearchQuickCatCard">
-                  <b>Kurtis</b>
-                  <small>Everyday &amp; luxury silhouettes</small>
-                </Link>
-                <Link href="/category/coord-sets" onClick={onClose} className="headerSearchQuickCatCard">
-                  <b>Co-ord Sets</b>
-                  <small>Matching 2-piece elegance</small>
-                </Link>
-                <Link href="/category/3-piece-suits" onClick={onClose} className="headerSearchQuickCatCard">
-                  <b>3 Piece Suits</b>
-                  <small>Complete festive &amp; formal wear</small>
-                </Link>
-                <Link href="/category/bottoms" onClick={onClose} className="headerSearchQuickCatCard">
-                  <b>Bottoms</b>
-                  <small>Pants, trousers &amp; shalwars</small>
-                </Link>
+          {/* Empty State */}
+          {showEmpty && (
+            <div className="bustaniyaSearchEmpty">
+              <Sparkles size={26} className="bustaniyaSearchEmptyIcon" />
+              <h3 className="bustaniyaSearchEmptyTitle">No products found for &ldquo;{debouncedQuery}&rdquo;</h3>
+              <p className="bustaniyaSearchEmptySubtitle">
+                We couldn&apos;t find any designs matching your query. Check your spelling or browse popular categories:
+              </p>
+              <div className="bustaniyaPopularChips" style={{ justifyContent: "center", marginTop: "12px" }}>
+                {POPULAR_SEARCH_CHIPS.map((chip) => (
+                  <button
+                    type="button"
+                    key={chip}
+                    className="bustaniyaPopularChip"
+                    onClick={() => handlePopularChipClick(chip)}
+                  >
+                    {chip}
+                  </button>
+                ))}
               </div>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 }

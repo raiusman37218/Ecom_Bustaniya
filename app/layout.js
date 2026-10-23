@@ -1,6 +1,12 @@
+// Order matters. design-system.css defines the token vocabulary and must come
+// first so every later sheet can draw from it; components.css comes last so a
+// migrated page's `bs-` primitive wins over the legacy rules it replaces
+// without needing !important.
+import "./design-system.css";
 import "./globals.css";
 import "./campaign-hero.css";
 import "./premium.css";
+import "./components.css";
 import Script from "next/script";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 
@@ -24,6 +30,7 @@ const manrope = Manrope({
 import { buildMetadata, siteConfig } from "../lib/seo";
 import MetaPixel from "../components/MetaPixel";
 import WhatsAppSupportButton from "../components/WhatsAppSupportButton";
+import RegionSwitcher from "../components/RegionSwitcher";
 import { getStoreSettings } from "../lib/storeSettings";
 
 export const metadata = {
@@ -96,6 +103,7 @@ export default async function RootLayout({ children }) {
         )}
         {children}
         <WhatsAppSupportButton phoneNumber={whatsappNumber} storeName={siteConfig.name} />
+        <RegionSwitcher />
         {gaId && (
           <>
             <Script src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} strategy="afterInteractive" />
