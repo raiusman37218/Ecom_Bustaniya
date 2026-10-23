@@ -8,7 +8,7 @@ import { ArrowLeft, ArrowRight, Banknote, Check, ChevronLeft, ChevronRight, Cloc
 
 import { productDescription } from "../lib/seo";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
-import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
+import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from "../lib/images";
 import { trackEvent } from "../lib/trackEvent";
 import { categoryToSlug } from "../data/store";
 import { getColorHex } from "../data/variantOptions";
@@ -379,23 +379,27 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   // full size on arrival, all competing for the connection the visible one
   // needed. Hovering a thumbnail mounts it early, so switching stays instant.
   const [mountedPhotos, setMountedPhotos] = useState(() => new Set([0]));
+  const [loadedPhotos, setLoadedPhotos] = useState(() => new Set());
   // Keyed on the URLs, not on the array. `productImages` is rebuilt whenever
   // `activeColorImages` changes identity, so depending on the array reset the
   // mounted set on unrelated re-renders and the photo you had just clicked
   // unmounted again.
   const photoKey = productImages.join("|");
-  useEffect(() => { setMountedPhotos(new Set([0])); }, [photoKey]);
+  useEffect(() => {
+    setMountedPhotos(new Set([0]));
+    setLoadedPhotos(new Set());
+  }, [photoKey]);
   const mountPhoto = (idx) => setMountedPhotos((prev) => (prev.has(idx) ? prev : new Set(prev).add(idx)));
   useEffect(() => { mountPhoto(activeImgIndex); }, [activeImgIndex]);
 
-  // Pre-mount remaining photos after the primary photo starts downloading
-  // so tapping/clicking any other photo on mobile or desktop is 100% instantaneous with zero lag.
+  // Pre-mount remaining photos after the primary photo has had time to load,
+  // so the initial connection is 100% focused on displaying the first photo instantly.
   useEffect(() => {
     const timer = setTimeout(() => {
       productImages.forEach((_, idx) => {
         if (idx > 0) mountPhoto(idx);
       });
-    }, 350);
+    }, 1500);
     return () => clearTimeout(timer);
   }, [photoKey]);
 
@@ -485,44 +489,63 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             {/* Main Featured Display Photo - Instant Zero-Lag Stack */}
             <div className="galleryMainView" onClick={() => !mainImageUnavailable && setLightboxOpen(true)}>
               {!mainImageUnavailable ? (
-                productImages.map((img, idx) => {
-                  if (!mountedPhotos.has(idx)) return null;
-                  const isActive = activeImgIndex === idx;
-                  return (
-                    <Image
-                      key={img || idx}
-                      className={`galleryMainImage ${isActive ? "active" : ""}`}
-                      src={useOriginalMainImage ? img : optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.product)}
-                      alt={`${product.name} - View ${idx + 1} by Bustaniya`}
-                      fill
-                      // The slot sits beside the buy box on desktop and goes
-                      // full width once it stacks. Without this every photo
-                      // came down at w_1080 for what is a 525px slot.
-                      sizes="(max-width: 900px) 100vw, 45vw"
-                      priority={idx === 0}
-                      // Mounted photos are deliberate — the first one, plus
-                      // any the shopper hovered or selected. They must not be
-                      // lazy: a lazy image sitting at visibility:hidden in the
-                      // stack is never fetched by Chrome, so switching to it
-                      // showed an empty frame.
-                      loading={idx === 0 ? undefined : "eager"}
-                      quality={80}
-                      style={{
-                        objectFit: "cover",
-                        objectPosition: "center top",
-                        opacity: isActive ? 1 : 0,
-                        visibility: isActive ? "visible" : "hidden",
-                        transition: "opacity 0.15s ease-out, visibility 0.15s ease-out",
-                        pointerEvents: isActive ? "auto" : "none",
-                        zIndex: isActive ? 2 : 1,
-                      }}
-                      onError={() => {
-                        if (!useOriginalMainImage) setUseOriginalMainImage(true);
-                        else setMainImageUnavailable(true);
-                      }}
-                    />
-                  );
-                })
+                <>
+                  {/* Instant 0ms Preview Placeholder from already-cached thumbnail */}
+                  <img
+                    key={`preview-${activeImage}`}
+                    className="galleryMainPreview"
+                    src={optimizedImageUrl(activeImage, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
+                    alt=""
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      objectPosition: "center top",
+                      filter: loadedPhotos.has(activeImgIndex) ? "none" : "blur(10px)",
+                      transform: loadedPhotos.has(activeImgIndex) ? "none" : "scale(1.04)",
+                      opacity: loadedPhotos.has(activeImgIndex) ? 0 : 1,
+                      transition: "opacity 0.3s ease-out, filter 0.3s ease-out",
+                      zIndex: 1,
+                      pointerEvents: "none",
+                    }}
+                  />
+
+                  {productImages.map((img, idx) => {
+                    if (!mountedPhotos.has(idx)) return null;
+                    const isActive = activeImgIndex === idx;
+                    return (
+                      <Image
+                        key={img || idx}
+                        className={`galleryMainImage ${isActive ? "active" : ""}`}
+                        src={useOriginalMainImage ? img : optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.product)}
+                        alt={`${product.name} - View ${idx + 1} by Bustaniya`}
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 650px"
+                        priority={idx === 0}
+                        loading={idx === 0 ? "eager" : "eager"}
+                        onLoad={() => {
+                          setLoadedPhotos((prev) => new Set(prev).add(idx));
+                        }}
+                        style={{
+                          objectFit: "cover",
+                          objectPosition: "center top",
+                          opacity: isActive ? 1 : 0,
+                          visibility: isActive ? "visible" : "hidden",
+                          transition: "opacity 0.2s ease-out, visibility 0.2s ease-out",
+                          pointerEvents: isActive ? "auto" : "none",
+                          zIndex: 2,
+                        }}
+                        onError={() => {
+                          if (!useOriginalMainImage) setUseOriginalMainImage(true);
+                          else setMainImageUnavailable(true);
+                        }}
+                      />
+                    );
+                  })}
+                </>
               ) : (
                 <div className="galleryImageFallback">
                   <b>Product image is unavailable</b>
@@ -939,7 +962,12 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         <p className="eyebrow">YOU MAY ALSO LIKE</p>
         <h2>Complete the look</h2>
         <div className="productGrid">
-          {related.map((item) => <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={item.id}>
+          {related.map((item) => <article
+            className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`}
+            key={item.id}
+            onMouseEnter={() => preloadProductImage(item.image)}
+            onTouchStart={() => preloadProductImage(item.image)}
+          >
             <Link className="productImage" href={`/product/${item.id}`} prefetch={true}>
               <Image
                 src={optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.card)}

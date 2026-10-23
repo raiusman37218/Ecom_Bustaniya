@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Search, X, ArrowRight, Sparkles } from "lucide-react";
-import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
+import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from "../lib/images";
 
 const POPULAR_SEARCH_CHIPS = ["Kurtis", "Co-Ord Sets", "3 Piece Suits", "Custom Dress"];
 
@@ -321,6 +321,8 @@ export default function HeaderSearchModal({ isOpen, onClose }) {
                       prefetch={true}
                       className={`bustaniyaSearchResultItem ${isSelected ? "isSelected" : ""}`}
                       onClick={onClose}
+                      onMouseEnter={() => preloadProductImage(product.image)}
+                      onTouchStart={() => preloadProductImage(product.image)}
                       role="option"
                       aria-selected={isSelected}
                     >

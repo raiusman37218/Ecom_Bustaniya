@@ -5,6 +5,7 @@ import { getCatalogProducts } from "../../../lib/catalog";
 import { getCatalogCategories } from "../../../lib/categories";
 import { JsonLd, breadcrumbSchema, buildMetadata, productDescription, productSchema, productSlug } from "../../../lib/seo";
 import { getStoreSettings } from "../../../lib/storeSettings";
+import { optimizedImageUrl, CLOUDINARY_IMAGE_PRESETS } from "../../../lib/images";
 
 export const revalidate = 60;
 
@@ -59,8 +60,13 @@ export default async function ProductPage({ params }) {
     .filter((item) => item.id !== product.id && normalizeCategory(item.category) === normalizeCategory(product.category))
     .slice(0, 4);
 
+  const thumbPreloadUrl = product.image ? optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.thumbnail) : "";
+  const productPreloadUrl = product.image ? optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.product) : "";
+
   return (
     <>
+      {thumbPreloadUrl && <link rel="preload" as="image" href={thumbPreloadUrl} fetchPriority="high" />}
+      {productPreloadUrl && <link rel="preload" as="image" href={productPreloadUrl} fetchPriority="high" />}
       <JsonLd data={breadcrumbSchema([
         { name: "Home", path: "/" },
         { name: product.category, path: product.category === "Kurtis" ? "/category/kurtis" : product.category === "Bottoms" ? "/category/bottoms" : product.category === "3 Piece Suits" ? "/category/3-piece-suits" : "/category/coord-sets" },

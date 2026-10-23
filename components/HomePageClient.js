@@ -7,7 +7,7 @@ import { ArrowRight, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Inst
 
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../data/storeSettings";
-import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
+import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from "../lib/images";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import SizeChartModal from "./SizeChartModal";
@@ -442,7 +442,12 @@ export default function Home({
                 </div>
                 <div className="productGrid">
                   {visibleProducts.map((product, index) => (
-                    <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
+                    <article
+                      className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`}
+                      key={product.id}
+                      onMouseEnter={() => preloadProductImage(product.image)}
+                      onTouchStart={() => preloadProductImage(product.image)}
+                    >
                       <div className="productImage">
                         <Image
                           className="productImagePrimary"
@@ -463,13 +468,13 @@ export default function Home({
                             sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                           />
                         )}
-                        <Link className="productCardLink" href={`/product/${product.id}`} aria-label={`View ${product.name}`} />
+                        <Link className="productCardLink" href={`/product/${product.id}`} prefetch={true} aria-label={`View ${product.name}`} />
                         {product.badge && <span className="badge">{product.badge}</span>}
                         {salePercent(product) > 0 && <span className="saleBadge">{salePercent(product)}% OFF</span>}
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
                       </div>
                       <div className="productInfo">
-                        <div><p>{product.category}</p><h3><Link href={`/product/${product.id}`}>{product.name}</Link></h3>{Array.isArray(product.colors) && product.colors.length > 0 && <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>{product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}{product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}</div>}</div>
+                        <div><p>{product.category}</p><h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>{Array.isArray(product.colors) && product.colors.length > 0 && <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>{product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}{product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}</div>}</div>
                         <div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span>{salePercent(product) > 0 && <del>Rs. {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</del>}</div>
                       </div>
                     </article>
@@ -555,7 +560,12 @@ export default function Home({
                 </div>
                 <div className="productGrid">
                   {bestSellers.map((product, pIdx) => (
-                    <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
+                    <article
+                      className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`}
+                      key={product.id}
+                      onMouseEnter={() => preloadProductImage(product.image)}
+                      onTouchStart={() => preloadProductImage(product.image)}
+                    >
                       <div className="productImage">
                         <Image className="productImagePrimary" src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill priority={pIdx < 4} sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
                         {hoverImageOf(product) && <Image className="productImageHover" src={optimizedImageUrl(hoverImageOf(product), CLOUDINARY_IMAGE_PRESETS.card)} alt="" aria-hidden="true" fill loading="lazy" sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />}

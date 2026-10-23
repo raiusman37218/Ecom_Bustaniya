@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown, SlidersHorizontal, ArrowUpDown } from "lucide-react";
-import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
+import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from "../lib/images";
 
 export default function CategoryProductsGrid({
   initialProducts = [],
@@ -79,6 +79,8 @@ export default function CategoryProductsGrid({
             <article
               className={`productCard productCard--${cardStyle}`}
               key={product.id}
+              onMouseEnter={() => preloadProductImage(product.image)}
+              onTouchStart={() => preloadProductImage(product.image)}
             >
               <Link href={`/product/${product.id}`} className="productImage" prefetch={true}>
                 <Image
