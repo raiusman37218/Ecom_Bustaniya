@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, AlertCircle, Archive, ArrowDown, ArrowLeft, ArrowUp, Bell, Boxes, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleDollarSign,
+  Activity, AlertCircle, Archive, ArrowDown, ArrowLeft, ArrowUp, BarChart3, Bell, Boxes, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleDollarSign,
   Clock, Copy, CreditCard, Edit, ExternalLink, Eye, FileText, Folder, FolderPlus, FolderTree, Globe, Grid, HelpCircle, Info, Landmark, Layers, LayoutDashboard, List, Loader2, LogOut, MapPin, Menu, MessageSquare,
   Minus, MoreHorizontal, Package, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Save, Search, Settings,
   ShoppingBag, Sparkles, Star, Store, Tags, Trash2, TrendingUp, Truck, UploadCloud, User, Users, WalletCards, X, Scissors
@@ -6121,19 +6121,30 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
         <div className="shopifyOrdersHeaderActions">
           <button
             type="button"
+            className={`shopifyHeaderActionBtn ${showCharts ? "active" : ""}`}
+            onClick={() => setShowCharts((prev) => !prev)}
+            title="Toggle visual pipeline and city revenue charts"
+          >
+            <BarChart3 size={15} />
+            <span>{showCharts ? "Hide Analytics" : "View Analytics"}</span>
+          </button>
+          <button
+            type="button"
             className="shopifyBtnSecondary"
             onClick={exportOrders}
             disabled={loading || exportingOrders || !canExport || !connected || !allRows.length}
             aria-busy={exportingOrders}
           >
-            {exportingOrders ? "Exporting..." : "↓ Export orders"}
+            <ArrowDown size={14} />
+            <span>{exportingOrders ? "Exporting..." : "Export orders"}</span>
           </button>
           <button
             type="button"
             className="shopifyBtnPrimary"
             onClick={() => setShowDraft(true)}
           >
-            <Plus size={16} /> Create custom order
+            <Plus size={16} />
+            <span>Create custom order</span>
           </button>
         </div>
       </div>
@@ -6154,27 +6165,50 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
 
       {!showSkeleton && (connected || allRows.length > 0) && (
         <>
-          {/* Shopify KPI Summary Ribbon */}
+          {/* Executive KPI Summary Ribbon */}
           <div className="shopifyKpiGrid">
             <div className="shopifyKpiCard">
-              <span className="shopifyKpiLabel">📦 Total Orders</span>
+              <div className="shopifyKpiTop">
+                <span className="shopifyKpiLabel">Total Orders</span>
+                <span className="shopifyKpiIconBadge shopifyKpiTotal">
+                  <Package size={17} />
+                </span>
+              </div>
               <div className="shopifyKpiValue">{allRows.length}</div>
               <span className="shopifyKpiSub">Store lifetime volume</span>
             </div>
+
             <div className="shopifyKpiCard">
-              <span className="shopifyKpiLabel">⏳ Needs Action</span>
+              <div className="shopifyKpiTop">
+                <span className="shopifyKpiLabel">Needs Action</span>
+                <span className="shopifyKpiIconBadge shopifyKpiPending">
+                  <Clock size={17} />
+                </span>
+              </div>
               <div className={`shopifyKpiValue ${unfulfilledCount > 0 ? "shopifyKpiAlert" : ""}`}>
                 {unfulfilledCount} {unfulfilledCount === 1 ? "order" : "orders"}
               </div>
               <span className="shopifyKpiSub">Unfulfilled / Unbooked</span>
             </div>
+
             <div className="shopifyKpiCard">
-              <span className="shopifyKpiLabel">🚚 In Transit</span>
+              <div className="shopifyKpiTop">
+                <span className="shopifyKpiLabel">In Transit</span>
+                <span className="shopifyKpiIconBadge shopifyKpiTransit">
+                  <Truck size={17} />
+                </span>
+              </div>
               <div className="shopifyKpiValue">{inTransitCount}</div>
               <span className="shopifyKpiSub">With PostEx courier</span>
             </div>
+
             <div className="shopifyKpiCard">
-              <span className="shopifyKpiLabel">✅ Delivered Revenue</span>
+              <div className="shopifyKpiTop">
+                <span className="shopifyKpiLabel">Delivered Revenue</span>
+                <span className="shopifyKpiIconBadge shopifyKpiDelivered">
+                  <TrendingUp size={17} />
+                </span>
+              </div>
               <div className="shopifyKpiValue shopifyKpiSuccess">
                 Rs. {Math.round(deliveredRevenue).toLocaleString()}
               </div>
@@ -6182,30 +6216,8 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
             </div>
           </div>
 
-          {/* Optional Business Analytics Visual Toggle */}
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              onClick={() => setShowCharts((prev) => !prev)}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#495a4f",
-                fontSize: "12px",
-                fontWeight: 650,
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                padding: "4px 8px"
-              }}
-            >
-              📊 {showCharts ? "Hide Visual Analytics ▲" : "View Pipeline & City Charts ▼"}
-            </button>
-          </div>
-
           {showCharts && (
-            <div className="adminVisualGrid" style={{ marginBottom: "6px" }}>
+            <div className="adminVisualGrid" style={{ marginTop: "4px", marginBottom: "6px" }}>
               <VisualDonut title="Order pipeline" subtitle="Live fulfilment health — booked, in-transit, delivered and returned." centerValue={allRows.length} centerLabel="total" items={orderStatusVisual} />
               <VisualBars title="Revenue by city" subtitle="Top shipping destinations ranked by delivered order value." format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`} items={cityVisual} />
             </div>
@@ -6219,22 +6231,23 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
             {selectedOrderIds.length > 0 && (
               <div className="shopifyBulkBar">
                 <div className="shopifyBulkSummary">
-                  <span>✓ {selectedOrderIds.length} {selectedOrderIds.length === 1 ? "order" : "orders"} selected</span>
+                  <span className="shopifyBulkCheck"><Check size={13} /></span>
+                  <span>{selectedOrderIds.length} {selectedOrderIds.length === 1 ? "order" : "orders"} selected</span>
                 </div>
                 <div className="shopifyBulkActions">
                   <button type="button" className="shopifyBulkBtn" title="Print workshop tailor stitching slips" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "stitching" })}>
-                    🧵 Stitching slips
+                    <Scissors size={13} /> Stitching slips
                   </button>
                   <button type="button" className="shopifyBulkBtn" title="Print master cutting sheet" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "batch_sheet" })}>
-                    📋 Cutting sheet
+                    <Layers size={13} /> Cutting sheet
                   </button>
                   <button type="button" className="shopifyBulkBtn" title="Print customer invoices" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "invoice" })}>
-                    📄 Invoices
+                    <FileText size={13} /> Invoices
                   </button>
                   <button type="button" className="shopifyBulkBtn" title="Print courier manifest" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "manifest" })}>
-                    🚚 Courier manifest
+                    <Truck size={13} /> Courier manifest
                   </button>
-                  <button type="button" className="shopifyBulkClearBtn" onClick={() => setSelectedOrderIds([])}>Clear</button>
+                  <button type="button" className="shopifyBulkClearBtn" onClick={() => setSelectedOrderIds([])}>Clear selection</button>
                 </div>
               </div>
             )}
@@ -10820,6 +10833,14 @@ function whatsappNumber(phone = "") {
   return `92${digits}`;
 }
 
+function WhatsAppIcon({ size = 13, className = "" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} style={{ display: "inline-block", verticalAlign: "middle" }}>
+      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+    </svg>
+  );
+}
+
 function OrderTable({
   rows,
   products = [],
@@ -10922,7 +10943,9 @@ function OrderTable({
                     </button>
                     <div className="shopifyOrderDate">{order.date}</div>
                     {source.label !== "Storefront" && (
-                      <span className="shopifySourceTag">{source.icon} {source.label}</span>
+                      <span className={`shopifySourceTag shopifySource_${source.tone}`}>
+                        {source.icon} {source.label}
+                      </span>
                     )}
                   </td>
 
@@ -10931,7 +10954,12 @@ function OrderTable({
                     <div className="shopifyCustomerCell">
                       <span className="shopifyCustomerName">{order.customer || "Guest Customer"}</span>
                       <div className="shopifyCustomerMeta">
-                        {order.city && <span className="shopifyCityPill">📍 {order.city}</span>}
+                        {order.city && (
+                          <span className="shopifyCityPill">
+                            <MapPin size={10} />
+                            <span>{order.city}</span>
+                          </span>
+                        )}
                         {waPhone && (
                           <a
                             className="shopifyWaBtn"
@@ -10939,9 +10967,10 @@ function OrderTable({
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            title={`WhatsApp ${order.customer}`}
+                            title={`Chat with ${order.customer} on WhatsApp`}
                           >
-                            💬 WA
+                            <WhatsAppIcon size={12} />
+                            <span>WhatsApp</span>
                           </a>
                         )}
                       </div>
@@ -10955,7 +10984,9 @@ function OrderTable({
                         {thumbUrl ? (
                           <img src={thumbUrl} alt={firstItem.name} className="shopifyItemThumbSmall" />
                         ) : (
-                          <div className="shopifyItemThumbSmall">👗</div>
+                          <div className="shopifyItemThumbSmall fallback">
+                            <ShoppingBag size={16} />
+                          </div>
                         )}
                         <div className="shopifyItemInfo">
                           <span className="shopifyItemTitle" title={firstItem.name || firstItem.title}>
@@ -10974,7 +11005,10 @@ function OrderTable({
                               </span>
                             )}
                             {note && (
-                              <span className="shopifyCustomSizeTag" title={`Note: ${note}`}>📝 Note</span>
+                              <span className="shopifyNoteChip" title={`Note: ${note}`}>
+                                <FileText size={10} />
+                                <span>Note</span>
+                              </span>
                             )}
                           </div>
                         </div>
@@ -11029,7 +11063,8 @@ function OrderTable({
                             onClick={(e) => e.stopPropagation()}
                             title="Open live tracking on PostEx.pk"
                           >
-                            🚚 {order.tracking}
+                            <Truck size={11} />
+                            <span>{order.tracking}</span>
                           </a>
                         )}
                       </div>
@@ -11062,9 +11097,10 @@ function OrderTable({
                           type="button"
                           className="shopifyRowBtn primary"
                           onClick={() => onSelect(order)}
-                          title="Open full Shopify order view"
+                          title="Open full order details"
                         >
-                          View
+                          <Eye size={12} />
+                          <span>View</span>
                         </button>
                       )}
                       {onPrintStitchingOrder && (
@@ -11074,37 +11110,38 @@ function OrderTable({
                           onClick={() => onPrintStitchingOrder(order)}
                           title="Print tailor stitching slip"
                         >
-                          🧵 Slip
+                          <Scissors size={12} />
+                          <span>Slip</span>
                         </button>
                       )}
                       {onPrintSingleOrder && (
                         <button
                           type="button"
-                          className="shopifyRowBtn"
+                          className="shopifyRowBtn iconOnly"
                           onClick={() => onPrintSingleOrder(order)}
                           title="Print customer invoice"
                         >
-                          📄
+                          <Printer size={13} />
                         </button>
                       )}
                       {onDeleteOrder && (
                         <button
                           type="button"
-                          className="shopifyRowBtn danger"
+                          className="shopifyRowBtn iconOnly danger"
                           onClick={() => onDeleteOrder(order)}
                           title="Delete order permanently"
                         >
-                          🗑️
+                          <Trash2 size={13} />
                         </button>
                       )}
                       <button
                         type="button"
-                        className="shopifyRowBtn"
+                        className="shopifyRowBtn iconOnly expandToggle"
                         onClick={() => setExpandedId(isExpanded ? null : order.id)}
                         aria-expanded={isExpanded}
-                        title="Quick inline summary"
+                        title={isExpanded ? "Collapse inline preview" : "Expand inline summary"}
                       >
-                        {isExpanded ? "▲" : "▼"}
+                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       </button>
                     </div>
                   </td>
@@ -11116,19 +11153,25 @@ function OrderTable({
                     <td colSpan={columnCount}>
                       <div className="orderExpandedGrid">
                         <section className="orderExpandedCard">
-                          <h4>📍 Delivery destination</h4>
+                          <h4><MapPin size={12} /> Delivery Destination</h4>
                           <p><b>{order.customer}</b></p>
                           <p>{order.address || order.city || "No address saved"}</p>
-                          {order.phone && <p className="orderExpandedPhone">📞 {order.phone}</p>}
+                          {order.phone && (
+                            <p className="orderExpandedPhone">
+                              <Phone size={12} />
+                              <span>{order.phone}</span>
+                            </p>
+                          )}
                           {waPhone && (
                             <a className="orderWhatsappLink" href={`https://wa.me/${waPhone}`} target="_blank" rel="noopener noreferrer">
-                              💬 Chat on WhatsApp · {order.phone}
+                              <WhatsAppIcon size={13} />
+                              <span>Chat on WhatsApp · {order.phone}</span>
                             </a>
                           )}
                         </section>
 
                         <section className="orderExpandedCard">
-                          <h4>👗 Ordered items ({orderItems.length})</h4>
+                          <h4><ShoppingBag size={12} /> Ordered Items ({orderItems.length})</h4>
                           <ul className="orderExpandedItems">
                             {orderItems.map((item, index) => (
                               <li key={item.id || index}>
@@ -11143,7 +11186,7 @@ function OrderTable({
                         </section>
 
                         <section className="orderExpandedCard orderExpandedNotes">
-                          <h4>📝 Workshop Notes &amp; Instructions</h4>
+                          <h4><FileText size={12} /> Workshop Notes &amp; Instructions</h4>
                           {note ? (
                             <div className="orderExpandedNoteBox">{note}</div>
                           ) : (
@@ -11154,25 +11197,14 @@ function OrderTable({
                               type="button"
                               className="orderOpenDrawerBtn"
                               onClick={() => onSelect(order)}
-                              style={{
-                                marginTop: "auto",
-                                alignSelf: "flex-start",
-                                background: "none",
-                                border: "none",
-                                color: "#173d29",
-                                fontWeight: 700,
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                padding: 0
-                              }}
                             >
-                              Open full Shopify order details →
+                              Open full order details →
                             </button>
                           )}
                         </section>
 
                         <section className="orderExpandedCard">
-                          <h4>💰 Financial breakdown</h4>
+                          <h4><ReceiptText size={12} /> Financial Breakdown</h4>
                           <dl className="orderExpandedMoney">
                             <div><dt>Subtotal</dt><dd>Rs. {money.subtotal.toLocaleString()}</dd></div>
                             <div><dt>Delivery</dt><dd>Rs. {money.delivery.toLocaleString()}</dd></div>
@@ -11184,7 +11216,8 @@ function OrderTable({
                             </div>
                           </dl>
                           {order.tracking && (
-                            <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px solid #e2e8f0", fontSize: "12px" }}>
+                            <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px solid #e2e8f0", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+                              <Truck size={13} color="#4338ca" />
                               <span>Tracking: <b>{order.tracking}</b></span>
                             </div>
                           )}
