@@ -4,16 +4,26 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
+  ArrowRight,
   Check,
   CheckCircle2,
   ChevronDown,
+  Clock,
+  Copy,
   HelpCircle,
   Loader2,
   Lock,
+  MapPin,
   MessageCircle,
+  Package,
+  Printer,
+  Receipt,
+  ShieldCheck,
   ShoppingBag,
+  Truck,
 } from "lucide-react";
 import "./checkout.css";
+import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../lib/images";
 import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
@@ -1018,19 +1028,48 @@ export default function CheckoutPage() {
 }
 
 function OrderConfirmation({ order, items }) {
+  const [copied, setCopied] = useState(false);
   const paymentDetails = order.paymentDetails || {};
   const isFullAdvance = normalizePaymentMethod(order.paymentMethod) === PAYMENT_METHODS.FULL_ADVANCE;
   const paymentAmount = Number(order.advanceAmount || 0);
   const payableOnDelivery = Number(order.payableOnDelivery || 0);
   const whatsappNumber = String(paymentDetails.whatsappNumber || "923053530008").replace(/\D/g, "");
 
-  const itemsText = items
-    .map((item) => `• ${item.name}${item.size ? ` (Size: ${item.size})` : ""} x${item.quantity}`)
+  const orderRef = order.orderRef || order.order_number || order.orderId || order.id || "BST-ORDER";
+
+  const orderItems = useMemo(() => {
+    if (Array.isArray(order.items) && order.items.length > 0) return order.items;
+    if (Array.isArray(items) && items.length > 0) return items;
+    return [];
+  }, [order.items, items]);
+
+  const totalItemsCount = orderItems.reduce((acc, it) => acc + Number(it.quantity || 1), 0);
+  const subtotal = Number(
+    order.subtotal ||
+      orderItems.reduce((acc, it) => acc + Number(it.price || 0) * Number(it.quantity || 1), 0)
+  );
+  const total = Number(order.total || order.totalOrderValue || subtotal);
+  const shippingCharge = Number(
+    order.shippingFee || order.deliveryCharge || (total > subtotal ? total - subtotal : 0)
+  );
+  const isFreeDelivery = shippingCharge === 0;
+
+  const itemsText = orderItems
+    .map(
+      (item) =>
+        `• ${item.name}${item.size ? ` (Size: ${item.size})` : ""}${
+          item.color ? ` (Color: ${item.color})` : ""
+        } x${item.quantity || 1}`
+    )
     .join("\n");
 
   const whatsappMessage = isFullAdvance
-    ? `Assalam-o-Alaikum Bustaniya! 🌸\nI have transferred Rs. ${paymentAmount.toLocaleString()} for Order #${order.orderRef || order.order_number}.\n\n📋 *Order Summary:*\n- Customer: ${order.customer?.fullName || ""}\n- City: ${order.customer?.city || ""}\n- Method: Full Advance Payment (Free Delivery)\n- Amount: Rs. ${paymentAmount.toLocaleString()}\n\n📦 *Items:*\n${itemsText}\n\n📎 *Payment Screenshot Attached Below:*`
-    : `Assalam-o-Alaikum Bustaniya! 🌸\nI placed COD Order #${order.orderRef || order.order_number}.\n\n📋 *Order Summary:*\n- Customer: ${order.customer?.fullName || ""}\n- City: ${order.customer?.city || ""}\n- Method: Cash on Delivery (COD)\n- Total Payable on Delivery: Rs. ${payableOnDelivery.toLocaleString()}\n\n📦 *Items:*\n${itemsText}`;
+    ? `Assalam-o-Alaikum Bustaniya! 🌸\nI have transferred Rs. ${paymentAmount.toLocaleString()} for Order #${orderRef}.\n\n📋 *Order Summary:*\n- Customer: ${
+        order.customer?.fullName || order.customer?.firstName || ""
+      }\n- City: ${order.customer?.city || ""}\n- Method: Full Advance Payment (Free Delivery)\n- Amount: Rs. ${paymentAmount.toLocaleString()}\n\n📦 *Items:*\n${itemsText}\n\n📎 *Payment Screenshot Attached Below:*`
+    : `Assalam-o-Alaikum Bustaniya! 🌸\nI placed COD Order #${orderRef}.\n\n📋 *Order Summary:*\n- Customer: ${
+        order.customer?.fullName || order.customer?.firstName || ""
+      }\n- City: ${order.customer?.city || ""}\n- Method: Cash on Delivery (COD)\n- Total Payable on Delivery: Rs. ${payableOnDelivery.toLocaleString()}\n\n📦 *Items:*\n${itemsText}`;
 
   const whatsappHref = whatsappNumber
     ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`
@@ -1045,165 +1084,327 @@ function OrderConfirmation({ order, items }) {
     .filter(Boolean)
     .join(", ");
 
+  const handleCopyRef = () => {
+    if (orderRef && typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(orderRef);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
+    }
+  };
+
+  const handlePrint = () => {
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
+
+  const customerName = order.customer?.firstName || order.customer?.fullName || "Valued Customer";
+
   return (
-    <main className="shopifyCheckoutPage">
-      <header className="shopifyCheckoutHeader">
-        <Link href="/" className="shopifyCheckoutLogoLink">
-          <img src="/bustaniya-logo-v2.png" alt="Bustaniya" className="shopifyCheckoutLogo" />
+    <main className="orderConfirmationPage">
+      {/* Header */}
+      <header className="orderConfirmationHeader">
+        <Link href="/" className="shopifyCheckoutLogoLink" aria-label="Bustaniya Home">
+          <img src="/bustaniya-logo-v2.png" alt="Bustaniya" className="orderConfirmationLogo" />
         </Link>
-        <span className="shopifyHeaderSecure">
-          <Lock size={14} /> Order Confirmed
+        <span className="orderConfirmationSecureBadge">
+          <ShieldCheck size={15} /> Official Order Confirmation
         </span>
       </header>
 
-      <div style={{ maxWidth: "780px", margin: "40px auto", padding: "0 20px" }}>
+      <div className="orderConfirmationContainer">
         {/* Hero Success Block */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "16px",
-            marginBottom: "32px",
-            paddingBottom: "24px",
-            borderBottom: "1px solid #e5e7eb",
-          }}
-        >
-          <div
-            style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "50%",
-              backgroundColor: "#e8f5e9",
-              color: "#2e7d32",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <CheckCircle2 size={28} />
+        <div className="orderSuccessHero">
+          <div className="orderSuccessCheckRing" aria-hidden="true">
+            <Check size={32} strokeWidth={2.8} />
           </div>
-          <div>
-            <span style={{ fontSize: "12px", fontWeight: 700, color: "#1773b0", textTransform: "uppercase" }}>
-              ORDER #{order.orderRef || order.order_number}
-            </span>
-            <h1 style={{ fontSize: "26px", fontWeight: 700, color: "#111827", margin: "4px 0 8px" }}>
-              Thank you, {order.customer?.firstName || order.customer?.fullName || "there"}!
-            </h1>
-            <p style={{ color: "#4b5563", fontSize: "14px", lineHeight: "1.5", margin: 0 }}>
-              {isFullAdvance
-                ? `Your order is reserved. Please transfer Rs. ${paymentAmount.toLocaleString()} to complete payment verification.`
-                : `Your order has been placed via Cash on Delivery. Please keep Rs. ${payableOnDelivery.toLocaleString()} ready for the courier rider upon delivery.`}
-            </p>
-          </div>
-        </div>
 
-        {/* WhatsApp Action Card if Advance */}
-        {isFullAdvance && whatsappHref && (
-          <div
-            style={{
-              background: "#f0fdf4",
-              border: "1px solid #bbf7d0",
-              borderRadius: "8px",
-              padding: "20px",
-              marginBottom: "24px",
-            }}
-          >
-            <h3 style={{ margin: "0 0 6px", fontSize: "16px", color: "#166534", fontWeight: 600 }}>
-              Send Payment Screenshot on WhatsApp
-            </h3>
-            <p style={{ margin: "0 0 16px", fontSize: "13px", color: "#374151" }}>
-              Tap below to open WhatsApp with your order details and attach your payment receipt.
-            </p>
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                background: "#16a34a",
-                color: "#fff",
-                padding: "10px 20px",
-                borderRadius: "6px",
-                fontWeight: 600,
-                fontSize: "14px",
-                textDecoration: "none",
-              }}
+          <div className="orderRefChipRow">
+            <span className="orderRefNumber">ORDER #{orderRef}</span>
+            <button
+              type="button"
+              className={`orderCopyBtn ${copied ? "copied" : ""}`}
+              onClick={handleCopyRef}
+              title="Copy Order Reference"
             >
-              <MessageCircle size={18} />
-              Open WhatsApp Chat
-            </a>
+              {copied ? (
+                <>
+                  <Check size={12} /> Copied!
+                </>
+              ) : (
+                <>
+                  <Copy size={12} /> Copy
+                </>
+              )}
+            </button>
           </div>
-        )}
 
-        {/* Order Details Card */}
-        <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid #e5e7eb",
-            borderRadius: "8px",
-            padding: "24px",
-            marginBottom: "24px",
-          }}
-        >
-          <h2 style={{ fontSize: "16px", fontWeight: 600, margin: "0 0 16px", color: "#111827" }}>
-            Order details
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-            <div>
-              <span style={{ fontSize: "12px", color: "#6b7280", display: "block", marginBottom: "4px" }}>
-                Contact information
-              </span>
-              <p style={{ margin: 0, fontSize: "14px", color: "#111827", fontWeight: 500 }}>
-                {order.customer?.phone}
-                {order.customer?.email && <><br />{order.customer.email}</>}
-              </p>
+          <h1 className="orderHeroHeading">Thank you, {customerName}!</h1>
+
+          <p className="orderHeroLead">
+            {isFullAdvance ? (
+              <>
+                Your order is reserved. Please transfer <strong>Rs. {paymentAmount.toLocaleString()}</strong> to our official account below and share the payment screenshot on WhatsApp for instant verification.
+              </>
+            ) : (
+              <>
+                Your order has been placed successfully via <strong>Cash on Delivery (COD)</strong>. Please keep <strong>Rs. {payableOnDelivery.toLocaleString()}</strong> ready in cash for the courier rider upon delivery.
+              </>
+            )}
+          </p>
+        </div>
+
+        {/* 4-Step Order Progress Tracker */}
+        <div className="orderStepperWrap">
+          <div className="orderStepperGrid">
+            <div className="orderStepItem isDone">
+              <div className="orderStepIconCircle">
+                <Check size={16} strokeWidth={2.5} />
+              </div>
+              <span className="orderStepTitle">Order Placed</span>
+              <span className="orderStepSubtitle">Confirmed</span>
             </div>
-            <div>
-              <span style={{ fontSize: "12px", color: "#6b7280", display: "block", marginBottom: "4px" }}>
-                Payment method
-              </span>
-              <p style={{ margin: 0, fontSize: "14px", color: "#111827", fontWeight: 500 }}>
-                {isFullAdvance ? "Bank Deposit" : "Cash on Delivery (COD)"}
-              </p>
+
+            <div className="orderStepItem isCurrent">
+              <div className="orderStepIconCircle">
+                <Clock size={16} strokeWidth={2.5} />
+              </div>
+              <span className="orderStepTitle">Verification &amp; Packing</span>
+              <span className="orderStepSubtitle">In Progress (24h)</span>
             </div>
-            <div>
-              <span style={{ fontSize: "12px", color: "#6b7280", display: "block", marginBottom: "4px" }}>
-                Shipping address
-              </span>
-              <p style={{ margin: 0, fontSize: "14px", color: "#111827", fontWeight: 500 }}>
-                {fullAddress}
-              </p>
+
+            <div className="orderStepItem isPending">
+              <div className="orderStepIconCircle">
+                <Truck size={16} />
+              </div>
+              <span className="orderStepTitle">Courier Handover</span>
+              <span className="orderStepSubtitle">PostEx Express</span>
             </div>
-            <div>
-              <span style={{ fontSize: "12px", color: "#6b7280", display: "block", marginBottom: "4px" }}>
-                Shipping method
-              </span>
-              <p style={{ margin: 0, fontSize: "14px", color: "#111827", fontWeight: 500 }}>
-                Standard delivery
-              </p>
+
+            <div className="orderStepItem isPending">
+              <div className="orderStepIconCircle">
+                <Package size={16} />
+              </div>
+              <span className="orderStepTitle">Doorstep Delivery</span>
+              <span className="orderStepSubtitle">3-5 Working Days</span>
             </div>
           </div>
         </div>
 
-        <div style={{ textAlign: "center", marginTop: "32px" }}>
-          <a
-            href="/"
-            style={{
-              display: "inline-block",
-              background: "#005bd3",
-              color: "#fff",
-              padding: "12px 28px",
-              borderRadius: "6px",
-              fontSize: "14px",
-              fontWeight: 600,
-              textDecoration: "none",
-            }}
-          >
-            Continue shopping
-          </a>
+        {/* Two-Column Layout */}
+        <div className="orderConfirmationGrid">
+          {/* Left Column: Logistics, Details & Support */}
+          <div className="orderLeftColumn">
+            {/* Advance Bank Transfer Box (if Full Advance) */}
+            {isFullAdvance && (
+              <div className="orderCard" style={{ border: "1.5px solid #bbf7d0", background: "#f0fdf4" }}>
+                <div className="orderCardHeader">
+                  <Receipt size={18} className="orderCardHeaderIcon" style={{ color: "#166534" }} />
+                  <h2 className="orderCardHeaderTitle" style={{ color: "#166534" }}>
+                    Bank Transfer Details
+                  </h2>
+                </div>
+                <div className="orderCustomerGrid">
+                  <div>
+                    <span className="orderCustomerColLabel">Bank Name</span>
+                    <p className="orderCustomerColValue">{paymentDetails.bankName || "Meezan Bank"}</p>
+                  </div>
+                  <div>
+                    <span className="orderCustomerColLabel">Account Title</span>
+                    <p className="orderCustomerColValue">{paymentDetails.accountTitle || "Bustaniya Official"}</p>
+                  </div>
+                  <div>
+                    <span className="orderCustomerColLabel">Account Number</span>
+                    <p className="orderCustomerColValue">{paymentDetails.accountNumber || "01020304050607"}</p>
+                  </div>
+                  <div>
+                    <span className="orderCustomerColLabel">Amount Required</span>
+                    <p className="orderCustomerColValue" style={{ color: "#166534", fontWeight: 800 }}>
+                      Rs. {paymentAmount.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Delivery & Dispatch Timeline */}
+            <div className="orderCard">
+              <div className="orderCardHeader">
+                <Truck size={18} className="orderCardHeaderIcon" />
+                <h2 className="orderCardHeaderTitle">Delivery &amp; Tracking Timeline</h2>
+              </div>
+              <div className="orderLogisticsList">
+                <div className="orderLogisticItem">
+                  <span className="orderLogisticDot" />
+                  <div>
+                    <strong>Express Tracked Courier:</strong>
+                    <p>Your parcel will be dispatched via <strong>PostEx Courier</strong> with nationwide door-to-door tracking.</p>
+                  </div>
+                </div>
+                <div className="orderLogisticItem">
+                  <span className="orderLogisticDot" />
+                  <div>
+                    <strong>Estimated Delivery Window:</strong>
+                    <p>3 to 5 working days from order confirmation.</p>
+                  </div>
+                </div>
+                <div className="orderLogisticItem">
+                  <span className="orderLogisticDot" />
+                  <div>
+                    <strong>Live Tracking SMS:</strong>
+                    <p>
+                      You will receive an official SMS from PostEx with your tracking link as soon as the rider scans the parcel.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Customer & Shipping Details */}
+            <div className="orderCard">
+              <div className="orderCardHeader">
+                <MapPin size={18} className="orderCardHeaderIcon" />
+                <h2 className="orderCardHeaderTitle">Customer &amp; Shipping Details</h2>
+              </div>
+              <div className="orderCustomerGrid">
+                <div>
+                  <span className="orderCustomerColLabel">Contact Phone</span>
+                  <p className="orderCustomerColValue">{order.customer?.phone || "—"}</p>
+                </div>
+                <div>
+                  <span className="orderCustomerColLabel">Email Address</span>
+                  <p className="orderCustomerColValue">{order.customer?.email || "Not provided"}</p>
+                </div>
+                <div>
+                  <span className="orderCustomerColLabel">Shipping Destination</span>
+                  <p className="orderCustomerColValue">{fullAddress || order.customer?.city || "Pakistan"}</p>
+                </div>
+                <div>
+                  <span className="orderCustomerColLabel">Payment Method</span>
+                  <p className="orderCustomerColValue">
+                    {isFullAdvance ? "Bank Deposit / Online Transfer" : "Cash on Delivery (COD)"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Dedicated WhatsApp Support Card */}
+            {whatsappHref && (
+              <div className="orderWhatsAppHelpCard">
+                <div className="orderWhatsAppHelpHeader">
+                  <MessageCircle size={22} color="#166534" />
+                  <h3 className="orderWhatsAppHelpTitle">Need Help or Size Adjustment?</h3>
+                </div>
+                <p className="orderWhatsAppHelpText">
+                  {isFullAdvance
+                    ? "Tap below to open WhatsApp with your order details pre-filled and share your payment receipt."
+                    : "Have a question about your order, special delivery timing, or want to update sizing? Our concierge is available on WhatsApp."}
+                </p>
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="orderWhatsAppActionBtn"
+                >
+                  <MessageCircle size={17} />
+                  {isFullAdvance ? "Send Payment Proof on WhatsApp" : "Chat with Bustaniya Concierge"}
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Order Summary & Amount Due */}
+          <div className="orderRightColumn">
+            <div className="orderCard orderSummarySticky">
+              <div className="orderCardHeader">
+                <ShoppingBag size={18} className="orderCardHeaderIcon" />
+                <h2 className="orderCardHeaderTitle">
+                  Order Summary ({totalItemsCount} {totalItemsCount === 1 ? "item" : "items"})
+                </h2>
+              </div>
+
+              {/* Items List */}
+              <div className="orderItemsList">
+                {orderItems.map((item, idx) => {
+                  const itemImg = item.image
+                    ? optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)
+                    : "/bustaniya-logo-v2.png";
+                  const itemQty = Number(item.quantity || 1);
+                  const itemPrice = Number(item.price || 0);
+                  const lineTotal = itemPrice * itemQty;
+
+                  return (
+                    <div className="orderItemRow" key={`confirm-item-${idx}`}>
+                      <div className="orderItemThumbWrap">
+                        <img src={itemImg} alt={item.name} className="orderItemThumbImg" />
+                        <span className="orderItemQtyBadge">{itemQty}</span>
+                      </div>
+                      <div className="orderItemContent">
+                        <h4 className="orderItemName">{item.name}</h4>
+                        <div className="orderItemMeta">
+                          {item.size && <span className="orderItemMetaPill">Size: {item.size}</span>}
+                          {item.color && <span className="orderItemMetaPill">{item.color}</span>}
+                        </div>
+                      </div>
+                      <span className="orderItemPrice">Rs. {lineTotal.toLocaleString()}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Cost Breakdown */}
+              <div className="orderBreakdownList">
+                <div className="orderBreakdownRow">
+                  <span>Subtotal</span>
+                  <span>Rs. {subtotal.toLocaleString()}</span>
+                </div>
+                <div className="orderBreakdownRow">
+                  <span>Nationwide Shipping</span>
+                  <span>
+                    {isFreeDelivery ? (
+                      <strong style={{ color: "#15803d" }}>FREE</strong>
+                    ) : (
+                      `Rs. ${shippingCharge.toLocaleString()}`
+                    )}
+                  </span>
+                </div>
+                <div className="orderBreakdownRow isTotal">
+                  <span>Total Order Value</span>
+                  <span>Rs. {total.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* High-Contrast Amount Due Bar */}
+              <div className="orderDueBar">
+                <div className="orderDueLabel">
+                  <span className="orderDueLabelTitle">
+                    {isFullAdvance ? "Total Advance Required" : "Payable on Delivery"}
+                  </span>
+                  <span className="orderDueLabelSub">
+                    {isFullAdvance ? "Via Bank Transfer / Nayapay" : "Cash to courier rider upon parcel receipt"}
+                  </span>
+                </div>
+                <span className="orderDueAmount">
+                  Rs. {(isFullAdvance ? paymentAmount : payableOnDelivery).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Actions Bar */}
+        <div className="orderActionsBar">
+          <Link href="/" className="orderPrimaryBtn">
+            Continue Shopping <ArrowRight size={15} />
+          </Link>
+
+          <Link href={`/track-order?ref=${encodeURIComponent(orderRef)}`} className="orderSecondaryBtn">
+            <Truck size={15} /> Track Your Order
+          </Link>
+
+          <button type="button" onClick={handlePrint} className="orderSecondaryBtn">
+            <Printer size={15} /> Print Receipt
+          </button>
         </div>
       </div>
     </main>
