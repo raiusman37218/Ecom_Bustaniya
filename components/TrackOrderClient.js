@@ -89,6 +89,7 @@ export default function TrackOrderClient({ storeSettings }) {
           <div className="trackInputWrap">
             <input
               type="text"
+              aria-label="Order number, phone number or PostEx tracking number"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="e.g. BST-1042 or 03001234567 or PostEx Tracking #"

@@ -236,7 +236,7 @@ export default function UkCheckoutPage() {
                       onChange={handleChange}
                       placeholder="e.g. Sarah Khan"
                       style={{ width: "100%", padding: "10px 14px", borderRadius: "6px", border: fieldErrors.fullName ? "1px solid #e02424" : "1px solid #ccc", fontSize: "14px" }}
-                    />
+                     aria-label="e.g. Sarah Khan" aria-invalid={Boolean(fieldErrors.fullName)}/>
                     {fieldErrors.fullName && <small style={{ color: "#e02424" }}>{fieldErrors.fullName}</small>}
                   </div>
                   <div>
@@ -248,7 +248,7 @@ export default function UkCheckoutPage() {
                       onChange={handleChange}
                       placeholder="e.g. sarah@example.co.uk"
                       style={{ width: "100%", padding: "10px 14px", borderRadius: "6px", border: fieldErrors.email ? "1px solid #e02424" : "1px solid #ccc", fontSize: "14px" }}
-                    />
+                     aria-label="e.g. sarah@example.co.uk" aria-invalid={Boolean(fieldErrors.email)}/>
                     {fieldErrors.email && <small style={{ color: "#e02424" }}>{fieldErrors.email}</small>}
                   </div>
                 </div>
@@ -262,7 +262,7 @@ export default function UkCheckoutPage() {
                     onChange={handleChange}
                     placeholder="e.g. 07123 456789 or +44 7123 456789"
                     style={{ width: "100%", padding: "10px 14px", borderRadius: "6px", border: fieldErrors.phone ? "1px solid #e02424" : "1px solid #ccc", fontSize: "14px" }}
-                  />
+                   aria-label="e.g. 07123 456789 or +44 7123 456789" aria-invalid={Boolean(fieldErrors.phone)}/>
                   {fieldErrors.phone && <small style={{ color: "#e02424" }}>{fieldErrors.phone}</small>}
                 </div>
               </section>
@@ -283,7 +283,7 @@ export default function UkCheckoutPage() {
                     onChange={handleChange}
                     placeholder="e.g. 42 Richmond Road, Flat 3B"
                     style={{ width: "100%", padding: "10px 14px", borderRadius: "6px", border: fieldErrors.addressLine1 ? "1px solid #e02424" : "1px solid #ccc", fontSize: "14px" }}
-                  />
+                   aria-label="e.g. 42 Richmond Road, Flat 3B" aria-invalid={Boolean(fieldErrors.addressLine1)}/>
                   {fieldErrors.addressLine1 && <small style={{ color: "#e02424" }}>{fieldErrors.addressLine1}</small>}
                 </div>
 
@@ -296,7 +296,7 @@ export default function UkCheckoutPage() {
                     onChange={handleChange}
                     placeholder="Apartment, suite, unit, etc."
                     style={{ width: "100%", padding: "10px 14px", borderRadius: "6px", border: "1px solid #ccc", fontSize: "14px" }}
-                  />
+                   aria-label="Apartment, suite, unit, etc."/>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px", marginBottom: "16px" }}>
@@ -309,7 +309,7 @@ export default function UkCheckoutPage() {
                       onChange={handleChange}
                       placeholder="e.g. London"
                       style={{ width: "100%", padding: "10px 14px", borderRadius: "6px", border: fieldErrors.city ? "1px solid #e02424" : "1px solid #ccc", fontSize: "14px" }}
-                    />
+                     aria-label="e.g. London" aria-invalid={Boolean(fieldErrors.city)}/>
                     {fieldErrors.city && <small style={{ color: "#e02424" }}>{fieldErrors.city}</small>}
                   </div>
                   <div>
@@ -321,7 +321,7 @@ export default function UkCheckoutPage() {
                       onChange={handleChange}
                       placeholder="e.g. Greater London"
                       style={{ width: "100%", padding: "10px 14px", borderRadius: "6px", border: "1px solid #ccc", fontSize: "14px" }}
-                    />
+                     aria-label="e.g. Greater London"/>
                   </div>
                   <div>
                     <label style={{ display: "block", fontSize: "13px", fontWeight: "600", marginBottom: "6px" }}>UK Postcode *</label>
@@ -332,7 +332,7 @@ export default function UkCheckoutPage() {
                       onChange={handleChange}
                       placeholder="e.g. E1 5NF"
                       style={{ width: "100%", padding: "10px 14px", borderRadius: "6px", border: fieldErrors.postcode ? "1px solid #e02424" : "1px solid #ccc", fontSize: "14px", textTransform: "uppercase" }}
-                    />
+                     aria-label="e.g. E1 5NF" aria-invalid={Boolean(fieldErrors.postcode)}/>
                     {fieldErrors.postcode && <small style={{ color: "#e02424" }}>{fieldErrors.postcode}</small>}
                   </div>
                 </div>

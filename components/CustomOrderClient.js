@@ -621,13 +621,18 @@ export default function CustomOrderClient({ storeSettings }) {
                         key={item.id}
                         className={`fabricChoiceCard ${isSelected ? "selected" : ""}`}
                         onClick={() => setFabricArrangement(item.id)}
-                        role="button"
-                        tabIndex={0}
                       >
+                        {/* The card used to carry role="button" and tabIndex
+                            with no key handler, so it took keyboard focus and
+                            then did nothing on Enter. The radio inside is
+                            already the right control — it is focusable, it
+                            responds to arrow keys, and it announces the choice,
+                            so the card is left as a mouse affordance only. */}
                         <div className="fabricCardRadio">
                           <input
                             type="radio"
                             name="fabricArrangement"
+                            aria-label={item.title}
                             checked={isSelected}
                             onChange={() => setFabricArrangement(item.id)}
                           />
@@ -705,6 +710,7 @@ export default function CustomOrderClient({ storeSettings }) {
                   <input
                     type="text"
                     className="customFormInput"
+                    aria-label="Preferred colour"
                     value={colorPreference}
                     onChange={(e) => {
                       setColorPreference(e.target.value);

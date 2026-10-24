@@ -884,3 +884,22 @@ body:has(.cartOpen) .bs-region {
   gap: 28px;
 }
 
+
+/* -------------------------------------------------------------
+   MOBILE FORM ZOOM GUARD
+   iOS Safari zooms the whole page in whenever a focused field is
+   under 16px, which on checkout meant the layout jumped on every
+   tap. The storefront form controls were 13.5–14px.
+   Checkout owns its own sheet, so its copy of this guard lives in
+   app/checkout/checkout.css where the 14px rule is.
+
+   Only the typed value grows, and only on phones: desktop keeps
+   the designed 13.5px, and nothing moves because the padding and
+   control heights are untouched.
+   ------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .customFormInput,
+  .trackInput {
+    font-size: 16px;
+  }
+}

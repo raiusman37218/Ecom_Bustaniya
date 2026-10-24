@@ -126,6 +126,15 @@ function CityCombobox({ value, onChange, cities, loading, disabled, error }) {
           type="text"
           name="city"
           autoComplete="address-level2"
+          // The field had no accessible name, and its dropdown was mouse-only:
+          // the options are plain divs with an onClick. Free typing always
+          // worked, so checkout was never blocked, but there was no way to take
+          // a suggestion from the keyboard. Enter now accepts the first match.
+          aria-label="City"
+          role="combobox"
+          aria-expanded={isOpen}
+          aria-controls="checkout-city-listbox"
+          aria-autocomplete="list"
           className={`shopifyInput ${error ? "hasError" : ""}`}
           placeholder={loading ? "Loading cities..." : "City"}
           value={isOpen ? search : value || ""}
@@ -133,6 +142,26 @@ function CityCombobox({ value, onChange, cities, loading, disabled, error }) {
           onFocus={() => {
             setSearch(value || "");
             setIsOpen(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && isOpen) {
+              event.preventDefault();
+              setIsOpen(false);
+              return;
+            }
+            if (event.key === "Enter" && isOpen) {
+              // Prefer a city that starts with what was typed. The filter
+              // matches anywhere in the name, so "Lah" would otherwise accept
+              // "ALLAH ABAD" ahead of "LAHORE".
+              const typed = search.trim().toLowerCase();
+              const candidates = [...popularCitiesFiltered, ...filteredCities];
+              const firstMatch =
+                (typed && candidates.find((c) => String(c).toLowerCase().startsWith(typed))) || candidates[0];
+              if (firstMatch) {
+                event.preventDefault();
+                handleSelect(firstMatch);
+              }
+            }
           }}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -143,13 +172,13 @@ function CityCombobox({ value, onChange, cities, loading, disabled, error }) {
         <ChevronDown size={15} style={{ position: "absolute", right: 12, color: "#737373", pointerEvents: "none" }} />
       </div>
       {error && (
-        <div className="shopifyInputErrorMsg">
+        <div className="shopifyInputErrorMsg" role="alert">
           <AlertCircle size={12} /> {error}
         </div>
       )}
 
       {isOpen && cities.length > 0 && (
-        <div className="shopifyCityDropdownMenu">
+        <div className="shopifyCityDropdownMenu" id="checkout-city-listbox" role="listbox" aria-label="City suggestions">
           {popularCitiesFiltered.length > 0 && (
             <div className="shopifyCityDropdownHeader">Popular Cities</div>
           )}
@@ -157,6 +186,8 @@ function CityCombobox({ value, onChange, cities, loading, disabled, error }) {
             <div
               key={city}
               className="shopifyCityDropdownItem"
+              role="option"
+              aria-selected={value === city}
               onClick={() => handleSelect(city)}
             >
               {city}
@@ -169,6 +200,8 @@ function CityCombobox({ value, onChange, cities, loading, disabled, error }) {
             <div
               key={city}
               className="shopifyCityDropdownItem"
+              role="option"
+              aria-selected={value === city}
               onClick={() => handleSelect(city)}
             >
               {city}
@@ -625,7 +658,7 @@ export default function CheckoutPage() {
                   value={form.email}
                   onChange={updateField}
                   autoComplete="email"
-                />
+                 aria-label="Email" aria-invalid={Boolean(fieldErrors.email)}/>
                 <span
                   className="shopifyInputHelpIcon"
                   title="In case we need to contact you about your order"
@@ -634,7 +667,7 @@ export default function CheckoutPage() {
                 </span>
               </div>
               {fieldErrors.email && (
-                <div className="shopifyInputErrorMsg">
+                <div className="shopifyInputErrorMsg" role="alert">
                   <AlertCircle size={12} /> {fieldErrors.email}
                 </div>
               )}
@@ -675,10 +708,10 @@ export default function CheckoutPage() {
                         value={form.firstName}
                         onChange={updateField}
                         autoComplete="given-name"
-                      />
+                       aria-label="First name" aria-invalid={Boolean(fieldErrors.firstName)}/>
                     </div>
                     {fieldErrors.firstName && (
-                      <div className="shopifyInputErrorMsg">
+                      <div className="shopifyInputErrorMsg" role="alert">
                         <AlertCircle size={12} /> {fieldErrors.firstName}
                       </div>
                     )}
@@ -694,10 +727,10 @@ export default function CheckoutPage() {
                         value={form.lastName}
                         onChange={updateField}
                         autoComplete="family-name"
-                      />
+                       aria-label="Last name" aria-invalid={Boolean(fieldErrors.lastName)}/>
                     </div>
                     {fieldErrors.lastName && (
-                      <div className="shopifyInputErrorMsg">
+                      <div className="shopifyInputErrorMsg" role="alert">
                         <AlertCircle size={12} /> {fieldErrors.lastName}
                       </div>
                     )}
@@ -714,10 +747,10 @@ export default function CheckoutPage() {
                     value={form.address}
                     onChange={updateField}
                     autoComplete="address-line1"
-                  />
+                   aria-label="Address" aria-invalid={Boolean(fieldErrors.address)}/>
                 </div>
                 {fieldErrors.address && (
-                  <div className="shopifyInputErrorMsg">
+                  <div className="shopifyInputErrorMsg" role="alert">
                     <AlertCircle size={12} /> {fieldErrors.address}
                   </div>
                 )}
@@ -732,7 +765,7 @@ export default function CheckoutPage() {
                     value={form.apartment}
                     onChange={updateField}
                     autoComplete="address-line2"
-                  />
+                   aria-label="Apartment, suite, etc."/>
                 </div>
 
                 {/* City & Postal code */}
@@ -756,7 +789,7 @@ export default function CheckoutPage() {
                         value={form.postalCode}
                         onChange={updateField}
                         autoComplete="postal-code"
-                      />
+                       aria-label="Postal code"/>
                     </div>
                   </div>
                 </div>
@@ -771,7 +804,7 @@ export default function CheckoutPage() {
                     value={form.phone}
                     onChange={updateField}
                     autoComplete="tel"
-                  />
+                   aria-label="Phone" aria-invalid={Boolean(fieldErrors.phone)}/>
                   <span
                     className="shopifyInputHelpIcon"
                     title="In case we need to contact you about your order"
@@ -780,7 +813,7 @@ export default function CheckoutPage() {
                   </span>
                 </div>
                 {fieldErrors.phone && (
-                  <div className="shopifyInputErrorMsg">
+                  <div className="shopifyInputErrorMsg" role="alert">
                     <AlertCircle size={12} /> {fieldErrors.phone}
                   </div>
                 )}

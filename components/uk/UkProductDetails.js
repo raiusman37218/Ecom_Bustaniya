@@ -433,7 +433,7 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
       <aside className={cartOpen ? "cartDrawer cartOpen" : "cartDrawer"}>
         <div className="cartHeader">
           <h2>Your bag <span>({cartCount})</span></h2>
-          <button onClick={() => setCartOpen(false)}><X /></button>
+          <button type="button" aria-label="Close bag" onClick={() => setCartOpen(false)}><X /></button>
         </div>
         <div className="cartItems">
           {!cart.length ? (

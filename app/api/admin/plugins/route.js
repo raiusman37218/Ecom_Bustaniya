@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authorizeAdminSession, adminAuthErrorResponse } from "../../../../lib/adminAuth";
 import {
   getAllPlugins,
   updatePluginConfig,
@@ -17,12 +18,20 @@ const NO_CACHE_HEADERS = {
   Expires: "0",
 };
 
+// Plugin configuration is store administration, and the logs carry order and
+// customer details, so both handlers sit behind the same guard as the rest of
+// /api/admin. They were previously reachable by anyone.
 export async function GET(request) {
   try {
+    await authorizeAdminSession(request, "settings");
     const plugins = await getAllPlugins();
     const logs = await getPluginLogs();
     return NextResponse.json({ ok: true, plugins, logs }, { headers: NO_CACHE_HEADERS });
   } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      const authError = adminAuthErrorResponse(error);
+      return NextResponse.json({ ok: false, error: authError.error }, { status: authError.status, headers: NO_CACHE_HEADERS });
+    }
     return NextResponse.json(
       { ok: false, error: error.message || "Failed to load plugins" },
       { status: 500, headers: NO_CACHE_HEADERS }
@@ -32,6 +41,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    await authorizeAdminSession(request, "settings");
     const body = await request.json();
     const { action } = body;
 
@@ -98,6 +108,10 @@ export async function POST(request) {
 
     return NextResponse.json({ ok: false, error: "Invalid action" }, { status: 400, headers: NO_CACHE_HEADERS });
   } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      const authError = adminAuthErrorResponse(error);
+      return NextResponse.json({ ok: false, error: authError.error }, { status: authError.status, headers: NO_CACHE_HEADERS });
+    }
     return NextResponse.json(
       { ok: false, error: error.message || "Operation failed" },
       { status: 500, headers: NO_CACHE_HEADERS }

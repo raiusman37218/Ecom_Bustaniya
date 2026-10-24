@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
 import { optionalEnv } from "../../../../lib/env";
+import { clientKeyFrom, isRateLimited, retryAfterSeconds } from "../../../../lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -74,6 +75,16 @@ async function uploadToCloudinary(file, bytes, config) {
 
 export async function POST(request) {
   try {
+    // Each call accepts up to 6 photos of 10 MB. Without a ceiling one caller
+    // could burn the Cloudinary quota or the disk fallback at will.
+    const callerKey = clientKeyFrom(request);
+    if (isRateLimited("custom-order-upload", callerKey, { max: 20, windowMs: 10 * 60 * 1000 })) {
+      return NextResponse.json(
+        { error: "Too many uploads. Please wait a few minutes and try again." },
+        { status: 429, headers: { "Retry-After": String(retryAfterSeconds("custom-order-upload", callerKey)) } }
+      );
+    }
+
     const form = await request.formData();
     const files = form.getAll("files");
     if (!files.length) {

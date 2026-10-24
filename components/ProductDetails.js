@@ -1043,7 +1043,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     </main>
     {cartOpen && <div className="overlay" onClick={() => setCartOpen(false)} />}
     <aside className={cartOpen ? "cartDrawer cartOpen" : "cartDrawer"}>
-      <div className="cartHeader"><h2>Your bag <span>({cartCount})</span></h2><button onClick={() => setCartOpen(false)}><X /></button></div>
+      <div className="cartHeader"><h2>Your bag <span>({cartCount})</span></h2><button type="button" aria-label="Close bag" onClick={() => setCartOpen(false)}><X /></button></div>
       <div className="cartItems">
         {!cart.length ? (
           <div className="emptyCart"><ShoppingBag size={36} /><h3>Your bag is empty</h3><p>Looks like you haven&apos;t added anything yet.</p><button onClick={() => setCartOpen(false)}>Continue shopping</button></div>

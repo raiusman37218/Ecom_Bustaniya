@@ -340,6 +340,17 @@ export default function Home({
       />
 
       <main>
+        {/* The hero only renders an <h1> when the owner has given it heading
+            text. With the image-only hero that is currently configured the
+            homepage had no <h1> at all, which costs it both a landmark for
+            screen readers and its strongest on-page SEO signal. This fills the
+            gap without changing anything on screen, and stands down as soon as
+            the hero carries a real heading. */}
+        {!(desktopHero.heading || mobileHero.heading) && (
+          <h1 className="bs-visually-hidden">
+            {safeSettings.storeName || "Bustaniya"} — Pakistani women&rsquo;s wear, kurtis, co-ord sets and 3 piece suits
+          </h1>
+        )}
         {homepageSectionsToRender.map((section) => {
           const defaults = DEFAULT_HOMEPAGE_SECTIONS.find((d) => d.type === section.type) || {};
 
@@ -591,7 +602,7 @@ export default function Home({
                 <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
                 <h2>{section.heading || defaults.heading}</h2>
                 <p>{section.subtitle || defaults.subtitle}</p>
-                <form onSubmit={(e) => e.preventDefault()}><input type="email" placeholder="Your email address" /><button aria-label="Subscribe"><ArrowRight /></button></form>
+                <form onSubmit={(e) => e.preventDefault()}><input type="email" required aria-label="Email address for the newsletter" placeholder="Your email address" /><button aria-label="Subscribe"><ArrowRight /></button></form>
               </section>
             );
           }
@@ -1183,7 +1194,7 @@ export default function Home({
 
       {cartOpen && <div className="overlay" onClick={() => setCartOpen(false)} />}
       <aside className={cartOpen ? "cartDrawer cartOpen" : "cartDrawer"}>
-        <div className="cartHeader"><h2>Your bag <span>({cartCount})</span></h2><button onClick={() => setCartOpen(false)}><X /></button></div>
+        <div className="cartHeader"><h2>Your bag <span>({cartCount})</span></h2><button type="button" aria-label="Close bag" onClick={() => setCartOpen(false)}><X /></button></div>
         <div className="cartItems">
           {!cart.length ? (
             <div className="emptyCart"><ShoppingBag size={36} /><h3>Your bag is empty</h3><p>Looks like you haven&apos;t added anything yet.</p><button onClick={() => setCartOpen(false)}>Continue shopping</button></div>

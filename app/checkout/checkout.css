@@ -1366,3 +1366,17 @@
     page-break-inside: avoid;
   }
 }
+
+/* -------------------------------------------------------------
+   iOS zooms the page in whenever a focused field is under 16px,
+   so every tap on this form shifted the layout on a phone. Only
+   the typed value grows; the 46px control height and padding are
+   untouched, and desktop keeps the designed 14px.
+   ------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .shopifyInput,
+  .shopifySelect,
+  .shopifyTextarea {
+    font-size: 16px;
+  }
+}

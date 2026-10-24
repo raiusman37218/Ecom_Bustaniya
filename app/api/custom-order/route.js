@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdminRequest } from "../../../lib/supabaseRest";
+import { clientKeyFrom, isRateLimited, retryAfterSeconds } from "../../../lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,16 @@ function generateOrderNumber() {
 
 export async function POST(request) {
   try {
+    // Public and unauthenticated, and every call writes a row. A genuine
+    // customer places one bespoke request at a time.
+    const callerKey = clientKeyFrom(request);
+    if (isRateLimited("custom-order", callerKey, { max: 10, windowMs: 10 * 60 * 1000 })) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a few minutes and try again." },
+        { status: 429, headers: { "Retry-After": String(retryAfterSeconds("custom-order", callerKey)) } }
+      );
+    }
+
     const body = await request.json().catch(() => null);
     if (!body) {
       return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
