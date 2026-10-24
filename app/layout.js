@@ -27,10 +27,12 @@ const manrope = Manrope({
   variable: "--font-manrope",
 });
 
+import { Suspense } from "react";
 import { buildMetadata, siteConfig } from "../lib/seo";
 import MetaPixel from "../components/MetaPixel";
 import WhatsAppSupportButton from "../components/WhatsAppSupportButton";
 import RegionSwitcher from "../components/RegionSwitcher";
+import NavigationProgressBar from "../components/NavigationProgressBar";
 import PluginWidgetsHost from "../components/PluginWidgetsHost";
 import { getActiveStorefrontWidgets } from "../lib/plugins/engine";
 import { getStoreSettings } from "../lib/storeSettings";
@@ -96,6 +98,9 @@ export default async function RootLayout({ children }) {
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
       </head>
       <body>
+        <Suspense fallback={null}>
+          <NavigationProgressBar />
+        </Suspense>
         <PluginWidgetsHost initialWidgets={pluginWidgets} />
         <MetaPixel pixelId={metaPixelId} />
         {gtmId && (

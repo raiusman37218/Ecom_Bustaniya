@@ -786,7 +786,7 @@ function ExecutiveAnalyticsSuite({
   );
 }
 
-function AdminLoadingShell() {
+export function AdminLoadingShell() {
   return (
     <main className="adminShell adminLoadingShell" aria-busy="true" aria-label="Loading Bustaniya admin">
       <aside className="adminSidebar adminLoadingSidebar" aria-hidden="true">
