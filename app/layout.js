@@ -86,10 +86,12 @@ export const viewport = {
 export default async function RootLayout({ children }) {
   const storeSettings = await getStoreSettings();
   const pluginWidgets = await getActiveStorefrontWidgets();
+  const whatsAppPlugin = pluginWidgets.find((w) => w.id === "whatsapp-live-chat");
+  const isWhatsAppPluginActive = Boolean(whatsAppPlugin);
   const gaId = storeSettings?.domainSettings?.analyticsMeasurementId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
   const metaPixelId = storeSettings?.domainSettings?.metaPixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || process.env.META_PIXEL_ID || "";
-  const whatsappNumber = storeSettings?.paymentSettings?.whatsappNumber;
+  const whatsappNumber = whatsAppPlugin?.settings?.phoneNumber || storeSettings?.paymentSettings?.whatsappNumber;
 
   return (
     <html lang="en-PK" className={`${cormorant.variable} ${manrope.variable}`}>
@@ -115,7 +117,13 @@ export default async function RootLayout({ children }) {
           </noscript>
         )}
         {children}
-        <WhatsAppSupportButton phoneNumber={whatsappNumber} storeName={siteConfig.name} />
+        {isWhatsAppPluginActive && (
+          <WhatsAppSupportButton
+            phoneNumber={whatsappNumber}
+            storeName={siteConfig.name}
+            welcomeMessage={whatsAppPlugin?.settings?.welcomeMessage}
+          />
+        )}
         <RegionSwitcher />
         {gaId && (
           <>

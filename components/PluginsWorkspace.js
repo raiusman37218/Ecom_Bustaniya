@@ -83,12 +83,24 @@ export default function PluginsWorkspace({ currentAdminUser }) {
     loadPlugins();
   }, []);
 
-  const handleToggle = async (pluginId, currentEnabled) => {
-    const nextState = !currentEnabled;
-    // Optimistic UI update
+  const handleToggle = async (pluginId, targetState) => {
+    const targetPlugin = plugins.find((p) => p.id === pluginId);
+    const nextState =
+      typeof targetState === "boolean"
+        ? targetState
+        : targetPlugin
+        ? !targetPlugin.enabled
+        : true;
+
+    // Optimistic UI update across plugins array
     setPlugins((prev) =>
       prev.map((p) => (p.id === pluginId ? { ...p, enabled: nextState } : p))
     );
+
+    // If configuration drawer is open for this plugin, update drawer state too
+    if (activeDrawerPlugin && activeDrawerPlugin.id === pluginId) {
+      setActiveDrawerPlugin((prev) => ({ ...prev, enabled: nextState }));
+    }
 
     try {
       const res = await fetch("/api/admin/plugins", {
@@ -98,7 +110,22 @@ export default function PluginsWorkspace({ currentAdminUser }) {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.plugins) setPlugins(data.plugins);
+        if (data.plugins) {
+          setPlugins(data.plugins);
+          // Sync drawer state if open
+          if (activeDrawerPlugin && activeDrawerPlugin.id === pluginId) {
+            const updatedPlugin = data.plugins.find((p) => p.id === pluginId);
+            if (updatedPlugin) {
+              setActiveDrawerPlugin(updatedPlugin);
+            }
+          }
+        }
+        try {
+          localStorage.setItem("bs:plugins:updated", String(Date.now()));
+          window.dispatchEvent(new CustomEvent("bs:plugins:changed"));
+        } catch {}
+      } else {
+        loadPlugins();
       }
     } catch {
       loadPlugins();
@@ -365,11 +392,15 @@ export default function PluginsWorkspace({ currentAdminUser }) {
                 </div>
 
                 {/* Shopify-Style Toggle Switch */}
-                <label className="pluginSwitch" title={plugin.enabled ? "Click to Pause" : "Click to Enable"}>
+                <label
+                  className="pluginSwitch"
+                  title={plugin.enabled ? "Click to Pause App" : "Click to Enable App"}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <input
                     type="checkbox"
-                    checked={plugin.enabled}
-                    onChange={() => handleToggle(plugin.id, plugin.enabled)}
+                    checked={Boolean(plugin.enabled)}
+                    onChange={(e) => handleToggle(plugin.id, e.target.checked)}
                   />
                   <span className="pluginSlider" />
                 </label>
@@ -403,10 +434,16 @@ export default function PluginsWorkspace({ currentAdminUser }) {
 
               {/* Card Footer Actions */}
               <div className="pluginCardFoot">
-                <div className="pluginCardStatus">
+                <button
+                  type="button"
+                  className={`pluginCardStatusBtn ${plugin.enabled ? "active" : "paused"}`}
+                  onClick={() => handleToggle(plugin.id, !plugin.enabled)}
+                  title={plugin.enabled ? "Click to Pause App" : "Click to Activate App"}
+                >
                   <span className={`pluginDot ${plugin.enabled ? "active" : "paused"}`} />
-                  <span>{plugin.enabled ? "Active & Running" : "Paused"}</span>
-                </div>
+                  <span className="pluginStatusLabel">{plugin.enabled ? "Active & Running" : "Paused"}</span>
+                  <span className="pluginStatusActionText">· {plugin.enabled ? "Turn Off" : "Turn On"}</span>
+                </button>
 
                 <div className="pluginCardButtons">
                   {/* Test Button for Hook/Webhook Plugins */}
@@ -526,6 +563,24 @@ export default function PluginsWorkspace({ currentAdminUser }) {
                 aria-label="Close"
               >
                 <X size={16} />
+              </button>
+            </div>
+
+            {/* App Status Banner inside Drawer */}
+            <div className={`pluginDrawerStatusBar ${activeDrawerPlugin.enabled ? "statusActive" : "statusPaused"}`}>
+              <div className="pluginDrawerStatusInfo">
+                <span className={`pluginDot ${activeDrawerPlugin.enabled ? "active" : "paused"}`} />
+                <div>
+                  <strong>Status: {activeDrawerPlugin.enabled ? "Active & Running" : "Paused / Disabled"}</strong>
+                  <p>{activeDrawerPlugin.enabled ? "Currently active and running on your store." : "Currently paused and disabled."}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className={`pluginDrawerToggleBtn ${activeDrawerPlugin.enabled ? "isDestructive" : "isSuccess"}`}
+                onClick={() => handleToggle(activeDrawerPlugin.id, !activeDrawerPlugin.enabled)}
+              >
+                {activeDrawerPlugin.enabled ? "Pause App" : "Activate App"}
               </button>
             </div>
 
@@ -652,6 +707,13 @@ export default function PluginsWorkspace({ currentAdminUser }) {
             </div>
 
             <div className="pluginDrawerFoot">
+              <button
+                type="button"
+                className={`pluginDrawerPauseActionBtn ${activeDrawerPlugin.enabled ? "btnPause" : "btnActivate"}`}
+                onClick={() => handleToggle(activeDrawerPlugin.id, !activeDrawerPlugin.enabled)}
+              >
+                {activeDrawerPlugin.enabled ? "Pause / Disable App" : "Activate App"}
+              </button>
               <button
                 type="button"
                 className="pluginDrawerCancelBtn"

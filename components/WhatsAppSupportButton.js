@@ -10,7 +10,7 @@ function normaliseWhatsAppNumber(value) {
   return cleaned;
 }
 
-export default function WhatsAppSupportButton({ phoneNumber, storeName = "Bustaniya" }) {
+export default function WhatsAppSupportButton({ phoneNumber, storeName = "Bustaniya", welcomeMessage }) {
   const pathname = usePathname();
   const number = normaliseWhatsAppNumber(phoneNumber || "923053530008");
   if (!number) return null;
@@ -20,7 +20,7 @@ export default function WhatsAppSupportButton({ phoneNumber, storeName = "Bustan
   const isAdmin = pathname === "/admin" || pathname?.startsWith("/admin");
   if (isCheckout || isAdmin) return null;
 
-  const message = `Assalam-o-Alaikum, I need help with ${storeName}.`;
+  const message = welcomeMessage || `Assalam-o-Alaikum, I need help with ${storeName}.`;
   const href = `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 
   return (

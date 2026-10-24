@@ -23231,6 +23231,149 @@ html {
   gap: 12px;
 }
 
+/* App Status Banner inside Drawer */
+.pluginDrawerStatusBar {
+  margin: 16px 24px 0;
+  padding: 14px 18px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #e2ece3;
+}
+
+.pluginDrawerStatusBar.statusActive {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.pluginDrawerStatusBar.statusPaused {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.pluginDrawerStatusInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pluginDrawerStatusInfo strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 750;
+  color: #173d29;
+}
+
+.pluginDrawerStatusBar.statusPaused .pluginDrawerStatusInfo strong {
+  color: #991b1b;
+}
+
+.pluginDrawerStatusInfo p {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.pluginDrawerToggleBtn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.pluginDrawerToggleBtn.isDestructive {
+  background: #ffffff;
+  border: 1px solid #fca5a5;
+  color: #dc2626;
+}
+
+.pluginDrawerToggleBtn.isDestructive:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+.pluginDrawerToggleBtn.isSuccess {
+  background: #16a34a;
+  border: 1px solid #16a34a;
+  color: #ffffff;
+}
+
+.pluginDrawerToggleBtn.isSuccess:hover {
+  background: #15803d;
+}
+
+.pluginDrawerPauseActionBtn {
+  margin-right: auto;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: transparent;
+  transition: all 0.15s ease;
+}
+
+.pluginDrawerPauseActionBtn.btnPause {
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  background: #fff5f5;
+}
+
+.pluginDrawerPauseActionBtn.btnPause:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+}
+
+.pluginDrawerPauseActionBtn.btnActivate {
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+.pluginDrawerPauseActionBtn.btnActivate:hover {
+  background: #dcfce7;
+  border-color: #22c55e;
+}
+
+.pluginCardStatusBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #64748b;
+  transition: all 0.15s ease;
+}
+
+.pluginCardStatusBtn:hover {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+.pluginCardStatusBtn.active {
+  color: #166534;
+}
+
+.pluginCardStatusBtn.paused {
+  color: #94a3b8;
+}
+
+.pluginStatusActionText {
+  font-size: 10.5px;
+  opacity: 0.75;
+  font-weight: 500;
+}
+
 .pluginDrawerCancelBtn {
   padding: 9px 16px;
   border-radius: 9px;

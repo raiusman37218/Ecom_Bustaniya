@@ -9,17 +9,28 @@ export default function PluginWidgetsHost({ initialWidgets = [] }) {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
 
+  const fetchActiveWidgets = () => {
+    fetch("/api/plugins/active-widgets", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.widgets) setWidgets(data.widgets);
+      })
+      .catch(() => {});
+  };
+
   useEffect(() => {
-    // If we didn't get initialWidgets or want to refresh on client mount
-    if (!initialWidgets || initialWidgets.length === 0) {
-      fetch("/api/plugins/active-widgets")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data) => {
-          if (data?.widgets) setWidgets(data.widgets);
-        })
-        .catch(() => {});
-    }
-  }, [initialWidgets]);
+    fetchActiveWidgets();
+
+    const handlePluginsChange = () => fetchActiveWidgets();
+    window.addEventListener("bs:plugins:changed", handlePluginsChange);
+    window.addEventListener("storage", (e) => {
+      if (e.key === "bs:plugins:updated") fetchActiveWidgets();
+    });
+
+    return () => {
+      window.removeEventListener("bs:plugins:changed", handlePluginsChange);
+    };
+  }, []);
 
   // Flash Sale Timer
   const flashSale = widgets.find((w) => w.id === "flash-sale-countdown");

@@ -1,6 +1,8 @@
 {
   "states": {
-    "discord-vip-alerts": true
+    "discord-vip-alerts": true,
+    "whatsapp-live-chat": true,
+    "flash-sale-countdown": true
   },
   "settings": {
     "discord-vip-alerts": {}
