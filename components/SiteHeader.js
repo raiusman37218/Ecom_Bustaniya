@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Search, UserRound, Heart, ShoppingBag, Menu, X } from "lucide-react";
 import AnnouncementBar from "./AnnouncementBar";
 import HeaderSearchModal from "./HeaderSearchModal";
@@ -22,33 +23,31 @@ export default function SiteHeader({
   categories = [],
   activeNav = "",
 }) {
+  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [localCartCount, setLocalCartCount] = useState(0);
   const [isStuck, setIsStuck] = useState(false);
+  const [hasScrolled, setHasScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
+  // Instantly reset sticky header state whenever route changes so the header never jumps/animates
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("bustaniya-cart") || localStorage.getItem("bustaniya_cart");
-      if (saved) {
-        const items = JSON.parse(saved);
-        if (Array.isArray(items)) {
-          const total = items.reduce((acc, item) => acc + (item.quantity || 1), 0);
-          setLocalCartCount(total);
-        }
-      }
-    } catch {}
-  }, []);
+    setIsStuck(false);
+    setHasScrolled(false);
 
-  useEffect(() => {
     let rafId = null;
     let lastStuck = false;
+    let scrolled = false;
 
     const handleScroll = () => {
       if (rafId !== null) return;
       rafId = window.requestAnimationFrame(() => {
         const y = window.scrollY || window.pageYOffset || 0;
+        if (!scrolled && y > 10) {
+          scrolled = true;
+          setHasScrolled(true);
+        }
         // Hysteresis dead-zone:
         // Activate sticky compact state only after scrolling past 110px.
         // Revert to full expanded state only when scrolling back up near the top (< 25px).
@@ -64,7 +63,7 @@ export default function SiteHeader({
       });
     };
 
-    handleScroll();
+    // Do NOT call handleScroll() synchronously on initial mount to prevent stale scrollY flash
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
       window.removeEventListener("scroll", handleScroll);
@@ -72,6 +71,19 @@ export default function SiteHeader({
         window.cancelAnimationFrame(rafId);
       }
     };
+  }, [pathname]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("bustaniya-cart") || localStorage.getItem("bustaniya_cart");
+      if (saved) {
+        const items = JSON.parse(saved);
+        if (Array.isArray(items)) {
+          const total = items.reduce((acc, item) => acc + (item.quantity || 1), 0);
+          setLocalCartCount(total);
+        }
+      }
+    } catch {}
   }, []);
 
   const displayCartCount = typeof initialCartCount === "number" ? initialCartCount : localCartCount;
@@ -107,7 +119,7 @@ export default function SiteHeader({
 
   return (
     <>
-      <header className={isStuck ? "siteHeaderLucknawi isStuck" : "siteHeaderLucknawi"}>
+      <header className={`siteHeaderLucknawi ${isStuck ? "isStuck" : ""} ${hasScrolled ? "hasScrolled" : "atTop"}`}>
         {/* 1. Top Announcement Bar */}
         <AnnouncementBar storeSettings={storeSettings} />
 

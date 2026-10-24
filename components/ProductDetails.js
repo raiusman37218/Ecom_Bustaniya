@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { ArrowLeft, ArrowRight, Banknote, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, Heart, Maximize2, Minus, Plus, Ruler, ShieldCheck, ShoppingBag, Sparkles, Truck, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Banknote, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, Heart, Maximize2, Minus, Plus, RotateCcw, Ruler, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, X } from "lucide-react";
 
 import { productDescription } from "../lib/seo";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
@@ -668,20 +668,46 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
 
         <section className="productPurchase">
-          <p className="eyebrow">{product.category}</p>
+          <div className="productEyebrowRow">
+            <span className="productCategoryTag">{product.category}</span>
+            {product.articleNumber && <span className="productArticleTag">SKU: {product.articleNumber}</span>}
+          </div>
+
           <h1>{product.name}</h1>
+
+          <div className="productTrustRating">
+            <div className="productRatingStars" aria-label="5 out of 5 stars">
+              <Star size={13} fill="#d97706" color="#d97706" />
+              <Star size={13} fill="#d97706" color="#d97706" />
+              <Star size={13} fill="#d97706" color="#d97706" />
+              <Star size={13} fill="#d97706" color="#d97706" />
+              <Star size={13} fill="#d97706" color="#d97706" />
+            </div>
+            <span className="productRatingScore">4.9 / 5.0</span>
+            <span className="productRatingDivider">•</span>
+            <span className="productRatingLabel">Handcrafted Pakistani Pret</span>
+          </div>
+
           <div className="detailPriceRow">
-            <p className="detailPrice">Rs. {product.price.toLocaleString()}</p>
+            <div className="detailPriceMain">
+              <span className="detailPriceCurrency">Rs.</span>
+              <span className="detailPriceAmount">{product.price.toLocaleString()}</span>
+            </div>
             {discountPercent > 0 && (
-              <>
+              <div className="detailDiscountGroup">
                 <del className="detailComparePrice">Rs. {compareAtPrice.toLocaleString()}</del>
                 <span className="detailDiscountPill">{discountPercent}% OFF</span>
-              </>
+              </div>
             )}
           </div>
-          <p className="taxNote">
-            Tax included. {isFreeDelivery ? <span className="freeDeliveryBadge">🎉 Free Delivery on this order</span> : "Delivery calculated at checkout."}
-          </p>
+
+          <div className="productDeliveryPromise">
+            <Truck size={14} className="promiseIcon" />
+            <span>{isFreeDelivery ? "Free Nationwide Delivery Included" : "Fast Tracked Nationwide Shipping"}</span>
+            <span className="promiseDivider">•</span>
+            <span className="promiseCod">Cash on Delivery Available</span>
+          </div>
+
           {/* Color Selector */}
           {!!colors.length && (
             <div className="productOptionSection colorSelectorSection">
@@ -730,10 +756,11 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           <div className="productOptionSection sizeSelectorSection">
             <div className="selectorHeading">
               <div className="selectorLabelGroup">
-                <b>Select size</b> {size && <span className="selectedOptionValue">({size})</span>}
+                <b>Size:</b> {size ? <span className="selectedOptionValue">({size})</span> : <span className="selectedOptionHint">Choose your fit</span>}
               </div>
               <button type="button" className="sizeGuidePillBtn" onClick={() => setSizeChartOpen(true)}>
-                <Ruler size={14} /> View Size Chart
+                <Ruler size={13} />
+                <span>Size Guide</span>
               </button>
             </div>
             <div className="sizeOptions">
@@ -748,7 +775,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                   <button
                     key={item}
                     type="button"
-                    className={`${isSelected ? "selected" : ""} ${!sizeInStock ? "sizeOutOfStock" : ""}`}
+                    className={`sizeBtn ${isSelected ? "selected" : ""} ${!sizeInStock ? "sizeOutOfStock" : ""}`}
                     onClick={() => setSize(item)}
                   >
                     {item}
@@ -759,45 +786,47 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           </div>
 
           <div className="purchaseControls">
-            <div className="quantityControlGroup">
-              <div className="quantityHeading"><b>Quantity</b></div>
-              <div className="quantity productQuantity">
-                <button aria-label="Decrease quantity" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={14} /></button>
-                {quantity}
-                <button aria-label="Increase quantity" disabled={outOfStock || isVariantOutOfStock || quantity >= availableStock} onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}><Plus size={14} /></button>
+            <div className="purchaseRowMain">
+              <div className="quantityControlGroup">
+                <div className="quantity productQuantity">
+                  <button aria-label="Decrease quantity" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={13} /></button>
+                  <span className="quantityValue">{quantity}</span>
+                  <button aria-label="Increase quantity" disabled={outOfStock || isVariantOutOfStock || quantity >= availableStock} onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}><Plus size={13} /></button>
+                </div>
+              </div>
+
+              <div className="productActions">
+                <button
+                  className="addBagButton"
+                  disabled={outOfStock || isVariantOutOfStock || (sizes.length > 0 && !size) || (colors.length > 0 && !color)}
+                  onClick={addToBag}
+                >
+                  {outOfStock || isVariantOutOfStock
+                    ? "Out of stock"
+                    : added
+                    ? <><Check size={18} /> Added to bag</>
+                    : colors.length > 0 && !color
+                    ? "Select a color"
+                    : sizes.length > 0 && !size
+                    ? "Select a size"
+                    : <><ShoppingBag size={18} /> Add to bag</>}
+                </button>
+                <button className="wishButton" aria-label="Add to wishlist"><Heart size={18} /></button>
               </div>
             </div>
 
-            <div className="productActions">
-              <button
-                className="addBagButton"
-                disabled={outOfStock || isVariantOutOfStock || (sizes.length > 0 && !size) || (colors.length > 0 && !color)}
-                onClick={addToBag}
-              >
-                {outOfStock || isVariantOutOfStock
-                  ? "Out of stock"
-                  : added
-                  ? <><Check /> Added to bag</>
-                  : colors.length > 0 && !color
-                  ? "Select a color"
-                  : sizes.length > 0 && !size
-                  ? "Select a size"
-                  : <><ShoppingBag /> Add to bag</>}
-              </button>
-              <button className="wishButton" aria-label="Add to wishlist"><Heart /></button>
-            </div>
+            {outOfStock || isVariantOutOfStock ? (
+              <span className="buyNowButton disabledBuy">Unavailable</span>
+            ) : colors.length > 0 && !color ? (
+              <span className="buyNowButton disabledBuy">Select a color first</span>
+            ) : sizes.length > 0 && !size ? (
+              <span className="buyNowButton disabledBuy">Select a size first</span>
+            ) : (
+              <Link className="buyNowButton" href="/checkout" onClick={() => addToBag({ openDrawer: false })}>
+                Buy it now
+              </Link>
+            )}
           </div>
-          {outOfStock || isVariantOutOfStock ? (
-            <span className="buyNowButton disabledBuy">Unavailable</span>
-          ) : colors.length > 0 && !color ? (
-            <span className="buyNowButton disabledBuy">Select a color first</span>
-          ) : sizes.length > 0 && !size ? (
-            <span className="buyNowButton disabledBuy">Select a size first</span>
-          ) : (
-            <Link className="buyNowButton" href="/checkout" onClick={() => addToBag({ openDrawer: false })}>
-              Buy it now
-            </Link>
-          )}
 
           {/* WhatsApp & Instagram Direct Action Buttons */}
           <div className="productSocialActions">
@@ -811,28 +840,66 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                 <img src="/whatsapp-icon.png" alt="WhatsApp" width={22} height={22} style={{ display: "block", objectFit: "contain" }} />
               </div>
               <div className="socialBtnTextWrap">
-                <span className="socialBtnLine">ORDER ON</span>
-                <span className="socialBtnLine">WHATSAPP</span>
+                <span className="socialBtnLine">ORDER ON WHATSAPP</span>
+                <span className="socialBtnSub">Instant sizing &amp; custom order support</span>
               </div>
             </button>
 
-            <a
-              className="productSocialBtn productSocialBtn--instagram"
-              href={instagramActionUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={hasProductInstagramVideo ? "Watch product reel on Instagram" : "View on Instagram"}
-            >
-              <div className="socialBtnIconWrap instagramIconWrap">
-                <InstagramIcon size={22} />
-              </div>
-              <div className="socialBtnTextWrap">
-                <span className="socialBtnLine">{hasProductInstagramVideo ? "WATCH REEL ON" : "VIEW ON"}</span>
-                <span className="socialBtnLine">INSTAGRAM</span>
-              </div>
-            </a>
+            {hasProductInstagramVideo ? (
+              <a
+                className="productSocialBtn productSocialBtn--instagram"
+                href={instagramActionUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Watch product reel on Instagram"
+              >
+                <div className="socialBtnIconWrap instagramIconWrap">
+                  <InstagramIcon size={20} />
+                </div>
+                <div className="socialBtnTextWrap">
+                  <span className="socialBtnLine">WATCH ON INSTAGRAM</span>
+                  <span className="socialBtnSub">See silhouette in motion</span>
+                </div>
+              </a>
+            ) : null}
           </div>
 
+          {/* Luxury Reassurance Trust Pillars */}
+          <div className="productTrustBar">
+            <div className="productTrustItem">
+              <ShieldCheck size={18} className="trustIcon" />
+              <div className="trustText">
+                <strong>Pure Fabric &amp; Tailoring</strong>
+                <span>Carefully inspected before dispatch</span>
+              </div>
+            </div>
+            <div className="productTrustItem">
+              <Truck size={18} className="trustIcon" />
+              <div className="trustText">
+                <strong>Tracked Shipping</strong>
+                <span>PostEx Courier · 3-5 Working Days</span>
+              </div>
+            </div>
+            <div className="productTrustItem">
+              <RotateCcw size={18} className="trustIcon" />
+              <div className="trustText">
+                <strong>Easy 7-Day Exchange</strong>
+                <span>Quick WhatsApp support for sizes</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 1. Product details & fabric (Open by default) */}
+          <details className="productDetailsAccordion" open>
+            <summary>Product details &amp; fabric</summary>
+            <div className="productDetailsAccordionBody">
+              <h2 className="productDetailsTitle">Description &amp; Specifications</h2>
+              <StructuredProductDetails value={productDetails} />
+              <small className="productDetailsNote">Colours may vary slightly due to camera lighting and screen resolution.</small>
+            </div>
+          </details>
+
+          {/* 2. Size Guide & measurements */}
           <details className="productDetailsAccordion sizeGuideAccordion" id="size-guide">
             <summary>Size guide &amp; measurements</summary>
             <div className="productDetailsAccordionBody">
@@ -858,8 +925,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             </div>
           </details>
 
-
-          {/* Delivery Information Accordion */}
+          {/* 3. Delivery & shipping information */}
           <details className="productDetailsAccordion deliveryAccordion">
             <summary>Delivery &amp; shipping information</summary>
             <div className="productDetailsAccordionBody">
@@ -917,6 +983,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             </div>
           </details>
 
+          {/* 4. Return & exchange policy */}
           <details className="productDetailsAccordion">
             <summary>Return &amp; exchange policy</summary>
             <div className="productDetailsAccordionBody">
@@ -944,15 +1011,6 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               >
                 Read full Return &amp; Exchange Policy &rarr;
               </a>
-            </div>
-          </details>
-
-          <details className="productDetailsAccordion" open>
-            <summary>Product details</summary>
-            <div className="productDetailsAccordionBody">
-              <h2 className="productDetailsTitle">Description</h2>
-              <StructuredProductDetails value={productDetails} />
-              <small className="productDetailsNote">Colours may vary slightly due to camera lighting and screen settings.</small>
             </div>
           </details>
         </section>
