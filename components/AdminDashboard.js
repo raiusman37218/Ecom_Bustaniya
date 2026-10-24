@@ -5,7 +5,7 @@ import {
   Activity, AlertCircle, Archive, ArrowDown, ArrowLeft, ArrowUp, BarChart3, Bell, Boxes, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleDollarSign,
   Clock, Copy, CreditCard, Edit, ExternalLink, Eye, FileText, Folder, FolderPlus, FolderTree, Globe, Grid, HelpCircle, Info, Landmark, Layers, LayoutDashboard, List, Loader2, LogOut, MapPin, Menu, MessageSquare,
   Minus, MoreHorizontal, Package, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Save, Search, Settings,
-  ShoppingBag, Sparkles, Star, Store, Tags, Trash2, TrendingUp, Truck, UploadCloud, User, Users, WalletCards, X, Scissors
+  ShoppingBag, Sparkles, Star, Store, Tags, Trash2, TrendingUp, Truck, UploadCloud, User, Users, WalletCards, X, Scissors, Calculator
 } from "lucide-react";
 import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, products as initialProducts, slugifyCategory } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, SECTION_TEMPLATES } from "../data/storeSettings";
@@ -14,6 +14,7 @@ import EventsWorkspace from "./EventsWorkspace";
 import CustomOrdersWorkspace from "./CustomOrdersWorkspace";
 import DashboardWorkspace from "./DashboardWorkspace";
 import PluginsWorkspace from "./PluginsWorkspace";
+import ArticlePriceCalculator from "./ArticlePriceCalculator";
 import { apparelSizes, fashionColors } from "../data/variantOptions";
 import AdminLogin from "./AdminLogin";
 
@@ -857,6 +858,7 @@ const navItems = [
   { name: "Orders", icon: ShoppingBag, section: "COMMERCE" },
   { name: "Custom Orders", icon: Scissors, section: "COMMERCE" },
   { name: "Products", icon: Package, section: "COMMERCE" },
+  { name: "Price Calculator", icon: Calculator, section: "COMMERCE" },
   { name: "Categories", icon: Tags, section: "COMMERCE" },
   { name: "Inventory", icon: Boxes, section: "COMMERCE" },
   { name: "Customers", icon: Users, section: "COMMERCE" },
@@ -873,6 +875,7 @@ const navPermissionMap = {
   Orders: "orders",
   "Custom Orders": "orders",
   Products: "products",
+  "Price Calculator": "products",
   Categories: "products",
   Inventory: "inventory",
   Customers: "customers",
@@ -920,6 +923,7 @@ export default function AdminDashboard() {
   const [productStatus, setProductStatus] = useState("Active");
   const [showExtendedSizes, setShowExtendedSizes] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [showPriceCalcModal, setShowPriceCalcModal] = useState(false);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
   const fileInputRef = useRef(null);
   const [costBreakdown, setCostBreakdown] = useState({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0 });
@@ -1935,6 +1939,24 @@ export default function AdminDashboard() {
           )}
           {canAccessActive && active === "Events" && <EventsWorkspace onNavigateToSettings={() => navigateAdminSection("Settings", { focus: "Tracking" })} onNavigateToOrder={(orderId) => { setRequestedOrderId(orderId); navigateAdminSection("Orders"); }} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
+          {canAccessActive && active === "Price Calculator" && (
+            <ArticlePriceCalculator
+              products={products}
+              onApplyToProduct={(calcData) => {
+                openNewProductForm();
+                setProductPrice(calcData.price);
+                setCostPerItem(calcData.costPerItem);
+                setCostBreakdown(calcData.costBreakdown);
+                setProductCategory(calcData.category || "Kurtis");
+                setTimeout(() => {
+                  const nameInput = document.querySelector('input[name="name"]');
+                  if (nameInput) nameInput.value = calcData.name || "";
+                  const compInput = document.querySelector('input[name="comparePrice"]');
+                  if (compInput) compInput.value = calcData.compareAtPrice || "";
+                }, 50);
+              }}
+            />
+          )}
           {canAccessActive && active === "Categories" && (
             <CategoriesPanel
               categories={catalogCategories}
@@ -2183,7 +2205,30 @@ export default function AdminDashboard() {
 
                   {/* Card 3: Pricing (Clean Shopify standard) */}
                   <div className="shopifyCard">
-                    <h3 className="shopifyCardTitle">Pricing</h3>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                      <h3 className="shopifyCardTitle">Pricing</h3>
+                      <button
+                        type="button"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "5px 12px",
+                          borderRadius: "7px",
+                          border: "1px solid #16452c",
+                          background: "#f0fdf4",
+                          color: "#16452c",
+                          fontSize: "12px",
+                          fontWeight: "750",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => setShowPriceCalcModal(true)}
+                        title="Calculate selling price, compare-at MSRP, and profit breakdown"
+                      >
+                        <Calculator size={13} />
+                        <span>Price Calculator</span>
+                      </button>
+                    </div>
                     <div className="shopifyGrid2">
                       <div className="shopifyField">
                         <label className="shopifyLabel">Price (PKR)</label>
@@ -2584,6 +2629,51 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {showPriceCalcModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(10, 25, 18, 0.72)",
+            backdropFilter: "blur(4px)",
+            zIndex: 100000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          onClick={() => setShowPriceCalcModal(false)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: "16px",
+              maxWidth: "1200px",
+              width: "100%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              padding: "20px",
+              boxShadow: "0 25px 60px rgba(0,0,0,0.3)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ArticlePriceCalculator
+              isOpenAsModal
+              products={products}
+              onClose={() => setShowPriceCalcModal(false)}
+              initialProduct={editingProduct || (productPrice ? { name: "", price: productPrice, category: productCategory } : null)}
+              onApplyToProduct={(calcData) => {
+                setProductPrice(calcData.price);
+                setCostPerItem(calcData.costPerItem);
+                setCostBreakdown(calcData.costBreakdown);
+                const compInput = document.querySelector('input[name="comparePrice"]');
+                if (compInput) compInput.value = calcData.compareAtPrice || "";
+                setShowPriceCalcModal(false);
+              }}
+            />
           </div>
         </div>
       )}
