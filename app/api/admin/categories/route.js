@@ -129,11 +129,19 @@ export async function PATCH(request) {
 export async function DELETE(request) {
   try {
     await authorizeAdminRequest(request, "products");
-    const { categoryId } = await request.json();
+    const body = await request.json();
+    const categoryId = body.categoryId;
+    const permanent = Boolean(body.permanent);
     if (!categoryId) throw new Error("Category is required.");
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(categoryId));
     const filter = isUuid ? `id=eq.${encodeURIComponent(categoryId)}` : `slug=eq.${encodeURIComponent(categoryId)}`;
     try {
+      if (permanent) {
+        await supabaseAdminRequest(`catalog_categories?${filter}`, {
+          method: "DELETE",
+        });
+        return NextResponse.json({ success: true, deleted: true });
+      }
       await supabaseAdminRequest(`catalog_categories?${filter}`, {
         method: "PATCH",
         prefer: "return=minimal",

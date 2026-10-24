@@ -2,10 +2,10 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, AlertCircle, Bell, Boxes, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleDollarSign,
-  Copy, ExternalLink, Eye, FileText, Info, Landmark, LayoutDashboard, Loader2, LogOut, Menu, MessageSquare,
-  Minus, MoreHorizontal, Package, Phone, Plus, ReceiptText, RefreshCw, Save, Search, Settings,
-  ShoppingBag, Store, Tags, TrendingUp, Truck, Users, WalletCards, X, Scissors
+  Activity, AlertCircle, Archive, ArrowDown, ArrowLeft, ArrowUp, Bell, Boxes, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleDollarSign,
+  Clock, Copy, CreditCard, Edit, ExternalLink, Eye, FileText, Folder, FolderPlus, FolderTree, Globe, Grid, HelpCircle, Info, Landmark, Layers, LayoutDashboard, List, Loader2, LogOut, MapPin, Menu, MessageSquare,
+  Minus, MoreHorizontal, Package, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Save, Search, Settings,
+  ShoppingBag, Sparkles, Star, Store, Tags, Trash2, TrendingUp, Truck, UploadCloud, User, Users, WalletCards, X, Scissors
 } from "lucide-react";
 import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, products as initialProducts, slugifyCategory } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
@@ -14,6 +14,8 @@ import EventsWorkspace from "./EventsWorkspace";
 import CustomOrdersWorkspace from "./CustomOrdersWorkspace";
 import { apparelSizes, fashionColors } from "../data/variantOptions";
 import AdminLogin from "./AdminLogin";
+
+const STANDARD_APPAREL_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "Custom"];
 
 const HOMEPAGE_COLOR_OPTIONS = [
   { name: "Ivory", value: "#fffefb" }, { name: "Cream", value: "#f7f2e8" }, { name: "White", value: "#ffffff" },
@@ -908,6 +910,14 @@ export default function AdminDashboard() {
   const [productImageUrl, setProductImageUrl] = useState("");
   const [mediaError, setMediaError] = useState("");
   const [productPrice, setProductPrice] = useState(0);
+  const [costPerItem, setCostPerItem] = useState(0);
+  const [isNewProduct, setIsNewProduct] = useState(true);
+  const [isBestsellerProduct, setIsBestsellerProduct] = useState(false);
+  const [productStatus, setProductStatus] = useState("Active");
+  const [showExtendedSizes, setShowExtendedSizes] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [isDraggingMedia, setIsDraggingMedia] = useState(false);
+  const fileInputRef = useRef(null);
   const [costBreakdown, setCostBreakdown] = useState({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0 });
   const [productSaving, setProductSaving] = useState(false);
   const productDetailsEditorRef = useRef(null);
@@ -1148,12 +1158,18 @@ export default function AdminDashboard() {
   function openNewProductForm() {
     setEditingProduct(null);
     setProductCategory("Kurtis");
-    setSelectedSizes(["S", "M", "L"]);
+    setSelectedSizes(["XS", "S", "M", "L", "XL"]);
     setSelectedColors(["Pink"]);
     setProductMedia([]);
     setProductImageUrl("");
     setMediaError("");
     setProductPrice(0);
+    setCostPerItem(0);
+    setIsNewProduct(true);
+    setIsBestsellerProduct(false);
+    setProductStatus("Active");
+    setShowUrlInput(false);
+    setShowExtendedSizes(false);
     setCostBreakdown({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0 });
     setShowProductForm(true);
   }
@@ -1161,7 +1177,7 @@ export default function AdminDashboard() {
   function openEditProductForm(product) {
     setEditingProduct(product);
     setProductCategory(product.category || "Kurtis");
-    setSelectedSizes(Array.isArray(product.sizes) && product.sizes.length ? product.sizes : ["S", "M", "L"]);
+    setSelectedSizes(Array.isArray(product.sizes) && product.sizes.length ? product.sizes : ["XS", "S", "M", "L", "XL"]);
     setSelectedColors(Array.isArray(product.colors) && product.colors.length ? product.colors : ["Pink"]);
     setProductMedia((product.images || [product.image]).filter(Boolean).map((src, index) => ({
       id: `existing-${product.id}-${index}`,
@@ -1171,6 +1187,12 @@ export default function AdminDashboard() {
     setProductImageUrl("");
     setMediaError("");
     setProductPrice(Number(product.price || 0));
+    setCostPerItem(Number(product.costTotalPkr || product.cost_total_pkr || product.costBreakdown?.fabric || 0));
+    setIsNewProduct(Boolean(product.isNew ?? product.new));
+    setIsBestsellerProduct(Boolean(product.isBestseller ?? product.bestsellere));
+    setProductStatus(product.status || "Active");
+    setShowUrlInput(false);
+    setShowExtendedSizes(false);
     setCostBreakdown({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0, ...(product.costBreakdown || {}) });
     setShowProductForm(true);
   }
@@ -1348,67 +1370,80 @@ export default function AdminDashboard() {
     try {
       const mediaImages = await uploadProductMedia();
       const seoTitle = String(form.get("seoTitle") || "").trim();
+      const name = String(form.get("name") || "").trim();
+      const priceVal = Number(form.get("price") || 0);
+      const compareVal = Number(form.get("comparePrice") || 0) || null;
+      const costVal = Number(form.get("costPerItem") || 0);
+      const stockVal = Number(form.get("stock") || 0);
+      const skuVal = String(form.get("sku") || "").trim();
+      const categoryVal = form.get("category") || productCategory;
+      const subcategoryVal = form.get("subcategory") || "";
+      const collectionVal = String(form.get("collection") || "").trim();
+      const statusVal = form.get("status") || productStatus || "Active";
+      const tagsList = String(form.get("tags") || "").split(",").map((t) => t.trim()).filter(Boolean);
+      const instagramUrl = String(form.get("instagramVideoUrl") || "").trim();
+
       const productPayload = {
-        name: form.get("name"),
+        name,
         description: form.get("description") || "",
-        category: form.get("category"),
-        subcategory: form.get("subcategory") || "",
-        collection: form.get("collection") || "",
-        productType: form.get("productType") || "",
-        price: Number(form.get("price")),
-        compare_at_price: Number(form.get("comparePrice") || 0) || null,
-        sku: form.get("sku"),
+        category: categoryVal,
+        subcategory: subcategoryVal,
+        collection: collectionVal,
+        productType: categoryVal || "Women's clothing",
+        price: priceVal,
+        compare_at_price: compareVal,
+        sku: skuVal,
         sizes: selectedSizes,
         colors: selectedColors,
         variants: selectedSizes.flatMap((size) => selectedColors.map((color) => ({
           size,
           color,
-          sku: `${form.get("sku") || "BST"}-${size}-${color}`.replace(/\s+/g, "-").toUpperCase(),
-          stock: Math.max(0, Math.floor(Number(form.get("stock") || 0) / Math.max(1, selectedSizes.length * selectedColors.length))),
+          sku: `${skuVal || "BST"}-${size}-${color}`.replace(/\s+/g, "-").toUpperCase(),
+          stock: Math.max(0, Math.floor(stockVal / Math.max(1, selectedSizes.length * selectedColors.length))),
         }))),
-        tags: String(form.get("tags") || "").split(",").map((tag) => tag.trim()).filter(Boolean),
-        status: form.get("status") || "Active",
-        publishDate: form.get("publishDate") || "",
+        tags: tagsList,
+        status: statusVal,
+        publishDate: new Date().toISOString().split("T")[0],
         images: mediaImages.length
           ? mediaImages
           : ["/bustaniya-campaign-hero-v4.png"],
-        delivery_fee_mode: form.get("deliveryFeeMode") || "inherit",
-        delivery_fee_pkr: form.get("deliveryFeeMode") === "paid"
-          ? Number(form.get("deliveryFee") || 200)
-          : null,
-        deliveryInfo: String(form.get("deliveryInfo") || "").trim(),
-        instagramVideoUrl: String(form.get("instagramVideoUrl") || "").trim(),
-        cost_total_pkr: totalProductCost,
+        delivery_fee_mode: "inherit",
+        delivery_fee_pkr: null,
+        deliveryInfo: "",
+        instagramVideoUrl: instagramUrl,
+        cost_total_pkr: costVal,
         cost_breakdown: {
-          ...costBreakdown,
+          fabric: costVal,
+          stitching: 0,
+          embellishment: 0,
+          packaging: 0,
+          delivery: 0,
+          other: 0,
           metadata: {
             fabricDetails: "",
             careInstructions: "",
-            deliveryInfo: String(form.get("deliveryInfo") || "").trim(),
-            instagramVideoUrl: String(form.get("instagramVideoUrl") || "").trim(),
-            vendor: String(form.get("vendor") || "").trim(),
-            barcode: String(form.get("barcode") || "").trim(),
-            weight: String(form.get("weight") || "").trim(),
-            weightUnit: String(form.get("weightUnit") || "kg"),
-            countryOfOrigin: String(form.get("countryOfOrigin") || "Pakistan"),
-            hsTariffCode: String(form.get("hsTariffCode") || "").trim(),
-            seoTitle,
+            deliveryInfo: "",
+            instagramVideoUrl: instagramUrl,
+            vendor: "Bustaniya",
+            barcode: "",
+            weight: "",
+            weightUnit: "kg",
+            countryOfOrigin: "Pakistan",
+            hsTariffCode: "",
+            seoTitle: seoTitle || name,
             seoDescription: String(form.get("seoDescription") || "").trim(),
-            urlHandle: String(form.get("urlHandle") || "").trim(),
-
-            compareAtPrice: Number(form.get("comparePrice") || 0) || null,
-            status: form.get("status") || "Active",
-            productType: form.get("productType") || "",
-            tags: String(form.get("tags") || "").split(",").map((tag) => tag.trim()).filter(Boolean),
-            publishDate: form.get("publishDate") || "",
+            urlHandle: String(form.get("urlHandle") || "").trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+            compareAtPrice: compareVal,
+            status: statusVal,
+            productType: categoryVal || "Women's clothing",
+            tags: tagsList,
+            publishDate: new Date().toISOString().split("T")[0],
           },
         },
       };
 
-      if (!editingProduct) {
-        productPayload.is_new = true;
-        productPayload.is_bestseller = false;
-      }
+      productPayload.is_new = isNewProduct;
+      productPayload.is_bestseller = isBestsellerProduct;
 
       const response = await fetch("/api/admin/catalog", {
         method: editingProduct ? "PATCH" : "PUT",
@@ -1418,7 +1453,7 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           ...(editingProduct ? { productId: editingProduct.id } : {}),
           product: productPayload,
-          stock: Number(form.get("stock")),
+          stock: stockVal,
         }),
       });
       const result = await response.json();
@@ -1519,6 +1554,16 @@ export default function AdminDashboard() {
     setProductMedia((current) => current.filter((item) => item.id !== id));
   }
 
+  function setMainCoverImage(index) {
+    setProductMedia((prev) => {
+      if (index === 0 || !prev[index]) return prev;
+      const copy = [...prev];
+      const [item] = copy.splice(index, 1);
+      copy.unshift(item);
+      return copy;
+    });
+  }
+
   async function uploadProductMedia() {
     if (!productMedia.length) return [];
     const form = new FormData();
@@ -1544,6 +1589,10 @@ export default function AdminDashboard() {
     setProductMedia([]);
     setProductImageUrl("");
     setMediaError("");
+    setProductPrice(0);
+    setCostPerItem(0);
+    setShowUrlInput(false);
+    setShowExtendedSizes(false);
   }
 
   async function updateProductDelivery(product, mode) {
@@ -1686,7 +1735,7 @@ export default function AdminDashboard() {
     }
   }
 
-  async function archiveCategory(category) {
+  async function archiveCategory(category, permanent = false) {
     setCategorySaving(true);
     setOrdersError("");
     try {
@@ -1695,18 +1744,20 @@ export default function AdminDashboard() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ categoryId: category.id }),
+        body: JSON.stringify({ categoryId: category.id || category.slug, permanent }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to archive category.");
       if (result.needsSetup) {
         setCategorySetupNeeded(true);
         setOrdersError(`Run ${result.setupSql || "scripts/supabase-catalog-categories.sql"} in Supabase before archiving categories.`);
-        return;
+        return false;
       }
       await loadAdminData();
+      return true;
     } catch (error) {
       setOrdersError(error.message);
+      return false;
     } finally {
       setCategorySaving(false);
     }
@@ -1781,7 +1832,29 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} ordersError={ordersLoadError} currentAdminUser={currentAdminUser} onRefresh={() => refreshWorkspace()} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.order_number || order.id); navigateAdminSection("Orders"); }} />}
           {canAccessActive && active === "Events" && <EventsWorkspace onNavigateToSettings={() => navigateAdminSection("Settings", { focus: "Tracking" })} onNavigateToOrder={(orderId) => { setRequestedOrderId(orderId); navigateAdminSection("Orders"); }} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
-          {canAccessActive && active === "Categories" && <CategoriesPanel categories={catalogCategories} products={products} onSave={saveCategory} onArchive={archiveCategory} saving={categorySaving} needsSetup={categorySetupNeeded} />}
+          {canAccessActive && active === "Categories" && (
+            <CategoriesPanel
+              categories={catalogCategories}
+              products={products}
+              onSave={saveCategory}
+              onArchive={archiveCategory}
+              saving={categorySaving}
+              needsSetup={categorySetupNeeded}
+              onConfirmAction={({ title, message, confirmLabel, danger, onConfirm }) =>
+                requestConfirm({
+                  title,
+                  message,
+                  confirmText: confirmLabel || "Confirm",
+                  isDanger: danger ?? true,
+                  onConfirm,
+                })
+              }
+              onNavigateToProducts={(categoryName) => {
+                setSearch(categoryName);
+                navigateAdminSection("Products");
+              }}
+            />
+          )}
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} onNavigateToEvents={() => navigateAdminSection("Events")} />}
           {canAccessActive && active === "Custom Orders" && <CustomOrdersWorkspace />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
@@ -1804,185 +1877,612 @@ export default function AdminDashboard() {
         onClose={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}
       />
 
-      {showProductForm && <>
-        <div className="adminOverlay" onClick={closeProductForm} />
-        <aside className="productFormDrawer">
-          <div className="productDrawerHeader"><div><p>PRODUCT CATALOGUE</p><h2>{editingProduct ? "Edit product" : "Add product"}</h2></div><button onClick={closeProductForm}><X /></button></div>
-          <form onSubmit={addProduct} key={editingProduct?.id || "new-product"}>
-            <section className="productEditorCard">
-              <h3>Basic information</h3>
-              <label>Product title<input name="name" required defaultValue={editingProduct?.name || ""} placeholder="e.g. Gulnaar Corset Kurti" /></label>
-              <div className="productDetailsEditor">
-                <div className="productDetailsEditorHead">
-                  <div>
-                    <label htmlFor="product-details-editor">Product details</label>
-                    <p>Add description, fabric, styling and care instructions together.</p>
+      {showProductForm && (
+        <div className="shopifyProductModalOverlay">
+          <div className="shopifyProductModalContainer">
+            {/* Top Sticky Bar */}
+            <header className="shopifyProductTopBar">
+              <div className="shopifyTopBarLeft">
+                <button
+                  type="button"
+                  className="shopifyBackBtn"
+                  onClick={closeProductForm}
+                  aria-label="Back to products"
+                >
+                  <ArrowLeft size={18} />
+                </button>
+                <div className="shopifyTopBarTitleWrap">
+                  <div className="shopifyBreadcrumb">Products / {editingProduct ? "Edit" : "New"}</div>
+                  <h1 className="shopifyTopBarTitle">
+                    {editingProduct ? (editingProduct.name || "Edit product") : "Add product"}
+                  </h1>
+                </div>
+                <span className={`shopifyStatusBadge ${productStatus === "Active" ? "active" : "draft"}`}>
+                  <span className="statusDot" />
+                  {productStatus}
+                </span>
+              </div>
+              <div className="shopifyTopBarRight">
+                <button
+                  type="button"
+                  className="shopifyBtnSecondary"
+                  onClick={closeProductForm}
+                  disabled={productSaving}
+                >
+                  Discard
+                </button>
+                <button
+                  type="button"
+                  className="shopifyBtnPrimary"
+                  onClick={() => {
+                    const formElement = document.getElementById("shopify-product-form");
+                    if (formElement) formElement.requestSubmit();
+                  }}
+                  disabled={productSaving}
+                >
+                  {productSaving ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    editingProduct ? "Save changes" : "Save product"
+                  )}
+                </button>
+              </div>
+            </header>
+
+            {/* Main Form Body */}
+            <form id="shopify-product-form" onSubmit={addProduct} key={editingProduct?.id || "new-product"}>
+              <div className="shopifyProductGrid">
+                {/* LEFT COLUMN: Main Product Details */}
+                <div className="shopifyMainCol">
+                  {/* Card 1: Title & Description */}
+                  <div className="shopifyCard">
+                    <div className="shopifyField">
+                      <label className="shopifyLabel">Title</label>
+                      <input
+                        className="shopifyInput shopifyTitleInput"
+                        name="name"
+                        required
+                        defaultValue={editingProduct?.name || ""}
+                        placeholder="Short sleeve t-shirt, Aylin co-ord set, etc."
+                      />
+                    </div>
+                    <div className="shopifyField">
+                      <div className="shopifyToolbarHeader">
+                        <label className="shopifyLabel">Description</label>
+                        <div className="shopifyFormattingToolbar">
+                          <button type="button" onClick={() => insertProductDetailsFormat("heading")}>
+                            Heading
+                          </button>
+                          <button type="button" onClick={() => insertProductDetailsFormat("bullet")}>
+                            • Bullet
+                          </button>
+                        </div>
+                      </div>
+                      <textarea
+                        id="product-details-editor"
+                        ref={productDetailsEditorRef}
+                        name="description"
+                        className="shopifyTextarea"
+                        rows="7"
+                        defaultValue={getUnifiedProductDetails(editingProduct)}
+                        placeholder={"Describe the fabric, cut, embroidery, and care instructions..."}
+                      />
+                    </div>
                   </div>
-                  <div className="productDetailsToolbar" aria-label="Product details formatting">
-                    <button type="button" onClick={() => insertProductDetailsFormat("heading")} aria-label="Insert heading">Heading</button>
-                    <button type="button" onClick={() => insertProductDetailsFormat("bullet")} aria-label="Insert bullet point">• Bullet</button>
+
+                  {/* Card 2: Media */}
+                  <div className="shopifyCard">
+                    <div className="shopifyCardHeader">
+                      <div>
+                        <h3 className="shopifyCardTitle">Media</h3>
+                        <p className="shopifyCardSubtitle">Add photos of your product from different angles</p>
+                      </div>
+                      <span className="shopifyBadgeCount">{productMedia.length} / 8 photos</span>
+                    </div>
+
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/png,image/jpeg,image/webp,image/avif"
+                      onChange={addProductFiles}
+                      style={{ display: "none" }}
+                    />
+
+                    {/* Drag & drop upload area */}
+                    <div
+                      className={`shopifyDropzone ${isDraggingMedia ? "dragging" : ""}`}
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setIsDraggingMedia(true); }}
+                      onDragLeave={() => setIsDraggingMedia(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDraggingMedia(false);
+                        addProductFiles({ target: { files: e.dataTransfer.files, value: "" } });
+                      }}
+                    >
+                      <UploadCloud size={28} className="shopifyUploadIcon" />
+                      <div className="shopifyDropzoneText">
+                        <b>Click to upload</b> or drag and drop images
+                      </div>
+                      <span className="shopifyDropzoneHint">PNG, JPG, WEBP up to 10MB each</span>
+                    </div>
+
+                    {/* URL toggle button */}
+                    <div className="shopifyMediaUrlAction">
+                      <button
+                        type="button"
+                        className="shopifyTextLinkBtn"
+                        onClick={() => setShowUrlInput(!showUrlInput)}
+                      >
+                        {showUrlInput ? "− Hide image URL input" : "+ Add image from Cloudinary link"}
+                      </button>
+                    </div>
+
+                    {showUrlInput && (
+                      <div className="shopifyUrlRow">
+                        <input
+                          className="shopifyInput"
+                          value={productImageUrl}
+                          onChange={(e) => setProductImageUrl(e.target.value)}
+                          placeholder="https://res.cloudinary.com/.../photo.jpg"
+                        />
+                        <button type="button" className="shopifyBtnSecondary" onClick={addProductImageUrl}>
+                          Add URL
+                        </button>
+                      </div>
+                    )}
+
+                    {mediaError && <div className="shopifyErrorBanner">{mediaError}</div>}
+
+                    {/* Image preview grid */}
+                    {productMedia.length > 0 && (
+                      <div className="shopifyMediaList">
+                        {productMedia.map((item, idx) => (
+                          <div className={`shopifyMediaCard ${idx === 0 ? "isCover" : ""}`} key={item.id}>
+                            <img src={item.src} alt={item.name} />
+                            {idx === 0 && (
+                              <span className="shopifyCoverPill">
+                                <Star size={10} fill="#ffffff" /> Cover photo
+                              </span>
+                            )}
+                            <div className="shopifyMediaOverlay">
+                              {idx !== 0 && (
+                                <button
+                                  type="button"
+                                  className="shopifySetCoverBtn"
+                                  onClick={(e) => { e.stopPropagation(); setMainCoverImage(idx); }}
+                                  title="Set as main cover photo"
+                                >
+                                  Make cover
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="shopifyDeletePhotoBtn"
+                                onClick={(e) => { e.stopPropagation(); removeProductMedia(item.id); }}
+                                title="Remove photo"
+                                aria-label="Remove photo"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card 3: Pricing (Clean Shopify standard) */}
+                  <div className="shopifyCard">
+                    <h3 className="shopifyCardTitle">Pricing</h3>
+                    <div className="shopifyGrid2">
+                      <div className="shopifyField">
+                        <label className="shopifyLabel">Price (PKR)</label>
+                        <div className="shopifyCurrencyInput">
+                          <span className="currencyPrefix">Rs.</span>
+                          <input
+                            name="price"
+                            required
+                            type="number"
+                            min="0"
+                            value={productPrice || ""}
+                            onChange={(e) => setProductPrice(e.target.value)}
+                            placeholder="4,990"
+                          />
+                        </div>
+                      </div>
+                      <div className="shopifyField">
+                        <label className="shopifyLabel">
+                          Compare-at price (PKR)
+                          <span className="shopifyLabelHint">Optional original price</span>
+                        </label>
+                        <div className="shopifyCurrencyInput">
+                          <span className="currencyPrefix">Rs.</span>
+                          <input
+                            name="comparePrice"
+                            type="number"
+                            min="0"
+                            defaultValue={editingProduct?.compareAtPrice || editingProduct?.compare_at_price || ""}
+                            placeholder="5,990"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="shopifyField" style={{ marginTop: "6px" }}>
+                      <label className="shopifyLabel">
+                        Cost per item (PKR)
+                        <span className="shopifyLabelHint">Customers won&apos;t see this</span>
+                      </label>
+                      <div className="shopifyCurrencyInput" style={{ maxWidth: "260px" }}>
+                        <span className="currencyPrefix">Rs.</span>
+                        <input
+                          name="costPerItem"
+                          type="number"
+                          min="0"
+                          value={costPerItem || ""}
+                          onChange={(e) => setCostPerItem(e.target.value)}
+                          placeholder="2,500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Live Profit & Margin Widget */}
+                    {Number(productPrice || 0) > 0 && Number(costPerItem || 0) > 0 && (
+                      <div className="shopifyProfitBanner">
+                        <div className="profitStat">
+                          <span className="statLabel">Estimated Profit</span>
+                          <b className="statValue">Rs. {(Number(productPrice) - Number(costPerItem)).toLocaleString()}</b>
+                        </div>
+                        <div className="statDivider" />
+                        <div className="profitStat">
+                          <span className="statLabel">Margin</span>
+                          <b className="statValue">
+                            {(((Number(productPrice) - Number(costPerItem)) / Number(productPrice)) * 100).toFixed(1)}%
+                          </b>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card 4: Inventory */}
+                  <div className="shopifyCard">
+                    <h3 className="shopifyCardTitle">Inventory</h3>
+                    <div className="shopifyGrid2">
+                      <div className="shopifyField">
+                        <label className="shopifyLabel">Available stock quantity</label>
+                        <input
+                          name="stock"
+                          required
+                          type="number"
+                          min="0"
+                          defaultValue={editingProduct?.stock ?? 10}
+                          placeholder="10"
+                        />
+                      </div>
+                      <div className="shopifyField">
+                        <label className="shopifyLabel">
+                          SKU (Stock Keeping Unit)
+                          <span className="shopifyLabelHint">Auto-created if empty</span>
+                        </label>
+                        <input
+                          name="sku"
+                          defaultValue={editingProduct?.sku || editingProduct?.articleNumber || ""}
+                          placeholder="BST-AYL-001"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 5: Variants (Sizes & Colors) */}
+                  <div className="shopifyCard">
+                    <div className="shopifyCardHeader">
+                      <div>
+                        <h3 className="shopifyCardTitle">Variants</h3>
+                        <p className="shopifyCardSubtitle">Select available sizes and colors for this outfit</p>
+                      </div>
+                      <span className="shopifyBadgeCount">
+                        {selectedSizes.length * selectedColors.length} combinations
+                      </span>
+                    </div>
+
+                    {/* Sizes Section */}
+                    <div className="shopifyVariantSection">
+                      <div className="shopifyVariantHeader">
+                        <b>Sizes</b>
+                        <span className="shopifySelectedPill">{selectedSizes.length} selected</span>
+                      </div>
+                      <div className="shopifyChipsGrid">
+                        {STANDARD_APPAREL_SIZES.map((size) => {
+                          const isSelected = selectedSizes.includes(size);
+                          return (
+                            <button
+                              type="button"
+                              key={size}
+                              className={`shopifyChip ${isSelected ? "selected" : ""}`}
+                              onClick={() => {
+                                setSelectedSizes((curr) =>
+                                  curr.includes(size) ? curr.filter((s) => s !== size) : [...curr, size]
+                                );
+                              }}
+                            >
+                              {isSelected && <Check size={13} />} {size}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Extended sizes dropdown */}
+                      <div style={{ marginTop: "8px" }}>
+                        <button
+                          type="button"
+                          className="shopifyTextLinkBtn"
+                          onClick={() => setShowExtendedSizes(!showExtendedSizes)}
+                        >
+                          {showExtendedSizes ? "− Hide extra sizes" : "+ Add other sizes (UK, EU, Waist)"}
+                        </button>
+                      </div>
+
+                      {showExtendedSizes && (
+                        <div className="shopifyExtendedSizesBox">
+                          <input
+                            className="shopifyInput shopifySearchInput"
+                            value={sizeSearch}
+                            onChange={(e) => setSizeSearch(e.target.value)}
+                            placeholder="Filter sizes (e.g. UK 12, Waist 30)..."
+                          />
+                          <div className="shopifyChipsScroll">
+                            {apparelSizes
+                              .filter((s) => !STANDARD_APPAREL_SIZES.includes(s) && s.toLowerCase().includes(sizeSearch.toLowerCase()))
+                              .map((size) => {
+                                const isSelected = selectedSizes.includes(size);
+                                return (
+                                  <button
+                                    type="button"
+                                    key={size}
+                                    className={`shopifyChip small ${isSelected ? "selected" : ""}`}
+                                    onClick={() => {
+                                      setSelectedSizes((curr) =>
+                                        curr.includes(size) ? curr.filter((s) => s !== size) : [...curr, size]
+                                      );
+                                    }}
+                                  >
+                                    {size}
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Colors Section */}
+                    <div className="shopifyVariantSection" style={{ marginTop: "18px" }}>
+                      <div className="shopifyVariantHeader">
+                        <b>Colours</b>
+                        <span className="shopifySelectedPill">{selectedColors.length} selected</span>
+                      </div>
+                      <div className="shopifyChipsGrid">
+                        {fashionColors.slice(0, 16).map((color) => {
+                          const isSelected = selectedColors.includes(color.name);
+                          return (
+                            <button
+                              type="button"
+                              key={color.name}
+                              className={`shopifyColorChip ${isSelected ? "selected" : ""}`}
+                              onClick={() => {
+                                setSelectedColors((curr) =>
+                                  curr.includes(color.name) ? curr.filter((c) => c !== color.name) : [...curr, color.name]
+                                );
+                              }}
+                            >
+                              <span className="colorDot" style={{ background: color.hex }} />
+                              {color.name}
+                              {isSelected && <Check size={12} className="checkIcon" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <textarea
-                  id="product-details-editor"
-                  ref={productDetailsEditorRef}
-                  name="description"
-                  rows="11"
-                  defaultValue={getUnifiedProductDetails(editingProduct)}
-                  placeholder={"## Fabric & material\n- Premium lawn fabric\n- Embroidered neckline\n\n## Care instructions\n- Gentle hand wash in cold water"}
-                />
-                <p className="productDetailsEditorHint">Use <b>Heading</b> for section titles and <b>Bullet</b> for features. Your formatting will appear on the product page.</p>
+
+                {/* RIGHT COLUMN: Sidebar (Status, Organization, Merchandising) */}
+                <div className="shopifySideCol">
+                  {/* Sidebar Card 1: Status */}
+                  <div className="shopifyCard">
+                    <h3 className="shopifyCardTitle">Status</h3>
+                    <select
+                      name="status"
+                      className="shopifySelect"
+                      value={productStatus}
+                      onChange={(e) => setProductStatus(e.target.value)}
+                    >
+                      <option value="Active">Active (Visible on store)</option>
+                      <option value="Draft">Draft (Hidden from store)</option>
+                      <option value="Archived">Archived</option>
+                    </select>
+                    <p className="shopifyFieldHint">
+                      {productStatus === "Active"
+                        ? "This product is published and available for purchase."
+                        : "This product is hidden from customers in your catalog."}
+                    </p>
+                  </div>
+
+                  {/* Sidebar Card 2: Organization */}
+                  <div className="shopifyCard">
+                    <h3 className="shopifyCardTitle">Product organization</h3>
+                    <div className="shopifyField">
+                      <label className="shopifyLabel">Category</label>
+                      <select
+                        name="category"
+                        className="shopifySelect"
+                        value={productCategory}
+                        onChange={(e) => setProductCategory(e.target.value)}
+                      >
+                        {mainCategoryOptions.map((cat) => (
+                          <option key={cat.slug} value={cat.name}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {!!productSubcategoryOptions.length && (
+                      <div className="shopifyField">
+                        <label className="shopifyLabel">Subcategory</label>
+                        <select
+                          name="subcategory"
+                          className="shopifySelect"
+                          defaultValue={editingProduct?.subcategory || productSubcategoryOptions[0]?.slug}
+                        >
+                          {productSubcategoryOptions.map((cat) => (
+                            <option key={cat.slug} value={cat.slug}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="shopifyField">
+                      <label className="shopifyLabel">
+                        Collection
+                        <span className="shopifyLabelHint">e.g. Summer &apos;26</span>
+                      </label>
+                      <input
+                        name="collection"
+                        className="shopifyInput"
+                        defaultValue={editingProduct?.collection || ""}
+                        placeholder="Summer Drop, Festive..."
+                      />
+                    </div>
+
+                    <div className="shopifyField">
+                      <label className="shopifyLabel">
+                        Tags
+                        <span className="shopifyLabelHint">Comma-separated</span>
+                      </label>
+                      <input
+                        name="tags"
+                        className="shopifyInput"
+                        defaultValue={Array.isArray(editingProduct?.tags) ? editingProduct.tags.join(", ") : ""}
+                        placeholder="lawn, printed, festive, party"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Sidebar Card 3: Badges */}
+                  <div className="shopifyCard">
+                    <h3 className="shopifyCardTitle">Store Badges</h3>
+                    <div className="shopifyCheckboxList">
+                      <label className="shopifyCheckboxLabel">
+                        <input
+                          type="checkbox"
+                          checked={isNewProduct}
+                          onChange={(e) => setIsNewProduct(e.target.checked)}
+                        />
+                        <div>
+                          <b>New Arrival</b>
+                          <span>Shows &quot;New&quot; tag on product card</span>
+                        </div>
+                      </label>
+                      <label className="shopifyCheckboxLabel">
+                        <input
+                          type="checkbox"
+                          checked={isBestsellerProduct}
+                          onChange={(e) => setIsBestsellerProduct(e.target.checked)}
+                        />
+                        <div>
+                          <b>Bestseller</b>
+                          <span>Shows &quot;Bestseller&quot; highlight badge</span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Sidebar Card 4: Instagram Reel Showcase */}
+                  <div className="shopifyCard">
+                    <h3 className="shopifyCardTitle">Showcase Reel (Optional)</h3>
+                    <p className="shopifyCardSubtitle">Embed a silhouette video on the product page</p>
+                    <input
+                      name="instagramVideoUrl"
+                      type="url"
+                      className="shopifyInput"
+                      defaultValue={editingProduct?.instagramVideoUrl || editingProduct?.cost_breakdown?.metadata?.instagramVideoUrl || ""}
+                      placeholder="https://www.instagram.com/reel/..."
+                    />
+                  </div>
+
+                  {/* Sidebar Card 5: Search engine listing */}
+                  <div className="shopifyCard">
+                    <h3 className="shopifyCardTitle">Search Engine (SEO)</h3>
+                    <div className="shopifySeoPreview">
+                      <span className="seoUrl">https://bustaniya.pk › product › ...</span>
+                      <b className="seoTitle">{editingProduct?.name || "Product Title — Bustaniya"}</b>
+                      <p className="seoDesc">
+                        {editingProduct?.seoDescription || "Discover handcrafted Pakistani wear from Bustaniya..."}
+                      </p>
+                    </div>
+                    <div className="shopifyField">
+                      <label className="shopifyLabel">Page Title</label>
+                      <input
+                        name="seoTitle"
+                        maxLength="70"
+                        className="shopifyInput"
+                        defaultValue={editingProduct?.seoTitle || ""}
+                        placeholder="Leave blank to auto-use product title"
+                      />
+                    </div>
+                    <div className="shopifyField">
+                      <label className="shopifyLabel">Meta Description</label>
+                      <textarea
+                        name="seoDescription"
+                        rows="2"
+                        maxLength="160"
+                        className="shopifyTextarea"
+                        defaultValue={editingProduct?.seoDescription || ""}
+                        placeholder="Brief summary for Google search..."
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-            </section>
 
-            <section className="productEditorCard">
-              <div className="editorHeading"><div><h3>Media</h3><p>Paste Cloudinary product image links</p></div><span>{productMedia.length}/8 images</span></div>
-              <div className="mediaLinkRow">
-                <input value={productImageUrl} onChange={(event) => setProductImageUrl(event.target.value)} placeholder="https://res.cloudinary.com/.../product-photo.jpg" />
-                <button type="button" onClick={addProductImageUrl}><Plus /> Add link</button>
+              {/* Bottom Sticky Action Bar on mobile/scroll */}
+              <div className="shopifyBottomBar">
+                <button
+                  type="button"
+                  className="shopifyBtnSecondary"
+                  onClick={closeProductForm}
+                  disabled={productSaving}
+                >
+                  Discard
+                </button>
+                <button
+                  type="submit"
+                  className="shopifyBtnPrimary"
+                  disabled={productSaving}
+                >
+                  {productSaving ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Saving Product...</span>
+                    </>
+                  ) : (
+                    editingProduct ? "Update Product" : "Save Product"
+                  )}
+                </button>
               </div>
-              {mediaError && <p className="mediaError">{mediaError}</p>}
-              {productMedia.length > 0 && <div className="mediaPreviewGrid">
-                {productMedia.map((item) => <div className="mediaPreview" key={item.id}>
-                  <img src={item.src} alt={item.name} />
-                  <button type="button" onClick={() => removeProductMedia(item.id)} aria-label={`Remove ${item.name}`}><X /></button>
-                </div>)}
-              </div>}
-              <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid #e2e8e3" }}>
-                <label>
-                  Instagram Reel / Video URL (optional)
-                  <input
-                    name="instagramVideoUrl"
-                    type="url"
-                    defaultValue={editingProduct?.instagramVideoUrl || editingProduct?.cost_breakdown?.metadata?.instagramVideoUrl || ""}
-                    placeholder="https://www.instagram.com/reel/C8XYZ123/ or https://www.instagram.com/p/C8XYZ123/"
-                  />
-                  <small className="settingsHint" style={{ display: "block", marginTop: "4px", color: "#64748b", fontSize: "11px" }}>
-                    Paste an Instagram Reel or Post link to embed an interactive showcase reel on this product page.
-                  </small>
-                </label>
-              </div>
-            </section>
-
-
-            <section className="productEditorCard">
-              <h3>Product organization</h3>
-              <div className="formRow">
-                <label>Category<select name="category" value={productCategory} onChange={(event) => setProductCategory(event.target.value)}>{mainCategoryOptions.map((category) => <option value={category.name} key={category.slug}>{category.name}</option>)}</select></label>
-                <label>Product type<select name="productType" defaultValue={editingProduct?.productType || "Women's clothing"}><option>Women&apos;s clothing</option><option>Kurti</option><option>Trouser</option><option>Co-ord</option></select></label>
-              </div>
-              {!!productSubcategoryOptions.length && <label>Subcategory<select name="subcategory" defaultValue={editingProduct?.subcategory || productSubcategoryOptions[0]?.slug}>{productSubcategoryOptions.map((category) => <option value={category.slug} key={category.slug}>{category.name}</option>)}</select></label>}
-              <div className="formRow"><label>Vendor<input name="vendor" defaultValue={editingProduct?.vendor || "Bustaniya"} /></label><label>Collection<input name="collection" defaultValue={editingProduct?.collection || ""} placeholder="Summer Collection, New Arrivals..." /></label></div>
-              <label>Tags<input name="tags" defaultValue={Array.isArray(editingProduct?.tags) ? editingProduct.tags.join(", ") : ""} placeholder="summer, printed, cotton, new-arrival" /></label>
-            </section>
-
-            <section className="productEditorCard">
-              <h3>Cost, pricing & profit</h3>
-              <p>Every figure in this section is for one item / one suit. Product estimate uses saved unit cost and 4% PostEx deduction; actual GST is taken from synced PostEx CPR/order data after sale.</p>
-              {costBreakdown.costSource === "production_batch" && <div className="inventoryAlert materialAlert"><Package /><div><b>Production batch cost is linked <HelpHint text="This per-item cost is calculated from the batch's direct costs plus its share of common costs, divided by finished quantity." /></b><span>Batch {costBreakdown.productionBatchId} produced {Number(costBreakdown.productionBatchQuantity || 0).toLocaleString()} items. Its total cost of Rs. {Number(costBreakdown.productionBatchTotalCost || 0).toLocaleString()} has been divided into the per-item costs below.</span></div></div>}
-              <div className="formRow"><label>Selling price (PKR)<input name="price" required type="number" min="0" value={productPrice || ""} onChange={(e) => setProductPrice(e.target.value)} placeholder="4,990" /></label><label>Compare-at price<input name="comparePrice" type="number" min="0" defaultValue={editingProduct?.compareAtPrice || editingProduct?.compare_at_price || ""} placeholder="5,990" /></label></div>
-              <p className="fieldTitle">Per-item cost breakdown (PKR)</p>
-              <div className="formRow"><label>Fabric<input type="number" min="0" value={costBreakdown.fabric || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, fabric: e.target.value }))} /></label><label>Stitching<input type="number" min="0" value={costBreakdown.stitching || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, stitching: e.target.value }))} /></label></div>
-              <div className="formRow"><label>Embellishment<input type="number" min="0" value={costBreakdown.embellishment || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, embellishment: e.target.value }))} /></label><label>Packaging<input type="number" min="0" value={costBreakdown.packaging || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, packaging: e.target.value }))} /></label></div>
-              <div className="formRow"><label>Travel / transport cost<input type="number" min="0" value={costBreakdown.delivery || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, delivery: e.target.value }))} /></label><label>Other cost<input type="number" min="0" value={costBreakdown.other || ""} onChange={(e) => setCostBreakdown(current => ({ ...current, other: e.target.value }))} /></label></div>
-              <div className="financeStatement">
-                <div><span>Cost per item</span><b>{`Rs. ${totalProductCost.toLocaleString()}`}</b></div>
-                <div><span>PostEx GST per item</span><b>Actual after sync</b></div>
-                <div><span>PostEx deduction estimate (4%)</span><b>- {`Rs. ${productTax.toLocaleString()}`}</b></div>
-                <div className="statementTotal"><span>Final profit per item</span><b>{`Rs. ${productFinalProfit.toLocaleString()}`}</b></div>
-              </div>
-            </section>
-
-            <section className="productEditorCard">
-              <h3>Inventory</h3>
-              <div className="formRow"><label>SKU<input name="sku" defaultValue={editingProduct?.sku || editingProduct?.articleNumber || ""} placeholder="BST-KRT-001" /></label><label>Barcode<input name="barcode" defaultValue={editingProduct?.barcode || ""} placeholder="ISBN, UPC or GTIN" /></label></div>
-              <label className="checkLabel"><input type="checkbox" defaultChecked /> Track quantity</label>
-              <div className="stockLocation"><div><Store /><span><b>Bustaniya warehouse</b><small>Pakistan</small></span></div><label>Available<input name="stock" required type="number" defaultValue={editingProduct?.stock ?? 10} /></label></div>
-              <label className="checkLabel"><input type="checkbox" /> Continue selling when out of stock</label>
-            </section>
-
-            <section className="productEditorCard">
-              <div className="editorHeading"><div><h3>Variants</h3><p>Add sizes and colours</p></div><span>{selectedSizes.length * selectedColors.length} combinations</span></div>
-              <div className="variantGroup">
-                <div className="variantLabel"><b>Size</b><span>{selectedSizes.length} selected</span><button type="button" onClick={() => setSelectedSizes(selectedSizes.length === apparelSizes.length ? [] : apparelSizes)}>Select all</button></div>
-                <div className="variantSearch"><Search /><input value={sizeSearch} onChange={(e) => setSizeSearch(e.target.value)} placeholder="Search XXS, UK 12, EU 40, Waist 30..." /></div>
-                <div className="variantChips scrollableVariants">{apparelSizes.filter(size => size.toLowerCase().includes(sizeSearch.toLowerCase())).map(size => <button type="button" className={selectedSizes.includes(size) ? "selected" : ""} key={size} onClick={() => setSelectedSizes(current => current.includes(size) ? current.filter(x => x !== size) : [...current,size])}>{size}</button>)}</div>
-              </div>
-              <div className="variantGroup">
-                <div className="variantLabel"><b>Colour</b><span>{selectedColors.length} selected</span><button type="button" onClick={() => setSelectedColors(selectedColors.length === fashionColors.length ? [] : fashionColors.map(color => color.name))}>Select all</button></div>
-                <div className="variantSearch"><Search /><input value={colorSearch} onChange={(e) => setColorSearch(e.target.value)} placeholder="Search colour name..." /></div>
-                <div className="variantChips colorChips scrollableVariants">{fashionColors.filter(color => color.name.toLowerCase().includes(colorSearch.toLowerCase())).map(color => <button type="button" className={selectedColors.includes(color.name) ? "selected" : ""} key={color.name} onClick={() => setSelectedColors(current => current.includes(color.name) ? current.filter(x => x !== color.name) : [...current,color.name])}><i className="swatch" style={{background:color.hex}} />{color.name}</button>)}</div>
-              </div>
-              <div className="variantPreview"><span>Variant combinations will be created automatically</span><b>{selectedSizes.length * selectedColors.length} variants</b></div>
-            </section>
-
-            <section className="productEditorCard">
-              <h3>Shipping &amp; Delivery</h3>
-              <label className="checkLabel"><input type="checkbox" defaultChecked /> This is a physical product</label>
-              <input type="hidden" name="deliveryFeeMode" value="inherit" />
-              <div className="formRow"><label>Delivery fee per order<input readOnly value="Rs. 200" /></label><label>Rule<input readOnly value="Applied once, even for multiple products" /></label></div>
-              <p className="shippingRuleHint">Store rule: product prices exclude delivery. Every order has one flat Rs. 200 delivery fee, regardless of item quantity.</p>
-              <label>
-                Custom delivery information (optional override)
-                <textarea
-                  name="deliveryInfo"
-                  rows="3"
-                  defaultValue={editingProduct?.deliveryInfo || editingProduct?.cost_breakdown?.metadata?.deliveryInfo || ""}
-                  placeholder="e.g. Dispatched within 24-48 hours. Delivery in 8-9 delivery days across Pakistan."
-                />
-                <small className="settingsHint" style={{ display: "block", marginTop: "4px", color: "#64748b", fontSize: "11px" }}>
-                  Leave empty to use the store&apos;s global delivery information and policies.
-                </small>
-              </label>
-              <div className="formRow"><label>Weight<input name="weight" type="number" step="0.1" defaultValue={editingProduct?.weight || ""} placeholder="0.5" /></label><label>Unit<select name="weightUnit" defaultValue={editingProduct?.weightUnit || "kg"}><option>kg</option><option>g</option></select></label></div>
-              <div className="formRow"><label>Country of origin<select name="countryOfOrigin" defaultValue={editingProduct?.countryOfOrigin || "Pakistan"}><option>Pakistan</option></select></label><label>HS tariff code<input name="hsTariffCode" defaultValue={editingProduct?.hsTariffCode || ""} placeholder="Optional" /></label></div>
-            </section>
-
-
-            <section className="productEditorCard">
-              <h3>Search engine listing</h3>
-              <div className="seoPreview"><b>Bustaniya · Product title</b><span>https://bustaniya.pk/products/product-title</span><p>Your product description will appear here in search results.</p></div>
-              <label>Page title<input name="seoTitle" maxLength="70" defaultValue={editingProduct?.seoTitle || ""} placeholder="Product title — Bustaniya" /></label>
-              <label>Meta description<textarea name="seoDescription" rows="3" maxLength="160" defaultValue={editingProduct?.seoDescription || ""} placeholder="Describe this product for Google search..." /></label>
-              <label>URL handle<input name="urlHandle" defaultValue={editingProduct?.urlHandle || ""} placeholder="gulnaar-corset-kurti" /></label>
-            </section>
-
-            <section className="productEditorCard">
-              <h3>Publishing</h3>
-              <div className="formRow"><label>Status<select name="status" defaultValue={editingProduct?.status || "Active"}><option>Active</option><option>Draft</option><option>Archived</option></select></label><label>Publishing date<input name="publishDate" type="date" defaultValue={editingProduct?.publishDate || ""} /></label></div>
-              <p className="fieldTitle">Sales channels</p>
-              <label className="checkLabel"><input type="checkbox" defaultChecked /> Online Store</label>
-              <label className="checkLabel"><input type="checkbox" /> Instagram / Facebook</label>
-              <label className="checkLabel"><input type="checkbox" /> Point of Sale</label>
-            </section>
-
-            <div className="drawerActions">
-              <button type="button" onClick={closeProductForm} disabled={productSaving}>Discard</button>
-              <button
-                type="submit"
-                className={productSaving ? "saveProduct saving" : "saveProduct"}
-                disabled={productSaving}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  cursor: productSaving ? "not-allowed" : "pointer"
-                }}
-              >
-                {productSaving ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    <span>Saving Product...</span>
-                  </>
-                ) : (
-                  editingProduct ? "Update Product" : "Save Product"
-                )}
-              </button>
-            </div>
-          </form>
-        </aside>
-      </>}
+            </form>
+          </div>
+        </div>
+      )}
       {workspace && <WorkspaceDrawer workspace={workspace} onClose={() => setWorkspace(null)} activity={activity} onSave={(entry) => { setActivity(current => [entry, ...current]); setWorkspace(null); }} />}
     </main>
   );
@@ -2492,185 +2992,1315 @@ function productStatus(product) {
   return product.unlisted ? "Unlisted" : "Active";
 }
 
-function CategoriesPanel({ categories, products, onSave, onArchive, saving, needsSetup }) {
-  const [editing, setEditing] = useState(null);
-  const [categoryImageUrl, setCategoryImageUrl] = useState("");
-  const [imagePreviewAdded, setImagePreviewAdded] = useState(false);
-  const [imagePreviewError, setImagePreviewError] = useState("");
-  const visibleCategories = categories.filter((category) => category.status !== "Archived");
-  const archivedCategories = categories.filter((category) => category.status === "Archived");
-  const mainCategories = visibleCategories.filter((category) => !category.parentSlug);
-  const [selectedSlug, setSelectedSlug] = useState(mainCategories[0]?.slug || "");
-  const selectedCategory = mainCategories.find((category) => category.slug === selectedSlug) || mainCategories[0];
-  const childCategories = selectedCategory
-    ? visibleCategories.filter((category) => category.parentSlug === selectedCategory.slug)
-    : [];
+function CategoriesPanel({
+  categories = [],
+  products = [],
+  onSave,
+  onArchive,
+  saving = false,
+  needsSetup = false,
+  onConfirmAction,
+  onNavigateToProducts,
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'main' | 'sub' | 'archived'
+  const [viewMode, setViewMode] = useState("tree"); // 'tree' | 'table'
+  const [editing, setEditing] = useState(null); // category object or null
+  const [expandedSlugs, setExpandedSlugs] = useState(new Set());
 
+  // Split categories
+  const visibleCategories = useMemo(
+    () => categories.filter((c) => c.status !== "Archived"),
+    [categories]
+  );
+  const archivedCategories = useMemo(
+    () => categories.filter((c) => c.status === "Archived"),
+    [categories]
+  );
+  const mainCategories = useMemo(
+    () => visibleCategories.filter((c) => !c.parentSlug),
+    [visibleCategories]
+  );
+  const subCategories = useMemo(
+    () => visibleCategories.filter((c) => Boolean(c.parentSlug)),
+    [visibleCategories]
+  );
+
+  // Initialize expanded slugs only for main categories that have subcategories
   useEffect(() => {
-    if (!mainCategories.length) {
-      setSelectedSlug("");
-      return;
+    if (mainCategories.length > 0 && expandedSlugs.size === 0) {
+      const withChildren = mainCategories
+        .filter((cat) => visibleCategories.some((c) => c.parentSlug === cat.slug))
+        .map((c) => c.slug);
+      setExpandedSlugs(new Set(withChildren));
     }
-    if (!mainCategories.some((category) => category.slug === selectedSlug)) {
-      setSelectedSlug(mainCategories[0].slug);
-    }
-  }, [mainCategories, selectedSlug]);
+  }, [mainCategories, visibleCategories]);
 
-  useEffect(() => {
-    setCategoryImageUrl(editing?.image || "");
-    setImagePreviewAdded(Boolean(editing?.image));
-    setImagePreviewError("");
-  }, [editing]);
-
-  function productCount(category) {
+  // Product count helper
+  function getCategoryProductCount(category) {
+    if (!category || !products.length) return 0;
     if (category.parentSlug) {
-      return products.filter((product) => product.subcategory === category.slug).length;
+      return products.filter(
+        (p) => String(p.subcategory || "").toLowerCase() === category.slug.toLowerCase()
+      ).length;
     }
-    return products.filter((product) => product.category === category.name).length;
+    return products.filter(
+      (p) =>
+        String(p.category || "").toLowerCase() === category.name.toLowerCase() ||
+        String(p.categorySlug || "").toLowerCase() === category.slug.toLowerCase()
+    ).length;
   }
 
+  // Total products mapped across all active categories
+  const totalMappedProducts = useMemo(() => {
+    if (!products.length || !visibleCategories.length) return 0;
+    const activeCategoryNames = new Set(
+      visibleCategories.filter((c) => !c.parentSlug).map((c) => c.name.toLowerCase())
+    );
+    const activeSubcategorySlugs = new Set(
+      visibleCategories.filter((c) => c.parentSlug).map((c) => c.slug.toLowerCase())
+    );
+    return products.filter(
+      (p) =>
+        activeCategoryNames.has(String(p.category || "").toLowerCase()) ||
+        activeSubcategorySlugs.has(String(p.subcategory || "").toLowerCase())
+    ).length;
+  }, [products, visibleCategories]);
+
+  // Toggle card expansion
+  function toggleExpanded(slug) {
+    setExpandedSlugs((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) {
+        next.delete(slug);
+      } else {
+        next.add(slug);
+      }
+      return next;
+    });
+  }
+
+  // Open modal for new main category
   function openNewMainCategory() {
-    setEditing({ parentSlug: "" });
+    setEditing({
+      parentSlug: "",
+      status: "Active",
+      sortOrder: (mainCategories.length + 1) * 10,
+      showInHeader: true,
+      showOnHomepage: true,
+      showInFooter: false,
+      showInSearch: true,
+    });
   }
 
-  function openNewSubcategory(parent) {
-    setSelectedSlug(parent.slug);
-    setEditing({ parentSlug: parent.slug, status: "Active", sortOrder: (childCategories.length + 1) * 10 });
+  // Open modal for new subcategory
+  function openNewSubcategory(parentCategory = null) {
+    const parent = parentCategory || mainCategories[0];
+    const siblings = parent
+      ? visibleCategories.filter((c) => c.parentSlug === parent.slug)
+      : [];
+    setEditing({
+      parentSlug: parent ? parent.slug : "",
+      status: "Active",
+      sortOrder: (siblings.length + 1) * 10,
+      showInHeader: true,
+      showOnHomepage: true,
+      showInFooter: false,
+      showInSearch: true,
+    });
+    if (parent) {
+      setExpandedSlugs((prev) => new Set(prev).add(parent.slug));
+    }
   }
 
+  // Reorder categories
   function moveCategory(category, direction) {
-    const siblings = visibleCategories.filter((item) => item.parentSlug === category.parentSlug).sort((a, b) => a.sortOrder - b.sortOrder);
-    const index = siblings.findIndex((item) => item.id === category.id);
+    const siblings = visibleCategories
+      .filter((item) => (item.parentSlug || "") === (category.parentSlug || ""))
+      .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
+    const index = siblings.findIndex((item) => item.id === category.id || item.slug === category.slug);
+    if (index === -1) return;
     const target = siblings[index + direction];
     if (!target) return;
-    onSave({ ...category, sortOrder: target.sortOrder });
-    onSave({ ...target, sortOrder: category.sortOrder });
+
+    const currentOrder = Number(category.sortOrder) || (index + 1) * 10;
+    const targetOrder = Number(target.sortOrder) || (index + direction + 1) * 10;
+    const finalCurrentOrder = currentOrder === targetOrder ? currentOrder + direction : targetOrder;
+
+    onSave({ ...category, sortOrder: finalCurrentOrder });
+    onSave({ ...target, sortOrder: currentOrder });
   }
 
-  function confirmArchive(category) {
-    const count = productCount(category);
-    const label = category.parentSlug ? "subcategory" : "main category";
-    const childCount = category.parentSlug ? 0 : visibleCategories.filter((item) => item.parentSlug === category.slug).length;
-    if (window.confirm(`${category.name} ${label} remove/archive karni hai?${count ? ` ${count} product${count === 1 ? "" : "s"} is category mein mapped hain.` : ""}${childCount ? ` ${childCount} nested subcategories bhi hide ho sakti hain.` : ""} Products delete nahi honge, category storefront aur active list se hide ho jayegi.`)) onArchive(category);
+  // Archive category with confirmation
+  function handleArchive(category) {
+    const count = getCategoryProductCount(category);
+    const isSub = Boolean(category.parentSlug);
+    const childCount = isSub
+      ? 0
+      : visibleCategories.filter((item) => item.parentSlug === category.slug).length;
+
+    const warningMsg = isSub
+      ? `Are you sure you want to archive subcategory "${category.name}"?${
+          count > 0 ? ` ${count} product${count === 1 ? "" : "s"} are mapped to this subcategory.` : ""
+        } It will be hidden from storefront navigation. Products will not be deleted.`
+      : `Are you sure you want to archive collection "${category.name}"?${
+          count > 0 ? ` ${count} product${count === 1 ? "" : "s"} are mapped to it.` : ""
+        }${
+          childCount > 0 ? ` ${childCount} nested subcategor${childCount === 1 ? "y" : "ies"} will also be hidden.` : ""
+        } It will be hidden from storefront navigation. Products will not be deleted.`;
+
+    if (typeof onConfirmAction === "function") {
+      onConfirmAction({
+        title: `Archive ${isSub ? "Subcategory" : "Main Category"}`,
+        message: warningMsg,
+        confirmLabel: "Archive Category",
+        danger: true,
+        onConfirm: () => onArchive(category, false),
+      });
+    } else if (window.confirm(warningMsg)) {
+      onArchive(category, false);
+    }
   }
 
-  async function saveCategory(event) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const name = String(form.get("name") || "").trim();
-    const saved = await onSave({
-      id: editing?.id,
-      name,
-      slug: String(form.get("slug") || slugifyCategory(name)).trim(),
-      parentSlug: form.get("parentSlug") || "",
-      description: form.get("description") || "",
-      image: categoryImageUrl.trim(),
-      status: form.get("status") || "Active",
-      sortOrder: Number(form.get("sortOrder") || 100),
-      showInHeader: form.get("showInHeader") === "on",
-      showOnHomepage: form.get("showOnHomepage") === "on",
-      showInFooter: form.get("showInFooter") === "on",
-      showInSearch: form.get("showInSearch") === "on",
-      seoTitle: form.get("seoTitle") || "",
-      seoDescription: form.get("seoDescription") || "",
-      imageAlt: form.get("imageAlt") || name,
+  // Permanent delete for archived category
+  function handlePermanentDelete(category) {
+    const warningMsg = `Permanently delete "${category.name}" from the database? This action cannot be undone.`;
+    if (typeof onConfirmAction === "function") {
+      onConfirmAction({
+        title: "Permanently Delete Category",
+        message: warningMsg,
+        confirmLabel: "Delete Forever",
+        danger: true,
+        onConfirm: () => onArchive(category, true),
+      });
+    } else if (window.confirm(warningMsg)) {
+      onArchive(category, true);
+    }
+  }
+
+  // Restore archived category
+  function handleRestore(category) {
+    onSave({ ...category, status: "Active" });
+  }
+
+  // Filter categories according to search and active tab
+  const filteredMainCategories = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return mainCategories.filter((cat) => {
+      if (activeTab === "sub") return false;
+      if (!query) return true;
+      const matchesMain =
+        cat.name.toLowerCase().includes(query) ||
+        cat.slug.toLowerCase().includes(query) ||
+        (cat.description || "").toLowerCase().includes(query);
+      const matchesAnyChild = visibleCategories.some(
+        (child) =>
+          child.parentSlug === cat.slug &&
+          (child.name.toLowerCase().includes(query) ||
+            child.slug.toLowerCase().includes(query) ||
+            (child.description || "").toLowerCase().includes(query))
+      );
+      return matchesMain || matchesAnyChild;
     });
-    if (saved) {
-      setEditing(null);
-    }
-  }
+  }, [mainCategories, visibleCategories, searchQuery, activeTab]);
 
-  function addImagePreview() {
-    const url = categoryImageUrl.trim();
-    if (!url) {
-      setImagePreviewError("Pehle image URL paste karein.");
-      return;
-    }
-    if (!url.startsWith("/") && !/^https:\/\//i.test(url)) {
-      setImagePreviewError("Image URL https:// se start hona chahiye, ya local image / se.");
-      return;
-    }
-    setImagePreviewError("");
-    setImagePreviewAdded(true);
-  }
+  const filteredArchivedCategories = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return archivedCategories.filter((cat) => {
+      if (!query) return true;
+      return (
+        cat.name.toLowerCase().includes(query) ||
+        cat.slug.toLowerCase().includes(query) ||
+        (cat.description || "").toLowerCase().includes(query)
+      );
+    });
+  }, [archivedCategories, searchQuery]);
 
-  return <><div className="adminTitle"><div><p>CATALOGUE</p><h1>Categories</h1><span>Main categories pehle dikhti hain. Kisi category ko select karke uske andar subcategories manage karein.</span></div><button onClick={openNewMainCategory}><Plus /> Add main category</button></div>
-    {needsSetup && <div className="adminErrorBanner">Supabase category table setup is pending. Run <b>scripts/supabase-catalog-categories.sql</b>, then reconnect admin data.</div>}
-    <div className="miniMetricGrid productMetrics">
-      <article><Tags /><span><b>{mainCategories.length}</b>Main categories</span></article>
-      <article><Package /><span><b>{visibleCategories.filter((category) => category.parentSlug).length}</b>Subcategories</span></article>
-      <article><Store /><span><b>{visibleCategories.length}</b>Visible on store</span></article>
-      <article><X /><span><b>{archivedCategories.length}</b>Archived/removed</span></article>
-      <article><Boxes /><span><b>{products.length}</b>Products mapped</span></article>
-    </div>
+  const tableRows = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    let source = [];
+    if (activeTab === "archived") {
+      source = archivedCategories;
+    } else if (activeTab === "main") {
+      source = mainCategories;
+    } else if (activeTab === "sub") {
+      source = subCategories;
+    } else {
+      source = visibleCategories;
+    }
 
-    <section className="categoryManagerGrid">
-      <div className="adminCard managementCard">
-        <div className="inventoryListHead"><div><h2>Main categories</h2><span>{mainCategories.length} storefront sections</span></div><button onClick={openNewMainCategory} disabled={saving}><Plus /> New main</button></div>
-        <div className="categoryTreeList">
-          {mainCategories.map((category) => {
-            const children = visibleCategories.filter((item) => item.parentSlug === category.slug);
-            return <button type="button" className={selectedCategory?.slug === category.slug ? "active" : ""} key={category.id} onClick={() => setSelectedSlug(category.slug)}>
-              <span style={{ backgroundImage: `url(${category.image || "/bustaniya-campaign-hero-v4.png"})` }} />
-              <b>{category.name}</b>
-              <small>{children.length} subcategories · {productCount(category)} products</small>
-            </button>;
-          })}
-          {!mainCategories.length && <div className="inventoryEmpty">No main categories yet.</div>}
+    if (!query) return source;
+    return source.filter(
+      (c) =>
+        c.name.toLowerCase().includes(query) ||
+        c.slug.toLowerCase().includes(query) ||
+        (c.parentSlug || "").toLowerCase().includes(query) ||
+        (c.description || "").toLowerCase().includes(query)
+    );
+  }, [visibleCategories, archivedCategories, mainCategories, subCategories, activeTab, searchQuery]);
+
+  return (
+    <div className="shopifyCategoryWorkspace">
+      {/* Workspace Header */}
+      <div className="shopifyCategoryHeader">
+        <div className="shopifyCategoryTitleGroup">
+          <h1>Collections & Categories</h1>
+          <p>
+            Organize storefront collections, manage hierarchical subcategories, configure SEO, and control
+            navigation placement.
+          </p>
+        </div>
+        <div className="shopifyCategoryHeaderActions">
+          <button
+            type="button"
+            className="shopifySecondaryBtn"
+            onClick={() => openNewSubcategory()}
+            disabled={saving || !mainCategories.length}
+          >
+            <FolderPlus size={15} />
+            <span>Add Subcategory</span>
+          </button>
+          <button
+            type="button"
+            className="shopifyPrimaryBtn"
+            onClick={openNewMainCategory}
+            disabled={saving}
+          >
+            <Plus size={16} />
+            <span>Add Main Category</span>
+          </button>
         </div>
       </div>
 
-      <div className="adminCard managementCard">
-        <div className="inventoryListHead"><div><h2>{selectedCategory?.name || "Select category"}</h2><span>{childCategories.length} subcategories inside</span></div>{selectedCategory && <button onClick={() => openNewSubcategory(selectedCategory)} disabled={saving}><Plus /> Add inside</button>}</div>
-        {selectedCategory && <div className="categoryParentSummary">
-          <div className="tableProduct"><span style={{ backgroundImage: `url(${selectedCategory.image || "/bustaniya-campaign-hero-v4.png"})` }} /><div><b>{selectedCategory.name}</b><small><a href={`/category/${selectedCategory.slug}`} target="_blank">/category/{selectedCategory.slug}</a></small></div></div>
-          <div className="productRowActions"><button className="editProductButton" onClick={() => moveCategory(selectedCategory, -1)} disabled={saving} aria-busy={saving}>↑</button><button className="editProductButton" onClick={() => moveCategory(selectedCategory, 1)} disabled={saving} aria-busy={saving}>↓</button><button className="editProductButton" onClick={() => setEditing(selectedCategory)} disabled={saving} aria-busy={saving}>Edit main</button><button className="removeProductButton" onClick={() => confirmArchive(selectedCategory)} disabled={saving} aria-busy={saving}><X /><span>Archive</span></button></div>
-        </div>}
-        <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Subcategory</th><th>URL</th><th>Products</th><th>Status</th><th /></tr></thead><tbody>
-          {childCategories.map((category) => (
-            <tr key={category.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${category.image || "/bustaniya-campaign-hero-v4.png"})` }} /><div><b>{category.name}</b><small>{category.description || "No description"}</small></div></div></td><td><a href={`/category/${category.parentSlug}/${category.slug}`} target="_blank">/category/{category.parentSlug}/{category.slug}</a></td><td>{productCount(category)}</td><td><span className={`statusBadge ${category.status === "Active" ? "activeStatus" : "processing"}`}>{category.status}</span></td><td><div className="productRowActions"><button className="editProductButton" onClick={() => setEditing(category)} disabled={saving} aria-busy={saving}>Edit</button><button className="removeProductButton" onClick={() => confirmArchive(category)} disabled={saving} aria-busy={saving}><X /><span>Remove</span></button></div></td></tr>
-          ))}
-          {!childCategories.length && <tr><td colSpan="5"><div className="inventoryEmpty">No subcategories inside {selectedCategory?.name || "this category"} yet.</div></td></tr>}
-        </tbody></table></div>
-      </div>
-    </section>
+      {/* Supabase table setup warning if needed */}
+      {needsSetup && (
+        <div className="adminErrorBanner" style={{ marginBottom: 20 }}>
+          <AlertCircle size={16} />
+          <span>
+            Supabase category table setup is pending. Run <b>scripts/supabase-catalog-categories.sql</b> in your Supabase
+            SQL editor, then reconnect admin data.
+          </span>
+        </div>
+      )}
 
-    {editing && <><div className="adminOverlay" onClick={() => !saving && setEditing(null)} /><form className="inventoryDialog categoryDialog" onSubmit={saveCategory}>
-      <DialogHead title={editing.id ? "Edit category" : "Add category"} onClose={() => !saving && setEditing(null)} />
-      <label>Name<input name="name" required defaultValue={editing.name || ""} placeholder="Summer Collection" /></label>
-      <div className="formRow"><label>Slug<input name="slug" defaultValue={editing.slug || ""} placeholder="summer-collection" /></label><label>Sort order<input name="sortOrder" type="number" defaultValue={editing.sortOrder || 100} /></label></div>
-      <label>Parent<select name="parentSlug" defaultValue={editing.parentSlug || ""}><option value="">Main category</option>{mainCategories.filter((category) => category.id !== editing.id).map((category) => <option value={category.slug} key={category.slug}>{category.name}</option>)}</select></label>
-      <label>Description<textarea name="description" rows="3" defaultValue={editing.description || ""} placeholder="Short SEO-friendly category description" /></label>
-      <label>Cover image URL<div className="categoryImageUrlRow"><input name="image" value={categoryImageUrl} onChange={(event) => { setCategoryImageUrl(event.target.value); setImagePreviewAdded(false); setImagePreviewError(""); }} placeholder="https://... or /bustaniya-campaign-hero-v4.png" /><button type="button" onClick={addImagePreview}>Add image</button></div></label>
-      {imagePreviewError && <p className="categoryImageError">{imagePreviewError}</p>}
-      {imagePreviewAdded && categoryImageUrl && <div className="categoryImagePreview"><img src={categoryImageUrl} alt="Category preview" onError={() => setImagePreviewError("Is URL par image load nahi hui. URL check karein.")} /><div><b>Image ready</b><span>Save category par ye cover image category card aur category page par show hogi.</span></div></div>}
-      <label>Cover image alt text<input name="imageAlt" defaultValue={editing.imageAlt || editing.name || ""} placeholder="Describe this category image" /></label>
-      <div className="categoryVisibility"><b>Storefront visibility</b><label><input type="checkbox" name="showInHeader" defaultChecked={editing.showInHeader ?? true} /> Header menu</label><label><input type="checkbox" name="showOnHomepage" defaultChecked={editing.showOnHomepage ?? true} /> Homepage</label><label><input type="checkbox" name="showInFooter" defaultChecked={editing.showInFooter ?? false} /> Footer</label><label><input type="checkbox" name="showInSearch" defaultChecked={editing.showInSearch ?? true} /> Search & filters</label></div>
-      <details className="categorySeo"><summary>SEO settings</summary><label>SEO title<input name="seoTitle" maxLength="60" defaultValue={editing.seoTitle || ""} placeholder="Category title for Google" /></label><label>Meta description<textarea name="seoDescription" rows="3" maxLength="160" defaultValue={editing.seoDescription || ""} placeholder="Short search-result description" /></label></details>
-      <label>Status<select name="status" defaultValue={editing.status || "Active"}><option>Active</option><option>Draft</option><option>Archived</option></select></label>
-      <button
-        type="submit"
-        disabled={saving}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "8px",
-          minWidth: "150px",
-          cursor: saving ? "not-allowed" : "pointer"
-        }}
-      >
-        {saving ? (
-          <>
-            <Loader2 size={16} className="animate-spin" />
-            <span>Saving Category...</span>
-          </>
+      {/* 4-Stat Metric Strip */}
+      <div className="shopifyCategoryStatsGrid">
+        <div className="shopifyCategoryStatCard">
+          <div className="shopifyCategoryStatIcon">
+            <Folder size={20} />
+          </div>
+          <div className="shopifyCategoryStatInfo">
+            <b>{mainCategories.length}</b>
+            <span>Main Collections</span>
+          </div>
+        </div>
+
+        <div className="shopifyCategoryStatCard">
+          <div className="shopifyCategoryStatIcon sub">
+            <FolderTree size={20} />
+          </div>
+          <div className="shopifyCategoryStatInfo">
+            <b>{subCategories.length}</b>
+            <span>Subcategories</span>
+          </div>
+        </div>
+
+        <div className="shopifyCategoryStatCard">
+          <div className="shopifyCategoryStatIcon visible">
+            <Store size={20} />
+          </div>
+          <div className="shopifyCategoryStatInfo">
+            <b>{visibleCategories.length}</b>
+            <span>Live on Storefront</span>
+          </div>
+        </div>
+
+        <div
+          className="shopifyCategoryStatCard"
+          style={{ cursor: onNavigateToProducts ? "pointer" : "default" }}
+          onClick={() => onNavigateToProducts && onNavigateToProducts("")}
+          title="Click to view all products"
+        >
+          <div className="shopifyCategoryStatIcon products">
+            <Boxes size={20} />
+          </div>
+          <div className="shopifyCategoryStatInfo">
+            <b>{totalMappedProducts}</b>
+            <span>Products Mapped</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Toolbar: Search, Filter Tabs, and View Mode Toggle */}
+      <div className="shopifyCategoryToolbar">
+        <div className="shopifyCategorySearchBox">
+          <Search size={15} color="#6a7c70" />
+          <input
+            type="text"
+            placeholder="Search by collection, subcategory, slug..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+            >
+              <X size={14} color="#8a9c90" />
+            </button>
+          )}
+        </div>
+
+        <div className="shopifyCategoryTabs">
+          <button
+            type="button"
+            className={`shopifyCategoryTabBtn ${activeTab === "all" ? "active" : ""}`}
+            onClick={() => setActiveTab("all")}
+          >
+            <span>All</span>
+            <span className="shopifyCategoryTabCount">{visibleCategories.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`shopifyCategoryTabBtn ${activeTab === "main" ? "active" : ""}`}
+            onClick={() => setActiveTab("main")}
+          >
+            <span>Main Collections</span>
+            <span className="shopifyCategoryTabCount">{mainCategories.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`shopifyCategoryTabBtn ${activeTab === "sub" ? "active" : ""}`}
+            onClick={() => setActiveTab("sub")}
+          >
+            <span>Subcategories</span>
+            <span className="shopifyCategoryTabCount">{subCategories.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`shopifyCategoryTabBtn ${activeTab === "archived" ? "active" : ""}`}
+            onClick={() => setActiveTab("archived")}
+          >
+            <span>Archived</span>
+            <span className="shopifyCategoryTabCount">{archivedCategories.length}</span>
+          </button>
+        </div>
+
+        <div className="shopifyViewModeToggle">
+          <button
+            type="button"
+            className={`shopifyViewModeBtn ${viewMode === "tree" ? "active" : ""}`}
+            onClick={() => setViewMode("tree")}
+            title="Tree View with nested subcategories"
+          >
+            <FolderTree size={14} />
+            <span>Tree</span>
+          </button>
+          <button
+            type="button"
+            className={`shopifyViewModeBtn ${viewMode === "table" ? "active" : ""}`}
+            onClick={() => setViewMode("table")}
+            title="Table View"
+          >
+            <List size={14} />
+            <span>Table</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      {viewMode === "tree" ? (
+        activeTab === "archived" ? (
+          /* Tree view for Archived items */
+          <div className="shopifyCategoryTreeList">
+            {filteredArchivedCategories.map((category) => {
+              const count = getCategoryProductCount(category);
+              const isSub = Boolean(category.parentSlug);
+              return (
+                <div key={category.id || category.slug} className="shopifyCategoryCard">
+                  <div className="shopifyCategoryCardHeader">
+                    <div className="shopifyCategoryCardLeft">
+                      <img
+                        src={category.image || "/bustaniya-campaign-hero-v4.png"}
+                        alt={category.name}
+                        className="shopifyCategoryThumb"
+                        onError={(e) => {
+                          e.currentTarget.src = "/bustaniya-campaign-hero-v4.png";
+                        }}
+                      />
+                      <div className="shopifyCategoryDetails">
+                        <div className="shopifyCategoryTitleRow">
+                          <span className="shopifyCategoryName">{category.name}</span>
+                          <span className="statusBadge archived">Archived</span>
+                          {isSub && <span className="shopifyPlacementPill">Subcategory of {category.parentSlug}</span>}
+                        </div>
+                        <div className="shopifyCategoryMetaRow">
+                          <span>{category.description || "No description"}</span>
+                          <span>•</span>
+                          <span>{count} products affected</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="shopifyCategoryCardRight">
+                      <button
+                        type="button"
+                        className="shopifySecondaryBtn"
+                        onClick={() => handleRestore(category)}
+                        disabled={saving}
+                      >
+                        <RotateCcw size={13} />
+                        <span>Restore</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="shopifyDangerBtn"
+                        onClick={() => handlePermanentDelete(category)}
+                        disabled={saving}
+                      >
+                        <Trash2 size={13} />
+                        <span>Delete Forever</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {!filteredArchivedCategories.length && (
+              <div className="unifiedEmptyState">
+                <div className="emptyStateIcon">
+                  <Archive />
+                </div>
+                <h3>No Archived Categories</h3>
+                <p>When you archive a category, it will safely appear here where you can restore it anytime.</p>
+              </div>
+            )}
+          </div>
         ) : (
-          editing.id ? "Update Category" : "Save Category"
-        )}
-      </button>
-    </form></>}
-  </>;
+          /* Standard Tree View */
+          <div className="shopifyCategoryTreeList">
+            {filteredMainCategories.map((category) => {
+              const count = getCategoryProductCount(category);
+              const isExpanded = expandedSlugs.has(category.slug);
+              const children = visibleCategories.filter((item) => item.parentSlug === category.slug);
+              const query = searchQuery.trim().toLowerCase();
+              const matchingChildren = query
+                ? children.filter(
+                    (c) =>
+                      c.name.toLowerCase().includes(query) ||
+                      c.slug.toLowerCase().includes(query) ||
+                      (c.description || "").toLowerCase().includes(query)
+                  )
+                : children;
+
+              return (
+                <div key={category.id || category.slug} className="shopifyCategoryCard">
+                  {/* Master Card Header */}
+                  <div className="shopifyCategoryCardHeader">
+                    <div className="shopifyCategoryCardLeft">
+                      <button
+                        type="button"
+                        className="shopifyIconBtn"
+                        onClick={() => toggleExpanded(category.slug)}
+                        title={isExpanded ? "Collapse subcategories" : "Expand subcategories"}
+                      >
+                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </button>
+
+                      <img
+                        src={category.image || "/bustaniya-campaign-hero-v4.png"}
+                        alt={category.name}
+                        className="shopifyCategoryThumb"
+                        onError={(e) => {
+                          e.currentTarget.src = "/bustaniya-campaign-hero-v4.png";
+                        }}
+                      />
+
+                      <div className="shopifyCategoryDetails">
+                        <div className="shopifyCategoryTitleRow">
+                          <span className="shopifyCategoryName">{category.name}</span>
+                          <span
+                            className={`statusBadge ${
+                              category.status === "Active" ? "activeStatus" : "processing"
+                            }`}
+                          >
+                            {category.status}
+                          </span>
+                          <a
+                            href={`/category/${category.slug}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="shopifyCategorySlugLink"
+                            title="Open storefront category page in new tab"
+                          >
+                            <span>/category/{category.slug}</span>
+                            <ExternalLink size={10} />
+                          </a>
+                        </div>
+
+                        <div className="shopifyCategoryMetaRow">
+                          {/* Storefront placement pills */}
+                          {category.showInHeader && <span className="shopifyPlacementPill">Header</span>}
+                          {category.showOnHomepage && <span className="shopifyPlacementPill">Home</span>}
+                          {category.showInFooter && <span className="shopifyPlacementPill">Footer</span>}
+                          {category.showInSearch && <span className="shopifyPlacementPill">Search</span>}
+
+                          {/* Product count pill */}
+                          <span
+                            className="shopifyProductCountPill"
+                            onClick={() => onNavigateToProducts && onNavigateToProducts(category.name)}
+                            title="Click to view products in this collection"
+                          >
+                            <Boxes size={11} />
+                            <span>{count} products</span>
+                          </span>
+
+                          <span>•</span>
+                          <span>{children.length} subcategories</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="shopifyCategoryCardRight">
+                      <button
+                        type="button"
+                        className="shopifyIconBtn"
+                        onClick={() => moveCategory(category, -1)}
+                        disabled={saving}
+                        title="Move Up"
+                      >
+                        <ArrowUp size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="shopifyIconBtn"
+                        onClick={() => moveCategory(category, 1)}
+                        disabled={saving}
+                        title="Move Down"
+                      >
+                        <ArrowDown size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="shopifyActionBtn"
+                        onClick={() => openNewSubcategory(category)}
+                        disabled={saving}
+                        title="Add subcategory inside this collection"
+                      >
+                        <Plus size={13} />
+                        <span>Subcategory</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="shopifyActionBtn"
+                        onClick={() => setEditing(category)}
+                        disabled={saving}
+                        title="Edit collection details"
+                      >
+                        <Edit size={13} />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="shopifyDangerBtn"
+                        onClick={() => handleArchive(category)}
+                        disabled={saving}
+                        title="Archive collection"
+                      >
+                        <Archive size={13} />
+                        <span>Archive</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Nested Subcategories Container */}
+                  {isExpanded && (
+                    <div className="shopifySubcategoryContainer">
+                      <div className="shopifySubcategoryHeader">
+                        <span>Nested Subcategories ({children.length})</span>
+                        <button
+                          type="button"
+                          className="shopifyActionBtn"
+                          onClick={() => openNewSubcategory(category)}
+                          disabled={saving}
+                          style={{ fontSize: 11, padding: "3px 8px" }}
+                        >
+                          <Plus size={12} />
+                          <span>Add to {category.name}</span>
+                        </button>
+                      </div>
+
+                      {matchingChildren.length > 0 ? (
+                        <div className="shopifySubcategoryList">
+                          {matchingChildren.map((sub) => {
+                            const subProductCount = getCategoryProductCount(sub);
+                            return (
+                              <div key={sub.id || sub.slug} className="shopifySubcategoryRow">
+                                <div className="shopifySubcategoryLeft">
+                                  <span className="shopifySubTreeBranch">↳</span>
+                                  <img
+                                    src={sub.image || "/bustaniya-campaign-hero-v4.png"}
+                                    alt={sub.name}
+                                    className="shopifySubcategoryThumb"
+                                    onError={(e) => {
+                                      e.currentTarget.src = "/bustaniya-campaign-hero-v4.png";
+                                    }}
+                                  />
+                                  <div className="shopifySubcategoryDetails">
+                                    <div className="shopifyCategoryTitleRow">
+                                      <span className="shopifySubcategoryTitle">{sub.name}</span>
+                                      <span
+                                        className={`statusBadge ${
+                                          sub.status === "Active" ? "activeStatus" : "processing"
+                                        }`}
+                                      >
+                                        {sub.status}
+                                      </span>
+                                      <a
+                                        href={`/category/${category.slug}/${sub.slug}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="shopifyCategorySlugLink"
+                                        title="Open subcategory page in new tab"
+                                      >
+                                        <span>
+                                          /category/{category.slug}/{sub.slug}
+                                        </span>
+                                        <ExternalLink size={10} />
+                                      </a>
+                                    </div>
+                                    <div className="shopifySubcategoryMeta">
+                                      <span className="shopifySubcategoryDesc">{sub.description || "No description"}</span>
+                                      <span>•</span>
+                                      <span
+                                        className="shopifyProductCountPill"
+                                        onClick={() => onNavigateToProducts && onNavigateToProducts(sub.name)}
+                                        title="Click to view products in this subcategory"
+                                      >
+                                        <Boxes size={11} />
+                                        <span>{subProductCount} products</span>
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="shopifySubcategoryRight">
+                                  <button
+                                    type="button"
+                                    className="shopifyIconBtn"
+                                    onClick={() => moveCategory(sub, -1)}
+                                    disabled={saving}
+                                    title="Move Up"
+                                  >
+                                    <ArrowUp size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="shopifyIconBtn"
+                                    onClick={() => moveCategory(sub, 1)}
+                                    disabled={saving}
+                                    title="Move Down"
+                                  >
+                                    <ArrowDown size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="shopifyActionBtn"
+                                    onClick={() => setEditing(sub)}
+                                    disabled={saving}
+                                  >
+                                    <Edit size={12} />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="shopifyDangerBtn"
+                                    onClick={() => handleArchive(sub)}
+                                    disabled={saving}
+                                  >
+                                    <Archive size={12} />
+                                    <span>Archive</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            padding: "16px 0",
+                            textAlign: "center",
+                            color: "#7a8c80",
+                            fontSize: 12.5,
+                          }}
+                        >
+                          {query
+                            ? `No subcategories in "${category.name}" match "${searchQuery}".`
+                            : `No subcategories inside ${category.name} yet.`}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {!filteredMainCategories.length && (
+              <div className="unifiedEmptyState">
+                <div className="emptyStateIcon">
+                  <Tags />
+                </div>
+                <h3>{searchQuery ? "No matching categories" : "No Main Collections Yet"}</h3>
+                <p>
+                  {searchQuery
+                    ? `No categories or subcategories match "${searchQuery}". Try a different keyword or clear the search filter.`
+                    : "Create your first main category to organize products across your storefront."}
+                </p>
+                {searchQuery ? (
+                  <button type="button" className="emptyStateAction" onClick={() => setSearchQuery("")}>
+                    Clear Search
+                  </button>
+                ) : (
+                  <button type="button" className="emptyStateAction" onClick={openNewMainCategory}>
+                    <Plus size={14} /> Add Main Category
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      ) : (
+        /* Table View */
+        <div className="shopifyCategoryTableCard">
+          <table className="shopifyCategoryTable">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Hierarchy</th>
+                <th>Store URL</th>
+                <th>Products</th>
+                <th>Placement</th>
+                <th>Status</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tableRows.map((cat) => {
+                const count = getCategoryProductCount(cat);
+                const isSub = Boolean(cat.parentSlug);
+                const isArchived = cat.status === "Archived";
+                const url = isSub
+                  ? `/category/${cat.parentSlug}/${cat.slug}`
+                  : `/category/${cat.slug}`;
+
+                return (
+                  <tr key={cat.id || cat.slug}>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <img
+                          src={cat.image || "/bustaniya-campaign-hero-v4.png"}
+                          alt={cat.name}
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 6,
+                            objectFit: "cover",
+                            border: "1px solid #dce4dd",
+                          }}
+                          onError={(e) => {
+                            e.currentTarget.src = "/bustaniya-campaign-hero-v4.png";
+                          }}
+                        />
+                        <div>
+                          <b style={{ display: "block", color: "#122a1e", fontSize: 13.5 }}>{cat.name}</b>
+                          <small style={{ color: "#6a7c70", fontSize: 11.5 }}>
+                            {cat.description ? `${cat.description.slice(0, 45)}...` : "No description"}
+                          </small>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      {isSub ? (
+                        <span className="shopifyPlacementPill" style={{ color: "#1e40af", borderColor: "#bfdbfe" }}>
+                          Sub of {cat.parentSlug}
+                        </span>
+                      ) : (
+                        <span className="shopifyPlacementPill" style={{ color: "#166534", borderColor: "#bbf7d0" }}>
+                          Main Collection
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="shopifyCategorySlugLink"
+                        title="View on store"
+                      >
+                        <span>{url}</span>
+                        <ExternalLink size={10} />
+                      </a>
+                    </td>
+                    <td>
+                      <span
+                        className="shopifyProductCountPill"
+                        onClick={() => onNavigateToProducts && onNavigateToProducts(cat.name)}
+                      >
+                        <Boxes size={11} />
+                        <span>{count}</span>
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {cat.showInHeader && <span className="shopifyPlacementPill">Header</span>}
+                        {cat.showOnHomepage && <span className="shopifyPlacementPill">Home</span>}
+                        {cat.showInSearch && <span className="shopifyPlacementPill">Search</span>}
+                        {!cat.showInHeader && !cat.showOnHomepage && !cat.showInSearch && (
+                          <span style={{ fontSize: 11, color: "#9ca3af" }}>None</span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        className={`statusBadge ${
+                          cat.status === "Active"
+                            ? "activeStatus"
+                            : cat.status === "Archived"
+                            ? "archived"
+                            : "processing"
+                        }`}
+                      >
+                        {cat.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                        {isArchived ? (
+                          <>
+                            <button
+                              type="button"
+                              className="shopifySecondaryBtn"
+                              style={{ padding: "4px 8px", fontSize: 11 }}
+                              onClick={() => handleRestore(cat)}
+                              disabled={saving}
+                            >
+                              <RotateCcw size={11} />
+                              <span>Restore</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="shopifyDangerBtn"
+                              style={{ padding: "4px 8px", fontSize: 11 }}
+                              onClick={() => handlePermanentDelete(cat)}
+                              disabled={saving}
+                            >
+                              <Trash2 size={11} />
+                              <span>Delete</span>
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="shopifyActionBtn"
+                              style={{ padding: "4px 8px", fontSize: 11 }}
+                              onClick={() => setEditing(cat)}
+                              disabled={saving}
+                            >
+                              <Edit size={11} />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="shopifyDangerBtn"
+                              style={{ padding: "4px 8px", fontSize: 11 }}
+                              onClick={() => handleArchive(cat)}
+                              disabled={saving}
+                            >
+                              <Archive size={11} />
+                              <span>Archive</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!tableRows.length && (
+                <tr>
+                  <td colSpan="7">
+                    <div className="unifiedEmptyState">
+                      <h3>No categories found</h3>
+                      <p>Try clearing your search query or tab filter.</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Add / Edit Category Modal */}
+      {editing && (
+        <CategoryEditModal
+          category={editing}
+          mainCategories={mainCategories}
+          onClose={() => !saving && setEditing(null)}
+          onSave={async (payload) => {
+            const success = await onSave(payload);
+            if (success) {
+              setEditing(null);
+            }
+          }}
+          saving={saving}
+        />
+      )}
+    </div>
+  );
+}
+
+// Modal component for Adding & Editing Categories
+function CategoryEditModal({ category, mainCategories = [], onClose, onSave, saving }) {
+  const isEditing = Boolean(category?.id);
+  const [name, setName] = useState(category?.name || "");
+  const [slug, setSlug] = useState(category?.slug || "");
+  const [isSlugLocked, setIsSlugLocked] = useState(Boolean(category?.slug));
+  const [parentSlug, setParentSlug] = useState(category?.parentSlug || "");
+  const [description, setDescription] = useState(category?.description || "");
+  const [image, setImage] = useState(category?.image || "");
+  const [imageAlt, setImageAlt] = useState(category?.imageAlt || "");
+  const [status, setStatus] = useState(category?.status || "Active");
+  const [sortOrder, setSortOrder] = useState(category?.sortOrder ?? 100);
+  const [showInHeader, setShowInHeader] = useState(category?.showInHeader ?? true);
+  const [showOnHomepage, setShowOnHomepage] = useState(category?.showOnHomepage ?? true);
+  const [showInFooter, setShowInFooter] = useState(category?.showInFooter ?? false);
+  const [showInSearch, setShowInSearch] = useState(category?.showInSearch ?? true);
+  const [seoTitle, setSeoTitle] = useState(category?.seoTitle || "");
+  const [seoDescription, setSeoDescription] = useState(category?.seoDescription || "");
+  const [imageTestError, setImageTestError] = useState("");
+
+  // Auto-slugify when name changes (unless slug is manually customized)
+  function handleNameChange(e) {
+    const newName = e.target.value;
+    setName(newName);
+    if (!isSlugLocked) {
+      setSlug(slugifyCategory(newName));
+    }
+  }
+
+  function handleSlugChange(e) {
+    setIsSlugLocked(true);
+    setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""));
+  }
+
+  const liveUrl = `https://bustaniya.com/category/${parentSlug ? `${parentSlug}/` : ""}${slug || "collection-handle"}`;
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const finalSlug = slug.trim() || slugifyCategory(name);
+    const payload = {
+      id: category?.id,
+      name: name.trim(),
+      slug: finalSlug,
+      parentSlug: parentSlug.trim() || null,
+      description: description.trim(),
+      image: image.trim(),
+      imageAlt: imageAlt.trim() || name.trim(),
+      status,
+      sortOrder: Number(sortOrder) || 100,
+      showInHeader,
+      showOnHomepage,
+      showInFooter,
+      showInSearch,
+      seoTitle: seoTitle.trim(),
+      seoDescription: seoDescription.trim(),
+    };
+
+    await onSave(payload);
+  }
+
+  return (
+    <div className="shopifyCategoryModalOverlay" onClick={() => !saving && onClose()}>
+      <div className="shopifyCategoryModal" onClick={(e) => e.stopPropagation()}>
+        {/* Modal Header */}
+        <div className="shopifyCategoryModalHeader">
+          <h2>{isEditing ? `Edit Category: ${category.name}` : parentSlug ? "Add Subcategory" : "Add Main Category"}</h2>
+          <button
+            type="button"
+            className="shopifyIconBtn"
+            onClick={onClose}
+            disabled={saving}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <form id="shopifyCategoryForm" onSubmit={handleSubmit} className="shopifyCategoryModalBody">
+          {/* Section 1: Basic Information */}
+          <div className="shopifyFormSection">
+            <span className="shopifyFormSectionTitle">Basic Information</span>
+            <label>
+              Category Name *
+              <input
+                type="text"
+                required
+                placeholder="e.g. Silk Kurtis, Festive Edit, Daily Wear"
+                value={name}
+                onChange={handleNameChange}
+              />
+            </label>
+
+            <div className="shopifyFormRow">
+              <label>
+                Parent Collection
+                <select
+                  value={parentSlug}
+                  onChange={(e) => setParentSlug(e.target.value)}
+                >
+                  <option value="">None (Top-Level Collection)</option>
+                  {mainCategories
+                    .filter((c) => c.slug !== category?.slug)
+                    .map((c) => (
+                      <option key={c.slug} value={c.slug}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              <label>
+                Status
+                <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                  <option value="Active">Active (Live on store)</option>
+                  <option value="Draft">Draft (Admin hidden)</option>
+                  <option value="Archived">Archived</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="shopifyFormRow">
+              <label>
+                URL Handle / Slug
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. silk-kurtis"
+                  value={slug}
+                  onChange={handleSlugChange}
+                />
+              </label>
+
+              <label>
+                Sort Priority (Order)
+                <input
+                  type="number"
+                  min="0"
+                  step="5"
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  placeholder="100"
+                />
+              </label>
+            </div>
+
+            {/* Live URL Preview Bar */}
+            <div className="shopifyUrlPreviewBar">
+              <Globe size={13} style={{ flexShrink: 0 }} />
+              <span>
+                Live URL Preview: <b>{liveUrl}</b>
+              </span>
+            </div>
+          </div>
+
+          {/* Section 2: Visuals & Cover Image */}
+          <div className="shopifyFormSection">
+            <span className="shopifyFormSectionTitle">Cover Image</span>
+            <label>
+              Image URL
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="text"
+                  placeholder="https://... or /bustaniya-campaign-hero-v4.png"
+                  value={image}
+                  onChange={(e) => {
+                    setImage(e.target.value);
+                    setImageTestError("");
+                  }}
+                />
+              </div>
+            </label>
+
+            {image && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
+                <img
+                  src={image}
+                  alt="Preview"
+                  style={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: 8,
+                    objectFit: "cover",
+                    border: "1px solid #dce4dd",
+                    background: "#f8faf8",
+                  }}
+                  onError={() => setImageTestError("Image failed to load. Check URL format.")}
+                />
+                <div>
+                  <b style={{ display: "block", fontSize: 12, color: "#166534" }}>Cover Image Ready</b>
+                  <span style={{ fontSize: 11.5, color: "#6a7c70" }}>
+                    {imageTestError ? (
+                      <span style={{ color: "#b91c1c" }}>{imageTestError}</span>
+                    ) : (
+                      "This image will display on category cards and collection pages."
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <label>
+              Image Alt Text
+              <input
+                type="text"
+                placeholder="Accessible description for screen readers and SEO"
+                value={imageAlt}
+                onChange={(e) => setImageAlt(e.target.value)}
+              />
+            </label>
+          </div>
+
+          {/* Section 3: Description & Storefront Placement */}
+          <div className="shopifyFormSection">
+            <span className="shopifyFormSectionTitle">Description & Storefront Placement</span>
+            <label>
+              Category Description
+              <textarea
+                rows={3}
+                placeholder="Short SEO-friendly description shown at the top of the category collection page."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </label>
+
+            <label style={{ marginTop: 4 }}>Storefront Navigation Visibility</label>
+            <div className="shopifyCheckboxGroup">
+              <label className="shopifyCheckboxLabel">
+                <input
+                  type="checkbox"
+                  checked={showInHeader}
+                  onChange={(e) => setShowInHeader(e.target.checked)}
+                />
+                <span>Header Navigation Menu</span>
+              </label>
+
+              <label className="shopifyCheckboxLabel">
+                <input
+                  type="checkbox"
+                  checked={showOnHomepage}
+                  onChange={(e) => setShowOnHomepage(e.target.checked)}
+                />
+                <span>Homepage Curated Section</span>
+              </label>
+
+              <label className="shopifyCheckboxLabel">
+                <input
+                  type="checkbox"
+                  checked={showInFooter}
+                  onChange={(e) => setShowInFooter(e.target.checked)}
+                />
+                <span>Footer Collections Link</span>
+              </label>
+
+              <label className="shopifyCheckboxLabel">
+                <input
+                  type="checkbox"
+                  checked={showInSearch}
+                  onChange={(e) => setShowInSearch(e.target.checked)}
+                />
+                <span>Search & Filters Filterable</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Section 4: Search Engine Optimization (SEO) */}
+          <div className="shopifyFormSection">
+            <span className="shopifyFormSectionTitle">Search Engine Optimization (SEO)</span>
+            <label>
+              SEO Meta Title ({seoTitle.length}/60)
+              <input
+                type="text"
+                maxLength={60}
+                placeholder={name ? `${name} | Bustaniya Online Store` : "Category Title for Search Engines"}
+                value={seoTitle}
+                onChange={(e) => setSeoTitle(e.target.value)}
+              />
+            </label>
+
+            <label>
+              Meta Description ({seoDescription.length}/160)
+              <textarea
+                rows={2}
+                maxLength={160}
+                placeholder={
+                  description || "Explore handcrafted luxury collection on Bustaniya with fast delivery across Pakistan."
+                }
+                value={seoDescription}
+                onChange={(e) => setSeoDescription(e.target.value)}
+              />
+            </label>
+
+            {/* Google SERP Preview Box */}
+            <div className="shopifyGooglePreview">
+              <span className="shopifyGoogleUrl">{liveUrl}</span>
+              <span className="shopifyGoogleTitle">
+                {seoTitle || (name ? `${name} | Bustaniya` : "Collection Title | Bustaniya")}
+              </span>
+              <span className="shopifyGoogleDesc">
+                {seoDescription ||
+                  (description ? description.slice(0, 150) : "Shop handcrafted Pakistani fashion collections online with fast doorstep delivery across Pakistan.")}
+              </span>
+            </div>
+          </div>
+        </form>
+
+        {/* Modal Footer */}
+        <div className="shopifyCategoryModalFooter">
+          <button
+            type="button"
+            className="shopifySecondaryBtn"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="shopifyCategoryForm"
+            className="shopifyPrimaryBtn"
+            disabled={saving}
+          >
+            {saving ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                <span>Saving Category...</span>
+              </>
+            ) : (
+              <>
+                <Save size={15} />
+                <span>{isEditing ? "Update Category" : "Save Category"}</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function productVariants(product) {
@@ -4163,6 +5793,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
   const [orderToDelete, setOrderToDelete] = useState(null);
   const [deletingOrder, setDeletingOrder] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [showCharts, setShowCharts] = useState(false);
   const allRows = useMemo(() => {
     const localIds = new Set(localOrders.map((order) => order.id));
     return [
@@ -4173,6 +5804,9 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
     ];
   }, [localOrders, orderEdits, rows]);
   const periodSummary = buildOrderPeriodSummary(allRows);
+  const unfulfilledCount = useMemo(() => allRows.filter((order) => orderMatchesCategory(order, "Unbooked")).length, [allRows]);
+  const inTransitCount = useMemo(() => allRows.filter((order) => orderMatchesCategory(order, "In Courier")).length, [allRows]);
+  const deliveredRevenue = useMemo(() => allRows.filter(isDeliveredOrder).reduce((sum, order) => sum + orderMoney(order).total, 0), [allRows]);
 
   useEffect(() => {
     localStorage.removeItem("bustaniya-custom-orders");
@@ -4452,141 +6086,208 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
   const showSkeleton = loading && !allRows.length;
   const isRefreshing = loading && allRows.length > 0;
 
-  return <>
-    <div className="adminTitle">
-      <div>
-        <p>FULFILMENT</p>
-        <h1>Orders</h1>
-        <span>PostEx status, custom admin orders, fulfillment, returns and team notes.</span>
-      </div>
-      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-        <button onClick={exportOrders} disabled={loading || exportingOrders || !canExport || !connected || !allRows.length} aria-busy={exportingOrders}>
-          {exportingOrders ? "Exporting..." : "Export orders"}
-        </button>
-      </div>
-    </div>
-
-    {!loading && error && <div className="ordersConnect"><div><b>Orders could not be loaded.</b><span>{error}</span></div><button onClick={onRetry}>Retry</button></div>}
-    {!loading && !connected && !error && <div className="ordersConnect"><div><b>Session expired</b><span>Please sign in again to view orders.</span></div></div>}
-
-    {showSkeleton && <OrdersLoadingSkeleton />}
-
-    {!showSkeleton && (connected || allRows.length > 0) && <>
-      <div className="moduleQuickLinks">
-        <button className="customOrderCta" onClick={() => setShowDraft(true)}><Plus /> Create custom order</button>
-      </div>
-
-      <section className="orderPeriodGrid">
-        {periodSummary.map((period) => <article className="adminCard orderPeriodCard" key={period.label}>
-          <p>{period.label}</p>
-          <div><b>{period.orders}</b><span>Orders</span></div>
-          <ul>
-            <li><span>Delivered sales</span><b>Rs. {period.sales.toLocaleString()}</b></li>
-            <li><span>Avg. delivered order</span><b>Rs. {period.average.toLocaleString()}</b></li>
-            <li><span>Range</span><b>{period.range}</b></li>
-          </ul>
-        </article>)}
-      </section>
-
-      <div className="adminVisualGrid">
-        <VisualDonut title="Order pipeline" subtitle="Live fulfilment health — booked, in-transit, delivered and returned." centerValue={allRows.length} centerLabel="total" items={orderStatusVisual} />
-        <VisualBars title="Revenue by city" subtitle="Top shipping destinations ranked by delivered order value." format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`} items={cityVisual} />
-      </div>
-
-      <section className={`adminCard managementCard ordersWorkspace ${isRefreshing ? "isRefreshing" : ""}`}>
-        {isRefreshing && <div className="ordersRefreshBar" role="status" aria-label="Refreshing orders" />}
-
-        {selectedOrderIds.length > 0 && (
-          <div className="orderBulkBar">
-            <div className="orderBulkSummary">
-              <span className="orderBulkCount">{selectedOrderIds.length} selected</span>
-              <span className="orderBulkHint">Print or export the selected orders</span>
-            </div>
-            <div className="orderBulkActions">
-              <button type="button" className="tone-forest" title="Print stitching and production job cards for the workshop tailor" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "stitching" })}>
-                🧵 Stitching slips
-              </button>
-              <button type="button" className="tone-teal" title="Print the master cutting and stitching batch sheet" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "batch_sheet" })}>
-                📋 Cutting sheet
-              </button>
-              <button type="button" className="tone-blue" title="Print customer invoices" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "invoice" })}>
-                📄 Invoices
-              </button>
-              <button type="button" className="tone-slate" title="Print the courier dispatch handover sheet" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "manifest" })}>
-                🚚 Courier manifest
-              </button>
-              <button type="button" className="orderBulkClear" onClick={() => setSelectedOrderIds([])}>Clear</button>
-            </div>
-          </div>
-        )}
-
-        <div className="orderStatusPills" role="tablist" aria-label="Filter orders by PostEx status">
-          {orderStatusCounts.map((category) => {
-            const isActive = activeTab === category.label;
-            return (
-              <button
-                key={category.label}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`orderStatusPill tone-${orderPillTone(category.label)} ${isActive ? "isActive" : ""}`}
-                onClick={() => setActiveTab(category.label)}
-              >
-                <span className="orderStatusPillLabel">{category.label}</span>
-                <span className="orderStatusPillCount">{category.count}</span>
-              </button>
-            );
-          })}
+  return (
+    <div className="shopifyOrdersWorkspace">
+      <div className="shopifyOrdersHeader">
+        <div className="shopifyOrdersHeaderLeft">
+          <h1>Orders</h1>
+          <p>Track customer orders, manage PostEx shipments, and verify payments.</p>
         </div>
+        <div className="shopifyOrdersHeaderActions">
+          <button
+            type="button"
+            className="shopifyBtnSecondary"
+            onClick={exportOrders}
+            disabled={loading || exportingOrders || !canExport || !connected || !allRows.length}
+            aria-busy={exportingOrders}
+          >
+            {exportingOrders ? "Exporting..." : "↓ Export orders"}
+          </button>
+          <button
+            type="button"
+            className="shopifyBtnPrimary"
+            onClick={() => setShowDraft(true)}
+          >
+            <Plus size={16} /> Create custom order
+          </button>
+        </div>
+      </div>
 
-        <div className="ordersToolbar">
-          <div className="ordersToolbarInfo">
-            <span className="ordersToolbarCount">
-              {isRefreshing ? "Refreshing…" : <>Showing <b>{visibleRows.length}</b> of {allRows.length} {allRows.length === 1 ? "order" : "orders"}{activeTab !== "Total Orders" ? ` · ${activeTab}` : ""}</>}
-            </span>
-            <TableDensityToggle density={tableDensity} onChange={setTableDensity} />
+      {!loading && error && (
+        <div className="ordersConnect">
+          <div><b>Orders could not be loaded.</b><span>{error}</span></div>
+          <button onClick={onRetry}>Retry</button>
+        </div>
+      )}
+      {!loading && !connected && !error && (
+        <div className="ordersConnect">
+          <div><b>Session expired</b><span>Please sign in again to view orders.</span></div>
+        </div>
+      )}
+
+      {showSkeleton && <OrdersLoadingSkeleton />}
+
+      {!showSkeleton && (connected || allRows.length > 0) && (
+        <>
+          {/* Shopify KPI Summary Ribbon */}
+          <div className="shopifyKpiGrid">
+            <div className="shopifyKpiCard">
+              <span className="shopifyKpiLabel">📦 Total Orders</span>
+              <div className="shopifyKpiValue">{allRows.length}</div>
+              <span className="shopifyKpiSub">Store lifetime volume</span>
+            </div>
+            <div className="shopifyKpiCard">
+              <span className="shopifyKpiLabel">⏳ Needs Action</span>
+              <div className={`shopifyKpiValue ${unfulfilledCount > 0 ? "shopifyKpiAlert" : ""}`}>
+                {unfulfilledCount} {unfulfilledCount === 1 ? "order" : "orders"}
+              </div>
+              <span className="shopifyKpiSub">Unfulfilled / Unbooked</span>
+            </div>
+            <div className="shopifyKpiCard">
+              <span className="shopifyKpiLabel">🚚 In Transit</span>
+              <div className="shopifyKpiValue">{inTransitCount}</div>
+              <span className="shopifyKpiSub">With PostEx courier</span>
+            </div>
+            <div className="shopifyKpiCard">
+              <span className="shopifyKpiLabel">✅ Delivered Revenue</span>
+              <div className="shopifyKpiValue shopifyKpiSuccess">
+                Rs. {Math.round(deliveredRevenue).toLocaleString()}
+              </div>
+              <span className="shopifyKpiSub">Delivered COD revenue</span>
+            </div>
           </div>
-          <div className="inlineSearch ordersSearch">
-            <Search aria-hidden="true" />
-            <input
-              value={orderSearch}
-              onChange={(event) => setOrderSearch(event.target.value)}
-              placeholder="Search order #, customer, phone, city, tracking…"
-              aria-label="Search orders"
-            />
-            {orderSearch && (
-              <button type="button" className="ordersSearchClear" onClick={() => setOrderSearch("")} title="Clear search" aria-label="Clear search">✕</button>
+
+          {/* Optional Business Analytics Visual Toggle */}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              onClick={() => setShowCharts((prev) => !prev)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#495a4f",
+                fontSize: "12px",
+                fontWeight: 650,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "4px 8px"
+              }}
+            >
+              📊 {showCharts ? "Hide Visual Analytics ▲" : "View Pipeline & City Charts ▼"}
+            </button>
+          </div>
+
+          {showCharts && (
+            <div className="adminVisualGrid" style={{ marginBottom: "6px" }}>
+              <VisualDonut title="Order pipeline" subtitle="Live fulfilment health — booked, in-transit, delivered and returned." centerValue={allRows.length} centerLabel="total" items={orderStatusVisual} />
+              <VisualBars title="Revenue by city" subtitle="Top shipping destinations ranked by delivered order value." format={(value) => `Rs. ${Math.round(Number(value || 0)).toLocaleString()}`} items={cityVisual} />
+            </div>
+          )}
+
+          {/* Main Shopify Orders Table Card */}
+          <section className={`shopifyOrdersCard ${isRefreshing ? "isRefreshing" : ""}`}>
+            {isRefreshing && <div className="ordersRefreshBar" role="status" aria-label="Refreshing orders" />}
+
+            {/* Sticky Bulk Action Bar */}
+            {selectedOrderIds.length > 0 && (
+              <div className="shopifyBulkBar">
+                <div className="shopifyBulkSummary">
+                  <span>✓ {selectedOrderIds.length} {selectedOrderIds.length === 1 ? "order" : "orders"} selected</span>
+                </div>
+                <div className="shopifyBulkActions">
+                  <button type="button" className="shopifyBulkBtn" title="Print workshop tailor stitching slips" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "stitching" })}>
+                    🧵 Stitching slips
+                  </button>
+                  <button type="button" className="shopifyBulkBtn" title="Print master cutting sheet" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "batch_sheet" })}>
+                    📋 Cutting sheet
+                  </button>
+                  <button type="button" className="shopifyBulkBtn" title="Print customer invoices" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "invoice" })}>
+                    📄 Invoices
+                  </button>
+                  <button type="button" className="shopifyBulkBtn" title="Print courier manifest" onClick={() => generateBulkOrdersPdf({ orders: allRows.filter((order) => selectedOrderIds.includes(order.id)), type: "manifest" })}>
+                    🚚 Courier manifest
+                  </button>
+                  <button type="button" className="shopifyBulkClearBtn" onClick={() => setSelectedOrderIds([])}>Clear</button>
+                </div>
+              </div>
             )}
-          </div>
-        </div>
 
-        {allRows.length === 0 ? (
-          <EmptyState icon={ShoppingBag} title="No orders received" description="There are no orders in your store database yet." />
-        ) : (
-          <OrderTable
-            rows={visibleRows}
-            density={tableDensity}
-            onSelect={(order) => setSelectedId(order.id)}
-            selectedOrderIds={selectedOrderIds}
-            onToggleSelectOrder={toggleSelectOrder}
-            onToggleSelectAll={toggleSelectAll}
-            onPrintStitchingOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
-            onPrintSingleOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "invoice" })}
-            onDeleteOrder={(order) => {
-              setDeleteError("");
-              setOrderToDelete(order);
-            }}
-          />
-        )}
+            {/* Shopify Filter Tabs */}
+            <div className="shopifyTabsWrap" role="tablist">
+              {orderStatusCounts.map((category) => {
+                const isActive = activeTab === category.label;
+                const tabDisplayLabel = category.label === "Total Orders" ? "All" : category.label === "Unbooked" ? "Unfulfilled" : category.label;
+                return (
+                  <button
+                    key={category.label}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={`shopifyTabBtn ${isActive ? "active" : ""}`}
+                    onClick={() => setActiveTab(category.label)}
+                  >
+                    <span>{tabDisplayLabel}</span>
+                    <span className="shopifyTabBadge">{category.count}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-        {pagination?.totalPages > 1 && (
-          <div className="ordersPagination">
-            <button disabled={loading || pagination.page <= 1} aria-busy={loading} onClick={() => onPageChange(pagination.page - 1)}>Previous</button>
-            <span>Page {pagination.page} of {pagination.totalPages}</span>
-            <button disabled={loading || pagination.page >= pagination.totalPages} aria-busy={loading} onClick={() => onPageChange(pagination.page + 1)}>Next</button>
-          </div>
-        )}
-      </section>
+            {/* Orders Toolbar */}
+            <div className="shopifyOrdersToolbar">
+              <div className="shopifySearchWrap">
+                <Search size={15} color="#68796e" />
+                <input
+                  value={orderSearch}
+                  onChange={(event) => setOrderSearch(event.target.value)}
+                  placeholder="Filter orders by order #, customer, phone, city, tracking..."
+                  aria-label="Filter orders"
+                />
+                {orderSearch && (
+                  <button type="button" className="shopifySearchClearBtn" onClick={() => setOrderSearch("")} title="Clear search">✕</button>
+                )}
+              </div>
+
+              <div className="shopifyToolbarRight">
+                <span className="shopifyToolbarCount">
+                  {isRefreshing ? "Refreshing…" : <>Showing <b>{visibleRows.length}</b> of {allRows.length} {allRows.length === 1 ? "order" : "orders"}{activeTab !== "Total Orders" ? ` · ${activeTab}` : ""}</>}
+                </span>
+                <TableDensityToggle density={tableDensity} onChange={setTableDensity} />
+              </div>
+            </div>
+
+            {allRows.length === 0 ? (
+              <EmptyState icon={ShoppingBag} title="No orders received" description="There are no orders in your store database yet." />
+            ) : (
+              <OrderTable
+                rows={visibleRows}
+                products={products}
+                density={tableDensity}
+                onSelect={(order) => setSelectedId(order.id)}
+                selectedOrderIds={selectedOrderIds}
+                onToggleSelectOrder={toggleSelectOrder}
+                onToggleSelectAll={toggleSelectAll}
+                onPrintStitchingOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
+                onPrintSingleOrder={(order) => generateBulkOrdersPdf({ orders: [order], type: "invoice" })}
+                onDeleteOrder={(order) => {
+                  setDeleteError("");
+                  setOrderToDelete(order);
+                }}
+              />
+            )}
+
+            {pagination?.totalPages > 1 && (
+              <div className="ordersPagination">
+                <button disabled={loading || pagination.page <= 1} aria-busy={loading} onClick={() => onPageChange(pagination.page - 1)}>Previous</button>
+                <span>Page {pagination.page} of {pagination.totalPages}</span>
+                <button disabled={loading || pagination.page >= pagination.totalPages} aria-busy={loading} onClick={() => onPageChange(pagination.page + 1)}>Next</button>
+              </div>
+            )}
+          </section>
+        </>
+      )}
 
       {showDraft && <DraftOrderDialog products={products} onClose={() => setShowDraft(false)} onCreate={createDraft} saving={creatingDraft} />}
       {selectedOrder && (
@@ -4747,8 +6448,8 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
           </div>
         </>
       )}
-    </>}
-  </>;
+    </div>
+  );
 }
 
 function orderPillTone(label) {
@@ -5749,9 +7450,11 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   }
 
   return <div className={`financeSystem financeTab-${financeTab}`} data-legacy-finance-error={cashbookError || undefined}>
-    <div className="adminTitle">
-      <div><p>FINANCE MANAGER</p><h1>Finances</h1><span>Cash, supplier bills, customer payments aur profit — ek hi verified workspace mein.</span></div>
-    </div>
+    {financeTab !== "engine" && (
+      <div className="adminTitle">
+        <div><p>FINANCE MANAGER</p><h1>Finances</h1><span>Cash, supplier bills, customer payments aur profit — ek hi verified workspace mein.</span></div>
+      </div>
+    )}
 
     {financeSetup && financeSetup.tablesReady === false && (
       <div className="financeSetupBanner financeSetupBannerPending">
@@ -5789,7 +7492,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
       </div>
     )}
 
-    {financeTab === "engine" && <FinanceWorkspace currentAdminUser={currentAdminUser} showTitle={false} />}
+    {financeTab === "engine" && <FinanceWorkspace currentAdminUser={currentAdminUser} showTitle={true} />}
 
     {financeTab === "settlements" && <section className="postexSettlementPanel">
       <div className="settlementIntro">
@@ -7791,6 +9494,13 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   const isPacking = fulfillmentStatus === "Packing" || rawStatusLower.includes("pack");
   const isConfirmed = order.confirmationStatus === "Confirmed" || paymentStatus === "Payment Verified" || paymentStatus === "Paid";
 
+  const advNum = Number(advancePaidAmount || 0);
+  const isPaymentPaidOrVerified = paymentStatus === "Payment Verified" || paymentStatus === "Paid";
+  const isPaymentProofSubmitted = paymentStatus === "Proof Submitted" || paymentStatus === "Advance Pending";
+  const isPaymentRejected = paymentStatus === "Payment Rejected";
+  const isCodOrder = advNum === 0 && (paymentStatus === "COD pending" || !isPaymentPaidOrVerified);
+  const isPendingVerification = (advNum > 0 || isPaymentProofSubmitted) && !isPaymentPaidOrVerified && !isPaymentRejected;
+
   let currentStepIndex = 0;
   if (isDelivered) currentStepIndex = 4;
   else if (isOutForDelivery || isInTransit) currentStepIndex = 3;
@@ -7926,818 +9636,273 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   }
 
   return (
-    <>
-      <div className="adminOverlay" onClick={onClose} />
-      <aside className="orderDetailDrawer" style={{ width: "min(940px, 100%)", background: "#f8fafc", display: "flex", flexDirection: "column" }}>
-        {/* Luxury Boutique Header */}
-        <header style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 30,
-          background: "#ffffff",
-          borderBottom: "1px solid #e2e8f0",
-          padding: "14px 22px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "12px",
-          boxShadow: "0 2px 10px rgba(15, 23, 42, 0.03)"
-        }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                <span style={{ fontSize: "10px", fontWeight: 800, color: "#059669", background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "2px 6px", borderRadius: "4px", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                  Bustaniya Order
-                </span>
-                <h2 style={{ margin: 0, fontSize: "21px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.01em", fontFamily: "var(--font-sans, sans-serif)" }}>
-                  {order.id}
-                </h2>
+    <div
+      className="shopifyOrderModalOverlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !saving) onClose();
+      }}
+    >
+      <div className="shopifyOrderModalContainer">
+        {/* Shopify Sticky Top Bar */}
+        <header className="shopifyOrderTopBar">
+          <div className="shopifyOrderTopLeft">
+            <button
+              type="button"
+              className="shopifyBackBtn"
+              onClick={onClose}
+              title="Back to orders list"
+              aria-label="Back to orders"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div className="shopifyOrderTopInfo">
+              <div className="shopifyOrderTopTitleRow">
+                <h2 className="shopifyOrderTopTitle">Order {order.id}</h2>
                 <button
                   type="button"
+                  className="shopifyOrderCopyBtn"
                   onClick={copyOrderNumberToClipboard}
                   title="Copy order number"
-                  style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: "5px", padding: "2px 7px", fontSize: "11px", cursor: "pointer", color: "#475569", fontWeight: 600 }}
                 >
-                  {copiedOrderNumber ? "✅ Copied" : "📋 Copy"}
+                  <Copy size={11} />
+                  <span>{copiedOrderNumber ? "Copied" : "Copy"}</span>
                 </button>
+                {/* Payment pill */}
+                {paymentStatus.toLowerCase().includes("paid") || paymentStatus.toLowerCase().includes("verified") ? (
+                  <span className="shopifyPill paid"><span className="pillDot" /> Paid</span>
+                ) : Number(advancePaidAmount || 0) > 0 ? (
+                  <span className="shopifyPill partially_paid"><span className="pillDot" /> Adv Paid</span>
+                ) : (
+                  <span className="shopifyPill pending"><span className="pillDot" /> {paymentStatus}</span>
+                )}
+                {/* Fulfillment pill */}
+                {isDelivered ? (
+                  <span className="shopifyPill delivered"><span className="pillDot" /> Delivered</span>
+                ) : isBooked ? (
+                  <span className="shopifyPill in_transit"><span className="pillDot" /> In transit</span>
+                ) : (
+                  <span className="shopifyPill unfulfilled"><span className="pillDot" /> Unfulfilled</span>
+                )}
               </div>
-
-              <span className={`statusBadge ${String(orderStage).replaceAll(" ", "").replaceAll("-", "").toLowerCase()}`} style={{ fontWeight: 700, fontSize: "11px" }}>
-                {orderStage}
-              </span>
-
-              <span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`} style={{ fontWeight: 700, fontSize: "11px" }}>
-                {paymentStatus}
-              </span>
-
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "2px 8px", borderRadius: "5px", fontSize: "11px", fontWeight: 600, color: "#475569" }}>
-                {orderSourceBadge(order.source).icon} {orderSourceBadge(order.source).label}
-              </span>
-            </div>
-
-            <div style={{ fontSize: "12px", color: "#64748b" }}>
-              <b>{order.customer}</b> · <span style={{ color: "#0f172a", fontWeight: 600 }}>📍 {order.city || "Pakistan"}</span> · {order.date}
+              <div className="shopifyOrderTopSub" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", fontSize: "12px" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <Calendar size={12} color="#6b7280" /> {order.date}
+                </span>
+                <span style={{ color: "#d1d5db" }}>•</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <User size={12} color="#6b7280" /> {order.customer || "Guest Customer"}
+                </span>
+                <span style={{ color: "#d1d5db" }}>•</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <MapPin size={12} color="#6b7280" /> {order.city || "Pakistan"}
+                </span>
+                <span style={{ color: "#d1d5db" }}>•</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#f3f4f6", padding: "1px 7px", borderRadius: "4px", fontSize: "11px", fontWeight: 600, color: "#374151" }}>
+                  {orderSourceBadge(order.source).label}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-            {/* Unified Print Segment */}
-            <div style={{ display: "inline-flex", background: "#f1f5f9", padding: "3px", borderRadius: "8px", border: "1px solid #e2e8f0", gap: "2px" }}>
+          <div className="shopifyOrderTopRight">
+            {/* Print Document Group */}
+            <div className="shopifyButtonGroup">
               <button
                 type="button"
                 onClick={printInvoice}
-                style={{ background: "#ffffff", color: "#334155", border: "1px solid #cbd5e1", padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
                 title="Print Customer Invoice Receipt"
               >
-                📄 Invoice
+                <Printer size={13} />
+                <span>Invoice</span>
               </button>
               <button
                 type="button"
                 onClick={printPackingSlip}
-                style={{ background: "#ffffff", color: "#334155", border: "1px solid #cbd5e1", padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
                 title="Print Warehouse Packing Slip"
               >
-                📦 Slip
+                <Package size={13} />
+                <span>Packing slip</span>
               </button>
               <button
                 type="button"
                 onClick={() => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
-                style={{ background: "#ffffff", color: "#334155", border: "1px solid #cbd5e1", padding: "5px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
                 title="Print Workshop Stitching Slip"
               >
-                🧵 Stitching
+                <Scissors size={13} />
+                <span>Stitching slip</span>
               </button>
             </div>
 
-            {/* Primary Save Button */}
-            <button
-              type="button"
-              onClick={() => saveChanges()}
-              disabled={saving}
-              style={{
-                background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
-                color: "#ffffff",
-                border: "none",
-                fontWeight: 700,
-                padding: "8px 18px",
-                borderRadius: "8px",
-                fontSize: "12px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                cursor: saving ? "not-allowed" : "pointer",
-                boxShadow: "0 2px 8px rgba(4, 120, 87, 0.35)",
-                transition: "all 0.15s ease"
-              }}
-            >
-              {saving ? (
-                <>
-                  <Loader2 size={13} className="animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                "💾 Save Changes"
-              )}
-            </button>
-
-            {/* Delete Order Button */}
             {onDelete && (
               <button
                 type="button"
+                className="shopifyBtnTertiaryDanger"
                 onClick={() => onDelete(order)}
-                style={{
-                  background: "#fee2e2",
-                  color: "#b91c1c",
-                  border: "1px solid #fca5a5",
-                  fontWeight: 700,
-                  padding: "8px 14px",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-                title="Delete this order permanently from Supabase"
+                title="Delete this order permanently"
               >
-                🗑️ Delete
+                <Trash2 size={13} />
+                <span>Delete</span>
               </button>
             )}
 
-            {/* Close Button */}
-            <button onClick={onClose} aria-label="Close details" className="drawerCloseBtn" style={{ width: "34px", height: "34px", borderRadius: "50%", border: "1px solid #cbd5e1", background: "#ffffff", display: "grid", placeItems: "center", cursor: "pointer", color: "#475569" }}>
-              <X size={16} />
+            <button
+              type="button"
+              className="shopifyBtnPrimary"
+              onClick={() => saveChanges()}
+              disabled={saving}
+              style={{ padding: "8px 18px", fontSize: "13px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "6px" }}
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Check size={14} />
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              className="shopifyBackBtn"
+              onClick={onClose}
+              title="Close"
+              aria-label="Close"
+            >
+              <X size={18} />
             </button>
           </div>
         </header>
 
-        <div className="orderDetailBody" style={{ padding: "16px 22px 80px", display: "flex", flexDirection: "column", gap: "12px", background: "#f8fafc", flex: 1, overflowY: "auto" }}>
-          {/* Notifications & Alert Banners */}
+        {/* Alerts & Messages */}
+        <div style={{ maxWidth: "1140px", width: "100%", margin: "16px auto 0", padding: "0 20px" }}>
           {saveError && (
-            <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", color: "#991b1b", padding: "10px 14px", borderRadius: "10px", fontSize: "12px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", color: "#991b1b", padding: "10px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: 600, marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
               <span>⚠️</span> {saveError}
             </div>
           )}
           {saveMessage && (
-            <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", color: "#166534", padding: "10px 14px", borderRadius: "10px", fontSize: "12px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", color: "#166534", padding: "10px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: 600, marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
               <span>✅</span> {saveMessage}
             </div>
           )}
           {unsavedTotalChange && (
-            <div style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", color: "#1e40af", padding: "10px 14px", borderRadius: "10px", fontSize: "12px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
-              <span>ℹ️</span> Unsaved edits: Subtotal or advance modified. Press <b>Save Changes</b> in the header.
+            <div style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", color: "#1e40af", padding: "10px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: 600, marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>ℹ️</span> Edits pending: Subtotal or advance modified. Press <b>Save Changes</b> in the top bar to persist.
             </div>
           )}
           {savedMoney.codMismatch && (
-            <div style={{ background: "#fffbeb", border: "1.5px solid #fcd34d", color: "#92400e", padding: "10px 14px", borderRadius: "10px", fontSize: "12px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ background: "#fffbeb", border: "1.5px solid #fcd34d", color: "#92400e", padding: "10px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: 600, marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
               <span>⚠️</span> PostEx booking COD mismatch: PostEx is set to collect Rs. {savedMoney.bookedCod?.toLocaleString()}. Due amount is Rs. {savedMoney.cod?.toLocaleString()}.
             </div>
           )}
+        </div>
 
-          {/* 🌟 1. INTERACTIVE ORDER WORKFLOW PIPELINE & SMART ACTION RIBBON */}
-          <section style={{
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            borderRadius: "14px",
-            padding: "14px 18px",
-            boxShadow: "0 2px 8px rgba(15, 23, 42, 0.03)"
-          }}>
-            {/* Visual 5-Stage Journey */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", overflowX: "auto", padding: "4px 0 8px" }}>
-              {stepperSteps.map((step, idx) => {
-                const isPassed = currentStepIndex > idx;
-                const isCurrent = currentStepIndex === idx;
-                return (
-                  <div key={step.label} style={{ display: "flex", alignItems: "center", flex: idx === stepperSteps.length - 1 ? "0 0 auto" : 1 }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: "85px" }}>
-                      <div style={{
-                        width: "32px",
-                        height: "32px",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "13px",
-                        background: isPassed ? "#dcfce7" : isCurrent ? "#059669" : "#f1f5f9",
-                        color: isPassed ? "#166534" : isCurrent ? "#ffffff" : "#94a3b8",
-                        border: isCurrent ? "2px solid #059669" : isPassed ? "2px solid #86efac" : "2px solid #e2e8f0",
-                        boxShadow: isCurrent ? "0 0 0 3px #dcfce7" : "none",
-                        fontWeight: 700,
-                        transition: "all 0.2s ease"
-                      }}>
-                        {isPassed ? "✓" : step.icon}
-                      </div>
-                      <span style={{ fontSize: "11px", fontWeight: isCurrent ? 800 : 600, color: isCurrent ? "#059669" : isPassed ? "#1e293b" : "#94a3b8", marginTop: "5px", textAlign: "center", whiteSpace: "nowrap" }}>
-                        {step.label}
-                      </span>
-                      <span style={{ fontSize: "10px", color: isCurrent ? "#047857" : "#94a3b8", textAlign: "center", whiteSpace: "nowrap" }}>
-                        {step.sub}
-                      </span>
-                    </div>
-
-                    {idx < stepperSteps.length - 1 && (
-                      <div style={{
-                        flex: 1,
-                        height: "3px",
-                        background: currentStepIndex > idx ? "#86efac" : "#e2e8f0",
-                        margin: "-18px 6px 0",
-                        borderRadius: "2px"
-                      }} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Smart Next Step Banner with Direct 1-Click Action */}
-            <div style={{
-              marginTop: "10px",
-              background: nextStepInfo.bg,
-              border: `1.5px solid ${nextStepInfo.border}`,
-              borderRadius: "10px",
-              padding: "10px 14px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-              flexWrap: "wrap"
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <span style={{ fontSize: "20px" }}>{nextStepInfo.icon}</span>
-                <div>
-                  <div style={{ fontSize: "11px", fontWeight: 800, color: nextStepInfo.text, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    اگلا قدم (Next Action): {nextStepInfo.step}
-                  </div>
-                  <div style={{ fontSize: "13px", color: nextStepInfo.text, fontWeight: 700, marginTop: "1px" }}>
-                    {nextStepInfo.actionUrdu}
-                  </div>
-                  <div style={{ fontSize: "11px", color: nextStepInfo.text, opacity: 0.85 }}>
-                    {nextStepInfo.actionEng}
-                  </div>
+        {/* 2-Column Shopify Grid */}
+        <div className="shopifyOrderGrid">
+          {/* LEFT MAIN COLUMN (65%) */}
+          <div className="shopifyOrderMainCol">
+            {/* 1. FULFILLMENT & ITEMS CARD */}
+            <div className="shopifySectionCard">
+              <div className="shopifySectionHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Package size={17} color="#4b5563" />
+                  <h3 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#111827" }}>
+                    {isDelivered ? "Fulfilled" : isBooked ? "Ready for Courier Handover" : "Unfulfilled"} ({orderItems.length})
+                  </h3>
+                  <span style={{ fontSize: "12px", color: "#6b7280" }}>• Bustaniya Warehouse</span>
                 </div>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                {nextStepInfo.ctaText && (
-                  nextStepInfo.ctaType === "link" ? (
-                    <a
-                      href={nextStepInfo.ctaHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        background: "linear-gradient(135deg, #25d366 0%, #128c7e 100%)",
-                        color: "#ffffff",
-                        textDecoration: "none",
-                        padding: "7px 14px",
-                        borderRadius: "7px",
-                        fontSize: "12px",
-                        fontWeight: 800,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        boxShadow: "0 2px 8px rgba(37, 211, 102, 0.35)",
-                        cursor: "pointer"
-                      }}
-                    >
-                      {nextStepInfo.ctaText}
-                    </a>
-                  ) : nextStepInfo.ctaType === "book_postex" ? (
-                    <button
-                      type="button"
-                      onClick={bookWithPostex}
-                      disabled={saving || bookingPostex}
-                      style={{
-                        background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
-                        color: "#ffffff",
-                        border: "none",
-                        padding: "7px 14px",
-                        borderRadius: "7px",
-                        fontSize: "12px",
-                        fontWeight: 800,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        boxShadow: "0 2px 8px rgba(37, 99, 235, 0.35)",
-                        cursor: (saving || bookingPostex) ? "not-allowed" : "pointer"
-                      }}
-                    >
-                      {bookingPostex ? "Booking..." : nextStepInfo.ctaText}
-                    </button>
-                  ) : nextStepInfo.ctaType === "packing_slip" ? (
-                    <button
-                      type="button"
-                      onClick={printPackingSlip}
-                      style={{
-                        background: "#059669",
-                        color: "#ffffff",
-                        border: "none",
-                        padding: "7px 14px",
-                        borderRadius: "7px",
-                        fontSize: "12px",
-                        fontWeight: 800,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        boxShadow: "0 2px 8px rgba(5, 150, 105, 0.35)",
-                        cursor: "pointer"
-                      }}
-                    >
-                      {nextStepInfo.ctaText}
-                    </button>
-                  ) : nextStepInfo.ctaType === "check_status" ? (
-                    <button
-                      type="button"
-                      onClick={checkLivePostexStatus}
-                      disabled={checkingPostex}
-                      style={{
-                        background: "#2563eb",
-                        color: "#ffffff",
-                        border: "none",
-                        padding: "7px 14px",
-                        borderRadius: "7px",
-                        fontSize: "12px",
-                        fontWeight: 800,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        cursor: checkingPostex ? "not-allowed" : "pointer"
-                      }}
-                    >
-                      {checkingPostex ? "Checking..." : nextStepInfo.ctaText}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (nextStepInfo.ctaType === "tab_notes") setDrawerTab("notes");
-                        else if (nextStepInfo.ctaType === "invoice") printInvoice();
-                      }}
-                      style={{
-                        background: "#334155",
-                        color: "#ffffff",
-                        border: "none",
-                        padding: "7px 14px",
-                        borderRadius: "7px",
-                        fontSize: "12px",
-                        fontWeight: 800,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        cursor: "pointer"
-                      }}
-                    >
-                      {nextStepInfo.ctaText}
-                    </button>
-                  )
-                )}
-                <span style={{
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  background: "#ffffff",
-                  color: nextStepInfo.text,
-                  border: `1px solid ${nextStepInfo.border}`,
-                  padding: "4px 9px",
-                  borderRadius: "6px"
-                }}>
-                  {nextStepInfo.badge}
-                </span>
-              </div>
-            </div>
-          </section>
-
-          {/* 🌟 2. TOP 3 EXECUTIVE SUMMARY CARDS */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px" }}>
-            {/* Card 1: Customer Profile & Contact */}
-            <div style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "14px",
-              padding: "16px",
-              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.03)",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between"
-            }}>
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "10px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                    👤 Customer &amp; Delivery Destination
-                  </span>
-                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#0f172a", background: "#f1f5f9", border: "1px solid #cbd5e1", padding: "1px 8px", borderRadius: "5px" }}>
-                    📍 {order.city || "Pakistan"}
-                  </span>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <div style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #10b981 0%, #047857 100%)",
-                    color: "#ffffff",
-                    display: "grid",
-                    placeItems: "center",
-                    fontWeight: 800,
-                    fontSize: "14px",
-                    flexShrink: 0,
-                    boxShadow: "0 2px 6px rgba(4, 120, 87, 0.25)"
-                  }}>
-                    {customerInitials}
-                  </div>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: "15px", fontWeight: 800, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {order.customer || "Guest Customer"}
-                    </div>
-                    <div style={{ fontSize: "12px", color: "#475569", fontWeight: 600 }}>
-                      📞 {order.phone || "No phone"}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: "8px", background: "#f8fafc", padding: "6px 10px", borderRadius: "6px", border: "1px solid #e2e8f0", fontSize: "11px", color: "#475569", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px" }}>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    🏠 {order.address || "No street address"}
-                  </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <button
                     type="button"
-                    onClick={copyAddressToClipboard}
-                    style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "4px", padding: "2px 6px", fontSize: "10px", fontWeight: 700, cursor: "pointer", color: "#334155", flexShrink: 0 }}
+                    className="shopifyRowBtn"
+                    onClick={() => setIsEditingItems((prev) => !prev)}
+                    style={{ padding: "5px 12px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "5px" }}
                   >
-                    {copiedAddress ? "✅ Copied" : "📋 Copy"}
+                    <Scissors size={12} />
+                    <span>{isEditingItems ? "Done Editing" : "Edit items"}</span>
                   </button>
+                  {isEditingItems && (
+                    <button
+                      type="button"
+                      className="shopifyRowBtn"
+                      onClick={handleAddProductItem}
+                      style={{ padding: "5px 12px", fontSize: "12px", background: "#f0fdf4", color: "#166534", borderColor: "#86efac", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <Plus size={12} />
+                      <span>Add Item</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: "6px", marginTop: "12px", flexWrap: "wrap" }}>
-                {rawPhoneDigits && (
-                  <a
-                    href={waLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      background: "linear-gradient(135deg, #25d366 0%, #128c7e 100%)",
-                      color: "#ffffff",
-                      padding: "6px 12px",
-                      borderRadius: "7px",
-                      fontSize: "12px",
-                      fontWeight: 800,
-                      textDecoration: "none",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      boxShadow: "0 2px 8px rgba(37, 211, 102, 0.3)"
-                    }}
-                    title="Open WhatsApp with ready confirmation message in Urdu"
-                  >
-                    💬 WhatsApp
-                  </a>
-                )}
-                {rawPhoneDigits && (
-                  <a
-                    href={`tel:${order.phone}`}
-                    style={{
-                      background: "#f1f5f9",
-                      color: "#334155",
-                      padding: "6px 11px",
-                      borderRadius: "7px",
-                      fontSize: "12px",
-                      fontWeight: 700,
-                      textDecoration: "none",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px"
-                    }}
-                  >
-                    📞 Call
-                  </a>
-                )}
-              </div>
-            </div>
-
-            {/* Card 2: Cash to Collect (COD Due) */}
-            <div style={{
-              background: "linear-gradient(135deg, #f0fdf4 0%, #f0f9ff 100%)",
-              border: "1.5px solid #bfdbfe",
-              borderRadius: "14px",
-              padding: "16px",
-              boxShadow: "0 2px 8px rgba(37, 99, 235, 0.04)",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between"
-            }}>
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "10px", fontWeight: 800, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                    💰 Cash to Collect (Rider Due)
-                  </span>
-                  <span style={{ fontSize: "10px", fontWeight: 700, color: currentCod === 0 ? "#166534" : "#1d4ed8", background: "#ffffff", padding: "2px 8px", borderRadius: "5px", border: currentCod === 0 ? "1px solid #bbf7d0" : "1px solid #bfdbfe" }}>
-                    {currentCod === 0 ? "100% Prepaid" : "Cash on Delivery"}
-                  </span>
-                </div>
-
-                <div style={{ fontSize: "24px", fontWeight: 900, color: currentCod === 0 ? "#166534" : "#1d4ed8", marginTop: "4px", letterSpacing: "-0.01em" }}>
-                  {currentCod === 0 ? "Rs. 0 (Prepaid)" : `Rs. ${currentCod.toLocaleString()}`}
-                </div>
-                <div style={{ fontSize: "11px", color: "#475569", marginTop: "2px", fontWeight: 600 }}>
-                  {currentCod === 0 ? "✅ 100% advance received — zero cash to collect" : "💡 Rider customer se yeh raqam wasool kare ga"}
-                </div>
-              </div>
-
-              <div style={{ fontSize: "11px", color: "#334155", marginTop: "8px", borderTop: "1px solid rgba(191, 219, 254, 0.8)", paddingTop: "6px", display: "flex", justifyContent: "space-between" }}>
-                <span>Total: <b style={{ color: "#0f172a" }}>Rs. {calculatedOrderTotal.toLocaleString()}</b></span>
-                <span>Advance: <b style={{ color: "#059669" }}>Rs. {currentAdvance.toLocaleString()}</b></span>
-              </div>
-            </div>
-
-            {/* Card 3: Courier / PostEx */}
-            <div style={{
-              background: "#ffffff",
-              border: tracking ? "1.5px solid #86efac" : "1.5px solid #cbd5e1",
-              borderRadius: "14px",
-              padding: "16px",
-              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.03)",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between"
-            }}>
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "10px", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                    🚚 Courier &amp; Dispatch ({deliveryMethod})
-                  </span>
-                  <span style={{ fontSize: "10px", fontWeight: 700, color: tracking ? "#166534" : "#d97706", background: tracking ? "#dcfce7" : "#fef3c7", padding: "2px 8px", borderRadius: "5px" }}>
-                    {tracking ? "Booked" : "Ready"}
-                  </span>
-                </div>
-
-                {!tracking ? (
-                  <div style={{ marginTop: "6px" }}>
-                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#d97706" }}>
-                      📦 Unbooked · At Warehouse
-                    </div>
-                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
-                      Ready to assign PostEx tracking:
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ marginTop: "6px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <code style={{ fontSize: "14px", fontWeight: 800, color: "#166534", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "3px 8px", borderRadius: "5px" }}>
-                        {tracking}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={copyTrackingToClipboard}
-                        style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: "4px", padding: "3px 7px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
-                      >
-                        {copiedTracking ? "✅ Copied" : "📋 Copy"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div style={{ marginTop: "10px" }}>
-                {!tracking ? (
-                  <button
-                    type="button"
-                    onClick={bookWithPostex}
-                    disabled={saving || bookingPostex}
-                    style={{
-                      background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
-                      color: "#ffffff",
-                      border: "none",
-                      fontWeight: 800,
-                      padding: "7px 14px",
-                      borderRadius: "7px",
-                      fontSize: "12px",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      cursor: (saving || bookingPostex) ? "not-allowed" : "pointer",
-                      boxShadow: "0 2px 8px rgba(37, 99, 235, 0.28)"
-                    }}
-                  >
-                    {bookingPostex ? (
-                      <>
-                        <Loader2 size={13} className="animate-spin" />
-                        <span>Booking PostEx...</span>
-                      </>
+              <div className="shopifySectionBody">
+                {/* Clean, Professional Fulfillment Status Banner */}
+                <div className={`shopifyFulfillmentAlert ${isDelivered ? "delivered" : isBooked ? "booked" : "unfulfilled"}`}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    {isDelivered ? (
+                      <CheckCircle2 size={16} color="#15803d" />
+                    ) : isBooked ? (
+                      <Truck size={16} color="#166534" />
                     ) : (
-                      "⚡ Book PostEx (1-Click)"
+                      <Package size={16} color="#854d0e" />
                     )}
-                  </button>
-                ) : (
-                  <div style={{ display: "flex", gap: "5px", alignItems: "center", flexWrap: "wrap" }}>
-                    {!tracking.startsWith("MANUAL-") && (
-                      <a
-                        href={`https://postex.pk/tracking?cn=${tracking}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          background: "#eff6ff",
-                          color: "#1d4ed8",
-                          border: "1px solid #bfdbfe",
-                          padding: "4px 9px",
-                          borderRadius: "5px",
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          textDecoration: "none"
-                        }}
-                      >
-                        🔗 PostEx.pk
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      onClick={checkLivePostexStatus}
-                      disabled={saving || checkingPostex}
-                      style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "4px 9px", borderRadius: "5px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
-                    >
-                      {checkingPostex ? "Checking..." : "🔄 Status"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 🌟 3. MODERN SEGMENTED PILL TABS */}
-          <div style={{
-            display: "inline-flex",
-            background: "#e2e8f0",
-            padding: "4px",
-            borderRadius: "11px",
-            gap: "3px",
-            width: "fit-content",
-            marginTop: "4px"
-          }}>
-            <button
-              type="button"
-              onClick={() => setDrawerTab("order")}
-              style={{
-                border: "none",
-                background: drawerTab === "order" ? "#ffffff" : "transparent",
-                color: drawerTab === "order" ? "#0f172a" : "#64748b",
-                padding: "8px 16px",
-                borderRadius: "8px",
-                fontWeight: drawerTab === "order" ? 800 : 600,
-                fontSize: "13px",
-                cursor: "pointer",
-                boxShadow: drawerTab === "order" ? "0 2px 6px rgba(0,0,0,0.08)" : "none",
-                transition: "all 0.15s ease",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px"
-              }}
-            >
-              👗 Ordered Items ({orderItems.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setDrawerTab("payment")}
-              style={{
-                border: "none",
-                background: drawerTab === "payment" ? "#ffffff" : "transparent",
-                color: drawerTab === "payment" ? "#0f172a" : "#64748b",
-                padding: "8px 16px",
-                borderRadius: "8px",
-                fontWeight: drawerTab === "payment" ? 800 : 600,
-                fontSize: "13px",
-                cursor: "pointer",
-                boxShadow: drawerTab === "payment" ? "0 2px 6px rgba(0,0,0,0.08)" : "none",
-                transition: "all 0.15s ease",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px"
-              }}
-            >
-              💰 Payment &amp; Advance ({currentCod === 0 ? "Prepaid" : "COD"})
-            </button>
-            <button
-              type="button"
-              onClick={() => setDrawerTab("logistics")}
-              style={{
-                border: "none",
-                background: drawerTab === "logistics" ? "#ffffff" : "transparent",
-                color: drawerTab === "logistics" ? "#0f172a" : "#64748b",
-                padding: "8px 16px",
-                borderRadius: "8px",
-                fontWeight: drawerTab === "logistics" ? 800 : 600,
-                fontSize: "13px",
-                cursor: "pointer",
-                boxShadow: drawerTab === "logistics" ? "0 2px 6px rgba(0,0,0,0.08)" : "none",
-                transition: "all 0.15s ease",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px"
-              }}
-            >
-              🚚 Logistics &amp; PostEx ({tracking ? "Booked" : "Unbooked"})
-            </button>
-            <button
-              type="button"
-              onClick={() => setDrawerTab("notes")}
-              style={{
-                border: "none",
-                background: drawerTab === "notes" ? "#ffffff" : "transparent",
-                color: drawerTab === "notes" ? "#0f172a" : "#64748b",
-                padding: "8px 16px",
-                borderRadius: "8px",
-                fontWeight: drawerTab === "notes" ? 800 : 600,
-                fontSize: "13px",
-                cursor: "pointer",
-                boxShadow: drawerTab === "notes" ? "0 2px 6px rgba(0,0,0,0.08)" : "none",
-                transition: "all 0.15s ease",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px"
-              }}
-            >
-              📝 Notes &amp; History {notes ? "•" : ""}
-            </button>
-          </div>
-
-          {/* TAB 1: ORDERED ITEMS & PRODUCTS */}
-          {drawerTab === "order" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {/* Delivery Address Card */}
-              <section style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "14px",
-                padding: "14px 18px",
-                boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)"
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "11px", fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    📍 Complete Delivery Address (ڈلیوری ایڈریس)
-                  </span>
-                  <button
-                    type="button"
-                    onClick={copyAddressToClipboard}
-                    style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "5px", padding: "3px 9px", fontSize: "11px", fontWeight: 700, color: "#334155", cursor: "pointer" }}
-                  >
-                    {copiedAddress ? "✅ Copied Address" : "📋 Copy Address"}
-                  </button>
-                </div>
-                <div style={{ fontSize: "14px", lineHeight: "1.5", color: "#1e293b", fontWeight: 500 }}>
-                  {order.address || order.city || "No address saved"}
-                  {order.city && <div style={{ fontSize: "12px", color: "#64748b", marginTop: "3px" }}>Delivery City: <b style={{ color: "#0f172a" }}>{order.city}</b></div>}
-                </div>
-              </section>
-
-              {/* Ordered Items List (Boutique Presentation) */}
-              <section style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "14px",
-                padding: "18px",
-                boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)"
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", borderBottom: "1px solid #f1f5f9", paddingBottom: "10px", flexWrap: "wrap", gap: "8px" }}>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 800, color: "#0f172a" }}>
-                      👗 Ordered Suits &amp; Products ({orderItems.length})
-                    </h3>
-                    <span style={{ fontSize: "11px", color: "#64748b" }}>
-                      {items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} total suit piece(s)
+                    <b style={{ fontSize: "13.5px" }}>
+                      {isDelivered ? "Fulfilled & Delivered" : isBooked ? "Ready for Rider Handover" : isPacking ? "In Packing & Stitching" : "Unfulfilled (Ready for Courier Booking)"}
+                    </b>
+                    <span style={{ fontSize: "12.5px", color: isDelivered ? "#15803d" : isBooked ? "#166534" : "#854d0e" }}>
+                      {isDelivered
+                        ? `· Delivery complete. Total Rs. ${currentCod.toLocaleString()} collected`
+                        : isBooked
+                        ? `· Booked with PostEx (CN: ${tracking}). Ready for courier dispatch.`
+                        : `· Create courier booking to generate PostEx tracking consignment.`}
                     </span>
                   </div>
 
-                  <div style={{ display: "flex", gap: "6px" }}>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingItems((prev) => !prev)}
-                      style={{
-                        background: isEditingItems ? "#f1f5f9" : "#ffffff",
-                        color: "#334155",
-                        border: "1px solid #cbd5e1",
-                        fontWeight: 700,
-                        padding: "6px 13px",
-                        fontSize: "11px",
-                        borderRadius: "7px",
-                        cursor: "pointer"
-                      }}
-                    >
-                      {isEditingItems ? "✓ Done Editing" : "✏️ Edit Items / Size"}
-                    </button>
-                    {isEditingItems && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    {!tracking ? (
                       <button
                         type="button"
-                        onClick={handleAddProductItem}
-                        style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontWeight: 700, padding: "6px 13px", fontSize: "11px", borderRadius: "7px", cursor: "pointer" }}
+                        className="shopifyBtnPrimary"
+                        onClick={bookWithPostex}
+                        disabled={saving || bookingPostex}
+                        style={{ padding: "6px 14px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "6px" }}
                       >
-                        + Add Suit
+                        <Truck size={13} />
+                        <span>{bookingPostex ? "Booking..." : "Book PostEx Courier"}</span>
                       </button>
+                    ) : (
+                      <>
+                        <a
+                          href={`https://postex.pk/tracking?cn=${tracking}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shopifyTrackingLink"
+                          style={{ margin: 0, padding: "5px 10px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                        >
+                          <ExternalLink size={12} />
+                          <span>Track Shipment</span>
+                        </a>
+                        <button
+                          type="button"
+                          className="shopifyBtnSecondary"
+                          onClick={printPackingSlip}
+                          style={{ padding: "5px 12px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                        >
+                          <FileText size={12} />
+                          <span>Packing Slip</span>
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
 
-                {/* Normal Clean View: Luxury Product Tiles */}
+                {/* Items View List */}
                 {!isEditingItems ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
                     {orderItems.map((item, index) => {
                       const qty = Number(item.quantity || 1);
                       const price = Number(item.price || 0);
@@ -8745,56 +9910,41 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                       const rawSize = String(item.size || "").trim();
                       const isCustomSize = !rawSize || rawSize.toLowerCase().includes("custom") || isCustomItemSize(rawSize);
 
+                      // Image resolver
+                      let imgSource = item.imageUrl || item.image_url || "";
+                      if (!imgSource && catalogProducts.length > 0) {
+                        const match = catalogProducts.find((p) => p.name === (item.name || item.title) || p.id === item.productId);
+                        if (match) imgSource = match.img || match.images?.[0] || "";
+                      }
+
                       return (
-                        <div
-                          key={item.id || index}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            padding: "12px 14px",
-                            background: "#f8fafc",
-                            borderRadius: "10px",
-                            border: "1px solid #e2e8f0",
-                            gap: "14px",
-                            transition: "all 0.15s ease"
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
-                            {item.imageUrl ? (
-                              <img
-                                src={item.imageUrl}
-                                alt={item.name}
-                                style={{ width: "48px", height: "48px", objectFit: "cover", borderRadius: "8px", flexShrink: 0, border: "1px solid #e2e8f0" }}
-                              />
+                        <div key={item.id || index} className="shopifyItemRow">
+                          <div className="shopifyItemRowLeft">
+                            {imgSource ? (
+                              <img src={imgSource} alt={item.name} className="shopifyItemThumb" />
                             ) : (
-                              <div style={{ width: "48px", height: "48px", borderRadius: "8px", background: "#f1f5f9", display: "grid", placeItems: "center", fontSize: "20px", flexShrink: 0 }}>
-                                👗
-                              </div>
+                              <div className="shopifyItemThumb"><ShoppingBag size={20} color="#9ca3af" /></div>
                             )}
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: "14px", fontWeight: 800, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {item.name || item.title || "Custom Suit"}
-                              </div>
-                              <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "4px", flexWrap: "wrap" }}>
-                                <span style={{
-                                  background: isCustomSize ? "#fef3c7" : "#e2e8f0",
-                                  color: isCustomSize ? "#92400e" : "#1e293b",
-                                  border: isCustomSize ? "1px solid #fde68a" : "1px solid #cbd5e1",
-                                  padding: "2px 8px",
-                                  borderRadius: "5px",
-                                  fontSize: "11px",
-                                  fontWeight: 800
-                                }}>
-                                  {isCustomSize ? `✂️ Custom: ${item.size || "Measurements"}` : `Size: ${item.size || "Standard"}`}
-                                </span>
+                            <div className="shopifyItemDetails">
+                              <span className="itemTitle">{item.name || item.title || "Suit"}</span>
+                              <div className="itemVariant">
+                                {isCustomSize ? (
+                                  <span className="shopifyCustomBadge">
+                                    <Scissors size={10} />
+                                    <span>Custom: {item.size || "Measurements"}</span>
+                                  </span>
+                                ) : (
+                                  <span className="shopifySizeBadge">
+                                    Size: {item.size || "Standard"}
+                                  </span>
+                                )}
                                 {item.color && (
-                                  <span style={{ background: "#ffffff", border: "1px solid #cbd5e1", color: "#475569", padding: "2px 8px", borderRadius: "5px", fontSize: "11px", fontWeight: 600 }}>
+                                  <span className="shopifyColorBadge">
                                     Color: {item.color}
                                   </span>
                                 )}
                                 {item.sku && (
-                                  <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+                                  <span style={{ fontSize: "11px", color: "#6b7280" }}>
                                     SKU: {item.sku}
                                   </span>
                                 )}
@@ -8802,22 +9952,20 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                             </div>
                           </div>
 
-                          <div style={{ textAlign: "right", flexShrink: 0 }}>
-                            <div style={{ fontSize: "15px", fontWeight: 800, color: "#0f172a" }}>
-                              Rs. {lineTotal.toLocaleString()}
-                            </div>
-                            <div style={{ fontSize: "11px", color: "#64748b", marginTop: "1px" }}>
-                              {qty} piece{qty > 1 ? "s" : ""} × Rs. {price.toLocaleString()}
-                            </div>
+                          <div className="shopifyItemRowRight">
+                            <span className="priceTotal">Rs. {lineTotal.toLocaleString()}</span>
+                            <span className="priceCalculation">
+                              {qty} × Rs. {price.toLocaleString()}
+                            </span>
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  /* Edit Mode Table */
-                  <div className="adminTableWrap" style={{ overflowX: "auto" }}>
-                    <table className="adminTable" style={{ minWidth: "620px" }}>
+                  /* Editable Mode */
+                  <div className="shopifyTableWrap">
+                    <table className="shopifyOrderTable">
                       <thead>
                         <tr>
                           <th>Suit / Product</th>
@@ -8840,7 +9988,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                                 <select
                                   value={catalogProducts.some((p) => p.name === (item.name || item.title)) ? (item.name || item.title) : "__custom__"}
                                   onChange={(e) => handleSelectProduct(index, e.target.value)}
-                                  style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", width: "100%" }}
+                                  style={{ padding: "6px 8px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", width: "100%" }}
                                 >
                                   <optgroup label="Store Catalog Products">
                                     {catalogProducts.map((p) => (
@@ -8857,7 +10005,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                                     value={item.name || item.title || ""}
                                     onChange={(e) => updateItemField(index, "name", e.target.value)}
                                     placeholder="Enter suit name..."
-                                    style={{ padding: "4px 6px", fontSize: "11px", borderRadius: "4px", border: "1px solid #2563eb", marginTop: "4px", width: "100%" }}
+                                    style={{ padding: "5px 8px", fontSize: "12px", borderRadius: "5px", border: "1px solid #173d29", marginTop: "4px", width: "100%" }}
                                   />
                                 )}
                               </td>
@@ -8868,7 +10016,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                                     const val = e.target.value;
                                     updateItemField(index, "size", val === "Custom" ? (item.size || "Custom") : val);
                                   }}
-                                  style={{ padding: "4px", fontSize: "11px", borderRadius: "5px", width: "100%" }}
+                                  style={{ padding: "5px", fontSize: "11.5px", borderRadius: "5px", width: "100%" }}
                                 >
                                   {standardSizes.map((s) => <option key={s} value={s}>{s}</option>)}
                                   <option value="Custom">Custom...</option>
@@ -8879,7 +10027,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                                     value={item.size || ""}
                                     onChange={(e) => updateItemField(index, "size", e.target.value)}
                                     placeholder="Custom size..."
-                                    style={{ padding: "3px 5px", fontSize: "10px", marginTop: "3px", width: "100%" }}
+                                    style={{ padding: "4px", fontSize: "11px", marginTop: "3px", width: "100%" }}
                                   />
                                 )}
                               </td>
@@ -8889,7 +10037,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                                   value={item.color || ""}
                                   onChange={(e) => updateItemField(index, "color", e.target.value)}
                                   placeholder="Color"
-                                  style={{ padding: "4px", fontSize: "11px", width: "100%" }}
+                                  style={{ padding: "5px", fontSize: "11.5px", width: "100%" }}
                                 />
                               </td>
                               <td>
@@ -8898,7 +10046,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                                   min="1"
                                   value={item.quantity || 1}
                                   onChange={(e) => updateItemField(index, "quantity", Math.max(1, Number(e.target.value) || 1))}
-                                  style={{ width: "45px", padding: "4px", fontSize: "11px", textAlign: "center" }}
+                                  style={{ width: "50px", padding: "5px", fontSize: "11.5px", textAlign: "center" }}
                                 />
                               </td>
                               <td>
@@ -8907,10 +10055,10 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                                   min="0"
                                   value={item.price || 0}
                                   onChange={(e) => updateItemField(index, "price", Math.max(0, Number(e.target.value) || 0))}
-                                  style={{ width: "80px", padding: "4px", fontSize: "11px" }}
+                                  style={{ width: "90px", padding: "5px", fontSize: "11.5px" }}
                                 />
                               </td>
-                              <td style={{ fontSize: "11px", fontWeight: 700 }}>
+                              <td style={{ fontSize: "12px", fontWeight: 750 }}>
                                 Rs. {(Number(item.price || 0) * Number(item.quantity || 1)).toLocaleString()}
                               </td>
                               <td>
@@ -8918,7 +10066,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveProductItem(index)}
-                                    style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "13px" }}
+                                    style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "14px" }}
                                     title="Remove item"
                                   >
                                     🗑️
@@ -8932,92 +10080,137 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                     </table>
                   </div>
                 )}
-
-                {/* Subtotal & Delivery Line */}
-                <div style={{ marginTop: "14px", borderTop: "1px solid #f1f5f9", paddingTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-                  <div style={{ fontSize: "12px", color: "#64748b" }}>
-                    Items Subtotal: <b>Rs. {calculatedItemsTotal.toLocaleString()}</b> + Delivery: <b>Rs. {deliveryChargeVal.toLocaleString()}</b>
-                  </div>
-                  <div style={{ fontSize: "15px", fontWeight: 800, color: "#166534", background: "#f0fdf4", padding: "5px 14px", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
-                    Total Order Value: Rs. {calculatedOrderTotal.toLocaleString()}
-                  </div>
-                </div>
-              </section>
+              </div>
             </div>
-          )}
 
-          {/* TAB 2: PAYMENT & ADVANCE VERIFICATION */}
-          {drawerTab === "payment" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {/* Payment & Advance Calculator (Digital Receipt) */}
-              <section style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "14px",
-                padding: "18px",
-                boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)"
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", borderBottom: "1px solid #f1f5f9", paddingBottom: "10px" }}>
+            {/* 2. PAYMENT & ADVANCE SUMMARY CARD */}
+            <div className="shopifySectionCard">
+              <div className="shopifySectionHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <CreditCard size={17} color="#4b5563" />
+                  <h3 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#111827" }}>
+                    Payment &amp; Financial Accounting
+                  </h3>
+                </div>
+                {paymentStatus.toLowerCase().includes("paid") || paymentStatus.toLowerCase().includes("verified") ? (
+                  <span className="shopifyPill paid"><span className="pillDot" /> Paid</span>
+                ) : Number(advancePaidAmount || 0) > 0 ? (
+                  <span className="shopifyPill partially_paid"><span className="pillDot" /> Adv Paid</span>
+                ) : (
+                  <span className="shopifyPill pending"><span className="pillDot" /> {paymentStatus}</span>
+                )}
+              </div>
+
+              <div className="shopifySectionBody">
+                {/* Net Cash to Collect Box */}
+                <div className={`shopifyCodDueCard ${currentCod === 0 ? "prepaid" : "cod"}`}>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 800, color: "#0f172a" }}>
-                      💰 Payment &amp; Advance Verification
-                    </h3>
-                    <span style={{ fontSize: "11px", color: "#64748b" }}>Set advance received, transaction TID reference, or mark COD</span>
+                    <div className="shopifyCodLabel">
+                      {currentCod === 0 ? "Payment Status" : "Cash on Delivery (COD Due)"}
+                    </div>
+                    <div className="shopifyCodValue">
+                      {currentCod === 0 ? "Rs. 0 (Fully Paid)" : `Rs. ${currentCod.toLocaleString()}`}
+                    </div>
                   </div>
-                  <span className={`statusBadge ${String(paymentStatus).replaceAll(" ", "").toLowerCase()}`}>
-                    {paymentStatus}
+                  <span className={`shopifyCodBadge ${currentCod === 0 ? "prepaid" : ""}`}>
+                    {currentCod === 0 ? "Paid in full" : "Collect from customer"}
                   </span>
                 </div>
 
-                {/* Quick Advance Shortcuts */}
-                <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "14px", background: "#f8fafc", padding: "10px 14px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-                  <span style={{ fontSize: "11px", fontWeight: 800, color: "#475569" }}>Quick Accounting:</span>
-                  <button
-                    type="button"
-                    style={{ fontSize: "11px", padding: "6px 12px", background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", borderRadius: "6px", cursor: "pointer", fontWeight: 800 }}
-                    onClick={() => { setAdvancePaidAmount(calculatedOrderTotal); setPaymentStatus("Payment Verified"); }}
-                  >
-                    🟢 100% Full Advance (Rs. {calculatedOrderTotal.toLocaleString()})
-                  </button>
-                  <button
-                    type="button"
-                    style={{ fontSize: "11px", padding: "6px 12px", background: "#fefce8", color: "#854d0e", border: "1px solid #fde047", borderRadius: "6px", cursor: "pointer", fontWeight: 800 }}
-                    onClick={() => { setAdvancePaidAmount(deliveryChargeVal || 250); setPaymentStatus("Payment Verified"); }}
-                  >
-                    🟡 Delivery Advance (Rs. {(deliveryChargeVal || 250).toLocaleString()})
-                  </button>
-                  <button
-                    type="button"
-                    style={{ fontSize: "11px", padding: "6px 12px", background: "#ffffff", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "6px", cursor: "pointer", fontWeight: 800 }}
-                    onClick={() => { setAdvancePaidAmount(0); setPaymentStatus("COD pending"); }}
-                  >
-                    ⚪ Full COD (Rs. 0 Advance)
-                  </button>
+                {/* Financial Breakdown Table */}
+                <div className="shopifyFinancialBreakdown">
+                  <div className="shopifyFinancialRow">
+                    <span>Items subtotal ({orderItems.length} items)</span>
+                    <b>Rs. {calculatedItemsTotal.toLocaleString()}</b>
+                  </div>
+                  <div className="shopifyFinancialRow">
+                    <span>Shipping / Delivery charges</span>
+                    <b>Rs. {deliveryChargeVal.toLocaleString()}</b>
+                  </div>
+                  {Number(advancePaidAmount || 0) > 0 && (
+                    <div className="shopifyFinancialRow">
+                      <span>Advance payment received</span>
+                      <b style={{ color: "#15803d" }}>
+                        − Rs. {Number(advancePaidAmount || 0).toLocaleString()}
+                      </b>
+                    </div>
+                  )}
+                  <div className="shopifyFinancialRow total">
+                    <span>Total Order Value</span>
+                    <b>Rs. {calculatedOrderTotal.toLocaleString()}</b>
+                  </div>
                 </div>
 
-                <div className="formRow" style={{ marginTop: "4px" }}>
-                  <label>
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569" }}>Advance Received (PKR)</span>
+                {/* 1-Click Accounting Shortcuts via Modern Segmented Control */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      Payment Terms &amp; Settlement
+                    </span>
+                    <span style={{ fontSize: "11.5px", color: "#6b7280" }}>
+                      {advancePaidAmount == calculatedOrderTotal && calculatedOrderTotal > 0 ? "100% Prepaid Settlement" : advancePaidAmount == (deliveryChargeVal || 250) ? "Delivery Advance Collected" : "Standard Cash on Delivery"}
+                    </span>
+                  </div>
+                  <div className="shopifySegmentedGroup">
+                    <button
+                      type="button"
+                      className={`shopifySegmentBtn ${advancePaidAmount == calculatedOrderTotal && calculatedOrderTotal > 0 ? "active" : ""}`}
+                      onClick={() => { setAdvancePaidAmount(calculatedOrderTotal); setPaymentStatus("Payment Verified"); }}
+                    >
+                      <CheckCircle2 size={13} />
+                      <span>100% Prepaid</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`shopifySegmentBtn advance ${advancePaidAmount == (deliveryChargeVal || 250) ? "active" : ""}`}
+                      onClick={() => { setAdvancePaidAmount(deliveryChargeVal || 250); setPaymentStatus("Payment Verified"); }}
+                    >
+                      <ReceiptText size={13} />
+                      <span>Delivery Advance (Rs. {(deliveryChargeVal || 250).toLocaleString()})</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`shopifySegmentBtn fullCod ${advancePaidAmount == 0 ? "active" : ""}`}
+                      onClick={() => { setAdvancePaidAmount(0); setPaymentStatus("COD pending"); }}
+                    >
+                      <Clock size={13} />
+                      <span>Full COD</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Payment Form Fields */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", borderTop: "1px solid #edf1ee", paddingTop: "14px" }}>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Advance Received (PKR)</span>
                     <input
                       type="number"
                       min="0"
                       max={calculatedOrderTotal}
                       value={advancePaidAmount}
                       onChange={(event) => setAdvancePaidAmount(event.target.value)}
-                      placeholder="Advance amount..."
+                      placeholder="0"
+                      style={{ padding: "8px 10px", fontSize: "13px", borderRadius: "6px", border: "1px solid #d5dfd6" }}
                     />
                   </label>
-                  <label>
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569" }}>Payment Reference / TID</span>
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Transaction TID / Ref</span>
                     <input
                       value={paymentReference}
                       onChange={(event) => setPaymentReference(event.target.value)}
                       placeholder="NayaPay, Bank, JazzCash TID..."
+                      style={{ padding: "8px 10px", fontSize: "13px", borderRadius: "6px", border: "1px solid #d5dfd6" }}
                     />
                   </label>
-                  <label>
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569" }}>Payment Status</span>
-                    <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Payment Status</span>
+                    <select
+                      value={paymentStatus}
+                      onChange={(event) => setPaymentStatus(event.target.value)}
+                      style={{ padding: "8px 10px", fontSize: "13px", borderRadius: "6px", border: "1px solid #d5dfd6" }}
+                    >
                       <option>COD pending</option>
                       <option>Advance Pending</option>
                       <option>Proof Submitted</option>
@@ -9029,325 +10222,546 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                   </label>
                 </div>
 
-                {/* Balance math breakdown */}
-                <div style={{ background: "#f8fafc", padding: "12px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-                  <div>
-                    <div style={{ fontSize: "11px", color: "#64748b" }}>Order Total: <b>Rs. {calculatedOrderTotal.toLocaleString()}</b> − Advance Received: <b>Rs. {Number(advancePaidAmount || 0).toLocaleString()}</b></div>
-                    <div style={{ fontSize: "15px", fontWeight: 900, color: currentCod === 0 ? "#166534" : "#1d4ed8", marginTop: "2px" }}>
-                      Net Cash to Collect (Rider COD): Rs. {currentCod.toLocaleString()}
-                    </div>
+                {/* Dynamic Context-Aware Payment & Fulfillment Action Area */}
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #edf1ee", paddingTop: "14px" }}>
+                  {/* Status Note on the Left */}
+                  <div style={{ fontSize: "12.5px" }}>
+                    {isCodOrder ? (
+                      <span style={{ color: "#4b5563", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <Clock size={14} color="#6b7280" />
+                        <span><b>Cash on Delivery:</b> No advance payment required. Full Rs. {currentCod.toLocaleString()} to be collected by rider.</span>
+                      </span>
+                    ) : isPaymentPaidOrVerified ? (
+                      <span style={{ color: "#166534", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+                        <CheckCircle2 size={15} color="#16a34a" />
+                        <span>Payment Verified: Rs. {Number(advancePaidAmount || calculatedOrderTotal).toLocaleString()} received {paymentReference ? `(TID: ${paymentReference})` : ""}</span>
+                      </span>
+                    ) : isPaymentRejected ? (
+                      <span style={{ color: "#991b1b", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+                        <AlertCircle size={15} color="#dc2626" />
+                        <span>Payment proof rejected. Awaiting revised payment or COD conversion.</span>
+                      </span>
+                    ) : (
+                      <span style={{ color: "#b45309", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+                        <AlertCircle size={15} color="#d97706" />
+                        <span>Advance payment of Rs. {advNum.toLocaleString()} received — verify transaction to approve.</span>
+                      </span>
+                    )}
                   </div>
 
+                  {/* Contextual Action Buttons on the Right */}
                   <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPaymentStatus("Payment Verified");
-                        setFulfillmentStatus("Packing");
-                        saveChanges({ paymentStatus: "Payment Verified", paymentReference, amountPayableInAdvance: Number(advancePaidAmount || 0), fulfillmentStatus: "Packing", confirmationStatus: "Confirmed" });
-                      }}
-                      disabled={saving}
-                      style={{ background: "#166534", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: "7px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
-                    >
-                      ✅ Verify Payment &amp; Move to Packing
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPaymentStatus("Payment Rejected");
-                        saveChanges({ paymentStatus: "Payment Rejected", paymentReference, confirmationStatus: "Confirmed" });
-                      }}
-                      disabled={saving}
-                      style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", padding: "8px 14px", borderRadius: "7px", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}
-                    >
-                      ❌ Reject Payment
-                    </button>
-                  </div>
-                </div>
-              </section>
-            </div>
-          )}
+                    {/* CASE 1: Customer sent advance / proof that needs verification */}
+                    {isPendingVerification && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPaymentStatus("Payment Verified");
+                            setFulfillmentStatus("Packing");
+                            saveChanges({
+                              paymentStatus: "Payment Verified",
+                              paymentReference,
+                              amountPayableInAdvance: Number(advancePaidAmount || 0),
+                              fulfillmentStatus: "Packing",
+                              confirmationStatus: "Confirmed",
+                              status: "Packing",
+                              orderStage: "Packing",
+                            });
+                          }}
+                          disabled={saving}
+                          className="shopifyBtnPrimary"
+                          style={{ fontSize: "12px", padding: "7px 16px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                        >
+                          <Check size={14} />
+                          <span>Verify Rs. {advNum.toLocaleString()} &amp; Move to Packing</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPaymentStatus("Payment Rejected");
+                            saveChanges({ paymentStatus: "Payment Rejected", paymentReference, confirmationStatus: "Confirmed" });
+                          }}
+                          disabled={saving}
+                          className="shopifyRowBtn danger"
+                          style={{ fontSize: "12px", padding: "7px 14px", display: "inline-flex", alignItems: "center", gap: "5px" }}
+                        >
+                          <X size={13} />
+                          <span>Reject Proof</span>
+                        </button>
+                      </>
+                    )}
 
-          {/* TAB 3: LOGISTICS & POSTEX */}
-          {drawerTab === "logistics" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {/* PostEx Booking Card */}
-              <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "18px", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", borderBottom: "1px solid #f1f5f9", paddingBottom: "10px" }}>
-                  <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 800, color: "#0f172a" }}>
-                    🚚 PostEx Shipment Details
-                  </h3>
-                  <span className={`statusBadge ${String(orderStage).replaceAll(" ", "").replaceAll("-", "").toLowerCase()}`}>
-                    {orderStage}
-                  </span>
-                </div>
-
-                {!tracking ? (
-                  <div>
-                    <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#64748b" }}>
-                      Parcel is ready for dispatch from warehouse. Click below to generate official PostEx tracking number &amp; consignment note:
-                    </p>
-                    <button
-                      type="button"
-                      onClick={bookWithPostex}
-                      disabled={saving || bookingPostex}
-                      style={{
-                        background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
-                        color: "#ffffff",
-                        border: "none",
-                        fontWeight: 800,
-                        padding: "10px 22px",
-                        borderRadius: "8px",
-                        fontSize: "13px",
-                        cursor: (saving || bookingPostex) ? "not-allowed" : "pointer",
-                        boxShadow: "0 3px 12px rgba(37, 99, 235, 0.3)"
-                      }}
-                    >
-                      {bookingPostex ? "Booking with PostEx..." : "⚡ Book with PostEx Courier (1-Click)"}
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
-                      <code style={{ fontSize: "16px", fontWeight: 800, color: "#166534", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "6px 14px", borderRadius: "6px" }}>
-                        {tracking}
-                      </code>
+                    {/* CASE 2: COD Order - not yet moved to packing */}
+                    {isCodOrder && fulfillmentStatus === "Unfulfilled" && !isBooked && (
                       <button
                         type="button"
-                        onClick={copyTrackingToClipboard}
-                        style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "6px 12px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
+                        onClick={() => {
+                          setFulfillmentStatus("Packing");
+                          setOrderStage("Packing");
+                          saveChanges({
+                            fulfillmentStatus: "Packing",
+                            confirmationStatus: "Confirmed",
+                            status: "Packing",
+                            orderStage: "Packing",
+                          });
+                        }}
+                        disabled={saving}
+                        className="shopifyBtnPrimary"
+                        style={{ fontSize: "12px", padding: "7px 16px", display: "inline-flex", alignItems: "center", gap: "6px" }}
                       >
-                        {copiedTracking ? "✅ Copied" : "📋 Copy CN"}
+                        <Package size={14} />
+                        <span>Confirm Order &amp; Move to Packing</span>
                       </button>
-                      {!tracking.startsWith("MANUAL-") && (
+                    )}
+
+                    {/* CASE 3: Payment is ALREADY Verified, but order is still Unfulfilled */}
+                    {isPaymentPaidOrVerified && fulfillmentStatus === "Unfulfilled" && !isBooked && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFulfillmentStatus("Packing");
+                          setOrderStage("Packing");
+                          saveChanges({
+                            fulfillmentStatus: "Packing",
+                            confirmationStatus: "Confirmed",
+                            status: "Packing",
+                            orderStage: "Packing",
+                          });
+                        }}
+                        disabled={saving}
+                        className="shopifyBtnPrimary"
+                        style={{ fontSize: "12px", padding: "7px 16px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                      >
+                        <Package size={14} />
+                        <span>Move to Packing</span>
+                      </button>
+                    )}
+
+                    {/* CASE 4: Payment was Rejected - option to convert to Full COD */}
+                    {isPaymentRejected && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdvancePaidAmount(0);
+                          setPaymentStatus("COD pending");
+                          saveChanges({
+                            amountPayableInAdvance: 0,
+                            paymentStatus: "COD pending",
+                          });
+                        }}
+                        disabled={saving}
+                        className="shopifyBtnSecondary"
+                        style={{ fontSize: "12px", padding: "7px 14px", display: "inline-flex", alignItems: "center", gap: "5px" }}
+                      >
+                        <Clock size={13} />
+                        <span>Switch to Cash on Delivery</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. ACTIVITY TIMELINE & INTERNAL NOTES CARD */}
+            <div className="shopifySectionCard">
+              <div className="shopifySectionHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <FileText size={17} color="#4b5563" />
+                  <h3 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#111827" }}>
+                    Notes &amp; Activity Timeline
+                  </h3>
+                </div>
+              </div>
+
+              <div className="shopifySectionBody">
+                <div>
+                  <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#374151" }}>Private Notes / Workshop Stitching Instructions:</span>
+                  <textarea
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    rows="3"
+                    placeholder="Add stitching notes, custom instructions, or delivery notes here..."
+                    style={{ width: "100%", padding: "10px", fontSize: "13px", borderRadius: "8px", border: "1px solid #d5ded6", marginTop: "6px" }}
+                  />
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
+                    <button
+                      type="button"
+                      className="shopifyBtnSecondary"
+                      onClick={() => saveChanges({ notes })}
+                      disabled={saving}
+                      style={{ fontSize: "12px", padding: "6px 14px", display: "inline-flex", alignItems: "center", gap: "5px" }}
+                    >
+                      <Save size={13} />
+                      <span>Save Note</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Collapsible Returns Workflow */}
+                <details style={{ background: "#f8faf8", border: "1px solid #dce4dd", borderRadius: "8px", padding: "12px 16px" }}>
+                  <summary style={{ fontSize: "13px", fontWeight: 700, color: "#243b2e", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <RefreshCw size={13} />
+                      <span>Returns &amp; Exchanges Workflow {returnStatus !== "No return" ? `(${returnStatus})` : ""}</span>
+                    </span>
+                    <span style={{ fontSize: "11px", color: "#6a7c70" }}>Expand ▼</span>
+                  </summary>
+                  <div style={{ marginTop: "12px", borderTop: "1px solid #e2ece4", paddingTop: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Return Status</span>
+                        <select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)} style={{ padding: "6px", fontSize: "12px" }}>
+                          {returnStatusOptions.map((status) => <option key={status}>{status}</option>)}
+                        </select>
+                      </label>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Return Reason</span>
+                        <input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Size issue, defect..." style={{ padding: "6px", fontSize: "12px" }} />
+                      </label>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Resolution Notes</span>
+                        <input value={returnResolution} onChange={(event) => setReturnResolution(event.target.value)} placeholder="Replacement dispatched..." style={{ padding: "6px", fontSize: "12px" }} />
+                      </label>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Refund Amount (PKR)</span>
+                        <input type="number" min="0" max={calculatedOrderTotal} value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} style={{ padding: "6px", fontSize: "12px" }} />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      className="shopifyBtnPrimary"
+                      onClick={() => saveChanges()}
+                      disabled={saving}
+                      style={{ fontSize: "12px", padding: "6px 14px", alignSelf: "flex-end" }}
+                    >
+                      Save Return Status
+                    </button>
+                  </div>
+                </details>
+
+                {/* Order Activity Timeline */}
+                <div style={{ borderTop: "1px solid #edf1ee", paddingTop: "14px" }}>
+                  <span style={{ fontSize: "13px", fontWeight: 750, color: "#122a1e", marginBottom: "10px", display: "block" }}>Order Timeline</span>
+                  <div className="shopifyTimeline">
+                    <div className="shopifyTimelineItem">
+                      <div className="shopifyTimelineDot" />
+                      <span className="shopifyTimelineText">Order Placed</span>
+                      <span className="shopifyTimelineTime">{order.date}</span>
+                    </div>
+                    {order.tracking && (
+                      <div className="shopifyTimelineItem">
+                        <div className="shopifyTimelineDot" />
+                        <span className="shopifyTimelineText">PostEx Tracking Assigned: {order.tracking}</span>
+                        <span className="shopifyTimelineTime">Live Courier Consignment</span>
+                      </div>
+                    )}
+                    {(order.operationEvents || []).map((event, index) => (
+                      <div key={`${event.created_at || "event"}-${index}`} className="shopifyTimelineItem">
+                        <div className="shopifyTimelineDot" />
+                        <span className="shopifyTimelineText">
+                          {event.event_type === "order_operation_updated" ? "Return / refund workflow updated" : formatOrderStatus(event.event_type)}
+                        </span>
+                        <span className="shopifyTimelineTime">
+                          {event.created_at ? new Date(event.created_at).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Just now"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT SIDEBAR COLUMN (35%) */}
+          <div className="shopifyOrderSideCol">
+            {/* 1. CUSTOMER PROFILE CARD */}
+            <div className="shopifySectionCard">
+              <div className="shopifySectionHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <User size={17} color="#4b5563" />
+                  <h3 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#111827" }}>Customer</h3>
+                </div>
+                <span className="shopifyCityPill" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <MapPin size={11} /> {order.city || "Pakistan"}
+                </span>
+              </div>
+
+              <div className="shopifySectionBody">
+                <div className="shopifyCustomerProfile">
+                  <div className="shopifyCustomerAvatar">{customerInitials}</div>
+                  <div>
+                    <div className="shopifyCustomerNameLarge">{order.customer || "Guest Customer"}</div>
+                    <div style={{ fontSize: "12px", color: "#6a7c70" }}>Customer since {order.date}</div>
+                  </div>
+                </div>
+
+                {/* Contact Actions */}
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {rawPhoneDigits && (
+                    <a
+                      href={waLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shopifyWaBtn"
+                      style={{ padding: "8px 14px", fontSize: "12.5px", fontWeight: 700, flex: 1, justifyContent: "center", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                      title="Open WhatsApp with pre-filled confirmation message"
+                    >
+                      <MessageSquare size={14} />
+                      <span>WhatsApp Customer</span>
+                    </a>
+                  )}
+                  {rawPhoneDigits && (
+                    <a
+                      href={`tel:${order.phone}`}
+                      className="shopifyBtnSecondary"
+                      style={{ padding: "8px 14px", fontSize: "12.5px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                    >
+                      <Phone size={13} />
+                      <span>{order.phone}</span>
+                    </a>
+                  )}
+                </div>
+
+                {/* Shipping Address */}
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#63756a", textTransform: "uppercase" }}>Delivery Address</span>
+                    <button
+                      type="button"
+                      className="shopifyOrderCopyBtn"
+                      onClick={copyAddressToClipboard}
+                    >
+                      <Copy size={11} />
+                      <span>{copiedAddress ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+                  <div className="shopifyAddressBlock">
+                    <div>{order.address || order.city || "No street address provided"}</div>
+                    {order.city && (
+                      <div style={{ fontSize: "12px", color: "#55675c" }}>City: <b style={{ color: "#173d29" }}>{order.city}</b></div>
+                    )}
+                    {order.email && (
+                      <div style={{ fontSize: "12px", color: "#6a7c70" }}>✉️ {order.email}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. LOGISTICS & POSTEX DISPATCH CARD */}
+            <div className="shopifySectionCard">
+              <div className="shopifySectionHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Truck size={17} color="#4b5563" />
+                  <h3 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#111827" }}>Logistics &amp; Fulfillment</h3>
+                </div>
+                <span className={`shopifyPill ${tracking ? "in_transit" : "unfulfilled"}`}>
+                  <span className="pillDot" /> {tracking ? "Booked" : "Unbooked"}
+                </span>
+              </div>
+
+              <div className="shopifySectionBody">
+                <div>
+                  <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#63756a", textTransform: "uppercase" }}>Tracking Number</span>
+                  {!tracking ? (
+                    <div style={{ marginTop: "6px" }}>
+                      <div style={{ fontSize: "13px", color: "#b45309", fontWeight: 600 }}>
+                        Consignment unbooked with courier
+                      </div>
+                      <button
+                        type="button"
+                        className="shopifyBtnPrimary"
+                        onClick={bookWithPostex}
+                        disabled={saving || bookingPostex}
+                        style={{ marginTop: "8px", width: "100%", justifyContent: "center", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                      >
+                        <Truck size={14} />
+                        <span>{bookingPostex ? "Booking with PostEx..." : "Book PostEx Courier (1-Click)"}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <code style={{ fontSize: "14px", fontWeight: 800, color: "#166534", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "4px 8px", borderRadius: "5px", flex: 1 }}>
+                          {tracking}
+                        </code>
+                        <button
+                          type="button"
+                          className="shopifyOrderCopyBtn"
+                          onClick={copyTrackingToClipboard}
+                        >
+                          <Copy size={11} />
+                          <span>{copiedTracking ? "Copied" : "Copy"}</span>
+                        </button>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "6px" }}>
                         <a
                           href={`https://postex.pk/tracking?cn=${tracking}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          style={{
-                            background: "#eff6ff",
-                            color: "#1d4ed8",
-                            border: "1px solid #bfdbfe",
-                            padding: "6px 12px",
-                            borderRadius: "6px",
-                            fontSize: "11px",
-                            fontWeight: 700,
-                            textDecoration: "none"
-                          }}
+                          className="shopifyTrackingLink"
+                          style={{ margin: 0, flex: 1, justifyContent: "center", padding: "6px", display: "inline-flex", alignItems: "center", gap: "5px" }}
                         >
-                          🔗 Open PostEx.pk
+                          <ExternalLink size={12} />
+                          <span>Open PostEx.pk</span>
                         </a>
-                      )}
-                      <button
-                        type="button"
-                        onClick={checkLivePostexStatus}
-                        disabled={saving || checkingPostex}
-                        style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "6px 12px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
-                      >
-                        {checkingPostex ? "Checking..." : "🔄 Refresh Live Status"}
-                      </button>
-                    </div>
+                        <button
+                          type="button"
+                          className="shopifyRowBtn"
+                          onClick={checkLivePostexStatus}
+                          disabled={saving || checkingPostex}
+                          style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
+                        >
+                          <RefreshCw size={12} className={checkingPostex ? "animate-spin" : ""} />
+                          <span>Status</span>
+                        </button>
+                      </div>
 
-                    <div style={{ display: "flex", gap: "8px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
                       {!orderStage.toLowerCase().includes("deliver") && (
                         <button
                           type="button"
                           onClick={unbookOrder}
                           disabled={saving || checkingPostex}
-                          style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", fontWeight: 700, padding: "6px 14px", borderRadius: "6px", fontSize: "11px", cursor: "pointer" }}
+                          className="shopifyRowBtn danger"
+                          style={{ fontSize: "11.5px", justifyContent: "center", marginTop: "4px", display: "inline-flex", alignItems: "center", gap: "5px" }}
                         >
-                          ↩️ Return to Warehouse (Unbook)
+                          <ArrowLeft size={12} />
+                          <span>Mark as Unbooked (Return to Warehouse)</span>
                         </button>
                       )}
                     </div>
-                  </div>
-                )}
-              </section>
+                  )}
+                </div>
 
-              {/* Status & Courier Overrides */}
-              <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "18px", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)" }}>
-                <h3 style={{ margin: "0 0 12px", fontSize: "14px", fontWeight: 800, color: "#0f172a" }}>
-                  ⚙️ Manual Status Overrides
-                </h3>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
-                  <label>
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b" }}>Courier Stage</span>
+                {/* Clean Status & Delivery Selectors */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", borderTop: "1px solid #edf1ee", paddingTop: "12px" }}>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Fulfillment &amp; Courier Stage</span>
                     <select
                       value={orderStage}
                       onChange={(e) => {
                         const val = e.target.value;
                         setOrderStage(val);
                         const isUnbook = val.toLowerCase().includes("unbook");
-                        if (isUnbook) setFulfillmentStatus("Unfulfilled");
-                        saveChanges({ postexStatus: val, status: val, orderStage: val, ...(isUnbook ? { fulfillmentStatus: "Unfulfilled" } : {}) });
+                        const isDeliv = val.toLowerCase().includes("deliver");
+                        const isCancel = val.toLowerCase().includes("cancel");
+                        const isReturn = val.toLowerCase().includes("return");
+                        const newFulfillment = isDeliv ? "Delivered" : isCancel ? "Cancelled" : isReturn ? "Returned" : isUnbook ? "Unfulfilled" : "Booked with PostEx";
+                        setFulfillmentStatus(newFulfillment);
+                        saveChanges({
+                          postexStatus: val,
+                          status: val,
+                          orderStage: val,
+                          fulfillmentStatus: newFulfillment
+                        });
                       }}
-                      style={{ padding: "7px", borderRadius: "6px", fontSize: "12px" }}
+                      style={{ padding: "7px 10px", fontSize: "12.5px", borderRadius: "6px", border: "1px solid #d5ded6" }}
                     >
-                      {customOrderStatusOptions.map((s) => <option key={s}>{s}</option>)}
+                      <option value="Unbooked">Unfulfilled (Unbooked)</option>
+                      <option value="Packing">Packing &amp; Stitching</option>
+                      <option value="Booked">Booked with PostEx</option>
+                      <option value="In Transit">In Transit (Courier Hub)</option>
+                      <option value="Out For Delivery">Out For Delivery</option>
+                      <option value="Delivered">Delivered (Completed)</option>
+                      <option value="Returned">Returned</option>
+                      <option value="Cancelled">Cancelled</option>
                     </select>
                   </label>
 
-                  <label>
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b" }}>Delivery Method</span>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Delivery Method</span>
                     <select
                       value={deliveryMethod}
                       onChange={(e) => {
                         setDeliveryMethod(e.target.value);
                         saveChanges({ deliveryMethod: e.target.value });
                       }}
-                      style={{ padding: "7px", borderRadius: "6px", fontSize: "12px" }}
+                      style={{ padding: "7px 10px", fontSize: "12.5px", borderRadius: "6px", border: "1px solid #d5ded6" }}
                     >
                       <option>PostEx</option>
                       <option>Rider / same city</option>
                       <option>Customer pickup</option>
                       <option>Staff delivery</option>
                       <option>Manual courier</option>
-                      <option>PostEx later</option>
-                    </select>
-                  </label>
-
-                  <label>
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748b" }}>Fulfillment Status</span>
-                    <select
-                      value={fulfillmentStatus}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFulfillmentStatus(val);
-                        saveChanges({ fulfillmentStatus: val });
-                      }}
-                      style={{ padding: "7px", borderRadius: "6px", fontSize: "12px" }}
-                    >
-                      <option>Unfulfilled</option>
-                      <option>Packing</option>
-                      <option>Booked with PostEx</option>
-                      <option>Shipped</option>
-                      <option>Delivered</option>
-                      <option>On hold</option>
                     </select>
                   </label>
                 </div>
-              </section>
+              </div>
             </div>
-          )}
 
-          {/* TAB 4: NOTES & HISTORY */}
-          {drawerTab === "notes" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {/* Internal Notes */}
-              <section style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "18px", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)" }}>
-                <h3 style={{ margin: "0 0 6px", fontSize: "15px", fontWeight: 800, color: "#0f172a" }}>
-                  📝 Internal Notes &amp; Special Remarks
-                </h3>
-                <p style={{ margin: "0 0 10px", fontSize: "12px", color: "#64748b" }}>
-                  Special customer requests, rider instructions, or workshop stitching notes:
-                </p>
-
-                {notes && (
-                  <div style={{ background: "#f8fafc", padding: "12px 14px", borderRadius: "8px", border: "1px solid #e2e8f0", color: "#334155", fontSize: "13px", lineHeight: "1.5", whiteSpace: "pre-wrap", marginBottom: "12px" }}>
-                    {notes}
-                  </div>
-                )}
-
-                <textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  rows="3"
-                  placeholder="Write internal remarks, delivery timing, or stitching notes..."
-                  style={{ padding: "9px", borderRadius: "7px", border: "1px solid #cbd5e1", width: "100%", fontSize: "13px" }}
-                />
-
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "10px" }}>
-                  <button
-                    type="button"
-                    onClick={() => saveChanges({ notes })}
-                    disabled={saving}
-                    style={{ background: "#334155", color: "#ffffff", border: "none", padding: "8px 18px", borderRadius: "7px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
-                  >
-                    💾 Save Note
-                  </button>
+            {/* 3. CHANNEL & TAGS CARD */}
+            <div className="shopifySectionCard">
+              <div className="shopifySectionHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Tags size={17} color="#4b5563" />
+                  <h3 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#111827" }}>Channel &amp; Tags</h3>
                 </div>
-              </section>
+              </div>
 
-              {/* Returns & Refunds (Collapsible) */}
-              <details style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "14px 18px", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)" }}>
-                <summary style={{ fontSize: "13px", fontWeight: 700, color: "#334155", cursor: "pointer", display: "flex", justifyContent: "space-between" }}>
-                  <span>🔄 Returns &amp; Exchanges Workflow {returnStatus !== "No return" ? `(${returnStatus})` : ""}</span>
-                  <span style={{ fontSize: "11px", color: "#94a3b8" }}>Expand ▼</span>
-                </summary>
-                <div style={{ marginTop: "12px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
-                  <div className="formRow">
-                    <label>
-                      Status
-                      <select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)}>
-                        {returnStatusOptions.map((status) => <option key={status}>{status}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      Reason
-                      <input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Size, defect, etc." />
-                    </label>
+              <div className="shopifySectionBody">
+                <div>
+                  <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#63756a", textTransform: "uppercase" }}>Order Channel</span>
+                  <div style={{ marginTop: "4px" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: "#f1f5f2", border: "1px solid #d4ded6", padding: "4px 10px", borderRadius: "6px", fontSize: "12.5px", fontWeight: 600, color: "#173d29" }}>
+                      {orderSourceBadge(order.source).label}
+                    </span>
                   </div>
-                  <div className="formRow">
-                    <label>
-                      Resolution
-                      <textarea value={returnResolution} onChange={(event) => setReturnResolution(event.target.value)} rows="2" placeholder="Resolution notes..." />
-                    </label>
-                    <label>
-                      Refund Amount (PKR)
-                      <input type="number" min="0" max={calculatedOrderTotal} step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} />
-                    </label>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => saveChanges()}
-                    disabled={saving}
-                    style={{ background: "#166534", color: "#ffffff", border: "none", padding: "7px 16px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, marginTop: "10px", cursor: "pointer" }}
-                  >
-                    Save Return Workflow
-                  </button>
                 </div>
-              </details>
 
-              {/* Meta Pixel & Order Timeline */}
-              <details style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "14px 18px", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.02)" }}>
-                <summary style={{ fontSize: "13px", fontWeight: 700, color: "#334155", cursor: "pointer", display: "flex", justifyContent: "space-between" }}>
-                  <span>📡 Meta CAPI &amp; Order Activity Timeline</span>
-                  <span style={{ fontSize: "11px", color: "#94a3b8" }}>Expand ▼</span>
-                </summary>
-                <div style={{ marginTop: "12px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
-                  <div style={{ fontSize: "12px", background: "#f8fafc", padding: "12px", borderRadius: "8px", marginBottom: "12px", border: "1px solid #e2e8f0" }}>
-                    <div><b>Shared Event ID:</b> <code>{order.order_number || String(order.id).replace(/^#/, "")}</code></div>
-                    <div><b>Conversion Value:</b> Rs. {savedMoney.total.toLocaleString()}</div>
-                    <div style={{ marginTop: "8px", display: "flex", gap: "6px" }}>
-                      {onNavigateToEvents && (
-                        <button type="button" onClick={() => onNavigateToEvents(order.order_number || order.id)} style={{ padding: "4px 9px", fontSize: "11px" }}>
-                          🔍 View in Events Log
-                        </button>
-                      )}
-                      <button type="button" onClick={resyncOrderMetaPurchase} disabled={resyncingCapi || saving} style={{ padding: "4px 9px", fontSize: "11px" }}>
-                        {resyncingCapi ? "Dispatching..." : "⚡ Re-sync Meta Purchase"}
-                      </button>
-                    </div>
-                  </div>
-
-                  <h4 style={{ margin: "10px 0 6px", fontSize: "13px", color: "#0f172a" }}>Activity Timeline</h4>
-                  <div className="orderTimeline">
-                    <div><b>Order Created</b><span>{order.date}</span></div>
-                    {order.tracking && <div><b>Tracking Assigned</b><span>{order.tracking}</span></div>}
-                    {(order.operationEvents || []).map((event, index) => (
-                      <div key={`${event.created_at || "event"}-${index}`}>
-                        <b>{event.event_type === "order_operation_updated" ? "Return / refund workflow updated" : formatOrderStatus(event.event_type)}</b>
-                        <span>{event.created_at ? new Date(event.created_at).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Just now"}</span>
-                      </div>
+                <div>
+                  <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#63756a", textTransform: "uppercase" }}>Order Tags</span>
+                  <input
+                    value={tags}
+                    onChange={(event) => setTags(event.target.value)}
+                    placeholder="e.g. VIP, Urgent, Stitching"
+                    style={{ width: "100%", padding: "7px 10px", fontSize: "12.5px", borderRadius: "6px", border: "1px solid #d5ded6", marginTop: "4px" }}
+                  />
+                  <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "6px" }}>
+                    {tags.split(",").map((t) => t.trim()).filter(Boolean).map((tag) => (
+                      <span key={tag} style={{ background: "#edf4ef", border: "1px solid #c8d9cc", color: "#173d29", padding: "2px 7px", borderRadius: "4px", fontSize: "11px", fontWeight: 600 }}>
+                        {tag}
+                      </span>
                     ))}
                   </div>
                 </div>
-              </details>
+
+                {/* Meta Pixel & Events Log Link */}
+                <div style={{ borderTop: "1px solid #edf1ee", paddingTop: "10px", fontSize: "12px", color: "#6a7c70" }}>
+                  <div>Shared Event ID: <code style={{ color: "#173d29" }}>{order.order_number || String(order.id).replace(/^#/, "")}</code></div>
+                  <div style={{ marginTop: "6px", display: "flex", gap: "6px" }}>
+                    {onNavigateToEvents && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigateToEvents(order.order_number || order.id)}
+                        className="shopifyRowBtn"
+                        style={{ fontSize: "11px", padding: "4px 8px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                      >
+                        <ExternalLink size={11} />
+                        <span>Events Log</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={resyncOrderMetaPurchase}
+                      disabled={resyncingCapi || saving}
+                      className="shopifyRowBtn"
+                      style={{ fontSize: "11px", padding: "4px 8px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <RefreshCw size={11} className={resyncingCapi ? "animate-spin" : ""} />
+                      <span>Sync Meta</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
-      </aside>
-    </>
+      </div>
+    </div>
   );
 }
 
@@ -9383,6 +10797,7 @@ function whatsappNumber(phone = "") {
 
 function OrderTable({
   rows,
+  products = [],
   onSelect,
   density = "comfortable",
   selectedOrderIds = [],
@@ -9397,37 +10812,28 @@ function OrderTable({
   const columnCount = selectable ? 8 : 7;
 
   return (
-    <div className={`adminTableWrap orderTableWrap ${density === "compact" ? "compactTable" : ""}`}>
-      <table className="adminTable orderTable">
-        <colgroup>
-          {selectable && <col className="colSelect" />}
-          <col className="colOrder" />
-          <col className="colCustomer" />
-          <col className="colItems" />
-          <col className="colSize" style={{ width: "68px" }} />
-          <col className="colStatus" />
-          <col className="colMoney" />
-          <col className="colActions" />
-        </colgroup>
+    <div className={`shopifyTableWrap ${density === "compact" ? "compactTable" : ""}`}>
+      <table className="shopifyOrderTable">
         <thead>
           <tr>
             {selectable && (
-              <th className="orderCellSelect">
+              <th style={{ width: "38px", textAlign: "center" }}>
                 <input
                   type="checkbox"
                   aria-label="Select all orders"
                   checked={rows.length > 0 && rows.every((row) => selectedOrderIds.includes(row.id))}
                   onChange={onToggleSelectAll}
+                  style={{ accentColor: "#173d29", width: "16px", height: "16px", cursor: "pointer" }}
                 />
               </th>
             )}
             <th>Order</th>
             <th>Customer</th>
-            <th>Articles</th>
-            <th style={{ textAlign: "center", width: "68px" }}>Size</th>
-            <th>Courier Status</th>
-            <th>Total &amp; Payment</th>
-            <th className="orderCellActions">Actions</th>
+            <th>Items</th>
+            <th>Payment</th>
+            <th>Fulfillment</th>
+            <th>Total</th>
+            <th style={{ textAlign: "right" }}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -9440,23 +10846,42 @@ function OrderTable({
             const note = order.notes || order.internalNotes || "";
             const source = orderSourceBadge(order.source);
             const statusLabel = order.postexStatus || order.status || "Unbooked";
-            const statusKey = orderStatus(order).replaceAll(" ", "").replaceAll("-", "");
+
+            // Determine image thumbnail from items or catalog products
+            const firstItem = orderItems[0] || {};
+            let thumbUrl = firstItem.imageUrl || firstItem.image_url || "";
+            if (!thumbUrl && products.length > 0) {
+              const matchedCatalog = products.find((p) => p.name === (firstItem.name || firstItem.title) || p.id === firstItem.productId);
+              if (matchedCatalog) thumbUrl = matchedCatalog.img || matchedCatalog.images?.[0] || "";
+            }
+
+            // Payment pill classes
+            const isPaid = money.isFullyAdvanced || String(order.paymentStatus || "").toLowerCase().includes("paid") || String(order.paymentStatus || "").toLowerCase().includes("verified");
+            const isAdvance = !isPaid && (money.hasAdvance || Number(order.amountPayableInAdvance || 0) > 0);
+
+            // Fulfillment status pill classes
+            const rawStatusLower = String(statusLabel || "").toLowerCase();
+            const isDelivered = rawStatusLower.includes("deliver");
+            const isReturned = rawStatusLower.includes("return");
+            const isOutForDelivery = rawStatusLower.includes("out for delivery") || rawStatusLower.includes("attempt");
+            const isBooked = Boolean(order.tracking && !String(order.tracking).startsWith("MANUAL-")) || rawStatusLower.includes("book") || rawStatusLower.includes("transit") || rawStatusLower.includes("warehouse");
+
             const rowClass = [
-              "orderRow",
+              "shopifyOrderRow",
               isSelected ? "isSelected" : "",
-              isExpanded ? "isExpanded" : "",
             ].filter(Boolean).join(" ");
 
             return (
               <Fragment key={order.id}>
-                <tr className={rowClass}>
+                <tr className={rowClass} onClick={() => onSelect && onSelect(order)}>
                   {selectable && (
-                    <td className="orderCellSelect" onClick={(event) => event.stopPropagation()}>
+                    <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
                       <input
                         type="checkbox"
                         aria-label={`Select order ${order.id}`}
                         checked={isSelected}
                         onChange={() => onToggleSelectOrder(order.id)}
+                        style={{ accentColor: "#173d29", width: "16px", height: "16px", cursor: "pointer" }}
                       />
                     </td>
                   )}
@@ -9465,172 +10890,164 @@ function OrderTable({
                   <td>
                     <button
                       type="button"
-                      className="orderIdLink"
-                      onClick={() => onSelect && onSelect(order)}
-                      title={`Open details for order ${order.id}`}
+                      className="shopifyOrderNumLink"
+                      onClick={(e) => { e.stopPropagation(); onSelect && onSelect(order); }}
                     >
-                      <span className="orderRef">{order.id}</span>
+                      {order.id}
                     </button>
-                    <div className="orderMetaSub">
-                      <span className="orderDateText">{order.date}</span>
-                    </div>
+                    <div className="shopifyOrderDate">{order.date}</div>
+                    {source.label !== "Storefront" && (
+                      <span className="shopifySourceTag">{source.icon} {source.label}</span>
+                    )}
                   </td>
 
                   {/* 2. Customer & Phone */}
                   <td>
-                    <div className="orderCustomerLine">
-                      <span className="orderCustomerName" title={order.customer}>{order.customer}</span>
-                      {waPhone && (
-                        <a
-                          className="orderWhatsappTag"
-                          href={`https://wa.me/${waPhone}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={`Chat with ${order.customer} on WhatsApp`}
-                        >
-                          💬 WA
-                        </a>
-                      )}
-                    </div>
-                    {order.phone && (
-                      <div className="orderLocationSub">
-                        <span className="orderPhoneSmall">{order.phone}</span>
+                    <div className="shopifyCustomerCell">
+                      <span className="shopifyCustomerName">{order.customer || "Guest Customer"}</span>
+                      <div className="shopifyCustomerMeta">
+                        {order.city && <span className="shopifyCityPill">📍 {order.city}</span>}
+                        {waPhone && (
+                          <a
+                            className="shopifyWaBtn"
+                            href={`https://wa.me/${waPhone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title={`WhatsApp ${order.customer}`}
+                          >
+                            💬 WA
+                          </a>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </td>
 
-                  {/* 3. Articles */}
+                  {/* 3. Items Summary */}
                   <td>
                     {orderItems.length > 0 ? (
-                      <div className="orderArticleSummary">
-                        <div className="orderPrimaryItemLine">
-                          <span className="orderItemPrimaryName" title={orderItems[0].name || orderItems[0].title}>
-                            {orderItems[0].name || orderItems[0].title}
+                      <div className="shopifyItemSummaryCell">
+                        {thumbUrl ? (
+                          <img src={thumbUrl} alt={firstItem.name} className="shopifyItemThumbSmall" />
+                        ) : (
+                          <div className="shopifyItemThumbSmall">👗</div>
+                        )}
+                        <div className="shopifyItemInfo">
+                          <span className="shopifyItemTitle" title={firstItem.name || firstItem.title}>
+                            {firstItem.name || firstItem.title}
+                            {Number(firstItem.quantity || 1) > 1 && ` × ${firstItem.quantity}`}
                           </span>
-                          {Number(orderItems[0].quantity || 1) > 1 && (
-                            <span className="orderItemQty">×{orderItems[0].quantity}</span>
-                          )}
-                        </div>
-                        <div className="orderItemMetaChips">
-                          {orderItems.length > 1 && (
-                            <span
-                              className="orderMoreItemsTag"
-                              title={orderItems.map((it) => `${it.name} (${it.size || "Std"} × ${it.quantity || 1})`).join(", ")}
-                              onClick={() => onSelect && onSelect(order)}
-                            >
-                              +{orderItems.length - 1} more item{orderItems.length > 2 ? "s" : ""}
-                            </span>
-                          )}
-                          {note && (
-                            <span
-                              className="orderNoteChip"
-                              title={`Special Note: ${note}`}
-                              onClick={() => onSelect && onSelect(order)}
-                            >
-                              📝 Note
-                            </span>
-                          )}
+                          <div className="shopifyItemMetaChips">
+                            {firstItem.size && (
+                              <span className={isCustomItemSize(firstItem.size) ? "shopifyCustomSizeTag" : "shopifySizeTag"}>
+                                {isCustomItemSize(firstItem.size) ? "Custom" : firstItem.size}
+                              </span>
+                            )}
+                            {orderItems.length > 1 && (
+                              <span className="shopifyMoreItemsTag">
+                                +{orderItems.length - 1} more
+                              </span>
+                            )}
+                            {note && (
+                              <span className="shopifyCustomSizeTag" title={`Note: ${note}`}>📝 Note</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ) : (
-                      <span className="orderMutedText">No items</span>
+                      <span style={{ color: "#8c9c91" }}>No items</span>
                     )}
                   </td>
 
-                  {/* 4. Dedicated Size Column */}
-                  <td style={{ textAlign: "center" }}>
-                    {orderItems.length > 0 ? (
-                      <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
-                        {orderItems.slice(0, 2).map((item, idx) => {
-                          const rawSize = String(item.size || "").trim();
-                          const isCustom = !rawSize || rawSize.toLowerCase().includes("custom") || rawSize.toUpperCase() === "C" || isCustomItemSize(rawSize);
-                          const displaySize = isCustom ? "C" : rawSize;
-                          return (
-                            <span
-                              key={idx}
-                              className="orderSizeTag"
-                              title={isCustom ? `Custom Size: ${rawSize || "Custom measurements"}` : `Size: ${displaySize}`}
-                            >
-                              {displaySize}
-                            </span>
-                          );
-                        })}
-                        {orderItems.length > 2 && (
-                          <span style={{ fontSize: "10px", color: "#64748b" }}>+{orderItems.length - 2}</span>
+                  {/* 4. Payment Status */}
+                  <td>
+                    {isPaid ? (
+                      <span className="shopifyPill paid">
+                        <span className="pillDot" /> Paid
+                      </span>
+                    ) : isAdvance ? (
+                      <span className="shopifyPill partially_paid" title={`Advance Rs. ${money.advance.toLocaleString()} received`}>
+                        <span className="pillDot" /> Partially paid
+                      </span>
+                    ) : (
+                      <span className="shopifyPill pending">
+                        <span className="pillDot" /> Pending
+                      </span>
+                    )}
+                  </td>
+
+                  {/* 5. Fulfillment / Courier */}
+                  <td>
+                    {isDelivered ? (
+                      <span className="shopifyPill delivered">
+                        <span className="pillDot" /> Fulfilled
+                      </span>
+                    ) : isReturned ? (
+                      <span className="shopifyPill returned">
+                        <span className="pillDot" /> Returned
+                      </span>
+                    ) : isOutForDelivery ? (
+                      <span className="shopifyPill out_for_delivery">
+                        <span className="pillDot" /> Out for delivery
+                      </span>
+                    ) : isBooked ? (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "2px" }}>
+                        <span className="shopifyPill in_transit">
+                          <span className="pillDot" /> In transit
+                        </span>
+                        {order.tracking && (
+                          <a
+                            href={`https://postex.pk/tracking?cn=${order.tracking}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shopifyTrackingLink"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Open live tracking on PostEx.pk"
+                          >
+                            🚚 {order.tracking}
+                          </a>
                         )}
                       </div>
                     ) : (
-                      <span className="orderMutedText">—</span>
+                      <span className="shopifyPill unfulfilled">
+                        <span className="pillDot" /> Unfulfilled
+                      </span>
                     )}
                   </td>
 
-                  {/* 4. Courier Status */}
+                  {/* 6. Total PKR */}
                   <td>
-                    <div className="orderStatusBlock">
-                      <span className={`statusBadge orderStatusBadge ${statusKey.toLowerCase()}`}>
-                        {statusLabel}
+                    <div className="shopifyTotalCell">
+                      <span className="shopifyTotalValue">Rs. {money.total.toLocaleString()}</span>
+                      <span className="shopifyTotalSub">
+                        {money.isFullyAdvanced
+                          ? "100% Prepaid"
+                          : money.hasAdvance
+                          ? `COD: Rs. ${money.cod.toLocaleString()}`
+                          : `COD: Rs. ${money.cod.toLocaleString()}`}
                       </span>
-                      {order.tracking ? (
-                        <a
-                          href={`https://postex.pk/tracking?cn=${order.tracking}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="orderTrackingTag"
-                          title="Open live tracking on PostEx"
-                        >
-                          🚚 {order.tracking}
-                        </a>
-                      ) : (
-                        <span className="orderMutedTracking">Unbooked</span>
-                      )}
-                      {order.confirmationStatus && !["confirmed", "payment verified", "verified"].includes(String(order.confirmationStatus).toLowerCase()) && (
-                        <span className="orderUnconfirmedChip" title={order.confirmationStatus}>
-                          ⚠️ {order.confirmationStatus}
-                        </span>
-                      )}
                     </div>
                   </td>
 
-                  {/* 5. Total & Payment */}
-                  <td>
-                    <span className="orderTotalValue">Rs. {money.total.toLocaleString()}</span>
-                    <div className="orderPaymentSub">
-                      {money.isFullyAdvanced ? (
-                        <span className="orderPaymentPill prepaid" title="100% Paid in advance">
-                          🟢 100% Paid
-                        </span>
-                      ) : money.hasAdvance ? (
-                        <span className="orderPaymentPill partial" title={`Advance Rs. ${money.advance.toLocaleString()} received. COD Rs. ${money.cod.toLocaleString()} to collect.`}>
-                          COD Rs. {money.cod.toLocaleString()} <small>(Adv Rs. {money.advance.toLocaleString()})</small>
-                        </span>
-                      ) : (
-                        <span className="orderPaymentPill cod" title={`Full Cash on Delivery: Rs. ${money.cod.toLocaleString()}`}>
-                          COD Rs. {money.cod.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* 6. Actions */}
-                  <td className="orderCellActions">
-                    <div className="orderRowActions">
+                  {/* 7. Actions */}
+                  <td style={{ textAlign: "right" }} onClick={(e) => e.stopPropagation()}>
+                    <div className="shopifyRowActions" style={{ justifyContent: "flex-end" }}>
                       {onSelect && (
                         <button
                           type="button"
-                          className="orderActionPrimary"
+                          className="shopifyRowBtn primary"
                           onClick={() => onSelect(order)}
-                          aria-label={`Open order ${order.id}`}
-                          title="View full order details & edit"
+                          title="Open full Shopify order view"
                         >
-                          👁️ View
+                          View
                         </button>
                       )}
                       {onPrintStitchingOrder && (
                         <button
                           type="button"
-                          className="orderActionGhost"
+                          className="shopifyRowBtn"
                           onClick={() => onPrintStitchingOrder(order)}
-                          title="Print Stitching Slip for Workshop"
+                          title="Print tailor stitching slip"
                         >
                           🧵 Slip
                         </button>
@@ -9638,34 +11055,29 @@ function OrderTable({
                       {onPrintSingleOrder && (
                         <button
                           type="button"
-                          className="orderActionGhost"
+                          className="shopifyRowBtn"
                           onClick={() => onPrintSingleOrder(order)}
-                          title="Print Customer Invoice"
+                          title="Print customer invoice"
                         >
-                          📄 Invoice
+                          📄
                         </button>
                       )}
                       {onDeleteOrder && (
                         <button
                           type="button"
-                          className="orderActionGhost"
-                          style={{ color: "#dc2626", borderColor: "#fecaca" }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteOrder(order);
-                          }}
-                          title="Delete this order permanently from Supabase"
+                          className="shopifyRowBtn danger"
+                          onClick={() => onDeleteOrder(order)}
+                          title="Delete order permanently"
                         >
-                          🗑️ Del
+                          🗑️
                         </button>
                       )}
                       <button
                         type="button"
-                        className="orderActionToggle"
+                        className="shopifyRowBtn"
                         onClick={() => setExpandedId(isExpanded ? null : order.id)}
                         aria-expanded={isExpanded}
-                        aria-label={isExpanded ? `Hide inline details for ${order.id}` : `Show inline details for ${order.id}`}
-                        title="Toggle quick inline details"
+                        title="Quick inline summary"
                       >
                         {isExpanded ? "▲" : "▼"}
                       </button>
@@ -9673,6 +11085,7 @@ function OrderTable({
                   </td>
                 </tr>
 
+                {/* Inline Quick Expanded Drawer */}
                 {isExpanded && (
                   <tr className="orderExpandedRow">
                     <td colSpan={columnCount}>
@@ -9707,9 +11120,7 @@ function OrderTable({
                         <section className="orderExpandedCard orderExpandedNotes">
                           <h4>📝 Workshop Notes &amp; Instructions</h4>
                           {note ? (
-                            <div className="orderExpandedNoteBox">
-                              {note}
-                            </div>
+                            <div className="orderExpandedNoteBox">{note}</div>
                           ) : (
                             <p style={{ color: "#94a3b8", fontStyle: "italic" }}>No special instructions or internal notes.</p>
                           )}
@@ -9723,14 +11134,14 @@ function OrderTable({
                                 alignSelf: "flex-start",
                                 background: "none",
                                 border: "none",
-                                color: "#0f766e",
+                                color: "#173d29",
                                 fontWeight: 700,
                                 cursor: "pointer",
                                 fontSize: "12px",
                                 padding: 0
                               }}
                             >
-                              ✏️ Edit notes &amp; order details in full view →
+                              Open full Shopify order details →
                             </button>
                           )}
                         </section>
@@ -10188,8 +11599,42 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
       setCapiTesting(false);
     }
   }
+
   const canManageUsers = canUseAdminArea(signedInUser, "users");
-  const tabs = ["Store", "Sections", "Tracking", "SizeChart", "Payments", "Shipping", ...(canManageUsers ? ["Users"] : []), "Notifications", "Domains", "Checkout", "System"];
+
+  const settingNavGroups = [
+    {
+      group: "Storefront & Design",
+      items: [
+        { id: "Store", label: "Store Details", icon: "🏪", hint: "Brand & Banners" },
+        { id: "Sections", label: "Homepage Sections", icon: "🎨", hint: "Page Builder" },
+        { id: "SizeChart", label: "Size Guide Matrix", icon: "📏", hint: "Measurements" },
+      ],
+    },
+    {
+      group: "Checkout & Operations",
+      items: [
+        { id: "Payments", label: "Payments & COD", icon: "💳", hint: "COD, Bank, Rules" },
+        { id: "Shipping", label: "Shipping & Rates", icon: "🚚", hint: "Timeline & Zones" },
+        { id: "Checkout", label: "Checkout Flow", icon: "🛒", hint: "Guest & Fields" },
+      ],
+    },
+    {
+      group: "Marketing & Growth",
+      items: [
+        { id: "Tracking", label: "Meta Pixel & CAPI", icon: "🎯", hint: "Pixel & Events" },
+        { id: "Notifications", label: "Notifications", icon: "🔔", hint: "Email Templates" },
+        { id: "Domains", label: "Domains & SEO", icon: "🌐", hint: "URLs & Meta" },
+      ],
+    },
+    {
+      group: "Administration",
+      items: [
+        ...(canManageUsers ? [{ id: "Users", label: "Staff & Users", icon: "👥", hint: "Admin Access" }] : []),
+        { id: "System", label: "System Health", icon: "⚙️", hint: "Database Audit" },
+      ],
+    },
+  ];
 
   useEffect(() => {
     if (["Store", "Sections", "Tracking", "SizeChart", "Payments", "Shipping", "Notifications", "Domains", "Checkout"].includes(activeTab)) {
@@ -10324,7 +11769,7 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
   }
 
   async function saveStoreSettings(event) {
-    event.preventDefault();
+    if (event?.preventDefault) event.preventDefault();
     setStoreSettingsLoading(true);
     setStoreSettingsError("");
     setStoreSettingsSetup("");
@@ -10523,1101 +11968,1841 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
     }));
   }
 
+  return (
+    <div className="shopifySettingsWorkspace">
+      {/* Top Header */}
+      <div className="shopifySettingsHeader">
+        <div className="shopifySettingsHeaderLeft">
+          <h1><span>⚙️</span> Settings</h1>
+          <p>Manage your storefront preferences, checkout rules, payment methods, delivery rates, and tracking pixels.</p>
+        </div>
+        <div className="shopifySettingsHeaderRight">
+          {savedAt && (
+            <span className="shopifySavedPill">
+              <span>✅</span> Saved at {savedAt}
+            </span>
+          )}
+          {activeTab !== "System" && activeTab !== "Users" && (
+            <button
+              type="button"
+              className="shopifyBtnPrimary"
+              onClick={(e) => saveStoreSettings(e)}
+              disabled={storeSettingsLoading}
+            >
+              {storeSettingsLoading ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                "💾 Save Settings"
+              )}
+            </button>
+          )}
+        </div>
+      </div>
 
-  return <><div className="adminTitle"><div><p>CONFIGURATION</p><h1>Settings</h1><span>Manage storefront and workspace configuration. Store Details changes save live; use the relevant section to save its settings.</span></div></div>
-{savedAt && <div className="adminErrorBanner settingsSaved">Store settings saved at {savedAt}.</div>}
-    <section className="settingsLayout">
-      <aside className="settingsNav">{tabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>{tab}<span>{settingsTabHint(tab)}</span></button>)}</aside>
-      <div className="settingsPanel">
-        {activeTab === "Store" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
-          <h2>Store details</h2>
-          {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
-          {storeSettingsSetup && <div className="adminErrorBanner">{storeSettingsSetup}</div>}
-          <section className="settingsOption productCardStyleSetting"><div><b>Product card design</b><span>Choose the storefront product-card layout. Changes apply to home, collections and related products.</span></div><select value={storeSettings.productCardStyle || "connected"} onChange={(event) => setStoreSettings((current) => ({ ...current, productCardStyle: event.target.value }))}><option value="classic">Classic cards</option><option value="connected">Connected tiles (Sapphire-inspired)</option></select></section>
-          <section className="settingsOption categoryStyleSetting"><div><b>Shop by Category design</b><span>Choose how the Shop by Category section displays on the homepage.</span></div><select value={storeSettings.categorySectionStyle || "atelier"} onChange={(event) => {
-            const nextStyle = event.target.value;
-            setStoreSettings((current) => {
-              const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
-                sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
-              );
-              return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
-            });
-          }}><option value="atelier">Atelier Overlay Cards (Dark Theme Overlay)</option><option value="minimal">Minimal Collections Grid (House of Lucknawi Style - Rounded cards with titles below)</option></select></section>
+      {/* Error / Setup Alerts */}
+      {storeSettingsError && (
+        <div className="adminErrorBanner" style={{ marginBottom: "16px" }}>
+          ⚠️ {storeSettingsError}
+        </div>
+      )}
+      {storeSettingsSetup && (
+        <div className="adminErrorBanner" style={{ marginBottom: "16px" }}>
+          ℹ️ {storeSettingsSetup}
+        </div>
+      )}
 
-          <div className="settingsOption"><div><b>Announcement bar</b><span>Shown above the main header. Multiple active announcements rotate automatically.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.announcementEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, announcementEnabled: event.target.checked }))} /> Enabled</label></div>
-          <section className="announcementEditor">
-            <div className="inventoryListHead"><div><h2>Announcements</h2><span>{(storeSettings.announcements || []).length} messages</span></div><button type="button" onClick={addAnnouncement}><Plus /> Add announcement</button></div>
-            {(storeSettings.announcements || []).map((announcement, index) => (
-              <article className="announcementEditorItem" key={announcement.id || index}>
-                <div className="announcementEditorHead">
-                  <b>Announcement {index + 1}</b>
-                  <label className="switchLabel"><input type="checkbox" checked={announcement.enabled !== false} onChange={(event) => updateAnnouncement(index, { enabled: event.target.checked })} /> Active</label>
-                  <button type="button" onClick={() => removeAnnouncement(index)} aria-label={`Remove announcement ${index + 1}`}><X /></button>
-                </div>
-                <label>Message<textarea rows="2" value={announcement.text || ""} onChange={(event) => updateAnnouncement(index, { text: event.target.value })} placeholder="Free delivery, sale, advance payment, new arrivals..." /></label>
-                <div className="formRow"><label>Link label<input value={announcement.linkLabel || ""} onChange={(event) => updateAnnouncement(index, { linkLabel: event.target.value })} placeholder="Shop now" /></label><label>Link URL<input value={announcement.linkHref || ""} onChange={(event) => updateAnnouncement(index, { linkHref: event.target.value })} placeholder="#products or /category/kurtis" /></label></div>
-              </article>
-            ))}
-          </section>
-          <div className="settingsOption"><div><b>Instagram feed gallery</b><span>Display 6-column Instagram feed (House of Lucknawi style) on homepage.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.instagramEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, instagramEnabled: event.target.checked }))} /> Enabled</label></div>
-          <div className="formRow">
-            <label>Instagram Handle<input value={storeSettings.instagramHandle || "@bustaniya_"} onChange={(event) => setStoreSettings((current) => ({ ...current, instagramHandle: event.target.value }))} placeholder="@bustaniya_" /></label>
-            <label>TikTok Handle<input value={storeSettings.tiktokHandle || "@bustaniya_"} onChange={(event) => setStoreSettings((current) => ({ ...current, tiktokHandle: event.target.value }))} placeholder="@bustaniya_" /></label>
-          </div>
-
-          <section className="heroSettingsEditor">
-            <div className="heroSettingsHeading">
-              <div>
-                <p>HOMEPAGE BANNERS</p>
-                <h2>Hero Carousel & Messaging</h2>
-                <span>Manage desktop and mobile campaign images, headings and primary call-to-actions.</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                <label className="switchLabel">
-                  <input type="checkbox" checked={storeSettings.heroEnabled !== false} onChange={(event) => setStoreSettings((current) => ({ ...current, heroEnabled: event.target.checked }))} /> Enabled
-                </label>
+      {/* Main 2-Column Settings Layout */}
+      <div className="shopifySettingsLayout">
+        {/* Left Navigation */}
+        <aside className="shopifySettingsNav">
+          {settingNavGroups.map((group) => (
+            <div key={group.group} style={{ display: "flex", flexDirection: "column", gap: "2px", marginBottom: "8px" }}>
+              <span className="shopifyNavGroupTitle">{group.group}</span>
+              {group.items.map((item) => (
                 <button
+                  key={item.id}
                   type="button"
-                  className="heroQuickSaveBtn"
-                  disabled={storeSettingsLoading}
-                  onClick={saveStoreSettings}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "7px 15px",
-                    background: "#173d29",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "6px",
-                    fontWeight: "600",
-                    fontSize: "12px",
-                    cursor: storeSettingsLoading ? "not-allowed" : "pointer",
-                    boxShadow: "0 2px 6px rgba(23,61,41,0.18)"
-                  }}
+                  className={`shopifyNavItem ${activeTab === item.id ? "active" : ""}`}
+                  onClick={() => setActiveTab(item.id)}
                 >
-                  {storeSettingsLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  Save Hero Banners
-                </button>
-              </div>
-            </div>
-            {[{ field: "heroDesktopImages", legacyField: "heroDesktopImage", label: "Desktop Hero Slides", hint: "Wide campaign images · recommended 1920x800" }, { field: "heroMobileImages", legacyField: "heroMobileImage", label: "Mobile Hero Slides", hint: "Portrait campaign images · recommended 1080x1350 (4:5)" }].map((item) => {
-              const defaultImg = item.field === "heroDesktopImages" ? DEFAULT_STORE_SETTINGS.heroDesktopImage : DEFAULT_STORE_SETTINGS.heroMobileImage;
-              const raw = storeSettings[item.field] !== undefined ? storeSettings[item.field] : (storeSettings[item.legacyField] ? [storeSettings[item.legacyField]] : [defaultImg]);
-              const list = Array.isArray(raw) ? raw : [raw].filter(Boolean);
-              return (
-                <div className={`heroSlideManager ${item.field === "heroDesktopImages" ? "heroDesktopManager" : "heroMobileManager"}`} key={item.field}>
-                  <div className="heroSlideHead">
-                    <div>
-                      <b>{item.label}</b>
-                      <span>{item.hint}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      {list.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => clearHeroSlides(item.field)}
-                          title="Remove all slides"
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            color: "#bd194b",
-                            fontSize: "11px",
-                            fontWeight: "600",
-                            cursor: "pointer",
-                            padding: "3px 6px"
-                          }}
-                        >
-                          Clear all
-                        </button>
-                      )}
-                      <small>{list.length} slide{list.length === 1 ? "" : "s"}</small>
-                    </div>
+                  <div className="shopifyNavItemLeft">
+                    <span className="shopifyNavItemIcon">{item.icon}</span>
+                    <span>{item.label}</span>
                   </div>
-                  {list.length === 0 ? (
-                    <div style={{ padding: "16px", textAlign: "center", background: "#f8faf7", border: "1px dashed #d5ded3", borderRadius: "6px", color: "#5d6d61", fontSize: "12px", margin: "10px 0" }}>
-                      No slides configured. Add an image URL below or click{" "}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStoreSettings((current) => ({
-                            ...current,
-                            [item.field]: [defaultImg],
-                            [item.legacyField]: defaultImg,
-                          }));
-                        }}
-                        style={{ background: "none", border: "none", color: "#173d29", textDecoration: "underline", cursor: "pointer", fontWeight: "600" }}
-                      >
-                        Restore default banner
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="heroSlideGrid">
-                      {list.map((url, idx) => (
-                        <div className="heroSlideCard" key={`${url}-${idx}`}>
-                          <div className="heroSlideMedia">
-                            <img src={url} alt={`${item.label} ${idx + 1}`} />
-                            <div style={{ position: "absolute", top: "6px", right: "6px", display: "flex", gap: "4px", zIndex: 3 }}>
-                              {idx > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => moveHeroSlide(item.field, idx, idx - 1)}
-                                  title="Move left"
-                                  style={{
-                                    width: "26px",
-                                    height: "26px",
-                                    padding: 0,
-                                    borderRadius: "50%",
-                                    background: "rgba(255,255,255,0.92)",
-                                    border: "1px solid #d0d7cf",
-                                    display: "grid",
-                                    placeItems: "center",
-                                    cursor: "pointer",
-                                    color: "#173d29"
-                                  }}
-                                >
-                                  <ChevronLeft size={13} />
-                                </button>
-                              )}
-                              {idx < list.length - 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => moveHeroSlide(item.field, idx, idx + 1)}
-                                  title="Move right"
-                                  style={{
-                                    width: "26px",
-                                    height: "26px",
-                                    padding: 0,
-                                    borderRadius: "50%",
-                                    background: "rgba(255,255,255,0.92)",
-                                    border: "1px solid #d0d7cf",
-                                    display: "grid",
-                                    placeItems: "center",
-                                    cursor: "pointer",
-                                    color: "#173d29"
-                                  }}
-                                >
-                                  <ChevronRight size={13} />
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => removeHeroSlide(item.field, idx)}
-                                title="Remove slide"
-                                style={{
-                                  width: "26px",
-                                  height: "26px",
-                                  padding: 0,
-                                  borderRadius: "50%",
-                                  background: "#fee2e2",
-                                  border: "1px solid #fca5a5",
-                                  display: "grid",
-                                  placeItems: "center",
-                                  cursor: "pointer",
-                                  color: "#991b1b"
-                                }}
-                              >
-                                <X size={14} />
-                              </button>
-                            </div>
-                          </div>
-                          <span className="heroSlidePath" title={url}>{url}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="heroUrlInputRow">
-                    <input
-                      value={heroUrlInputs[item.field] || ""}
-                      onChange={(event) => setHeroUrlInputs((current) => ({ ...current, [item.field]: event.target.value }))}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          addHeroImageUrl(item.field);
-                        }
-                      }}
-                      placeholder="Paste image URL (https://...) or local path (/hero.png)"
-                    />
-                    <button type="button" onClick={() => addHeroImageUrl(item.field)}>+ Add slide URL</button>
+                  <span className="shopifyNavItemHint">{item.hint}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </aside>
+
+        {/* Right Settings Content */}
+        <div className="shopifySettingsContent">
+          {/* 1. STORE DETAILS */}
+          {activeTab === "Store" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {/* Product Card Design */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Storefront Design Preferences</h3>
+                    <p>Customize the visual layout of product tiles and category collections across the store.</p>
                   </div>
                 </div>
-              );
-            })}
-            <div className="heroCopyEditors">{[{ key: "desktop", label: "Desktop content", hint: "Shown on laptop and desktop banners.", positions: ["left", "center", "right"] }, { key: "mobile", label: "Mobile content", hint: "Shown only on phones — place it at the top, center or bottom.", positions: ["top", "center", "bottom"] }].map((device) => {
-              const contentKey = device.key === "mobile" ? "heroMobileContent" : "heroDesktopContent";
-              const legacy = { eyebrow: storeSettings.heroEyebrow ?? "", heading: storeSettings.heroHeading ?? "", supportingText: storeSettings.heroSupportingText ?? "", primaryButtonText: storeSettings.heroPrimaryButtonText ?? "", primaryButtonLink: storeSettings.heroPrimaryButtonLink ?? "", secondaryButtonText: storeSettings.heroSecondaryButtonText ?? "", secondaryButtonLink: storeSettings.heroSecondaryButtonLink ?? "", alignment: storeSettings.heroTextAlignment || "left", position: device.key === "mobile" ? "bottom" : (storeSettings.heroTextPosition || "left") };
-              const content = { ...legacy, ...(storeSettings[contentKey] || {}) };
-              return <section className={`heroCopyEditor heroCopyEditor--${device.key}`} key={device.key}><div className="heroCopyEditorHead"><div><b>{device.label}</b><span>{device.hint}</span></div></div><div className="formRow"><label>Eyebrow<input value={content.eyebrow || ""} onChange={(event) => updateHeroContent(device.key, { eyebrow: event.target.value })} placeholder="e.g. NEW SEASON (optional)" /></label><label>Heading<input value={content.heading || ""} onChange={(event) => updateHeroContent(device.key, { heading: event.target.value })} placeholder="e.g. Unstitched Luxury Lawn (optional)" /></label></div><label>Supporting text<textarea rows="2" value={content.supportingText || ""} onChange={(event) => updateHeroContent(device.key, { supportingText: event.target.value })} placeholder="e.g. Crafted for effortless grace... (optional)" /></label><div className="formRow"><label>Primary CTA text<input value={content.primaryButtonText || ""} onChange={(event) => updateHeroContent(device.key, { primaryButtonText: event.target.value })} placeholder="e.g. Shop now (optional)" /></label><label>Primary CTA link<input value={content.primaryButtonLink || ""} onChange={(event) => updateHeroContent(device.key, { primaryButtonLink: event.target.value })} placeholder="#products or /category/kurtis" /></label></div><div className="formRow"><label>Secondary CTA text<input value={content.secondaryButtonText || ""} onChange={(event) => updateHeroContent(device.key, { secondaryButtonText: event.target.value })} placeholder="Optional" /></label><label>Secondary CTA link<input value={content.secondaryButtonLink || ""} onChange={(event) => updateHeroContent(device.key, { secondaryButtonLink: event.target.value })} placeholder="Optional" /></label></div><div className="formRow"><label>Text alignment<select value={content.alignment || "left"} onChange={(event) => updateHeroContent(device.key, { alignment: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>{device.key === "mobile" ? "Vertical position" : "Horizontal position"}<select value={content.position || device.positions[0]} onChange={(event) => updateHeroContent(device.key, { position: event.target.value })}>{device.positions.map((position) => <option value={position} key={position}>{position[0].toUpperCase() + position.slice(1)}</option>)}</select></label></div></section>;
-            })}</div>
-            <label className="heroOverlayControl">Overlay Intensity — {Number(storeSettings.heroOverlayIntensity || 0)}%<input type="range" min="0" max="80" step="1" value={Number(storeSettings.heroOverlayIntensity || 0)} onChange={(event) => setStoreSettings((current) => ({ ...current, heroOverlayIntensity: Number(event.target.value) }))} /></label>
-          </section>
-          <div className="formRow"><label>Store name<input defaultValue="Bustaniya" /></label><label>Legal business name<input defaultValue="Bustaniya" /></label></div>
-          <div className="formRow"><label>Support email<input defaultValue="hello@bustaniya.pk" /></label><label>Customer phone<input placeholder="+92 3xx xxxxxxx" /></label></div>
-          <label>Business address<textarea rows="3" placeholder="Warehouse / office address" /></label>
-          <div className="formRow"><label>Currency<select defaultValue="PKR"><option>PKR</option></select></label><label>Timezone<select defaultValue="Asia/Karachi"><option>Asia/Karachi</option></select></label></div>
-          <button
-            type="submit"
-            disabled={storeSettingsLoading}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
-            }}
-          >
-            {storeSettingsLoading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Saving Store Settings...</span>
-              </>
-            ) : (
-              "Save store settings"
-            )}
-          </button>
-        </form>}
+                <div className="shopifySectionBody">
+                  <label className="shopifyFieldLabel">
+                    Product Card Layout
+                    <div className="shopifyVisualChoiceGrid" style={{ marginTop: "6px" }}>
+                      <div
+                        className={`shopifyVisualChoiceCard ${(storeSettings.productCardStyle || "connected") === "connected" ? "selected" : ""}`}
+                        onClick={() => setStoreSettings((current) => ({ ...current, productCardStyle: "connected" }))}
+                      >
+                        <div className="shopifyVisualChoiceHead">
+                          <b>Connected Tiles (Sapphire Style)</b>
+                          {(storeSettings.productCardStyle || "connected") === "connected" && (
+                            <span className="shopifyVisualChoiceCheck">✓</span>
+                          )}
+                        </div>
+                        <p>Modern seamless grid with edge-to-edge product tiles and clean typography.</p>
+                      </div>
+                      <div
+                        className={`shopifyVisualChoiceCard ${storeSettings.productCardStyle === "classic" ? "selected" : ""}`}
+                        onClick={() => setStoreSettings((current) => ({ ...current, productCardStyle: "classic" }))}
+                      >
+                        <div className="shopifyVisualChoiceHead">
+                          <b>Classic Cards</b>
+                          {storeSettings.productCardStyle === "classic" && (
+                            <span className="shopifyVisualChoiceCheck">✓</span>
+                          )}
+                        </div>
+                        <p>Traditional bordered ecommerce cards with individual white card containers.</p>
+                      </div>
+                    </div>
+                  </label>
 
-        {activeTab === "Sections" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
-          <div className="heroSettingsHeading"><div><p>HOMEPAGE BUILDER</p><h2>Page Sections</h2><span>Add, remove, reorder and configure homepage sections. Changes go live after saving.</span></div></div>
-          {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
-          <div className="sectionManagerList">
-            {(storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((section, index, arr) => {
-              const isHero = section.type === "hero";
-              return (
-                <article className={`sectionManagerItem ${section.enabled ? "" : "sectionDisabled"}`} key={section.id}>
-                  <div className="sectionManagerHead">
-                    <div className="sectionManagerMeta">
-                      <div className="sectionMoveButtons">
-                        <button type="button" disabled={index === 0} aria-label="Move up" onClick={() => setStoreSettings((current) => {
-                          const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
-                          [sections[index - 1], sections[index]] = [sections[index], sections[index - 1]];
-                          return { ...current, homepageSections: sections };
-                        })}>↑</button>
-                        <button type="button" disabled={index === arr.length - 1} aria-label="Move down" onClick={() => setStoreSettings((current) => {
-                          const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
-                          [sections[index], sections[index + 1]] = [sections[index + 1], sections[index]];
-                          return { ...current, homepageSections: sections };
-                        })}>↓</button>
-                      </div>
-                      <div>
-                        <b>{section.label}</b>
-                        <small>{section.type.replace(/_/g, " ")}</small>
-                      </div>
-                    </div>
-                    <div className="sectionManagerActions">
-                      <label className="switchLabel"><input type="checkbox" checked={section.enabled !== false} onChange={(event) => setStoreSettings((current) => {
-                        const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
-                        sections[index] = { ...sections[index], enabled: event.target.checked };
-                        return { ...current, homepageSections: sections };
-                      })} /> Visible</label>
-                      {!isHero && <button type="button" className="sectionRemoveBtn" onClick={() => setStoreSettings((current) => ({
-                        ...current,
-                        homepageSections: (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).filter((_, i) => i !== index),
-                      }))} aria-label={`Remove ${section.label}`}><X size={14} /></button>}
-                    </div>
-                  </div>
-                  {!isHero && (
-                    <div className="sectionManagerFields">
-                      <label>Eyebrow<input value={section.eyebrow || ""} placeholder="e.g. NEW ARRIVALS" onChange={(event) => setStoreSettings((current) => {
-                        const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
-                        sections[index] = { ...sections[index], eyebrow: event.target.value };
-                        return { ...current, homepageSections: sections };
-                      })} /></label>
-                      <label>Heading<input value={section.heading || ""} placeholder="Section heading" onChange={(event) => setStoreSettings((current) => {
-                        const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
-                        sections[index] = { ...sections[index], heading: event.target.value };
-                        return { ...current, homepageSections: sections };
-                      })} /></label>
-                      <label>Subtitle<textarea rows="2" value={section.subtitle || ""} placeholder="Short description..." onChange={(event) => setStoreSettings((current) => {
-                        const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
-                        sections[index] = { ...sections[index], subtitle: event.target.value };
-                        return { ...current, homepageSections: sections };
-                      })} /></label>
-                      {section.type === "shop_by_category" && (
-                        <label style={{ gridColumn: "1 / -1" }}>Category Display Layout<select value={section.style || storeSettings.categorySectionStyle || "atelier"} onChange={(event) => {
-                          const nextStyle = event.target.value;
+                  <label className="shopifyFieldLabel" style={{ marginTop: "10px" }}>
+                    Shop by Category Layout
+                    <div className="shopifyVisualChoiceGrid" style={{ marginTop: "6px" }}>
+                      <div
+                        className={`shopifyVisualChoiceCard ${(storeSettings.categorySectionStyle || "atelier") === "atelier" ? "selected" : ""}`}
+                        onClick={() => {
+                          const nextStyle = "atelier";
                           setStoreSettings((current) => {
                             const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
                               sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
                             );
                             return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
                           });
-                        }}><option value="atelier">Atelier Overlay Cards (Dark Theme Overlay)</option><option value="minimal">Minimal Collections Grid (House of Lucknawi Style - Rounded cards with titles below)</option></select></label>
-                      )}
-                      {section.type === "instagram_feed" && (
-                        <div className="instagramManager" style={{ gridColumn: "1 / -1" }}>
-                          <div className="instagramManagerIntro">
-                            <div>
-                              <b>Instagram Reels Showcase</b>
-                              <span>Add your Instagram Reel URLs. They will be embedded and played natively on your storefront right above the footer. No image upload needed.</span>
-                            </div>
-                            <label className="switchLabel">
+                        }}
+                      >
+                        <div className="shopifyVisualChoiceHead">
+                          <b>Atelier Overlay Cards</b>
+                          {(storeSettings.categorySectionStyle || "atelier") === "atelier" && (
+                            <span className="shopifyVisualChoiceCheck">✓</span>
+                          )}
+                        </div>
+                        <p>Dark luxury overlay with elegant text typography over category imagery.</p>
+                      </div>
+                      <div
+                        className={`shopifyVisualChoiceCard ${storeSettings.categorySectionStyle === "minimal" ? "selected" : ""}`}
+                        onClick={() => {
+                          const nextStyle = "minimal";
+                          setStoreSettings((current) => {
+                            const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
+                              sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
+                            );
+                            return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
+                          });
+                        }}
+                      >
+                        <div className="shopifyVisualChoiceHead">
+                          <b>Minimal Collections Grid (House of Lucknawi)</b>
+                          {storeSettings.categorySectionStyle === "minimal" && (
+                            <span className="shopifyVisualChoiceCheck">✓</span>
+                          )}
+                        </div>
+                        <p>Soft rounded cards with category titles positioned below the photo.</p>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Announcement Bar */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Header Announcement Bar</h3>
+                    <p>Rotating promotional bar above the top header.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="shopifyBtnSecondary"
+                    onClick={addAnnouncement}
+                    style={{ fontSize: "12px", padding: "6px 12px" }}
+                  >
+                    + Add Announcement
+                  </button>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Announcement Bar Enabled</b>
+                      <span>Show announcements banner at the very top of all pages.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.announcementEnabled !== false}
+                        onChange={(e) => setStoreSettings((current) => ({ ...current, announcementEnabled: e.target.checked }))}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {(storeSettings.announcements || []).map((announcement, index) => (
+                      <div
+                        key={announcement.id || index}
+                        style={{
+                          padding: "14px",
+                          border: "1px solid #e2e8e5",
+                          borderRadius: "10px",
+                          background: "#fafcfa",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                            Announcement #{index + 1}
+                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <label className="switchLabel" style={{ fontSize: "12px" }}>
                               <input
                                 type="checkbox"
-                                checked={storeSettings.instagramEnabled !== false}
-                                onChange={(event) => setStoreSettings((current) => ({ ...current, instagramEnabled: event.target.checked }))}
-                              />
-                              Visible
+                                checked={announcement.enabled !== false}
+                                onChange={(e) => updateAnnouncement(index, { enabled: e.target.checked })}
+                              /> Active
                             </label>
+                            <button
+                              type="button"
+                              onClick={() => removeAnnouncement(index)}
+                              style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "4px" }}
+                              title="Delete announcement"
+                            >
+                              <X size={15} />
+                            </button>
                           </div>
-                          <label>
-                            Instagram handle
-                            <input
-                              value={storeSettings.instagramHandle || ""}
-                              placeholder="@bustaniya_"
-                              onChange={(event) => setStoreSettings((current) => ({ ...current, instagramHandle: event.target.value }))}
-                            />
-                          </label>
-                          <div className="instagramManagerPosts">
-                            {(storeSettings.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).map((post, postIndex) => {
-                              const isInstaLink = Boolean(post.url && (post.url.includes("instagram.com/reel") || post.url.includes("instagram.com/p")));
-                              return (
-                                <article className="instagramManagerPost" key={post.id || postIndex}>
-                                  <div className="instagramManagerPostHead">
-                                    <b>Reel {postIndex + 1}</b>
+                        </div>
+                        <input
+                          className="shopifyInput"
+                          value={announcement.text || ""}
+                          onChange={(e) => updateAnnouncement(index, { text: e.target.value })}
+                          placeholder="e.g. Free Delivery Nationwide on orders above Rs. 5,000"
+                        />
+                        <div className="shopifyFormRow">
+                          <input
+                            className="shopifyInput"
+                            value={announcement.linkLabel || ""}
+                            onChange={(e) => updateAnnouncement(index, { linkLabel: e.target.value })}
+                            placeholder="Link text (e.g. Shop Now)"
+                          />
+                          <input
+                            className="shopifyInput"
+                            value={announcement.linkHref || ""}
+                            onChange={(e) => updateAnnouncement(index, { linkHref: e.target.value })}
+                            placeholder="Link destination (e.g. /category/kurtis)"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Social Channels */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Social Media & Instagram Gallery</h3>
+                    <p>Connect your brand Instagram & TikTok accounts.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Instagram Feed Gallery on Homepage</b>
+                      <span>Display the 6-column Instagram Reels feed on the homepage.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.instagramEnabled !== false}
+                        onChange={(e) => setStoreSettings((current) => ({ ...current, instagramEnabled: e.target.checked }))}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Instagram Handle
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.instagramHandle || "@bustaniya_"}
+                        onChange={(e) => setStoreSettings((current) => ({ ...current, instagramHandle: e.target.value }))}
+                        placeholder="@bustaniya_"
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      TikTok Handle
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.tiktokHandle || "@bustaniya_"}
+                        onChange={(e) => setStoreSettings((current) => ({ ...current, tiktokHandle: e.target.value }))}
+                        placeholder="@bustaniya_"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hero Carousel & Banners */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Hero Carousel & Campaign Banners</h3>
+                    <p>Manage desktop and mobile hero campaign banners, headlines and call-to-actions.</p>
+                  </div>
+                  <label className="switchLabel">
+                    <input
+                      type="checkbox"
+                      checked={storeSettings.heroEnabled !== false}
+                      onChange={(e) => setStoreSettings((current) => ({ ...current, heroEnabled: e.target.checked }))}
+                    /> Enabled
+                  </label>
+                </div>
+                <div className="shopifySectionBody">
+                  {/* Desktop & Mobile Slides Managers */}
+                  {[
+                    { field: "heroDesktopImages", legacyField: "heroDesktopImage", label: "Desktop Hero Slides", hint: "Wide campaign images (recommended 1920x800)" },
+                    { field: "heroMobileImages", legacyField: "heroMobileImage", label: "Mobile Hero Slides", hint: "Portrait campaign images (recommended 1080x1350 / 4:5)" },
+                  ].map((item) => {
+                    const defaultImg = item.field === "heroDesktopImages" ? DEFAULT_STORE_SETTINGS.heroDesktopImage : DEFAULT_STORE_SETTINGS.heroMobileImage;
+                    const raw = storeSettings[item.field] !== undefined ? storeSettings[item.field] : (storeSettings[item.legacyField] ? [storeSettings[item.legacyField]] : [defaultImg]);
+                    const list = Array.isArray(raw) ? raw : [raw].filter(Boolean);
+
+                    return (
+                      <div key={item.field} style={{ border: "1px solid #e2e8e5", borderRadius: "10px", padding: "16px", background: "#fdfefe" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                          <div>
+                            <span style={{ fontSize: "14px", fontWeight: 750, color: "#122a1e" }}>{item.label}</span>
+                            <span style={{ fontSize: "11.5px", color: "#667a6e", marginLeft: "8px" }}>{item.hint}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            {list.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => clearHeroSlides(item.field)}
+                                style={{ background: "none", border: "none", color: "#b91c1c", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
+                              >
+                                Clear all
+                              </button>
+                            )}
+                            <span style={{ fontSize: "11px", color: "#8c9c91", fontWeight: 600 }}>{list.length} slide{list.length === 1 ? "" : "s"}</span>
+                          </div>
+                        </div>
+
+                        {/* Grid of slides */}
+                        {list.length === 0 ? (
+                          <div style={{ padding: "16px", textAlign: "center", background: "#f8faf7", border: "1px dashed #d5ded3", borderRadius: "8px", color: "#5d6d61", fontSize: "12px", margin: "10px 0" }}>
+                            No slides configured. Add an image URL below or click{" "}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStoreSettings((current) => ({
+                                  ...current,
+                                  [item.field]: [defaultImg],
+                                  [item.legacyField]: defaultImg,
+                                }));
+                              }}
+                              style={{ background: "none", border: "none", color: "#173d29", textDecoration: "underline", cursor: "pointer", fontWeight: 700 }}
+                            >
+                              Restore default banner
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "10px", marginBottom: "12px" }}>
+                            {list.map((url, idx) => (
+                              <div key={`${url}-${idx}`} style={{ border: "1px solid #d4ded6", borderRadius: "8px", overflow: "hidden", position: "relative", background: "#f8faf7" }}>
+                                <div style={{ height: "100px", width: "100%", position: "relative" }}>
+                                  <img src={url} alt={`${item.label} ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                  <div style={{ position: "absolute", top: "4px", right: "4px", display: "flex", gap: "3px" }}>
+                                    {idx > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => moveHeroSlide(item.field, idx, idx - 1)}
+                                        title="Move left"
+                                        style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#ffffff", border: "1px solid #ccc", display: "grid", placeItems: "center", cursor: "pointer" }}
+                                      >
+                                        <ChevronLeft size={11} />
+                                      </button>
+                                    )}
+                                    {idx < list.length - 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => moveHeroSlide(item.field, idx, idx + 1)}
+                                        title="Move right"
+                                        style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#ffffff", border: "1px solid #ccc", display: "grid", placeItems: "center", cursor: "pointer" }}
+                                      >
+                                        <ChevronRight size={11} />
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
-                                      className="sectionRemoveBtn"
-                                      aria-label={`Remove Reel ${postIndex + 1}`}
-                                      onClick={() => setStoreSettings((current) => ({
-                                        ...current,
-                                        instagramPosts: (current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).filter((_, itemIndex) => itemIndex !== postIndex)
-                                      }))}
+                                      onClick={() => removeHeroSlide(item.field, idx)}
+                                      title="Remove"
+                                      style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#fee2e2", border: "1px solid #fca5a5", display: "grid", placeItems: "center", cursor: "pointer", color: "#991b1b" }}
                                     >
-                                      <X size={14} />
+                                      <X size={11} />
                                     </button>
                                   </div>
-                                  <label>
-                                    Instagram Reel URL <small>Paste link from Instagram (e.g. https://www.instagram.com/reel/...)</small>
-                                    <input
-                                      value={post.url || ""}
-                                      placeholder="https://www.instagram.com/reel/..."
-                                      onChange={(event) => setStoreSettings((current) => {
-                                        const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
-                                        posts[postIndex] = { ...posts[postIndex], url: event.target.value };
-                                        return { ...current, instagramPosts: posts };
-                                      })}
-                                    />
-                                  </label>
-                                  {post.url && (
-                                    <div style={{ marginTop: "-4px", marginBottom: "2px", display: "flex", alignItems: "center", gap: "8px" }}>
-                                      {isInstaLink ? (
-                                        <small style={{ color: "#166534", fontWeight: "700" }}>✓ Valid Instagram Reel link</small>
-                                      ) : (
-                                        <small style={{ color: "#b45309", fontWeight: "600" }}>ℹ Instagram link detected</small>
-                                      )}
-                                      <a
-                                        href={post.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{ fontSize: "11px", color: "#16452c", textDecoration: "underline", fontWeight: "600" }}
-                                      >
-                                        Open ↗
-                                      </a>
-                                    </div>
-                                  )}
-                                  <label>
-                                    Caption / Title <small>Optional title or collection note</small>
-                                    <input
-                                      value={post.caption || ""}
-                                      placeholder="e.g. Summer Lawn Drop '26 | #Bustaniya"
-                                      onChange={(event) => setStoreSettings((current) => {
-                                        const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
-                                        posts[postIndex] = { ...posts[postIndex], caption: event.target.value };
-                                        return { ...current, instagramPosts: posts };
-                                      })}
-                                    />
-                                  </label>
-                                </article>
-                              );
-                            })}
+                                </div>
+                                <div style={{ padding: "6px 8px", fontSize: "10.5px", color: "#667a6e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={url}>
+                                  {url}
+                                </div>
+                              </div>
+                            ))}
                           </div>
+                        )}
+
+                        {/* Add slide row */}
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <input
+                            className="shopifyInput"
+                            value={heroUrlInputs[item.field] || ""}
+                            onChange={(e) => setHeroUrlInputs((current) => ({ ...current, [item.field]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                addHeroImageUrl(item.field);
+                              }
+                            }}
+                            placeholder="Paste image URL (https://...) or local path (/banner.png)"
+                            style={{ flex: 1 }}
+                          />
                           <button
                             type="button"
-                            className="addInstagramPost"
-                            onClick={() => setStoreSettings((current) => ({
-                              ...current,
-                              instagramPosts: [
-                                ...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []),
-                                { id: `instagram-${Date.now()}`, mediaType: "video", url: "", caption: "", image: "" }
-                              ]
-                            }))}
+                            className="shopifyBtnSecondary"
+                            onClick={() => addHeroImageUrl(item.field)}
+                            style={{ whiteSpace: "nowrap" }}
                           >
-                            + Add Instagram Reel
+                            + Add Slide
                           </button>
                         </div>
-                      )}
-                    </div>
-                  )}
-                  {isHero && <p className="sectionManagerHint">Hero banner settings are managed in the Store tab above.</p>}
-                </article>
-              );
-            })}
-          </div>
-          {(() => {
-            const currentTypes = (storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((s) => s.type);
-            const available = DEFAULT_HOMEPAGE_SECTIONS.filter((s) => !currentTypes.includes(s.type) && s.type !== "hero");
-            if (!available.length) return null;
-            return (
-              <div className="sectionAddBar">
-                <select id="sectionAddSelect" defaultValue="">
-                  <option value="" disabled>Choose a section to add...</option>
-                  {available.map((s) => <option key={s.type} value={s.type}>{s.label}</option>)}
-                </select>
-                <button type="button" onClick={() => {
-                  const select = document.getElementById("sectionAddSelect");
-                  const type = select?.value;
-                  if (!type) return;
-                  const template = DEFAULT_HOMEPAGE_SECTIONS.find((s) => s.type === type);
-                  if (!template) return;
-                  setStoreSettings((current) => ({
-                    ...current,
-                    homepageSections: [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS), { ...template, id: `${template.id}-${Date.now()}` }],
-                  }));
-                  select.value = "";
-                }}>+ Add section</button>
-              </div>
-            );
-          })()}
-          <button
-            type="submit"
-            disabled={storeSettingsLoading}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
-            }}
-          >
-            {storeSettingsLoading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Saving sections...</span>
-              </>
-            ) : (
-              "Save sections"
-            )}
-          </button>
-        </form>}
+                      </div>
+                    );
+                  })}
 
+                  {/* Copy & Messaging for Desktop & Mobile */}
+                  <div className="shopifyFormRow" style={{ marginTop: "10px" }}>
+                    {[
+                      { key: "desktop", label: "Desktop Banner Copy", hint: "Headline and button shown on desktop" },
+                      { key: "mobile", label: "Mobile Banner Copy", hint: "Headline and button shown on phones" },
+                    ].map((device) => {
+                      const contentKey = device.key === "mobile" ? "heroMobileContent" : "heroDesktopContent";
+                      const legacy = {
+                        eyebrow: storeSettings.heroEyebrow ?? "",
+                        heading: storeSettings.heroHeading ?? "",
+                        supportingText: storeSettings.heroSupportingText ?? "",
+                        primaryButtonText: storeSettings.heroPrimaryButtonText ?? "",
+                        primaryButtonLink: storeSettings.heroPrimaryButtonLink ?? "",
+                        secondaryButtonText: storeSettings.heroSecondaryButtonText ?? "",
+                        secondaryButtonLink: storeSettings.heroSecondaryButtonLink ?? "",
+                        alignment: storeSettings.heroTextAlignment || "left",
+                        position: device.key === "mobile" ? "bottom" : (storeSettings.heroTextPosition || "left"),
+                      };
+                      const content = { ...legacy, ...(storeSettings[contentKey] || {}) };
 
-        {activeTab === "Theme" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
-          <section className="sectionColorEditor">
-            <div className="heroSettingsHeading"><div><p>HOMEPAGE DESIGN</p><h2>Section Background & Text Colors</h2><span>Select custom background and text colors for each landing-page section.</span></div></div>
-            <div className="sectionColorGrid">
-              {HOMEPAGE_COLOR_SECTIONS.map((section) => {
-                const selectedBg = storeSettings.sectionColors?.[section.key] || DEFAULT_STORE_SETTINGS.sectionColors[section.key];
-                const selectedText = storeSettings.sectionTextColors?.[section.key] || DEFAULT_STORE_SETTINGS.sectionTextColors?.[section.key] || "#173d29";
-                return (
-                  <div className="sectionColorOption" key={section.key}>
-                    <div className="sectionColorHeader">
-                      <b>{section.label}</b>
-                      <span className="badgePreview" style={{ background: selectedBg, color: selectedText, border: "1px solid #d5ddd3" }}>Preview Text</span>
-                    </div>
-
-                    <div className="colorControlBlock">
-                      <div className="colorLabelRow">
-                        <label>Background Color</label>
-                        <div className="hexInputRow">
-                          <input type="color" value={selectedBg} onChange={(event) => setStoreSettings((current) => ({ ...current, sectionColors: { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(current.sectionColors || {}), [section.key]: event.target.value } }))} />
-                          <span>{selectedBg}</span>
+                      return (
+                        <div key={device.key} style={{ border: "1px solid #e2e8e5", borderRadius: "10px", padding: "16px", background: "#fdfefe", display: "flex", flexDirection: "column", gap: "10px" }}>
+                          <div>
+                            <span style={{ fontSize: "13.5px", fontWeight: 750, color: "#122a1e" }}>{device.label}</span>
+                            <p style={{ fontSize: "11.5px", color: "#667a6e", margin: "2px 0 0 0" }}>{device.hint}</p>
+                          </div>
+                          <label className="shopifyFieldLabel">
+                            Eyebrow
+                            <input
+                              className="shopifyInput"
+                              value={content.eyebrow || ""}
+                              onChange={(e) => updateHeroContent(device.key, { eyebrow: e.target.value })}
+                              placeholder="e.g. NEW SEASON"
+                            />
+                          </label>
+                          <label className="shopifyFieldLabel">
+                            Main Heading
+                            <input
+                              className="shopifyInput"
+                              value={content.heading || ""}
+                              onChange={(e) => updateHeroContent(device.key, { heading: e.target.value })}
+                              placeholder="e.g. Unstitched Luxury Lawn"
+                            />
+                          </label>
+                          <label className="shopifyFieldLabel">
+                            Supporting Description
+                            <textarea
+                              className="shopifyTextarea"
+                              rows="2"
+                              value={content.supportingText || ""}
+                              onChange={(e) => updateHeroContent(device.key, { supportingText: e.target.value })}
+                              placeholder="e.g. Crafted for effortless grace..."
+                            />
+                          </label>
+                          <div className="shopifyFormRow">
+                            <label className="shopifyFieldLabel">
+                              Primary Button Text
+                              <input
+                                className="shopifyInput"
+                                value={content.primaryButtonText || ""}
+                                onChange={(e) => updateHeroContent(device.key, { primaryButtonText: e.target.value })}
+                                placeholder="Shop Now"
+                              />
+                            </label>
+                            <label className="shopifyFieldLabel">
+                              Button Link
+                              <input
+                                className="shopifyInput"
+                                value={content.primaryButtonLink || ""}
+                                onChange={(e) => updateHeroContent(device.key, { primaryButtonLink: e.target.value })}
+                                placeholder="#products or /category/kurtis"
+                              />
+                            </label>
+                          </div>
                         </div>
-                      </div>
-                      <div className="sectionColorSwatches" role="group" aria-label={`${section.label} background color`}>
-                        {HOMEPAGE_COLOR_OPTIONS.map((color) => <button type="button" key={color.value} title={color.name} aria-label={`${section.label} BG: ${color.name}`} className={selectedBg === color.value ? "selected" : ""} style={{ background: color.value }} onClick={() => setStoreSettings((current) => ({ ...current, sectionColors: { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(current.sectionColors || {}), [section.key]: color.value } }))} />)}
-                      </div>
-                    </div>
-
-                    <div className="colorControlBlock" style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px dashed #e0e6df" }}>
-                      <div className="colorLabelRow">
-                        <label>Text Color</label>
-                        <div className="hexInputRow">
-                          <input type="color" value={selectedText} onChange={(event) => setStoreSettings((current) => ({ ...current, sectionTextColors: { ...DEFAULT_STORE_SETTINGS.sectionTextColors, ...(current.sectionTextColors || {}), [section.key]: event.target.value } }))} />
-                          <span>{selectedText}</span>
-                        </div>
-                      </div>
-                      <div className="sectionColorSwatches" role="group" aria-label={`${section.label} text color`}>
-                        {HOMEPAGE_COLOR_OPTIONS.map((color) => <button type="button" key={color.value} title={color.name} aria-label={`${section.label} Text: ${color.name}`} className={selectedText === color.value ? "selected" : ""} style={{ background: color.value }} onClick={() => setStoreSettings((current) => ({ ...current, sectionTextColors: { ...DEFAULT_STORE_SETTINGS.sectionTextColors, ...(current.sectionTextColors || {}), [section.key]: color.value } }))} />)}
-                      </div>
-                    </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          </section>
-          <div className="settingsOption"><div><b>Announcement bar</b><span>Shown above the main header. Multiple active announcements rotate automatically.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.announcementEnabled} onChange={(event) => setStoreSettings((current) => ({ ...current, announcementEnabled: event.target.checked }))} /> Enabled</label></div>
-          <section className="announcementEditor">
-            <div className="inventoryListHead"><div><h2>Announcements</h2><span>{(storeSettings.announcements || []).length} messages</span></div><button type="button" onClick={addAnnouncement}><Plus /> Add announcement</button></div>
-            {(storeSettings.announcements || []).map((announcement, index) => (
-              <article className="announcementEditorItem" key={announcement.id || index}>
-                <div className="announcementEditorHead">
-                  <b>Announcement {index + 1}</b>
-                  <label className="switchLabel"><input type="checkbox" checked={announcement.enabled !== false} onChange={(event) => updateAnnouncement(index, { enabled: event.target.checked })} /> Active</label>
-                  <button type="button" onClick={() => removeAnnouncement(index)} aria-label={`Remove announcement ${index + 1}`}><X /></button>
+
+                  {/* Overlay Slider */}
+                  <label className="shopifyFieldLabel" style={{ marginTop: "8px" }}>
+                    Dark Overlay Opacity: {Number(storeSettings.heroOverlayIntensity || 0)}%
+                    <input
+                      type="range"
+                      min="0"
+                      max="80"
+                      step="1"
+                      value={Number(storeSettings.heroOverlayIntensity || 0)}
+                      onChange={(e) => setStoreSettings((current) => ({ ...current, heroOverlayIntensity: Number(e.target.value) }))}
+                      style={{ accentColor: "#173d29", cursor: "pointer", marginTop: "6px" }}
+                    />
+                  </label>
                 </div>
-                <label>Message<textarea rows="2" value={announcement.text || ""} onChange={(event) => updateAnnouncement(index, { text: event.target.value })} placeholder="Free delivery, sale, advance payment, new arrivals..." /></label>
-                <div className="formRow"><label>Link label<input value={announcement.linkLabel || ""} onChange={(event) => updateAnnouncement(index, { linkLabel: event.target.value })} placeholder="Shop now" /></label><label>Link URL<input value={announcement.linkHref || ""} onChange={(event) => updateAnnouncement(index, { linkHref: event.target.value })} placeholder="#products or /category/kurtis" /></label></div>
-              </article>
-            ))}
-          </section>
-          <button
-            type="submit"
-            disabled={storeSettingsLoading}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
-            }}
-          >
-            {storeSettingsLoading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Saving theme settings...</span>
-              </>
-            ) : (
-              "Save theme settings"
-            )}
-          </button>
-        </form>}
-
-        {activeTab === "Payments" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
-          <h2>Payment methods</h2>
-          {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
-          {storeSettingsSetup && <div className="adminErrorBanner">{storeSettingsSetup}</div>}
-          <div className="adminVisualGrid">
-            <section className="adminVisualCard">
-              <div className="adminVisualHead"><div><h3>Payment readiness</h3><p>Enabled methods and operational safeguards.</p></div></div>
-              <VisualProgress label="COD flow" value={storeSettings.paymentSettings?.codEnabled !== false ? 100 : 0} helper={storeSettings.paymentSettings?.codEnabled !== false ? "COD is active at checkout" : "COD is currently disabled"} color="#1d6840" />
-              <VisualProgress label="Full advance payment" value={storeSettings.paymentSettings?.manualTransferEnabled !== false ? 100 : 0} helper="Customer pays the complete product subtotal before confirmation." color="#4777a8" />
-            </section>
-            <VisualDonut
-              title="Payment methods"
-              subtitle="Current checkout method visibility."
-              centerValue={[storeSettings.paymentSettings?.codEnabled !== false, storeSettings.paymentSettings?.manualTransferEnabled !== false].filter(Boolean).length}
-              centerLabel="enabled"
-              items={[
-                { label: "COD", value: storeSettings.paymentSettings?.codEnabled !== false ? 1 : 0, color: "#1d6840" },
-                { label: "Full advance", value: storeSettings.paymentSettings?.manualTransferEnabled !== false ? 1 : 0, color: "#4777a8" },
-              ]}
-            />
-          </div>
-          <div className="paymentSettingsGrid">
-            <div className="settingsOption"><div><b>Cash on Delivery</b><span>Customer pays the full order amount in cash to the courier upon delivery.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.codEnabled !== false} onChange={(event) => updatePaymentSettings({ codEnabled: event.target.checked })} /> Enabled</label></div>
-            <div className="settingsOption"><div><b>Full advance payment</b><span>Customer pays the complete product subtotal in advance and receives free delivery.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.manualTransferEnabled !== false} onChange={(event) => updatePaymentSettings({ manualTransferEnabled: event.target.checked })} /> Enabled</label></div>
-          </div>
-          <div className="paymentRulesCard">
-            <h3>COD risk rules</h3>
-            <div className="settingsOption"><div><b>Phone verification</b><span>Staff should verify COD number before dispatch.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.paymentSettings?.codPhoneVerification !== false} onChange={(event) => updatePaymentSettings({ codPhoneVerification: event.target.checked })} /> Required</label></div>
-            <div className="formRow"><label>Minimum COD order (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codMinOrderPkr ?? 0} onChange={(event) => updatePaymentSettings({ codMinOrderPkr: event.target.value })} /></label><label>Maximum COD order (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codMaxOrderPkr ?? 50000} onChange={(event) => updatePaymentSettings({ codMaxOrderPkr: event.target.value })} /></label><label>COD delivery charge (PKR)<input type="number" min="0" value={storeSettings.paymentSettings?.codDeliveryChargePkr ?? 250} onChange={(event) => updatePaymentSettings({ codDeliveryChargePkr: event.target.value })} /></label></div>
-          </div>
-
-          <div className="paymentRulesCard">
-            <h3>Checkout Payment Instructions (COD & Full Advance)</h3>
-            <p className="settingsHint">Customize section headings and bullet points for both Cash on Delivery (COD) and Full Advance Payment instructions shown on the checkout page.</p>
-
-            <PaymentInstructionEditor
-              title="1. Cash on Delivery (COD) Instructions"
-              headingValue={storeSettings.paymentSettings?.codHeading}
-              headingPlaceholder="Cash on Delivery Instructions"
-              instructionsValue={storeSettings.paymentSettings?.codInstructions}
-              onUpdateHeading={(heading) => updatePaymentSettings({ codHeading: heading })}
-              onUpdateInstructions={(text) => updatePaymentSettings({ codInstructions: text })}
-            />
-
-            <PaymentInstructionEditor
-              title="2. Full Advance Payment Instructions"
-              headingValue={storeSettings.paymentSettings?.advanceHeading}
-              headingPlaceholder="Full Advance Payment Instructions"
-              instructionsValue={storeSettings.paymentSettings?.instructions}
-              onUpdateHeading={(heading) => updatePaymentSettings({ advanceHeading: heading })}
-              onUpdateInstructions={(text) => updatePaymentSettings({ instructions: text })}
-            />
-          </div>
-
-          <div className="paymentRulesCard">
-            <h3>Payment receiving details</h3>
-            <p className="settingsHint">These details are shown for advance payment orders. Customers transfer funds and send a screenshot to WhatsApp for payment verification.</p>
-            <div className="formRow"><label>Bank name<input value={storeSettings.paymentSettings?.bankName || ""} onChange={(event) => updatePaymentSettings({ bankName: event.target.value })} placeholder="e.g. Meezan Bank" /></label><label>Account title<input value={storeSettings.paymentSettings?.bankTitle || ""} onChange={(event) => updatePaymentSettings({ bankTitle: event.target.value })} placeholder="Account holder name" /></label></div>
-            <div className="formRow"><label>Account number<input value={storeSettings.paymentSettings?.bankAccountNumber || ""} onChange={(event) => updatePaymentSettings({ bankAccountNumber: event.target.value })} placeholder="Bank account number" /></label><label>IBAN (optional)<input value={storeSettings.paymentSettings?.bankIban || ""} onChange={(event) => updatePaymentSettings({ bankIban: event.target.value })} placeholder="PK..." /></label></div>
-            <div className="formRow"><label>WhatsApp support & verification number<input type="tel" value={storeSettings.paymentSettings?.whatsappNumber || ""} onChange={(event) => updatePaymentSettings({ whatsappNumber: event.target.value })} placeholder="923001234567" /><small>This number powers the website chat button and checkout payment-screenshot button.</small></label></div>
-          </div>
-          <button
-            type="submit"
-            disabled={storeSettingsLoading}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
-            }}
-          >
-            {storeSettingsLoading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Saving payment settings...</span>
-              </>
-            ) : (
-              "Save payment settings"
-            )}
-          </button>
-        </form>}
-
-        {activeTab === "Shipping" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
-          <h2>Shipping &amp; Delivery Settings</h2>
-          {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
-          
-          <div className="paymentRulesCard">
-            <h3>Global Delivery Information (Storewide Fallback)</h3>
-            <p className="settingsHint">These defaults appear on product detail pages whenever a product does not have a custom delivery note specified.</p>
-            
-            <div className="formRow">
-              <label>
-                Estimated Delivery Timeline
-                <input
-                  value={storeSettings.deliverySettings?.estimatedDays || ""}
-                  onChange={(event) => updateDeliverySettings({ estimatedDays: event.target.value })}
-                  placeholder="e.g. 8-9 delivery days"
-                />
-              </label>
-              <label>
-                Free Delivery Above Order (PKR)
-                <input
-                  type="number"
-                  min="0"
-                  value={storeSettings.deliverySettings?.freeDeliveryThreshold ?? 5000}
-                  onChange={(event) => updateDeliverySettings({ freeDeliveryThreshold: event.target.value })}
-                  placeholder="5000"
-                />
-              </label>
-            </div>
-
-            <label>
-              Standard Delivery Charges Copy
-              <input
-                value={storeSettings.deliverySettings?.deliveryFeeText || ""}
-                onChange={(event) => updateDeliverySettings({ deliveryFeeText: event.target.value })}
-                placeholder="e.g. Rs. 200 standard delivery nationwide · Free above Rs. 5,000"
-              />
-            </label>
-
-            <div className="settingsOption" style={{ margin: "14px 0 8px" }}>
-              <div>
-                <b>Cash on Delivery (COD) availability</b>
-                <span>Highlight COD availability badge on product detail pages.</span>
               </div>
-              <label className="switchLabel">
-                <input
-                  type="checkbox"
-                  checked={storeSettings.deliverySettings?.codAvailable !== false}
-                  onChange={(event) => updateDeliverySettings({ codAvailable: event.target.checked })}
-                />
-                Available
-              </label>
-            </div>
 
-            <label>
-              Cash on Delivery Note
-              <input
-                value={storeSettings.deliverySettings?.codNote || ""}
-                onChange={(event) => updateDeliverySettings({ codNote: event.target.value })}
-                placeholder="e.g. Cash on Delivery available nationwide (Rs. 250 advance confirmation fee)"
-              />
-            </label>
-
-            <label>
-              Global Default Delivery Information Text
-              <textarea
-                rows="4"
-                value={storeSettings.deliverySettings?.defaultDeliveryInfo || ""}
-                onChange={(event) => updateDeliverySettings({ defaultDeliveryInfo: event.target.value })}
-                placeholder="Orders are processed within 24 hours and delivered within 8-9 delivery days across Pakistan. Tracking details are shared via SMS and WhatsApp once dispatched."
-              />
-              <small className="settingsHint">Shown in the Delivery accordion on all products unless overridden per product.</small>
-            </label>
-          </div>
-
-          <div className="paymentRulesCard">
-            <div className="inventoryListHead">
-              <div>
-                <h3>Shipping Zones &amp; Rates</h3>
-                <span>Configured courier delivery rates</span>
-              </div>
-            </div>
-            <div className="adminTableWrap">
-              <table className="adminTable">
-                <thead>
-                  <tr>
-                    <th>Zone</th>
-                    <th>Cities</th>
-                    <th>Rate</th>
-                    <th>Free above</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {(shippingZones || []).map((zone, index) => (
-                    <tr key={zone.id || index}>
-                      <td><b>{zone.zone}</b></td>
-                      <td>{zone.cities}</td>
-                      <td>Rs. {Number(zone.rate || 0).toLocaleString()}</td>
-                      <td>{Number(zone.freeAbove || 0) > 0 ? `Rs. ${Number(zone.freeAbove).toLocaleString()}` : "—"}</td>
-                      <td>
-                        <button type="button" onClick={() => removeShippingZone(index)} aria-label="Remove zone" style={{ padding: "4px 8px", background: "none", border: "none", cursor: "pointer", color: "#b91c1c" }}>
-                          <X size={15} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={storeSettingsLoading}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
-            }}
-          >
-            {storeSettingsLoading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Saving shipping settings...</span>
-              </>
-            ) : (
-              "Save shipping settings"
-            )}
-          </button>
-        </form>}
-
-        {activeTab === "Users" && <div className="settingsStack">
-
-          {staffError && <div className="adminErrorBanner">{staffError}</div>}
-          {staffSaved && <div className="adminErrorBanner settingsSaved">{staffSaved}</div>}
-          <section className="adminCard settingsForm settingsWideForm">
-            <div className="inventoryListHead"><div><h2>Users and permissions</h2><span>{currentAdminUser ? `Signed in as ${currentAdminUser.name}` : "Manage admin access"}</span></div>{staffLoading && <span>Loading...</span>}</div>
-            <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Access</th><th>Status</th><th /></tr></thead><tbody>{staff.map((user) => <tr key={user.id}><td><b>{user.name}</b><small className="trackingNumber">{user.lastLoginAt ? `Last login ${new Date(user.lastLoginAt).toLocaleString("en-PK")}` : "No login yet"}</small></td><td>{user.email}</td><td>{user.role}</td><td><div className="tagList">{(user.permissions || []).map((permission) => <span key={permission}>{permission}</span>)}</div></td><td><span className={`statusBadge ${user.status === "Active" ? "activeStatus" : "processing"}`}>{user.status}</span></td><td><div className="orderActionRow"><button type="button" onClick={() => updateStaffUser(user.id, { status: user.status === "Active" ? "Disabled" : "Active" })}>{user.status === "Active" ? "Disable" : "Enable"}</button>{user.role !== "Owner" && <button type="button" onClick={() => deleteStaffUser(user.id)}>Remove</button>}</div></td></tr>)}</tbody></table>{!staff.length && <div className="inventoryEmpty">No admin users found.</div>}</div>
-          </section>
-          <form className="adminCard settingsForm settingsWideForm" onSubmit={addStaff}>
-            <h2>Add admin user</h2>
-            <div className="formRow"><label>Name<input name="name" required placeholder="Team member" /></label><label>Email<input name="email" type="email" required placeholder="team@bustaniya.pk" /></label></div>
-            <div className="formRow"><label>Password<input name="password" type="password" minLength="10" required placeholder="Minimum 10 characters" /></label><label>Role<select name="role" defaultValue="Staff"><option>Staff</option><option>Owner</option></select></label></div>
-            <div className="settingsPermissionGrid">
-              {availablePermissions.map((permission) => <label className="switchLabel" key={permission}><input name={`permission-${permission}`} type="checkbox" defaultChecked={["dashboard", "orders"].includes(permission)} /> {permission}</label>)}
-            </div>
-            <button disabled={staffLoading} aria-busy={staffLoading}>Add admin user</button>
-          </form>
-        </div>}
-
-        {activeTab === "Notifications" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
-          <h2>Notification templates</h2>
-          <div className="settingsOption"><div><b>Order confirmation</b><span>Template configuration saved for your order communication workflow.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.notificationSettings?.orderConfirmationEnabled !== false} onChange={(event) => updateSettingsGroup("notificationSettings", { orderConfirmationEnabled: event.target.checked })} /> Enabled</label></div>
-          <label>Order confirmation subject<input value={storeSettings.notificationSettings?.orderConfirmationSubject || ""} onChange={(event) => updateSettingsGroup("notificationSettings", { orderConfirmationSubject: event.target.value })} /></label>
-          <label>Email template<textarea rows="6" value={storeSettings.notificationSettings?.orderConfirmationTemplate || ""} onChange={(event) => updateSettingsGroup("notificationSettings", { orderConfirmationTemplate: event.target.value })} /></label>
-          <div className="settingsOption"><div><b>Fulfillment update</b><span>Used when tracking number or PostEx status changes.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.notificationSettings?.fulfillmentUpdateEnabled !== false} onChange={(event) => updateSettingsGroup("notificationSettings", { fulfillmentUpdateEnabled: event.target.checked })} /> Enabled</label></div>
-          <div className="settingsOption"><div><b>COD phone verification reminder</b><span>Internal reminder for risky COD orders.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.notificationSettings?.codVerificationReminderEnabled !== false} onChange={(event) => updateSettingsGroup("notificationSettings", { codVerificationReminderEnabled: event.target.checked })} /> Enabled</label></div>
-          <button
-            type="submit"
-            disabled={storeSettingsLoading}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
-            }}
-          >
-            {storeSettingsLoading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Saving notification settings...</span>
-              </>
-            ) : (
-              "Save notification settings"
-            )}
-          </button>
-        </form>}
-
-        {activeTab === "Tracking" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
-          <h2>Meta Pixel & Conversions API (CAPI) Tracking</h2>
-          <p className="settingsHint">Configure your Meta Pixel and Conversions API (CAPI) server-side tracking here. Changes save directly to the database and go live instantly.</p>
-          <div className="formRow">
-            <label>Meta (Facebook) Pixel ID<input value={storeSettings.domainSettings?.metaPixelId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { metaPixelId: event.target.value })} placeholder="e.g. 1972532723444962" /></label>
-            <label>Google Analytics measurement ID (GA4)<input value={storeSettings.domainSettings?.analyticsMeasurementId || ""} onChange={(event) => updateSettingsGroup("domainSettings", { analyticsMeasurementId: event.target.value })} placeholder="G-..." /></label>
-          </div>
-          <label>Meta Conversions API (CAPI) Access Token<textarea rows="4" value={storeSettings.domainSettings?.metaCapiAccessToken || ""} onChange={(event) => updateSettingsGroup("domainSettings", { metaCapiAccessToken: event.target.value })} placeholder="EAAN... (Paste your Meta System User Access Token here)" style={{ fontFamily: "monospace", fontSize: "12px" }} /></label>
-          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "12px 16px", marginTop: "12px" }}>
-            <div style={{ fontWeight: 600, color: "#166534", marginBottom: "4px" }}>🎯 Active Standard Events:</div>
-            <div style={{ fontSize: "13px", color: "#15803d", lineHeight: 1.5 }}>
-              • <b>PageView</b> (All page loads)<br />
-              • <b>ViewContent</b> (Product details page)<br />
-              • <b>AddToCart</b> (When product added to bag)<br />
-              • <b>InitiateCheckout</b> (When checkout page opens)<br />
-              • <b>Purchase</b> (When order is placed successfully)
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
-            <button
-              type="submit"
-              disabled={storeSettingsLoading}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                cursor: storeSettingsLoading ? "not-allowed" : "pointer"
-              }}
-            >
-              {storeSettingsLoading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  <span>Saving Tracking Settings...</span>
-                </>
-              ) : (
-                "Save Tracking Settings"
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={testCapiConnection}
-              disabled={capiTesting}
-              style={{ background: "#2563eb", color: "#fff", borderColor: "#1d4ed8" }}
-            >
-              {capiTesting ? "Testing CAPI..." : "⚡ Test Meta CAPI Connection"}
-            </button>
-            <a
-              href="https://eventsmanager.facebook.com"
-              target="_blank"
-              rel="noreferrer"
-              style={{ display: "inline-flex", alignItems: "center", padding: "8px 16px", borderRadius: "6px", background: "#f3f4f6", color: "#1f2937", fontSize: "13px", fontWeight: 600, textDecoration: "none", border: "1px solid #d1d5db" }}
-            >
-              Open Meta Events Manager ↗
-            </a>
-          </div>
-          {capiTestResult && (
-            <div style={{ marginTop: "12px", padding: "12px 16px", borderRadius: "8px", background: capiTestResult.success ? "#f0fdf4" : "#fef2f2", border: `1px solid ${capiTestResult.success ? "#bbf7d0" : "#fecaca"}`, color: capiTestResult.success ? "#166534" : "#991b1b", fontSize: "13px", fontWeight: 500 }}>
-              {capiTestResult.message}
-            </div>
-          )}
-        </form>}
-
-        {activeTab === "Domains" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
-          <h2>Domains & SEO</h2>
-          <p className="settingsHint">These saved values control storefront domain, www redirects, and default SEO title.</p>
-          <label>Primary domain<input value={storeSettings.domainSettings?.primaryDomain || ""} onChange={(event) => updateSettingsGroup("domainSettings", { primaryDomain: event.target.value })} /></label>
-          <div className="settingsOption"><div><b>www redirect</b><span>Keep the preferred public domain recorded for SEO and support links.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.domainSettings?.wwwRedirect !== false} onChange={(event) => updateSettingsGroup("domainSettings", { wwwRedirect: event.target.checked })} /> Enabled</label></div>
-          <label>SEO title<input value={storeSettings.domainSettings?.seoTitle || ""} onChange={(event) => updateSettingsGroup("domainSettings", { seoTitle: event.target.value })} /></label>
-          <button
-            type="submit"
-            disabled={storeSettingsLoading}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
-            }}
-          >
-            {storeSettingsLoading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Saving domain settings...</span>
-              </>
-            ) : (
-              "Save domain settings"
-            )}
-          </button>
-        </form>}
-
-        {activeTab === "SizeChart" && (
-          <form className="adminCard settingsForm settingsWideForm" onSubmit={saveStoreSettings}>
-            <h2>Size chart settings</h2>
-            <p style={{ color: "#6b7280", fontSize: "13px", margin: "0 0 20px" }}>
-              Customize the size guide modal title, fit advice and measurement values shown across product pages and quick view.
-            </p>
-
-            {storeSettingsError && <div className="adminErrorBanner">{storeSettingsError}</div>}
-
-            <div className="formRow">
-              <label>
-                Size guide title
-                <input
-                  value={storeSettings.sizeChartSettings?.title || "Bustaniya Size Guide"}
-                  onChange={(event) => updateSettingsGroup("sizeChartSettings", { title: event.target.value })}
-                  placeholder="e.g. Bustaniya Size Guide"
-                />
-              </label>
-              <label>
-                Subtitle note
-                <input
-                  value={storeSettings.sizeChartSettings?.subtitle || "Standard Ready-to-Wear Measurements (Inches)"}
-                  onChange={(event) => updateSettingsGroup("sizeChartSettings", { subtitle: event.target.value })}
-                  placeholder="e.g. Standard Ready-to-Wear Measurements (Inches)"
-                />
-              </label>
-            </div>
-
-            <label>
-              Fit advice text
-              <textarea
-                rows="2"
-                value={storeSettings.sizeChartSettings?.advice || ""}
-                onChange={(event) => updateSettingsGroup("sizeChartSettings", { advice: event.target.value })}
-                placeholder="Fit advice text shown under measurement table..."
-              />
-            </label>
-
-            <div className="sizeChartManager" style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
-              <div className="inventoryListHead" style={{ marginBottom: "16px" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>Size Measurement Matrix</h3>
-                  <span style={{ fontSize: "12px", color: "#6b7280" }}>
-                    Edit measurements for ready-stitched garments across XS, S, M, L, XL (in inches)
-                  </span>
+              {/* Business Profile */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Store Business Profile</h3>
+                    <p>Official legal details and customer contact channels.</p>
+                  </div>
                 </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Store Name
+                      <input className="shopifyInput" defaultValue="Bustaniya" />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Legal Business Name
+                      <input className="shopifyInput" defaultValue="Bustaniya" />
+                    </label>
+                  </div>
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Support Email
+                      <input className="shopifyInput" defaultValue="hello@bustaniya.pk" />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Customer Support Phone
+                      <input className="shopifyInput" placeholder="+92 3xx xxxxxxx" />
+                    </label>
+                  </div>
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Currency
+                      <select className="shopifySelect" defaultValue="PKR">
+                        <option>PKR (Pakistani Rupee)</option>
+                      </select>
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Timezone
+                      <select className="shopifySelect" defaultValue="Asia/Karachi">
+                        <option>Asia/Karachi (PKT)</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Save Bar */}
+              <div className="shopifySettingsBottomBar">
                 <button
-                  type="button"
-                  onClick={() => {
-                    const current = storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements;
-                    const next = [
-                      ...current,
-                      { name: "NEW MEASUREMENT", values: { XS: "0", S: "0", M: "0", L: "0", XL: "0" } },
-                    ];
-                    updateSettingsGroup("sizeChartSettings", { measurements: next });
-                  }}
+                  type="submit"
+                  className="shopifyBtnPrimary"
+                  disabled={storeSettingsLoading}
                 >
-                  <Plus size={14} /> Add measurement
+                  {storeSettingsLoading ? "Saving Store Settings..." : "💾 Save Store Settings"}
                 </button>
               </div>
+            </form>
+          )}
 
-              <div className="adminTableWrap" style={{ overflowX: "auto" }}>
-                <table className="adminTable" style={{ width: "100%", fontSize: "13px" }}>
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: "left", padding: "10px" }}>Measurement</th>
-                      <th style={{ textAlign: "center", padding: "10px" }}>XS</th>
-                      <th style={{ textAlign: "center", padding: "10px" }}>S</th>
-                      <th style={{ textAlign: "center", padding: "10px" }}>M</th>
-                      <th style={{ textAlign: "center", padding: "10px" }}>L</th>
-                      <th style={{ textAlign: "center", padding: "10px" }}>XL</th>
-                      <th style={{ textAlign: "center", padding: "10px", width: "50px" }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements).map((m, mIdx) => (
-                      <tr key={mIdx} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                        <td style={{ padding: "8px" }}>
-                          <input
-                            style={{ width: "160px", fontWeight: 700, padding: "6px 10px", borderRadius: "4px", border: "1px solid #d1d5db", textTransform: "uppercase" }}
-                            value={m.name || ""}
-                            onChange={(event) => {
-                              const measurements = [...(storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements)];
-                              measurements[mIdx] = { ...measurements[mIdx], name: event.target.value.toUpperCase() };
-                              updateSettingsGroup("sizeChartSettings", { measurements });
-                            }}
-                            placeholder="SHIRT LENGTH"
-                          />
-                        </td>
-                        {["XS", "S", "M", "L", "XL"].map((sz) => (
-                          <td key={sz} style={{ padding: "8px", textAlign: "center" }}>
-                            <input
-                              style={{ width: "65px", padding: "6px 8px", borderRadius: "4px", border: "1px solid #d1d5db", textAlign: "center" }}
-                              value={m.values?.[sz] || ""}
-                              onChange={(event) => {
-                                const measurements = [...(storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements)];
-                                const values = { ...(measurements[mIdx].values || {}), [sz]: event.target.value };
-                                measurements[mIdx] = { ...measurements[mIdx], values };
-                                updateSettingsGroup("sizeChartSettings", { measurements });
-                              }}
-                              placeholder="0"
-                            />
-                          </td>
+          {/* 2. HOMEPAGE SECTIONS */}
+          {activeTab === "Sections" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Homepage Sections Builder</h3>
+                    <p>Reorder sections, toggle visibility, and customize titles and content.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {(storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((section, index, arr) => {
+                      const isHero = section.type === "hero";
+                      return (
+                        <div
+                          key={section.id}
+                          style={{
+                            border: "1.5px solid #e2e8e5",
+                            borderRadius: "10px",
+                            padding: "16px",
+                            background: section.enabled !== false ? "#ffffff" : "#f8faf9",
+                            opacity: section.enabled !== false ? 1 : 0.75,
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isHero ? 0 : "12px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              {/* Reorder arrows */}
+                              <div style={{ display: "flex", gap: "4px" }}>
+                                <button
+                                  type="button"
+                                  disabled={index === 0}
+                                  onClick={() => setStoreSettings((current) => {
+                                    const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                    [sections[index - 1], sections[index]] = [sections[index], sections[index - 1]];
+                                    return { ...current, homepageSections: sections };
+                                  })}
+                                  style={{ width: "26px", height: "26px", borderRadius: "6px", border: "1px solid #d4ded6", background: "#f8faf7", cursor: "pointer", display: "grid", placeItems: "center" }}
+                                  title="Move Up"
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={index === arr.length - 1}
+                                  onClick={() => setStoreSettings((current) => {
+                                    const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                    [sections[index], sections[index + 1]] = [sections[index + 1], sections[index]];
+                                    return { ...current, homepageSections: sections };
+                                  })}
+                                  style={{ width: "26px", height: "26px", borderRadius: "6px", border: "1px solid #d4ded6", background: "#f8faf7", cursor: "pointer", display: "grid", placeItems: "center" }}
+                                  title="Move Down"
+                                >
+                                  ↓
+                                </button>
+                              </div>
+                              <div>
+                                <span style={{ fontSize: "14px", fontWeight: 750, color: "#122a1e" }}>{section.label}</span>
+                                <span style={{ fontSize: "11px", color: "#798c80", marginLeft: "8px", background: "#f0f4f1", padding: "2px 6px", borderRadius: "4px" }}>
+                                  {section.type.replace(/_/g, " ")}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                              <label className="switchLabel">
+                                <input
+                                  type="checkbox"
+                                  checked={section.enabled !== false}
+                                  onChange={(e) => setStoreSettings((current) => {
+                                    const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                    sections[index] = { ...sections[index], enabled: e.target.checked };
+                                    return { ...current, homepageSections: sections };
+                                  })}
+                                /> Visible
+                              </label>
+                              {!isHero && (
+                                <button
+                                  type="button"
+                                  onClick={() => setStoreSettings((current) => ({
+                                    ...current,
+                                    homepageSections: (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).filter((_, i) => i !== index),
+                                  }))}
+                                  style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "4px" }}
+                                  title={`Remove ${section.label}`}
+                                >
+                                  <X size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {!isHero && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "10px" }}>
+                              <div className="shopifyFormRow">
+                                <label className="shopifyFieldLabel">
+                                  Eyebrow
+                                  <input
+                                    className="shopifyInput"
+                                    value={section.eyebrow || ""}
+                                    placeholder="e.g. NEW ARRIVALS"
+                                    onChange={(e) => setStoreSettings((current) => {
+                                      const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                      sections[index] = { ...sections[index], eyebrow: e.target.value };
+                                      return { ...current, homepageSections: sections };
+                                    })}
+                                  />
+                                </label>
+                                <label className="shopifyFieldLabel">
+                                  Heading
+                                  <input
+                                    className="shopifyInput"
+                                    value={section.heading || ""}
+                                    placeholder="Section heading"
+                                    onChange={(e) => setStoreSettings((current) => {
+                                      const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                      sections[index] = { ...sections[index], heading: e.target.value };
+                                      return { ...current, homepageSections: sections };
+                                    })}
+                                  />
+                                </label>
+                              </div>
+                              <label className="shopifyFieldLabel">
+                                Subtitle
+                                <input
+                                  className="shopifyInput"
+                                  value={section.subtitle || ""}
+                                  placeholder="Short description..."
+                                  onChange={(e) => setStoreSettings((current) => {
+                                    const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                    sections[index] = { ...sections[index], subtitle: e.target.value };
+                                    return { ...current, homepageSections: sections };
+                                  })}
+                                />
+                              </label>
+
+                              {section.type === "shop_by_category" && (
+                                <label className="shopifyFieldLabel">
+                                  Category Display Style
+                                  <select
+                                    className="shopifySelect"
+                                    value={section.style || storeSettings.categorySectionStyle || "atelier"}
+                                    onChange={(e) => {
+                                      const nextStyle = e.target.value;
+                                      setStoreSettings((current) => {
+                                        const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
+                                          sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
+                                        );
+                                        return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
+                                      });
+                                    }}
+                                  >
+                                    <option value="atelier">Atelier Overlay Cards (Dark Theme Overlay)</option>
+                                    <option value="minimal">Minimal Collections Grid (House of Lucknawi Style)</option>
+                                  </select>
+                                </label>
+                              )}
+
+                              {section.type === "instagram_feed" && (
+                                <div style={{ border: "1px solid #d4ded6", borderRadius: "8px", padding: "14px", background: "#f8faf7", marginTop: "6px" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                                    <span style={{ fontSize: "13px", fontWeight: 750, color: "#122a1e" }}>Instagram Reels Links</span>
+                                    <button
+                                      type="button"
+                                      className="shopifyBtnSecondary"
+                                      onClick={() => setStoreSettings((current) => ({
+                                        ...current,
+                                        instagramPosts: [
+                                          ...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []),
+                                          { id: `instagram-${Date.now()}`, mediaType: "video", url: "", caption: "", image: "" },
+                                        ],
+                                      }))}
+                                      style={{ fontSize: "11px", padding: "5px 10px" }}
+                                    >
+                                      + Add Reel
+                                    </button>
+                                  </div>
+
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                    {(storeSettings.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).map((post, postIndex) => (
+                                      <div key={post.id || postIndex} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                        <input
+                                          className="shopifyInput"
+                                          value={post.url || ""}
+                                          placeholder="https://www.instagram.com/reel/..."
+                                          onChange={(e) => setStoreSettings((current) => {
+                                            const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
+                                            posts[postIndex] = { ...posts[postIndex], url: e.target.value };
+                                            return { ...current, instagramPosts: posts };
+                                          })}
+                                          style={{ flex: 1 }}
+                                        />
+                                        <input
+                                          className="shopifyInput"
+                                          value={post.caption || ""}
+                                          placeholder="Caption / Collection"
+                                          onChange={(e) => setStoreSettings((current) => {
+                                            const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
+                                            posts[postIndex] = { ...posts[postIndex], caption: e.target.value };
+                                            return { ...current, instagramPosts: posts };
+                                          })}
+                                          style={{ width: "180px" }}
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => setStoreSettings((current) => {
+                                            const posts = (current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).filter((_, pIdx) => pIdx !== postIndex);
+                                            return { ...current, instagramPosts: posts };
+                                          })}
+                                          style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "4px" }}
+                                        >
+                                          <X size={15} />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Add Available Section Dropdown */}
+                  {(() => {
+                    const currentTypes = (storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((s) => s.type);
+                    const available = DEFAULT_HOMEPAGE_SECTIONS.filter((s) => !currentTypes.includes(s.type) && s.type !== "hero");
+                    if (!available.length) return null;
+                    return (
+                      <div style={{ display: "flex", gap: "10px", marginTop: "14px", padding: "14px", border: "1px dashed #c0d1c5", borderRadius: "10px", background: "#f8faf7" }}>
+                        <select id="sectionAddSelect" className="shopifySelect" defaultValue="" style={{ flex: 1 }}>
+                          <option value="" disabled>Choose a section to add to homepage...</option>
+                          {available.map((s) => <option key={s.type} value={s.type}>{s.label}</option>)}
+                        </select>
+                        <button
+                          type="button"
+                          className="shopifyBtnPrimary"
+                          onClick={() => {
+                            const select = document.getElementById("sectionAddSelect");
+                            const type = select?.value;
+                            if (!type) return;
+                            const template = DEFAULT_HOMEPAGE_SECTIONS.find((s) => s.type === type);
+                            if (!template) return;
+                            setStoreSettings((current) => ({
+                              ...current,
+                              homepageSections: [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS), { ...template, id: `${template.id}-${Date.now()}` }],
+                            }));
+                            select.value = "";
+                          }}
+                        >
+                          + Add Section
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Sections..." : "💾 Save Page Sections"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 3. SIZE GUIDE MATRIX */}
+          {activeTab === "SizeChart" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Size Guide Configuration</h3>
+                    <p>Customize the size guide modal title, fit advice, and measurement values shown across product pages.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Size Guide Title
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.sizeChartSettings?.title || "Bustaniya Size Guide"}
+                        onChange={(e) => updateSettingsGroup("sizeChartSettings", { title: e.target.value })}
+                        placeholder="e.g. Bustaniya Size Guide"
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Subtitle Note
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.sizeChartSettings?.subtitle || "Standard Ready-to-Wear Measurements (Inches)"}
+                        onChange={(e) => updateSettingsGroup("sizeChartSettings", { subtitle: e.target.value })}
+                        placeholder="e.g. Standard Ready-to-Wear Measurements (Inches)"
+                      />
+                    </label>
+                  </div>
+                  <label className="shopifyFieldLabel">
+                    Fit Advice Text
+                    <textarea
+                      className="shopifyTextarea"
+                      rows="2"
+                      value={storeSettings.sizeChartSettings?.advice || ""}
+                      onChange={(e) => updateSettingsGroup("sizeChartSettings", { advice: e.target.value })}
+                      placeholder="Fit advice shown under the measurements table..."
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Dynamic Measurement Table */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Ready-to-Wear Measurement Matrix</h3>
+                    <p>Garment measurements in inches across XS, S, M, L, XL.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="shopifyBtnSecondary"
+                    onClick={() => {
+                      const current = storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements;
+                      const next = [
+                        ...current,
+                        { name: "NEW MEASUREMENT", values: { XS: "0", S: "0", M: "0", L: "0", XL: "0" } },
+                      ];
+                      updateSettingsGroup("sizeChartSettings", { measurements: next });
+                    }}
+                    style={{ fontSize: "12px", padding: "6px 12px" }}
+                  >
+                    + Add Measurement
+                  </button>
+                </div>
+                <div className="shopifySectionBody" style={{ padding: 0 }}>
+                  <div className="shopifyTableWrap">
+                    <table className="shopifyOrderTable">
+                      <thead>
+                        <tr>
+                          <th>Measurement Name</th>
+                          <th style={{ textAlign: "center", width: "90px" }}>XS</th>
+                          <th style={{ textAlign: "center", width: "90px" }}>S</th>
+                          <th style={{ textAlign: "center", width: "90px" }}>M</th>
+                          <th style={{ textAlign: "center", width: "90px" }}>L</th>
+                          <th style={{ textAlign: "center", width: "90px" }}>XL</th>
+                          <th style={{ width: "40px" }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements).map((m, mIdx) => (
+                          <tr key={mIdx}>
+                            <td>
+                              <input
+                                className="shopifyInput"
+                                style={{ fontWeight: 700, textTransform: "uppercase" }}
+                                value={m.name || ""}
+                                onChange={(e) => {
+                                  const measurements = [...(storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements)];
+                                  measurements[mIdx] = { ...measurements[mIdx], name: e.target.value.toUpperCase() };
+                                  updateSettingsGroup("sizeChartSettings", { measurements });
+                                }}
+                                placeholder="CHEST"
+                              />
+                            </td>
+                            {["XS", "S", "M", "L", "XL"].map((sz) => (
+                              <td key={sz} style={{ textAlign: "center" }}>
+                                <input
+                                  className="shopifyInput"
+                                  style={{ textAlign: "center", width: "70px", margin: "0 auto" }}
+                                  value={m.values?.[sz] || ""}
+                                  onChange={(e) => {
+                                    const measurements = [...(storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements)];
+                                    const values = { ...(measurements[mIdx].values || {}), [sz]: e.target.value };
+                                    measurements[mIdx] = { ...measurements[mIdx], values };
+                                    updateSettingsGroup("sizeChartSettings", { measurements });
+                                  }}
+                                  placeholder="0"
+                                />
+                              </td>
+                            ))}
+                            <td style={{ textAlign: "center" }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const measurements = (storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements).filter((_, i) => i !== mIdx);
+                                  updateSettingsGroup("sizeChartSettings", { measurements });
+                                }}
+                                style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "4px" }}
+                                title="Remove measurement"
+                              >
+                                <X size={15} />
+                              </button>
+                            </td>
+                          </tr>
                         ))}
-                        <td style={{ padding: "8px", textAlign: "center" }}>
-                          <button
-                            type="button"
-                            className="sectionRemoveBtn"
-                            title="Remove measurement"
-                            onClick={() => {
-                              const measurements = (storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements).filter((_, i) => i !== mIdx);
-                              updateSettingsGroup("sizeChartSettings", { measurements });
-                            }}
-                          >
-                            <X size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Size Chart..." : "💾 Save Size Guide Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 4. PAYMENTS & COD */}
+          {activeTab === "Payments" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Payment Methods</h3>
+                    <p>Enable and configure payment options available to customers during checkout.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Cash on Delivery (COD)</b>
+                      <span>Customer pays for the parcel upon delivery directly to the courier rider.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.paymentSettings?.codEnabled !== false}
+                        onChange={(e) => updatePaymentSettings({ codEnabled: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Full Advance Payment (Free Delivery)</b>
+                      <span>Customer pays the full amount in advance via bank transfer/JazzCash and receives 100% free delivery.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.paymentSettings?.manualTransferEnabled !== false}
+                        onChange={(e) => updatePaymentSettings({ manualTransferEnabled: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* COD Risk Rules */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Cash on Delivery (COD) Risk Rules</h3>
+                    <p>Safeguards against fake or unverified COD orders.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Phone Verification Required</b>
+                      <span>Mark unverified numbers in admin so staff confirms orders via WhatsApp before dispatch.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.paymentSettings?.codPhoneVerification !== false}
+                        onChange={(e) => updatePaymentSettings({ codPhoneVerification: e.target.checked })}
+                      /> Required
+                    </label>
+                  </div>
+
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Minimum COD Order (PKR)
+                      <input
+                        type="number"
+                        min="0"
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.codMinOrderPkr ?? 0}
+                        onChange={(e) => updatePaymentSettings({ codMinOrderPkr: e.target.value })}
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Maximum COD Order (PKR)
+                      <input
+                        type="number"
+                        min="0"
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.codMaxOrderPkr ?? 50000}
+                        onChange={(e) => updatePaymentSettings({ codMaxOrderPkr: e.target.value })}
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      COD Delivery Charge (PKR)
+                      <input
+                        type="number"
+                        min="0"
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.codDeliveryChargePkr ?? 250}
+                        onChange={(e) => updatePaymentSettings({ codDeliveryChargePkr: e.target.value })}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bank & WhatsApp Details */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Bank Receiving Details & WhatsApp Verification</h3>
+                    <p>Bank details displayed for advance payment orders. Customers send their payment screenshot to WhatsApp.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Bank Name
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.bankName || ""}
+                        onChange={(e) => updatePaymentSettings({ bankName: e.target.value })}
+                        placeholder="e.g. Meezan Bank / Nayapay"
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Account Title
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.bankTitle || ""}
+                        onChange={(e) => updatePaymentSettings({ bankTitle: e.target.value })}
+                        placeholder="e.g. Amna Butt / Bustaniya"
+                      />
+                    </label>
+                  </div>
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Account Number
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.bankAccountNumber || ""}
+                        onChange={(e) => updatePaymentSettings({ bankAccountNumber: e.target.value })}
+                        placeholder="0101010101..."
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      IBAN (Optional)
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.bankIban || ""}
+                        onChange={(e) => updatePaymentSettings({ bankIban: e.target.value })}
+                        placeholder="PK..."
+                      />
+                    </label>
+                  </div>
+                  <label className="shopifyFieldLabel">
+                    WhatsApp Support & Verification Phone Number
+                    <input
+                      type="tel"
+                      className="shopifyInput"
+                      value={storeSettings.paymentSettings?.whatsappNumber || ""}
+                      onChange={(e) => updatePaymentSettings({ whatsappNumber: e.target.value })}
+                      placeholder="923001234567"
+                    />
+                    <small>Powers the floating WhatsApp chat widget and the checkout payment-proof screenshot button.</small>
+                  </label>
+                </div>
+              </div>
+
+              {/* Checkout Instructions */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Checkout Payment Instructions</h3>
+                    <p>Customize headings and instruction bullet points shown on the customer checkout page.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <PaymentInstructionEditor
+                    title="1. Cash on Delivery (COD) Instructions"
+                    headingValue={storeSettings.paymentSettings?.codHeading}
+                    headingPlaceholder="Cash on Delivery Instructions"
+                    instructionsValue={storeSettings.paymentSettings?.codInstructions}
+                    onUpdateHeading={(heading) => updatePaymentSettings({ codHeading: heading })}
+                    onUpdateInstructions={(text) => updatePaymentSettings({ codInstructions: text })}
+                  />
+
+                  <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px dashed #e2e8e5" }}>
+                    <PaymentInstructionEditor
+                      title="2. Full Advance Payment Instructions"
+                      headingValue={storeSettings.paymentSettings?.advanceHeading}
+                      headingPlaceholder="Full Advance Payment Instructions"
+                      instructionsValue={storeSettings.paymentSettings?.instructions}
+                      onUpdateHeading={(heading) => updatePaymentSettings({ advanceHeading: heading })}
+                      onUpdateInstructions={(text) => updatePaymentSettings({ instructions: text })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Payment Settings..." : "💾 Save Payment Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 5. SHIPPING & DELIVERY */}
+          {activeTab === "Shipping" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Global Delivery Timeline & Copy</h3>
+                    <p>Default delivery timeline and free shipping thresholds displayed across all products.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Estimated Delivery Timeline
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.deliverySettings?.estimatedDays || ""}
+                        onChange={(e) => updateDeliverySettings({ estimatedDays: e.target.value })}
+                        placeholder="e.g. 8-9 delivery days"
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Free Delivery Above Order (PKR)
+                      <input
+                        type="number"
+                        min="0"
+                        className="shopifyInput"
+                        value={storeSettings.deliverySettings?.freeDeliveryThreshold ?? 5000}
+                        onChange={(e) => updateDeliverySettings({ freeDeliveryThreshold: e.target.value })}
+                        placeholder="5000"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="shopifyFieldLabel">
+                    Standard Delivery Fee Copy
+                    <input
+                      className="shopifyInput"
+                      value={storeSettings.deliverySettings?.deliveryFeeText || ""}
+                      onChange={(e) => updateDeliverySettings({ deliveryFeeText: e.target.value })}
+                      placeholder="e.g. Rs. 200 standard delivery nationwide · Free above Rs. 5,000"
+                    />
+                  </label>
+
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Cash on Delivery Availability Badge</b>
+                      <span>Highlight COD availability badge on product detail pages.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.deliverySettings?.codAvailable !== false}
+                        onChange={(e) => updateDeliverySettings({ codAvailable: e.target.checked })}
+                      /> Available
+                    </label>
+                  </div>
+
+                  <label className="shopifyFieldLabel">
+                    Global Default Delivery Information Text
+                    <textarea
+                      className="shopifyTextarea"
+                      rows="3"
+                      value={storeSettings.deliverySettings?.defaultDeliveryInfo || ""}
+                      onChange={(e) => updateDeliverySettings({ defaultDeliveryInfo: e.target.value })}
+                      placeholder="Orders are processed within 24 hours and delivered within 8-9 delivery days across Pakistan..."
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Shipping Zones Table */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Configured Shipping Zones & Rates</h3>
+                    <p>Courier delivery rates based on destination city.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody" style={{ padding: 0 }}>
+                  <div className="shopifyTableWrap">
+                    <table className="shopifyOrderTable">
+                      <thead>
+                        <tr>
+                          <th>Zone</th>
+                          <th>Cities Covered</th>
+                          <th>Delivery Rate</th>
+                          <th>Free Above</th>
+                          <th style={{ width: "40px" }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(shippingZones || []).map((zone, index) => (
+                          <tr key={zone.id || index}>
+                            <td><b>{zone.zone}</b></td>
+                            <td>{zone.cities}</td>
+                            <td>Rs. {Number(zone.rate || 0).toLocaleString()}</td>
+                            <td>{Number(zone.freeAbove || 0) > 0 ? `Rs. ${Number(zone.freeAbove).toLocaleString()}` : "—"}</td>
+                            <td>
+                              <button
+                                type="button"
+                                onClick={() => removeShippingZone(index)}
+                                style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "4px" }}
+                                title="Remove zone"
+                              >
+                                <X size={15} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Add Zone Inline Form */}
+                  <div style={{ padding: "16px", borderTop: "1px solid #edf2ee", background: "#fafcfa" }}>
+                    <span style={{ fontSize: "13px", fontWeight: 750, color: "#122a1e", display: "block", marginBottom: "10px" }}>
+                      + Add Shipping Zone
+                    </span>
+                    <form onSubmit={addShippingZone} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr)) 90px", gap: "10px", alignItems: "flex-end" }}>
+                      <input name="zone" className="shopifyInput" required placeholder="Zone Name (e.g. Karachi)" />
+                      <input name="cities" className="shopifyInput" required placeholder="Cities (e.g. Karachi, Hyderabad)" />
+                      <input name="rate" type="number" min="0" className="shopifyInput" required placeholder="Rate (PKR)" />
+                      <input name="freeAbove" type="number" min="0" className="shopifyInput" placeholder="Free Above (PKR)" />
+                      <button type="submit" className="shopifyBtnPrimary" style={{ height: "40px" }}>Add</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Shipping..." : "💾 Save Shipping Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 6. CHECKOUT FLOW */}
+          {activeTab === "Checkout" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Checkout Experience & Customer Options</h3>
+                    <p>Control checkout friction, required contact info, and default payment method.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Guest Checkout</b>
+                      <span>Let walk-in and Instagram customers place orders instantly without creating an account.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.checkoutSettings?.guestCheckoutEnabled !== false}
+                        onChange={(e) => updateSettingsGroup("checkoutSettings", { guestCheckoutEnabled: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Phone Number Required</b>
+                      <span>Mandatory for PostEx courier delivery and COD order confirmation.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.checkoutSettings?.phoneRequired !== false}
+                        onChange={(e) => updateSettingsGroup("checkoutSettings", { phoneRequired: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Default Payment Selected
+                      <select
+                        className="shopifySelect"
+                        value={storeSettings.checkoutSettings?.defaultPayment || "cod"}
+                        onChange={(e) => updateSettingsGroup("checkoutSettings", { defaultPayment: e.target.value })}
+                      >
+                        <option value="cod">Cash on Delivery (COD)</option>
+                        <option value="full_advance">Full Advance (Free Delivery)</option>
+                      </select>
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Customer Address Fields
+                      <select
+                        className="shopifySelect"
+                        value={storeSettings.checkoutSettings?.addressMode || "detailed"}
+                        onChange={(e) => updateSettingsGroup("checkoutSettings", { addressMode: e.target.value })}
+                      >
+                        <option value="detailed">Full Address Required (House, Street, Area)</option>
+                        <option value="simple">Simple City & Address Only</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="shopifyFieldLabel">
+                    Checkout Instructions / Note for Customers
+                    <textarea
+                      className="shopifyTextarea"
+                      rows="3"
+                      value={storeSettings.checkoutSettings?.checkoutNote || ""}
+                      onChange={(e) => updateSettingsGroup("checkoutSettings", { checkoutNote: e.target.value })}
+                      placeholder="e.g. Please ensure your delivery phone number is active for courier updates."
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Checkout..." : "💾 Save Checkout Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 7. META PIXEL & CAPI */}
+          {activeTab === "Tracking" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Meta Pixel & Conversions API (CAPI)</h3>
+                    <p>Server-side tracking for Meta Ads, Instagram campaigns, and Google Analytics.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Meta (Facebook) Pixel ID
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.domainSettings?.metaPixelId || ""}
+                        onChange={(e) => updateSettingsGroup("domainSettings", { metaPixelId: e.target.value })}
+                        placeholder="e.g. 1972532723444962"
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Google Analytics Measurement ID (GA4)
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.domainSettings?.analyticsMeasurementId || ""}
+                        onChange={(e) => updateSettingsGroup("domainSettings", { analyticsMeasurementId: e.target.value })}
+                        placeholder="G-XXXXXXXXXX"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="shopifyFieldLabel">
+                    Meta Conversions API (CAPI) System User Token
+                    <textarea
+                      className="shopifyTextarea"
+                      rows="4"
+                      value={storeSettings.domainSettings?.metaCapiAccessToken || ""}
+                      onChange={(e) => updateSettingsGroup("domainSettings", { metaCapiAccessToken: e.target.value })}
+                      placeholder="EAAN... (Paste your Meta System User Access Token here)"
+                      style={{ fontFamily: "monospace", fontSize: "12px" }}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Live Events & Testing */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Standard Events & CAPI Verification</h3>
+                    <p>Tracked events dispatched automatically to Meta Events Manager.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "14px 18px", color: "#166534", fontSize: "13px", lineHeight: 1.6 }}>
+                    <div style={{ fontWeight: 800, marginBottom: "4px" }}>🎯 Active Standard Events:</div>
+                    <div>• <b>PageView</b> (All page loads nationwide)</div>
+                    <div>• <b>ViewContent</b> (Product detail views with currency PKR)</div>
+                    <div>• <b>AddToCart</b> (When product is added to cart)</div>
+                    <div>• <b>InitiateCheckout</b> (When checkout page loads)</div>
+                    <div>• <b>Purchase</b> (When customer places order successfully with full deduplication eventID)</div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="shopifyBtnPrimary"
+                      onClick={testCapiConnection}
+                      disabled={capiTesting}
+                      style={{ background: "#2563eb", borderColor: "#1d4ed8" }}
+                    >
+                      {capiTesting ? "Testing CAPI..." : "⚡ Test Meta CAPI Connection"}
+                    </button>
+                    <a
+                      href="https://eventsmanager.facebook.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shopifyBtnSecondary"
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                    >
+                      <span>Open Meta Events Manager</span>
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
+
+                  {capiTestResult && (
+                    <div style={{ padding: "12px 16px", borderRadius: "8px", background: capiTestResult.success ? "#f0fdf4" : "#fef2f2", border: `1px solid ${capiTestResult.success ? "#bbf7d0" : "#fecaca"}`, color: capiTestResult.success ? "#166534" : "#991b1b", fontSize: "13px", fontWeight: 600 }}>
+                      {capiTestResult.message}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Tracking..." : "💾 Save Tracking Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 8. NOTIFICATIONS */}
+          {activeTab === "Notifications" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Customer Email Notifications</h3>
+                    <p>Templates sent to customers upon order placement and dispatch.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Order Confirmation Email</b>
+                      <span>Send automated email receipt when customer completes checkout.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.notificationSettings?.orderConfirmationEnabled !== false}
+                        onChange={(e) => updateSettingsGroup("notificationSettings", { orderConfirmationEnabled: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <label className="shopifyFieldLabel">
+                    Email Subject Line
+                    <input
+                      className="shopifyInput"
+                      value={storeSettings.notificationSettings?.orderConfirmationSubject || ""}
+                      onChange={(e) => updateSettingsGroup("notificationSettings", { orderConfirmationSubject: e.target.value })}
+                      placeholder="e.g. Your Bustaniya Order Confirmation"
+                    />
+                  </label>
+
+                  <label className="shopifyFieldLabel">
+                    Email Template Body
+                    <textarea
+                      className="shopifyTextarea"
+                      rows="6"
+                      value={storeSettings.notificationSettings?.orderConfirmationTemplate || ""}
+                      onChange={(e) => updateSettingsGroup("notificationSettings", { orderConfirmationTemplate: e.target.value })}
+                      placeholder="Assalam-o-Alaikum {customer_name}, thank you for ordering from Bustaniya..."
+                    />
+                  </label>
+
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Fulfillment & PostEx Tracking Update</b>
+                      <span>Notify customer when parcel is booked and assigned a PostEx tracking number.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.notificationSettings?.fulfillmentUpdateEnabled !== false}
+                        onChange={(e) => updateSettingsGroup("notificationSettings", { fulfillmentUpdateEnabled: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>COD Phone Verification Reminder</b>
+                      <span>Alert staff in dashboard when high-value COD orders need customer call verification.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.notificationSettings?.codVerificationReminderEnabled !== false}
+                        onChange={(e) => updateSettingsGroup("notificationSettings", { codVerificationReminderEnabled: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Notifications..." : "💾 Save Notification Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 9. DOMAINS & SEO */}
+          {activeTab === "Domains" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Domains & Search Engine Optimization</h3>
+                    <p>Primary public storefront URL and default search metadata.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <label className="shopifyFieldLabel">
+                    Primary Storefront Domain
+                    <input
+                      className="shopifyInput"
+                      value={storeSettings.domainSettings?.primaryDomain || ""}
+                      onChange={(e) => updateSettingsGroup("domainSettings", { primaryDomain: e.target.value })}
+                      placeholder="e.g. bustaniya.pk"
+                    />
+                  </label>
+
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Automatic www Redirect</b>
+                      <span>Redirect www requests directly to primary domain for clean SEO.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.domainSettings?.wwwRedirect !== false}
+                        onChange={(e) => updateSettingsGroup("domainSettings", { wwwRedirect: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <label className="shopifyFieldLabel">
+                    Default Homepage SEO Title
+                    <input
+                      className="shopifyInput"
+                      value={storeSettings.domainSettings?.seoTitle || ""}
+                      onChange={(e) => updateSettingsGroup("domainSettings", { seoTitle: e.target.value })}
+                      placeholder="e.g. Bustaniya | Luxury Unstitched & Ready-to-Wear"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Domain..." : "💾 Save Domain Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 10. STAFF & USERS */}
+          {activeTab === "Users" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {staffError && <div className="adminErrorBanner">⚠️ {staffError}</div>}
+              {staffSaved && <div className="adminErrorBanner settingsSaved">✅ {staffSaved}</div>}
+
+              {/* Staff Accounts Table */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Admin Staff Accounts</h3>
+                    <p>{currentAdminUser ? `Signed in as ${currentAdminUser.name} (${currentAdminUser.role})` : "Manage team access"}</p>
+                  </div>
+                  {staffLoading && <span style={{ fontSize: "12px", color: "#667a6e" }}>Refreshing...</span>}
+                </div>
+                <div className="shopifySectionBody" style={{ padding: 0 }}>
+                  <div className="shopifyTableWrap">
+                    <table className="shopifyOrderTable">
+                      <thead>
+                        <tr>
+                          <th>Team Member</th>
+                          <th>Email</th>
+                          <th>Role</th>
+                          <th>Permissions</th>
+                          <th>Status</th>
+                          <th style={{ textAlign: "right" }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {staff.map((user) => (
+                          <tr key={user.id}>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#173d29", color: "#ffffff", display: "grid", placeItems: "center", fontSize: "12px", fontWeight: 800 }}>
+                                  {(user.name || "U").slice(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                  <b style={{ color: "#122a1e" }}>{user.name}</b>
+                                  <small style={{ display: "block", color: "#798c80", fontSize: "11px" }}>
+                                    {user.lastLoginAt ? `Last login ${new Date(user.lastLoginAt).toLocaleDateString("en-PK")}` : "No login yet"}
+                                  </small>
+                                </div>
+                              </div>
+                            </td>
+                            <td>{user.email}</td>
+                            <td>
+                              <span className={`shopifyPill ${user.role === "Owner" ? "paid" : "in_transit"}`}>
+                                {user.role}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                {(user.permissions || []).map((perm) => (
+                                  <span key={perm} style={{ fontSize: "10.5px", background: "#f0f4f1", color: "#32463a", padding: "2px 6px", borderRadius: "4px" }}>
+                                    {perm}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`shopifyPill ${user.status === "Active" ? "paid" : "returned"}`}>
+                                <span className="pillDot" /> {user.status}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: "right" }}>
+                              <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
+                                <button
+                                  type="button"
+                                  className="shopifyRowBtn"
+                                  onClick={() => updateStaffUser(user.id, { status: user.status === "Active" ? "Disabled" : "Active" })}
+                                >
+                                  {user.status === "Active" ? "Disable" : "Enable"}
+                                </button>
+                                {user.role !== "Owner" && (
+                                  <button
+                                    type="button"
+                                    className="shopifyRowBtn danger"
+                                    onClick={() => deleteStaffUser(user.id)}
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Add Staff User Form */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Add New Admin User</h3>
+                    <p>Grant access to employees or workshop managers with custom permissions.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <form onSubmit={addStaff} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                    <div className="shopifyFormRow">
+                      <label className="shopifyFieldLabel">
+                        Full Name
+                        <input name="name" required className="shopifyInput" placeholder="e.g. Asad Ali" />
+                      </label>
+                      <label className="shopifyFieldLabel">
+                        Login Email
+                        <input name="email" type="email" required className="shopifyInput" placeholder="asad@bustaniya.pk" />
+                      </label>
+                    </div>
+                    <div className="shopifyFormRow">
+                      <label className="shopifyFieldLabel">
+                        Account Password
+                        <input name="password" type="password" minLength="10" required className="shopifyInput" placeholder="Minimum 10 characters" />
+                      </label>
+                      <label className="shopifyFieldLabel">
+                        Role
+                        <select name="role" defaultValue="Staff" className="shopifySelect">
+                          <option>Staff</option>
+                          <option>Owner</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <label className="shopifyFieldLabel">
+                      Granular Feature Access Permissions
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "10px", marginTop: "8px" }}>
+                        {availablePermissions.map((permission) => (
+                          <label key={permission} className="switchLabel" style={{ fontSize: "13px" }}>
+                            <input
+                              name={`permission-${permission}`}
+                              type="checkbox"
+                              defaultChecked={["dashboard", "orders"].includes(permission)}
+                            /> {permission}
+                          </label>
+                        ))}
+                      </div>
+                    </label>
+
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "10px" }}>
+                      <button
+                        type="submit"
+                        className="shopifyBtnPrimary"
+                        disabled={staffLoading}
+                      >
+                        {staffLoading ? "Adding User..." : "Add Admin User"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             </div>
+          )}
 
-            <button
-              type="submit"
-              disabled={storeSettingsLoading}
-              style={{
-                marginTop: "20px",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                cursor: storeSettingsLoading ? "not-allowed" : "pointer"
-              }}
-            >
-              {storeSettingsLoading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  <span>Saving size chart settings...</span>
-                </>
-              ) : (
-                "Save size chart settings"
-              )}
-            </button>
-          </form>
-        )}
-
-        {activeTab === "Checkout" && <form className="adminCard settingsForm settingsWideForm" onSubmit={saveSettings}>
-          <h2>Checkout settings</h2>
-          <div className="settingsOption"><div><b>Guest checkout</b><span>Let Instagram and walk-in customers order without accounts.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.checkoutSettings?.guestCheckoutEnabled !== false} onChange={(event) => updateSettingsGroup("checkoutSettings", { guestCheckoutEnabled: event.target.checked })} /> Enabled</label></div>
-          <div className="settingsOption"><div><b>Phone required</b><span>Required for PostEx booking and COD verification.</span></div><label className="switchLabel"><input type="checkbox" checked={storeSettings.checkoutSettings?.phoneRequired !== false} onChange={(event) => updateSettingsGroup("checkoutSettings", { phoneRequired: event.target.checked })} /> Enabled</label></div>
-          <div className="formRow"><label>Default payment<select value={storeSettings.checkoutSettings?.defaultPayment || "cod"} onChange={(event) => updateSettingsGroup("checkoutSettings", { defaultPayment: event.target.value })}><option value="cod">COD — delivery charge in advance</option><option value="full_advance">Full advance — free delivery</option></select></label><label>Address fields<select value={storeSettings.checkoutSettings?.addressMode || "detailed"} onChange={(event) => updateSettingsGroup("checkoutSettings", { addressMode: event.target.value })}><option value="detailed">Full address required</option><option value="simple">Simple city/address only</option></select></label></div>
-          <label>Checkout note<textarea rows="3" value={storeSettings.checkoutSettings?.checkoutNote || ""} onChange={(event) => updateSettingsGroup("checkoutSettings", { checkoutNote: event.target.value })} /></label>
-          <button
-            type="submit"
-            disabled={storeSettingsLoading}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              cursor: storeSettingsLoading ? "not-allowed" : "pointer"
-            }}
-          >
-            {storeSettingsLoading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Saving checkout settings...</span>
-              </>
-            ) : (
-              "Save checkout settings"
-            )}
-          </button>
-        </form>}
-
-        {activeTab === "System" && <BackendHealthPanel />}
+          {/* 11. SYSTEM HEALTH */}
+          {activeTab === "System" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <BackendHealthPanel />
+            </div>
+          )}
+        </div>
       </div>
-    </section>
-  </>;
+    </div>
+  );
 }
 
 function settingsTabHint(tab) {
