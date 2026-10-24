@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, MessageSquare, Minus, Play, Plus, Ruler, Scissors, ShieldCheck, ShoppingBag, Sparkles, Truck, UserRound, X } from "lucide-react";
+import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Instagram, Menu, MessageSquare, Minus, Play, Plus, Quote, Ruler, Scissors, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, UserRound, X } from "lucide-react";
 
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../data/storeSettings";
@@ -96,6 +96,7 @@ export default function Home({
   const [quickViewSize, setQuickViewSize] = useState("S");
   const [quickViewQty, setQuickViewQty] = useState(1);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
+  const [expandedFaqId, setExpandedFaqId] = useState(null);
   const instagramRailRef = useRef(null);
   
   const rawDesktop = Array.isArray(safeSettings.heroDesktopImages) && safeSettings.heroDesktopImages.length
@@ -283,57 +284,41 @@ export default function Home({
 
   const homepageSectionsToRender = useMemo(() => {
     const configured = (safeSettings.homepageSections && safeSettings.homepageSections.length) ? safeSettings.homepageSections : DEFAULT_HOMEPAGE_SECTIONS;
-    // Defensive client-side fallback for custom_order and instagram_feed
-    const hasCustomOrder = configured.some((section) => section?.type === "custom_order");
+    let list = [...configured];
+
+    // Defensive client-side fallback for custom_order and instagram_feed if missing from legacy data
+    const hasCustomOrder = list.some((section) => section?.type === "custom_order");
     const customOrderDefaults = DEFAULT_HOMEPAGE_SECTIONS.find((section) => section.type === "custom_order");
-    let withCustom = configured;
     if (!hasCustomOrder && customOrderDefaults) {
-      const insertIdx = withCustom.findIndex((s) => s?.type === "newsletter" || s?.type === "instagram_feed");
+      const insertIdx = list.findIndex((s) => s?.type === "newsletter" || s?.type === "instagram_feed");
       if (insertIdx > -1) {
-        withCustom = [...withCustom.slice(0, insertIdx), customOrderDefaults, ...withCustom.slice(insertIdx)];
+        list.splice(insertIdx, 0, customOrderDefaults);
       } else {
-        withCustom = [...withCustom, customOrderDefaults];
+        list.push(customOrderDefaults);
       }
     }
 
-    const hasInstagramFeed = withCustom.some((section) => section?.type === "instagram_feed");
+    const hasInstagramFeed = list.some((section) => section?.type === "instagram_feed");
     const instagramDefaults = DEFAULT_HOMEPAGE_SECTIONS.find((section) => section.type === "instagram_feed");
-    const raw = hasInstagramFeed || !instagramDefaults ? withCustom : [...withCustom, instagramDefaults];
-    // Legacy stores may still have the old "Our Story" block saved. Keep its
-    // position, but turn it into Best Sellers so no obsolete brand-story copy
-    // reaches the storefront.
-    const storyReplacementIndex = raw.findIndex((section) => section?.type === "our_story");
-    const normalized = raw.map((section) => (
-      section?.type === "our_story"
-        ? {
-          ...section,
-          type: "best_sellers",
-          label: "Best Sellers",
-          heading: "Best Sellers",
-          eyebrow: "BEST SELLERS",
-          subtitle: "",
-        }
-        : section
-    ));
-    const firstBestSellerIndex = storyReplacementIndex > -1
-      ? storyReplacementIndex
-      : normalized.findIndex((section) => section?.type === "best_sellers");
-    const enabled = normalized.filter((section, index) => (
-      section
-      && section.enabled !== false
-      && (section.type !== "best_sellers" || index === firstBestSellerIndex)
-    ));
-    const heroIndex = enabled.findIndex((s) => s.type === "hero");
-    const catIndex = enabled.findIndex((s) => s.type === "shop_by_category");
-    const newIndex = enabled.findIndex((s) => s.type === "new_arrivals");
-    if (catIndex > -1 && newIndex > -1 && catIndex > newIndex) {
-      const list = [...enabled];
-      const [catSection] = list.splice(catIndex, 1);
-      const targetPos = heroIndex > -1 ? heroIndex + 1 : 0;
-      list.splice(targetPos, 0, catSection);
-      return list;
+    if (!hasInstagramFeed && instagramDefaults) {
+      list.push(instagramDefaults);
     }
-    return enabled;
+
+    // Preserve exact user order without arbitrary repositioning
+    return list
+      .map((section) => (
+        section?.type === "our_story"
+          ? {
+            ...section,
+            type: "best_sellers",
+            label: "Best Sellers",
+            heading: "Best Sellers",
+            eyebrow: "BEST SELLERS",
+            subtitle: "",
+          }
+          : section
+      ))
+      .filter((section) => section && section.enabled !== false);
   }, [safeSettings.homepageSections]);
 
   return (
@@ -783,6 +768,332 @@ export default function Home({
                   })}
                   </div>
                   <button type="button" className="instagramCarouselButton instagramCarouselButton--next" onClick={() => scrollInstagramRail(1)} aria-label="Show next Instagram posts"><ChevronRight size={20} /></button>
+                </div>
+              </section>
+            );
+          }
+
+          if (section.type === "featured_collection") {
+            const filterCat = section.category || "All";
+            const collectionProducts = (products || [])
+              .filter((p) => {
+                if (p.status === "Archived") return false;
+                if (!filterCat || filterCat === "All") return true;
+                return normalizeCategory(p.category) === normalizeCategory(filterCat);
+              })
+              .slice(0, Number(section.limit) || 4);
+
+            return (
+              <section
+                key={section.id}
+                className="shopSection featuredCollectionSection scrollReveal"
+                data-scroll-reveal
+                id={`collection-${section.id}`}
+              >
+                <div className="sectionHeading">
+                  <div>
+                    {section.eyebrow && <p className="eyebrow">{section.eyebrow}</p>}
+                    <h2>{section.heading || "Featured Collection"}</h2>
+                    {section.subtitle && <p className="sectionSubtitle">{section.subtitle}</p>}
+                  </div>
+                  {section.buttonText && (
+                    <Link href={section.buttonLink || "#products"} className="featuredCollectionCta">
+                      {section.buttonText} <ArrowRight size={16} />
+                    </Link>
+                  )}
+                </div>
+
+                <div className="productGrid">
+                  {collectionProducts.map((product, pIdx) => (
+                    <article
+                      className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`}
+                      key={product.id}
+                      onMouseEnter={() => preloadProductImage(product.image)}
+                      onTouchStart={() => preloadProductImage(product.image)}
+                    >
+                      <div className="productImage">
+                        <Image
+                          className="productImagePrimary"
+                          src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
+                          alt={`${product.name} - ${product.category} by Bustaniya`}
+                          fill
+                          priority={pIdx < 4}
+                          sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
+                        />
+                        {hoverImageOf(product) && (
+                          <Image
+                            className="productImageHover"
+                            src={optimizedImageUrl(hoverImageOf(product), CLOUDINARY_IMAGE_PRESETS.card)}
+                            alt=""
+                            aria-hidden="true"
+                            fill
+                            loading="lazy"
+                            sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
+                          />
+                        )}
+                        <Link className="productCardLink" href={`/product/${product.id}`} prefetch={true} aria-label={`View ${product.name}`} />
+                        {product.badge && <span className="badge">{product.badge}</span>}
+                        {salePercent(product) > 0 && <span className="saleBadge">{salePercent(product)}% OFF</span>}
+                        <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
+                      </div>
+                      <div className="productInfo">
+                        <div>
+                          <p>{product.category}</p>
+                          <h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>
+                          {Array.isArray(product.colors) && product.colors.length > 0 && (
+                            <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
+                              {product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}
+                              {product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}
+                            </div>
+                          )}
+                        </div>
+                        <div className="productPrice">
+                          <span>Rs. {Number(product.price).toLocaleString()}</span>
+                          {salePercent(product) > 0 && <del>Rs. {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</del>}
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                {!collectionProducts.length && (
+                  <p className="empty">No products currently available in this collection.</p>
+                )}
+              </section>
+            );
+          }
+
+          if (section.type === "image_with_text") {
+            const isImageRight = section.imagePosition === "right";
+            const imageUrl = section.imageUrl || "/bustaniya-campaign-hero-v5.png";
+            return (
+              <section
+                key={section.id}
+                className={`imageWithTextSection scrollReveal ${isImageRight ? "imageRight" : "imageLeft"}`}
+                data-scroll-reveal
+              >
+                <div className="imageWithTextContainer">
+                  <div className="imageWithTextMedia">
+                    <Image
+                      src={optimizedImageUrl(imageUrl, CLOUDINARY_IMAGE_PRESETS.heroDesktop)}
+                      alt={section.heading || "Bustaniya atelier story"}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                    />
+                  </div>
+                  <div className="imageWithTextCopy">
+                    {section.eyebrow && <span className="imageWithTextEyebrow">{section.eyebrow}</span>}
+                    {section.heading && <h2>{section.heading}</h2>}
+                    {section.subtitle && <p className="imageWithTextSubtitle">{section.subtitle}</p>}
+                    {section.content && <p className="imageWithTextBody">{section.content}</p>}
+                    {section.buttonText && (
+                      <div className="imageWithTextAction">
+                        <Link href={section.buttonLink || "#products"} className="imageWithTextButton">
+                          <span>{section.buttonText}</span>
+                          <ArrowRight size={16} />
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            );
+          }
+
+          if (section.type === "promo_banner") {
+            const bg = section.bgColor || "#122a1e";
+            const textClr = section.textColor || "#fdfaf3";
+            const hasBgImage = Boolean(section.imageUrl);
+            return (
+              <section
+                key={section.id}
+                className={`promoBannerSection scrollReveal ${hasBgImage ? "hasBgImage" : ""}`}
+                data-scroll-reveal
+                style={{
+                  "--promo-bg": bg,
+                  "--promo-text": textClr,
+                  backgroundImage: hasBgImage ? `url(${section.imageUrl})` : undefined,
+                }}
+              >
+                {hasBgImage && <div className="promoBannerOverlay" />}
+                <div className="promoBannerContent">
+                  {section.eyebrow && <span className="promoBannerEyebrow">{section.eyebrow}</span>}
+                  {section.heading && <h2>{section.heading}</h2>}
+                  {section.subtitle && <p className="promoBannerSubtitle">{section.subtitle}</p>}
+                  {section.buttonText && (
+                    <div className="promoBannerAction">
+                      <Link href={section.buttonLink || "#products"} className="promoBannerButton">
+                        <span>{section.buttonText}</span>
+                        <ArrowRight size={16} />
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          }
+
+          if (section.type === "rich_text") {
+            return (
+              <section key={section.id} className="richTextSection scrollReveal" data-scroll-reveal>
+                <div className="richTextInner">
+                  {section.eyebrow && <p className="eyebrow">{section.eyebrow}</p>}
+                  {section.heading && <h2>{section.heading}</h2>}
+                  {section.subtitle && <p className="richTextSubtitle">{section.subtitle}</p>}
+                  {section.content && <p className="richTextBody">{section.content}</p>}
+                  {section.buttonText && (
+                    <div className="richTextAction">
+                      <Link href={section.buttonLink || "#products"} className="richTextBtn">
+                        <span>{section.buttonText}</span>
+                        <ArrowRight size={15} />
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          }
+
+          if (section.type === "testimonials") {
+            const reviews = Array.isArray(section.items) && section.items.length ? section.items : [
+              {
+                id: "review-1",
+                name: "Ayesha Malik",
+                location: "Lahore",
+                rating: 5,
+                review: "The fabric quality and intricate thread embroidery on the lawn kurti exceeded my expectations. Delivered in 2 days in secure packaging!",
+                product: "Embroidered Lawn Kurti",
+              },
+              {
+                id: "review-2",
+                name: "Fatima Zahra",
+                location: "Karachi",
+                rating: 5,
+                review: "Used the custom stitching service and gave my exact measurements. It fits absolutely perfectly! Truly impressed with the stitching standard.",
+                product: "Custom 3-Piece Festive Suit",
+              },
+              {
+                id: "review-3",
+                name: "Zainab Tariq",
+                location: "Islamabad",
+                rating: 5,
+                review: "The colors in person are just as rich as the photos. Fabric is so soft and breathable for summer. Will definitely order again.",
+                product: "Pure Chiffon Co-ord Set",
+              },
+            ];
+
+            return (
+              <section key={section.id} className="testimonialsSection scrollReveal" data-scroll-reveal>
+                <div className="testimonialsHeader">
+                  {section.eyebrow && <p className="eyebrow">{section.eyebrow}</p>}
+                  <h2>{section.heading || "Loved by Thousands of Women"}</h2>
+                  {section.subtitle && <p className="testimonialsSubtitle">{section.subtitle}</p>}
+                </div>
+                <div className="testimonialsGrid">
+                  {reviews.map((rev, rIdx) => (
+                    <article key={rev.id || rIdx} className="testimonialCard">
+                      <div className="testimonialRating" aria-label={`${rev.rating || 5} out of 5 stars`}>
+                        {Array.from({ length: 5 }, (_, s) => (
+                          <Star
+                            key={s}
+                            size={16}
+                            fill={s < (Number(rev.rating) || 5) ? "#d4af37" : "none"}
+                            color={s < (Number(rev.rating) || 5) ? "#d4af37" : "#d1d5db"}
+                          />
+                        ))}
+                      </div>
+                      <blockquote className="testimonialQuote">
+                        "{rev.review}"
+                      </blockquote>
+                      <div className="testimonialAuthor">
+                        <div className="testimonialAuthorMeta">
+                          <div className="testimonialAuthorName">
+                            <strong>{rev.name}</strong>
+                            <span className="verifiedBuyerBadge" title="Verified Customer">
+                              <Check size={11} /> Verified Buyer
+                            </span>
+                          </div>
+                          <span className="testimonialLocation">{rev.location || "Pakistan"}</span>
+                        </div>
+                        {rev.product && (
+                          <span className="testimonialProductTag">
+                            {rev.product}
+                          </span>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            );
+          }
+
+          if (section.type === "faq") {
+            const faqItems = Array.isArray(section.items) && section.items.length ? section.items : [
+              {
+                id: "faq-1",
+                question: "How long does delivery take across Pakistan?",
+                answer: "Standard nationwide delivery takes 2 to 4 working days. Express dispatch is available for Lahore, Karachi, and Islamabad.",
+              },
+              {
+                id: "faq-2",
+                question: "Do you offer Cash on Delivery (COD)?",
+                answer: "Yes! Cash on Delivery is available across all major cities and towns in Pakistan. We also accept direct bank transfer, JazzCash, and EasyPaisa.",
+              },
+              {
+                id: "faq-3",
+                question: "How does the custom made-to-measure tailoring work?",
+                answer: "Select Custom Order from the navigation, upload reference photos from Instagram/Pinterest, and provide your measurements. Our master tailors will quote price directly on WhatsApp.",
+              },
+              {
+                id: "faq-4",
+                question: "What is your return or exchange policy?",
+                answer: "We offer a hassle-free 7-day exchange on all standard unstitched and ready-to-wear items as long as they are unworn with original tags attached.",
+              },
+            ];
+
+            return (
+              <section key={section.id} className="faqSection scrollReveal" data-scroll-reveal>
+                <div className="faqHeader">
+                  {section.eyebrow && <p className="eyebrow">{section.eyebrow}</p>}
+                  <h2>{section.heading || "Frequently Asked Questions"}</h2>
+                  {section.subtitle && <p className="faqSubtitle">{section.subtitle}</p>}
+                </div>
+                <div className="faqAccordionList">
+                  {faqItems.map((item, idx) => {
+                    const isOpen = expandedFaqId === (item.id || `faq-${idx}`);
+                    return (
+                      <div key={item.id || idx} className={`faqItem ${isOpen ? "open" : ""}`}>
+                        <button
+                          type="button"
+                          className="faqQuestionButton"
+                          onClick={() => setExpandedFaqId(isOpen ? null : (item.id || `faq-${idx}`))}
+                          aria-expanded={isOpen}
+                        >
+                          <span className="faqQuestionText">{item.question}</span>
+                          <span className="faqChevron">
+                            {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                          </span>
+                        </button>
+                        {isOpen && (
+                          <div className="faqAnswer">
+                            <p>{item.answer}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="faqWhatsAppSupport">
+                  <p>Have another question about sizing or fabric?</p>
+                  <a
+                    href={`https://wa.me/${(safeSettings.whatsappNumber || "923000000000").replace(/[^0-9]/g, "")}?text=${encodeURIComponent("Salam Bustaniya! I have a question about an order.")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="faqWhatsAppBtn"
+                  >
+                    <MessageSquare size={15} />
+                    <span>Ask directly on WhatsApp</span>
+                  </a>
                 </div>
               </section>
             );

@@ -23759,5 +23759,542 @@ html {
   transform: translateX(0);
 }
 
+/* ==========================================================================
+   DYNAMIC SHOPIFY-STYLE SECTIONS & STOREFRONT BUILDER
+   ========================================================================== */
+
+/* 1. Featured Collection Section */
+.featuredCollectionSection {
+  padding: clamp(36px, 4vw, 56px) 4.2vw;
+}
+
+.featuredCollectionCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--forest, #173d29);
+  text-decoration: none;
+  border-bottom: 1.5px solid var(--forest, #173d29);
+  padding-bottom: 2px;
+  transition: opacity 0.2s, transform 0.2s;
+  white-space: nowrap;
+}
+
+.featuredCollectionCta:hover {
+  opacity: 0.82;
+  transform: translateX(3px);
+}
+
+/* 2. Image with Text / Brand Story Section */
+.imageWithTextSection {
+  padding: clamp(48px, 6vw, 84px) 4.2vw;
+  background: var(--section-bg, #ffffff);
+}
+
+.imageWithTextContainer {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: clamp(32px, 5vw, 64px);
+}
+
+.imageWithTextSection.imageRight .imageWithTextContainer {
+  grid-template-columns: 1fr 1fr;
+}
+
+.imageWithTextSection.imageRight .imageWithTextMedia {
+  order: 2;
+}
+
+.imageWithTextSection.imageRight .imageWithTextCopy {
+  order: 1;
+}
+
+.imageWithTextMedia {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  min-height: 360px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(18, 42, 30, 0.08);
+}
+
+.imageWithTextMedia img {
+  object-fit: cover;
+}
+
+.imageWithTextCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.imageWithTextEyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--berry, #8d2449);
+}
+
+.imageWithTextCopy h2 {
+  font-family: var(--font-cormorant, serif);
+  font-size: clamp(28px, 3.4vw, 44px);
+  font-weight: 600;
+  color: var(--forest, #173d29);
+  line-height: 1.2;
+  margin: 0;
+}
+
+.imageWithTextSubtitle {
+  font-size: 15.5px;
+  font-weight: 600;
+  color: #384e40;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.imageWithTextBody {
+  font-size: 14.5px;
+  line-height: 1.75;
+  color: #55695d;
+  margin: 0;
+}
+
+.imageWithTextAction {
+  margin-top: 8px;
+}
+
+.imageWithTextButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--forest, #173d29);
+  color: #ffffff;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(23, 61, 41, 0.18);
+  transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.imageWithTextButton:hover {
+  background: #112d1e;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(23, 61, 41, 0.28);
+}
+
+@media (max-width: 768px) {
+  .imageWithTextContainer {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .imageWithTextSection.imageRight .imageWithTextMedia {
+    order: 1;
+  }
+  .imageWithTextSection.imageRight .imageWithTextCopy {
+    order: 2;
+  }
+  .imageWithTextMedia {
+    min-height: 260px;
+    aspect-ratio: 16 / 10;
+  }
+}
+
+/* 3. Promotional Banner Section */
+.promoBannerSection {
+  position: relative;
+  padding: clamp(56px, 7vw, 92px) 4.2vw;
+  background-color: var(--promo-bg, #122a1e);
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+}
+
+.promoBannerSection.hasBgImage .promoBannerOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(14, 34, 24, 0.72);
+  z-index: 1;
+}
+
+.promoBannerContent {
+  position: relative;
+  z-index: 2;
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  color: var(--promo-text, #fdfaf3);
+}
+
+.promoBannerEyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(4px);
+  padding: 4px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.promoBannerContent h2 {
+  font-family: var(--font-cormorant, serif);
+  font-size: clamp(30px, 4.2vw, 54px);
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0;
+  color: inherit;
+}
+
+.promoBannerSubtitle {
+  font-size: clamp(14px, 1.8vw, 17px);
+  line-height: 1.6;
+  opacity: 0.92;
+  max-width: 620px;
+  margin: 0;
+}
+
+.promoBannerAction {
+  margin-top: 10px;
+}
+
+.promoBannerButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fdfaf3;
+  color: #122a1e;
+  padding: 13px 28px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.promoBannerButton:hover {
+  background: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+}
+
+/* 4. Rich Text / Brand Statement Section */
+.richTextSection {
+  padding: clamp(52px, 6vw, 84px) 4.2vw;
+  background: var(--section-bg, #fbfdfa);
+  text-align: center;
+}
+
+.richTextInner {
+  max-width: 780px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.richTextInner h2 {
+  font-family: var(--font-cormorant, serif);
+  font-size: clamp(28px, 3.6vw, 44px);
+  font-weight: 600;
+  color: var(--forest, #173d29);
+  line-height: 1.2;
+  margin: 0;
+}
+
+.richTextSubtitle {
+  font-size: 15.5px;
+  font-weight: 600;
+  color: #384e40;
+  margin: 0;
+}
+
+.richTextBody {
+  font-size: 15px;
+  line-height: 1.8;
+  color: #55695d;
+  margin: 0;
+}
+
+.richTextAction {
+  margin-top: 10px;
+}
+
+.richTextBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--forest, #173d29);
+  font-weight: 800;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  border-bottom: 1.5px solid var(--forest, #173d29);
+  padding-bottom: 3px;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.richTextBtn:hover {
+  opacity: 0.8;
+  transform: translateX(3px);
+}
+
+/* 5. Customer Reviews & Testimonials Section */
+.testimonialsSection {
+  padding: clamp(48px, 6vw, 80px) 4.2vw;
+  background: #fafcfa;
+}
+
+.testimonialsHeader {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 36px;
+}
+
+.testimonialsHeader h2 {
+  font-family: var(--font-cormorant, serif);
+  font-size: clamp(28px, 3.6vw, 42px);
+  color: var(--forest, #173d29);
+  font-weight: 600;
+  margin: 6px 0;
+}
+
+.testimonialsSubtitle {
+  font-size: 14px;
+  color: #607367;
+  margin: 0;
+}
+
+.testimonialsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.testimonialCard {
+  background: #ffffff;
+  border: 1px solid #e2ece4;
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 6px 18px rgba(23, 61, 41, 0.04);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.testimonialCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(23, 61, 41, 0.08);
+}
+
+.testimonialRating {
+  display: flex;
+  gap: 3px;
+}
+
+.testimonialQuote {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #2b3d32;
+  font-style: italic;
+  margin: 0;
+  flex: 1;
+}
+
+.testimonialAuthor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid #eff4f0;
+  padding-top: 14px;
+}
+
+.testimonialAuthorName {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.testimonialAuthorName strong {
+  font-size: 13.5px;
+  color: #173d29;
+}
+
+.verifiedBuyerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #15803d;
+  background: #dcfce7;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.testimonialLocation {
+  font-size: 11.5px;
+  color: #7a8d81;
+}
+
+.testimonialProductTag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--berry, #8d2449);
+  background: #fbeff2;
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  align-self: flex-start;
+}
+
+/* 6. FAQ Accordion Section */
+.faqSection {
+  padding: clamp(48px, 6vw, 80px) 4.2vw;
+  background: #ffffff;
+}
+
+.faqHeader {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 36px;
+}
+
+.faqHeader h2 {
+  font-family: var(--font-cormorant, serif);
+  font-size: clamp(28px, 3.6vw, 42px);
+  color: var(--forest, #173d29);
+  font-weight: 600;
+  margin: 6px 0;
+}
+
+.faqSubtitle {
+  font-size: 14px;
+  color: #607367;
+  margin: 0;
+}
+
+.faqAccordionList {
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.faqItem {
+  border: 1px solid #dce5df;
+  border-radius: 8px;
+  background: #fbfdfb;
+  overflow: hidden;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.faqItem.open {
+  border-color: var(--forest, #173d29);
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(23, 61, 41, 0.06);
+}
+
+.faqQuestionButton {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  gap: 14px;
+}
+
+.faqQuestionText {
+  font-size: 14.5px;
+  font-weight: 750;
+  color: var(--forest, #173d29);
+  line-height: 1.35;
+}
+
+.faqChevron {
+  color: var(--forest, #173d29);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.faqAnswer {
+  padding: 0 20px 18px;
+  color: #4a5d51;
+  font-size: 14px;
+  line-height: 1.65;
+  border-top: 1px dashed #e8efe9;
+  padding-top: 12px;
+  margin-top: 2px;
+}
+
+.faqAnswer p {
+  margin: 0;
+}
+
+.faqWhatsAppSupport {
+  text-align: center;
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: #55685c;
+}
+
+.faqWhatsAppBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #25d366;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 750;
+  padding: 9px 20px;
+  border-radius: 24px;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.faqWhatsAppBtn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 16px rgba(37, 211, 102, 0.35);
+}
+
+
 
 

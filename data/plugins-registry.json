@@ -1,7 +1,10 @@
 {
   "states": {
+    "discord-vip-alerts": false,
     "whatsapp-live-chat": false,
-    "flash-sale-countdown": true
+    "flash-sale-countdown": false,
+    "stock-scarcity-badge": false,
+    "order-webhook-dispatcher": false
   },
   "settings": {},
   "logs": []

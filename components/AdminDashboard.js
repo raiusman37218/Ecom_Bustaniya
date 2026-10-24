@@ -8,7 +8,7 @@ import {
   ShoppingBag, Sparkles, Star, Store, Tags, Trash2, TrendingUp, Truck, UploadCloud, User, Users, WalletCards, X, Scissors
 } from "lucide-react";
 import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, products as initialProducts, slugifyCategory } from "../data/store";
-import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
+import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, SECTION_TEMPLATES } from "../data/storeSettings";
 import FinanceWorkspace from "./FinanceWorkspace";
 import EventsWorkspace from "./EventsWorkspace";
 import CustomOrdersWorkspace from "./CustomOrdersWorkspace";
@@ -1887,7 +1887,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Courier Ops" && <CourierOperationsPanel />}
           {canAccessActive && active === "Couriers" && <CouriersPanel />}
           {canAccessActive && active === "Apps & Plugins" && <PluginsWorkspace currentAdminUser={currentAdminUser} />}
-          {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Settings" ? requestedAdminFocus.focus : ""} />}
+          {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Settings" ? requestedAdminFocus.focus : ""} categories={catalogCategories} />}
         </div>
       </section>
 
@@ -11577,7 +11577,7 @@ function BackendHealthPanel() {
   </div>;
 }
 
-function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
+function SettingsPanel({ onOpen, signedInUser, initialTab = "", categories: passedCategories = [] }) {
   const [activeTab, setActiveTab] = useState(initialTab || "Store");
   const [savedAt, setSavedAt] = useState("");
   const [storeSettings, setStoreSettings] = useState(DEFAULT_STORE_SETTINGS);
@@ -11585,6 +11585,11 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
   const [storeSettingsError, setStoreSettingsError] = useState("");
   const [storeSettingsSetup, setStoreSettingsSetup] = useState("");
   const [heroUrlInputs, setHeroUrlInputs] = useState({});
+  const [expandedSectionId, setExpandedSectionId] = useState(null);
+  const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
+  const [addSectionInsertIndex, setAddSectionInsertIndex] = useState(null);
+  const [sectionFilterCategory, setSectionFilterCategory] = useState("all");
+  const availableCategories = (passedCategories && passedCategories.length) ? passedCategories : fallbackCategoryRecords;
   const [staff, setStaff] = useState([]);
   const [availablePermissions, setAvailablePermissions] = useState([]);
   const [currentAdminUser, setCurrentAdminUser] = useState(null);
@@ -12592,30 +12597,62 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
               <div className="shopifySectionCard">
                 <div className="shopifySectionHeader">
                   <div>
-                    <h3>Homepage Sections Builder</h3>
-                    <p>Reorder sections, toggle visibility, and customize titles and content.</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <h3>Homepage Sections & Page Builder</h3>
+                      <span style={{ fontSize: "11px", fontWeight: 700, background: "#e8f2ea", color: "#16452c", padding: "2px 8px", borderRadius: "12px" }}>
+                        {(storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).length} sections configured
+                      </span>
+                    </div>
+                    <p>Reorder, customize, and add dynamic storefront sections anywhere on your homepage just like Shopify.</p>
                   </div>
+                  <button
+                    type="button"
+                    className="shopifyBtnPrimary"
+                    onClick={() => {
+                      setAddSectionInsertIndex(null);
+                      setIsAddSectionModalOpen(true);
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <Plus size={16} /> Add Section
+                  </button>
                 </div>
+
                 <div className="shopifySectionBody">
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     {(storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((section, index, arr) => {
                       const isHero = section.type === "hero";
+                      const isExpanded = expandedSectionId === section.id;
+                      const templateMeta = SECTION_TEMPLATES.find((t) => t.type === section.type);
+                      const displayTypeLabel = templateMeta?.label || section.type.replace(/_/g, " ");
+
                       return (
                         <div
-                          key={section.id}
+                          key={section.id || `${section.type}-${index}`}
+                          className={`shopifyBuilderSectionRow ${isExpanded ? "expanded" : ""} ${section.enabled === false ? "disabled" : ""}`}
                           style={{
-                            border: "1.5px solid #e2e8e5",
+                            border: isExpanded ? "1.5px solid #173d29" : "1px solid #dbe3dc",
                             borderRadius: "10px",
-                            padding: "16px",
                             background: section.enabled !== false ? "#ffffff" : "#f8faf9",
-                            opacity: section.enabled !== false ? 1 : 0.75,
+                            overflow: "hidden",
                             transition: "all 0.15s ease",
+                            boxShadow: isExpanded ? "0 4px 14px rgba(23, 61, 41, 0.08)" : "none",
                           }}
                         >
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isHero ? 0 : "12px" }}>
+                          {/* Row Header */}
+                          <div
+                            style={{
+                              padding: "14px 16px",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              background: isExpanded ? "#f5f8f5" : (section.enabled !== false ? "#ffffff" : "#fbfcfb"),
+                              borderBottom: isExpanded ? "1px solid #e1e9e2" : "none",
+                            }}
+                          >
                             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              {/* Reorder arrows */}
-                              <div style={{ display: "flex", gap: "4px" }}>
+                              {/* Reorder Buttons */}
+                              <div style={{ display: "flex", gap: "3px" }}>
                                 <button
                                   type="button"
                                   disabled={index === 0}
@@ -12624,7 +12661,18 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
                                     [sections[index - 1], sections[index]] = [sections[index], sections[index - 1]];
                                     return { ...current, homepageSections: sections };
                                   })}
-                                  style={{ width: "26px", height: "26px", borderRadius: "6px", border: "1px solid #d4ded6", background: "#f8faf7", cursor: "pointer", display: "grid", placeItems: "center" }}
+                                  style={{
+                                    width: "26px",
+                                    height: "26px",
+                                    borderRadius: "5px",
+                                    border: "1px solid #d4ded6",
+                                    background: index === 0 ? "#f1f5f2" : "#ffffff",
+                                    cursor: index === 0 ? "not-allowed" : "pointer",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    color: index === 0 ? "#9ca3af" : "#173d29",
+                                    fontWeight: 700,
+                                  }}
                                   title="Move Up"
                                 >
                                   ↑
@@ -12637,22 +12685,51 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
                                     [sections[index], sections[index + 1]] = [sections[index + 1], sections[index]];
                                     return { ...current, homepageSections: sections };
                                   })}
-                                  style={{ width: "26px", height: "26px", borderRadius: "6px", border: "1px solid #d4ded6", background: "#f8faf7", cursor: "pointer", display: "grid", placeItems: "center" }}
+                                  style={{
+                                    width: "26px",
+                                    height: "26px",
+                                    borderRadius: "5px",
+                                    border: "1px solid #d4ded6",
+                                    background: index === arr.length - 1 ? "#f1f5f2" : "#ffffff",
+                                    cursor: index === arr.length - 1 ? "not-allowed" : "pointer",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    color: index === arr.length - 1 ? "#9ca3af" : "#173d29",
+                                    fontWeight: 700,
+                                  }}
                                   title="Move Down"
                                 >
                                   ↓
                                 </button>
                               </div>
+
+                              <span style={{ fontSize: "11px", fontWeight: 800, color: "#8c9b91", minWidth: "20px" }}>
+                                #{index + 1}
+                              </span>
+
                               <div>
-                                <span style={{ fontSize: "14px", fontWeight: 750, color: "#122a1e" }}>{section.label}</span>
-                                <span style={{ fontSize: "11px", color: "#798c80", marginLeft: "8px", background: "#f0f4f1", padding: "2px 6px", borderRadius: "4px" }}>
-                                  {section.type.replace(/_/g, " ")}
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                  <span style={{ fontSize: "13.5px", fontWeight: 750, color: "#122a1e" }}>
+                                    {section.heading || section.label || displayTypeLabel}
+                                  </span>
+                                  <span style={{ fontSize: "10.5px", color: "#486151", background: "#eaf0eb", padding: "1px 6px", borderRadius: "4px", fontWeight: 600 }}>
+                                    {section.type.replace(/_/g, " ")}
+                                  </span>
+                                  {section.category && section.category !== "All" && (
+                                    <span style={{ fontSize: "10.5px", color: "#1e5b38", background: "#e1ede3", padding: "1px 6px", borderRadius: "4px", fontWeight: 600 }}>
+                                      🏷️ {section.category}
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontSize: "11px", color: "#778a7e" }}>
+                                  {section.enabled !== false ? "Visible on storefront" : "Hidden from shoppers"}
                                 </span>
                               </div>
                             </div>
 
-                            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                              <label className="switchLabel">
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              {/* Visibility Toggle */}
+                              <label className="switchLabel" style={{ fontSize: "12px", gap: "5px" }}>
                                 <input
                                   type="checkbox"
                                   checked={section.enabled !== false}
@@ -12661,150 +12738,711 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
                                     sections[index] = { ...sections[index], enabled: e.target.checked };
                                     return { ...current, homepageSections: sections };
                                   })}
-                                /> Visible
+                                /> {section.enabled !== false ? "Visible" : "Hidden"}
                               </label>
+
+                              {/* Customize / Edit Button */}
+                              <button
+                                type="button"
+                                className="shopifyBtnSecondary"
+                                onClick={() => setExpandedSectionId(isExpanded ? null : section.id)}
+                                style={{ fontSize: "11.5px", padding: "5px 10px", display: "flex", alignItems: "center", gap: "4px" }}
+                              >
+                                <span>{isExpanded ? "Done" : "Customize"}</span>
+                                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              </button>
+
+                              {/* Remove Section */}
                               {!isHero && (
                                 <button
                                   type="button"
-                                  onClick={() => setStoreSettings((current) => ({
-                                    ...current,
-                                    homepageSections: (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).filter((_, i) => i !== index),
-                                  }))}
-                                  style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "4px" }}
+                                  onClick={() => {
+                                    if (window.confirm(`Remove "${section.heading || section.label}" from homepage?`)) {
+                                      setStoreSettings((current) => ({
+                                        ...current,
+                                        homepageSections: (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).filter((_, i) => i !== index),
+                                      }));
+                                      if (expandedSectionId === section.id) {
+                                        setExpandedSectionId(null);
+                                      }
+                                    }
+                                  }}
+                                  style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "5px", borderRadius: "4px" }}
                                   title={`Remove ${section.label}`}
                                 >
-                                  <X size={16} />
+                                  <Trash2 size={15} />
                                 </button>
                               )}
                             </div>
                           </div>
 
-                          {!isHero && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "10px" }}>
-                              <div className="shopifyFormRow">
-                                <label className="shopifyFieldLabel">
-                                  Eyebrow
-                                  <input
-                                    className="shopifyInput"
-                                    value={section.eyebrow || ""}
-                                    placeholder="e.g. NEW ARRIVALS"
-                                    onChange={(e) => setStoreSettings((current) => {
-                                      const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
-                                      sections[index] = { ...sections[index], eyebrow: e.target.value };
-                                      return { ...current, homepageSections: sections };
-                                    })}
-                                  />
-                                </label>
-                                <label className="shopifyFieldLabel">
-                                  Heading
-                                  <input
-                                    className="shopifyInput"
-                                    value={section.heading || ""}
-                                    placeholder="Section heading"
-                                    onChange={(e) => setStoreSettings((current) => {
-                                      const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
-                                      sections[index] = { ...sections[index], heading: e.target.value };
-                                      return { ...current, homepageSections: sections };
-                                    })}
-                                  />
-                                </label>
-                              </div>
-                              <label className="shopifyFieldLabel">
-                                Subtitle
-                                <input
-                                  className="shopifyInput"
-                                  value={section.subtitle || ""}
-                                  placeholder="Short description..."
-                                  onChange={(e) => setStoreSettings((current) => {
-                                    const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
-                                    sections[index] = { ...sections[index], subtitle: e.target.value };
-                                    return { ...current, homepageSections: sections };
-                                  })}
-                                />
-                              </label>
-
-                              {section.type === "shop_by_category" && (
-                                <label className="shopifyFieldLabel">
-                                  Category Display Style
-                                  <select
-                                    className="shopifySelect"
-                                    value={section.style || storeSettings.categorySectionStyle || "atelier"}
-                                    onChange={(e) => {
-                                      const nextStyle = e.target.value;
-                                      setStoreSettings((current) => {
-                                        const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
-                                          sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
-                                        );
-                                        return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
-                                      });
-                                    }}
-                                  >
-                                    <option value="atelier">Atelier Overlay Cards (Dark Theme Overlay)</option>
-                                    <option value="minimal">Minimal Collections Grid (House of Lucknawi Style)</option>
-                                  </select>
-                                </label>
-                              )}
-
-                              {section.type === "instagram_feed" && (
-                                <div style={{ border: "1px solid #d4ded6", borderRadius: "8px", padding: "14px", background: "#f8faf7", marginTop: "6px" }}>
-                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                                    <span style={{ fontSize: "13px", fontWeight: 750, color: "#122a1e" }}>Instagram Reels Links</span>
-                                    <button
-                                      type="button"
-                                      className="shopifyBtnSecondary"
-                                      onClick={() => setStoreSettings((current) => ({
-                                        ...current,
-                                        instagramPosts: [
-                                          ...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []),
-                                          { id: `instagram-${Date.now()}`, mediaType: "video", url: "", caption: "", image: "" },
-                                        ],
-                                      }))}
-                                      style={{ fontSize: "11px", padding: "5px 10px" }}
-                                    >
-                                      + Add Reel
-                                    </button>
+                          {/* Inline Content Customizer */}
+                          {isExpanded && (
+                            <div style={{ padding: "16px 20px 20px", display: "flex", flexDirection: "column", gap: "14px", background: "#ffffff" }}>
+                              {isHero ? (
+                                <p style={{ fontSize: "12px", color: "#667a6e", margin: 0 }}>
+                                  Hero slides and campaign imagery can be customized in the <b>Hero Carousel & Campaign Banners</b> section above.
+                                </p>
+                              ) : (
+                                <>
+                                  {/* Headings */}
+                                  <div className="shopifyFormRow">
+                                    <label className="shopifyFieldLabel">
+                                      Eyebrow / Badge Text
+                                      <input
+                                        className="shopifyInput"
+                                        value={section.eyebrow || ""}
+                                        placeholder="e.g. CURATED SELECTION"
+                                        onChange={(e) => setStoreSettings((current) => {
+                                          const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                          sections[index] = { ...sections[index], eyebrow: e.target.value };
+                                          return { ...current, homepageSections: sections };
+                                        })}
+                                      />
+                                    </label>
+                                    <label className="shopifyFieldLabel">
+                                      Section Heading
+                                      <input
+                                        className="shopifyInput"
+                                        value={section.heading || ""}
+                                        placeholder="e.g. Luxury Lawn Ensembles"
+                                        onChange={(e) => setStoreSettings((current) => {
+                                          const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                          sections[index] = { ...sections[index], heading: e.target.value };
+                                          return { ...current, homepageSections: sections };
+                                        })}
+                                      />
+                                    </label>
                                   </div>
 
-                                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                                    {(storeSettings.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).map((post, postIndex) => (
-                                      <div key={post.id || postIndex} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                  <label className="shopifyFieldLabel">
+                                    Section Subtitle / Description
+                                    <input
+                                      className="shopifyInput"
+                                      value={section.subtitle || ""}
+                                      placeholder="Short description highlighting the collection or message..."
+                                      onChange={(e) => setStoreSettings((current) => {
+                                        const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                        sections[index] = { ...sections[index], subtitle: e.target.value };
+                                        return { ...current, homepageSections: sections };
+                                      })}
+                                    />
+                                  </label>
+
+                                  {/* Type-Specific Customization Fields */}
+                                  {section.type === "featured_collection" && (
+                                    <div style={{ padding: "14px", background: "#f8faf7", border: "1px solid #dbe5dc", borderRadius: "8px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                                      <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                                        📦 Collection Configuration
+                                      </span>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Product Category Filter
+                                          <select
+                                            className="shopifySelect"
+                                            value={section.category || "All"}
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], category: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          >
+                                            <option value="All">All Categories (Latest Catalog)</option>
+                                            {availableCategories.map((cat) => (
+                                              <option key={cat.slug || cat.name} value={cat.name}>
+                                                {cat.name}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Items to Show
+                                          <select
+                                            className="shopifySelect"
+                                            value={section.limit || 4}
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], limit: Number(e.target.value) };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          >
+                                            <option value={4}>4 Products (Single row on desktop)</option>
+                                            <option value={8}>8 Products (Two rows)</option>
+                                            <option value={12}>12 Products (Three rows)</option>
+                                            <option value={16}>16 Products (Four rows)</option>
+                                          </select>
+                                        </label>
+                                      </div>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Call-to-Action Button Label
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonText || ""}
+                                            placeholder="e.g. View All Pieces"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonText: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Button Destination Link
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonLink || ""}
+                                            placeholder="e.g. /category/kurtis or #products"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonLink: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === "image_with_text" && (
+                                    <div style={{ padding: "14px", background: "#f8faf7", border: "1px solid #dbe5dc", borderRadius: "8px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                                      <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                                        🖼️ Image & Story Configuration
+                                      </span>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Campaign Image URL
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.imageUrl || ""}
+                                            placeholder="https://... or /bustaniya-campaign-hero-v5.png"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], imageUrl: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Image Alignment Layout
+                                          <select
+                                            className="shopifySelect"
+                                            value={section.imagePosition || "left"}
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], imagePosition: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          >
+                                            <option value="left">Image on Left, Story on Right</option>
+                                            <option value="right">Story on Left, Image on Right</option>
+                                          </select>
+                                        </label>
+                                      </div>
+                                      <label className="shopifyFieldLabel">
+                                        Editorial Story Body Paragraph
+                                        <textarea
+                                          className="shopifyInput"
+                                          rows={3}
+                                          value={section.content || ""}
+                                          placeholder="Share the inspiration, heritage fabric techniques, or craftsmanship behind your brand..."
+                                          onChange={(e) => setStoreSettings((current) => {
+                                            const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                            sections[index] = { ...sections[index], content: e.target.value };
+                                            return { ...current, homepageSections: sections };
+                                          })}
+                                        />
+                                      </label>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Button Text
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonText || ""}
+                                            placeholder="e.g. Discover the Atelier"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonText: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Button Destination Link
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonLink || ""}
+                                            placeholder="e.g. #products or /about"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonLink: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === "promo_banner" && (
+                                    <div style={{ padding: "14px", background: "#f8faf7", border: "1px solid #dbe5dc", borderRadius: "8px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                                      <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                                        📣 Banner Styles & Colors
+                                      </span>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Background Color
+                                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                            <input
+                                              type="color"
+                                              value={section.bgColor || "#122a1e"}
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                sections[index] = { ...sections[index], bgColor: e.target.value };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                              style={{ width: "38px", height: "36px", padding: "0", border: "1px solid #ccc", borderRadius: "4px", cursor: "pointer" }}
+                                            />
+                                            <input
+                                              className="shopifyInput"
+                                              value={section.bgColor || "#122a1e"}
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                sections[index] = { ...sections[index], bgColor: e.target.value };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                              placeholder="#122a1e"
+                                              style={{ flex: 1 }}
+                                            />
+                                          </div>
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Text Color
+                                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                            <input
+                                              type="color"
+                                              value={section.textColor || "#fdfaf3"}
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                sections[index] = { ...sections[index], textColor: e.target.value };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                              style={{ width: "38px", height: "36px", padding: "0", border: "1px solid #ccc", borderRadius: "4px", cursor: "pointer" }}
+                                            />
+                                            <input
+                                              className="shopifyInput"
+                                              value={section.textColor || "#fdfaf3"}
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                sections[index] = { ...sections[index], textColor: e.target.value };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                              placeholder="#fdfaf3"
+                                              style={{ flex: 1 }}
+                                            />
+                                          </div>
+                                        </label>
+                                      </div>
+                                      <label className="shopifyFieldLabel">
+                                        Optional Background Pattern / Photo URL
                                         <input
                                           className="shopifyInput"
-                                          value={post.url || ""}
-                                          placeholder="https://www.instagram.com/reel/..."
+                                          value={section.imageUrl || ""}
+                                          placeholder="https://... (Leave empty for pure solid color)"
                                           onChange={(e) => setStoreSettings((current) => {
-                                            const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
-                                            posts[postIndex] = { ...posts[postIndex], url: e.target.value };
-                                            return { ...current, instagramPosts: posts };
+                                            const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                            sections[index] = { ...sections[index], imageUrl: e.target.value };
+                                            return { ...current, homepageSections: sections };
                                           })}
-                                          style={{ flex: 1 }}
                                         />
-                                        <input
+                                      </label>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Button Text
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonText || ""}
+                                            placeholder="e.g. Shop Festive Sale"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonText: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Button Link
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonLink || ""}
+                                            placeholder="e.g. #products"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonLink: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === "rich_text" && (
+                                    <div style={{ padding: "14px", background: "#f8faf7", border: "1px solid #dbe5dc", borderRadius: "8px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                                      <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                                        ✍️ Editorial Statement
+                                      </span>
+                                      <label className="shopifyFieldLabel">
+                                        Philosophy / Statement Body
+                                        <textarea
                                           className="shopifyInput"
-                                          value={post.caption || ""}
-                                          placeholder="Caption / Collection"
+                                          rows={3}
+                                          value={section.content || ""}
+                                          placeholder="Write your brand statement or manifesto..."
                                           onChange={(e) => setStoreSettings((current) => {
-                                            const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
-                                            posts[postIndex] = { ...posts[postIndex], caption: e.target.value };
-                                            return { ...current, instagramPosts: posts };
+                                            const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                            sections[index] = { ...sections[index], content: e.target.value };
+                                            return { ...current, homepageSections: sections };
                                           })}
-                                          style={{ width: "180px" }}
                                         />
+                                      </label>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Optional Button Text
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonText || ""}
+                                            placeholder="e.g. Learn More"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonText: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Button Link
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonLink || ""}
+                                            placeholder="e.g. #products"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonLink: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === "testimonials" && (
+                                    <div style={{ padding: "14px", background: "#f8faf7", border: "1px solid #dbe5dc", borderRadius: "8px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                                          💬 Customer Reviews & Quotes
+                                        </span>
                                         <button
                                           type="button"
+                                          className="shopifyBtnSecondary"
                                           onClick={() => setStoreSettings((current) => {
-                                            const posts = (current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).filter((_, pIdx) => pIdx !== postIndex);
-                                            return { ...current, instagramPosts: posts };
+                                            const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                            const currentItems = Array.isArray(sections[index].items) ? sections[index].items : [];
+                                            sections[index] = {
+                                              ...sections[index],
+                                              items: [
+                                                ...currentItems,
+                                                { id: `rev-${Date.now()}`, name: "New Customer", location: "Lahore", rating: 5, review: "Great stitching and fabric quality!", product: "Lawn Suit" },
+                                              ],
+                                            };
+                                            return { ...current, homepageSections: sections };
                                           })}
-                                          style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "4px" }}
+                                          style={{ fontSize: "11px", padding: "4px 8px" }}
                                         >
-                                          <X size={15} />
+                                          + Add Review
                                         </button>
                                       </div>
-                                    ))}
-                                  </div>
-                                </div>
+
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                        {((Array.isArray(section.items) && section.items.length) ? section.items : []).map((rev, revIdx) => (
+                                          <div key={rev.id || revIdx} style={{ padding: "10px", background: "#ffffff", border: "1px solid #e1e9e2", borderRadius: "6px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                              <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#173d29" }}>Review #{revIdx + 1}</span>
+                                              <button
+                                                type="button"
+                                                onClick={() => setStoreSettings((current) => {
+                                                  const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                  sections[index] = {
+                                                    ...sections[index],
+                                                    items: (sections[index].items || []).filter((_, i) => i !== revIdx),
+                                                  };
+                                                  return { ...current, homepageSections: sections };
+                                                })}
+                                                style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "2px" }}
+                                              >
+                                                <X size={14} />
+                                              </button>
+                                            </div>
+                                            <div className="shopifyFormRow">
+                                              <input
+                                                className="shopifyInput"
+                                                value={rev.name || ""}
+                                                placeholder="Customer Name"
+                                                onChange={(e) => setStoreSettings((current) => {
+                                                  const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                  const items = [...(sections[index].items || [])];
+                                                  items[revIdx] = { ...items[revIdx], name: e.target.value };
+                                                  sections[index] = { ...sections[index], items };
+                                                  return { ...current, homepageSections: sections };
+                                                })}
+                                              />
+                                              <input
+                                                className="shopifyInput"
+                                                value={rev.location || ""}
+                                                placeholder="City (e.g. Lahore, Karachi)"
+                                                onChange={(e) => setStoreSettings((current) => {
+                                                  const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                  const items = [...(sections[index].items || [])];
+                                                  items[revIdx] = { ...items[revIdx], location: e.target.value };
+                                                  sections[index] = { ...sections[index], items };
+                                                  return { ...current, homepageSections: sections };
+                                                })}
+                                              />
+                                              <select
+                                                className="shopifySelect"
+                                                value={rev.rating || 5}
+                                                onChange={(e) => setStoreSettings((current) => {
+                                                  const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                  const items = [...(sections[index].items || [])];
+                                                  items[revIdx] = { ...items[revIdx], rating: Number(e.target.value) };
+                                                  sections[index] = { ...sections[index], items };
+                                                  return { ...current, homepageSections: sections };
+                                                })}
+                                                style={{ width: "110px" }}
+                                              >
+                                                <option value={5}>⭐⭐⭐⭐⭐ (5 Stars)</option>
+                                                <option value={4}>⭐⭐⭐⭐ (4 Stars)</option>
+                                                <option value={3}>⭐⭐⭐ (3 Stars)</option>
+                                              </select>
+                                            </div>
+                                            <input
+                                              className="shopifyInput"
+                                              value={rev.product || ""}
+                                              placeholder="Purchased Outfit Name (e.g. Embroidered Lawn Kurti)"
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                const items = [...(sections[index].items || [])];
+                                                items[revIdx] = { ...items[revIdx], product: e.target.value };
+                                                sections[index] = { ...sections[index], items };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                            />
+                                            <textarea
+                                              className="shopifyInput"
+                                              rows={2}
+                                              value={rev.review || ""}
+                                              placeholder="Customer review quote..."
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                const items = [...(sections[index].items || [])];
+                                                items[revIdx] = { ...items[revIdx], review: e.target.value };
+                                                sections[index] = { ...sections[index], items };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === "faq" && (
+                                    <div style={{ padding: "14px", background: "#f8faf7", border: "1px solid #dbe5dc", borderRadius: "8px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                                          ❓ Frequently Asked Questions (FAQ)
+                                        </span>
+                                        <button
+                                          type="button"
+                                          className="shopifyBtnSecondary"
+                                          onClick={() => setStoreSettings((current) => {
+                                            const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                            const currentItems = Array.isArray(sections[index].items) ? sections[index].items : [];
+                                            sections[index] = {
+                                              ...sections[index],
+                                              items: [
+                                                ...currentItems,
+                                                { id: `faq-${Date.now()}`, question: "New Question?", answer: "Helpful answer explaining your store policy..." },
+                                              ],
+                                            };
+                                            return { ...current, homepageSections: sections };
+                                          })}
+                                          style={{ fontSize: "11px", padding: "4px 8px" }}
+                                        >
+                                          + Add Question
+                                        </button>
+                                      </div>
+
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                        {((Array.isArray(section.items) && section.items.length) ? section.items : []).map((faq, faqIdx) => (
+                                          <div key={faq.id || faqIdx} style={{ padding: "10px", background: "#ffffff", border: "1px solid #e1e9e2", borderRadius: "6px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                              <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#173d29" }}>Question #{faqIdx + 1}</span>
+                                              <button
+                                                type="button"
+                                                onClick={() => setStoreSettings((current) => {
+                                                  const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                  sections[index] = {
+                                                    ...sections[index],
+                                                    items: (sections[index].items || []).filter((_, i) => i !== faqIdx),
+                                                  };
+                                                  return { ...current, homepageSections: sections };
+                                                })}
+                                                style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "2px" }}
+                                              >
+                                                <X size={14} />
+                                              </button>
+                                            </div>
+                                            <input
+                                              className="shopifyInput"
+                                              value={faq.question || ""}
+                                              placeholder="e.g. How long does delivery take?"
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                const items = [...(sections[index].items || [])];
+                                                items[faqIdx] = { ...items[faqIdx], question: e.target.value };
+                                                sections[index] = { ...sections[index], items };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                            />
+                                            <textarea
+                                              className="shopifyInput"
+                                              rows={2}
+                                              value={faq.answer || ""}
+                                              placeholder="Clear and helpful answer..."
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                const items = [...(sections[index].items || [])];
+                                                items[faqIdx] = { ...items[faqIdx], answer: e.target.value };
+                                                sections[index] = { ...sections[index], items };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === "shop_by_category" && (
+                                    <label className="shopifyFieldLabel">
+                                      Category Display Style
+                                      <select
+                                        className="shopifySelect"
+                                        value={section.style || storeSettings.categorySectionStyle || "atelier"}
+                                        onChange={(e) => {
+                                          const nextStyle = e.target.value;
+                                          setStoreSettings((current) => {
+                                            const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
+                                              sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
+                                            );
+                                            return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
+                                          });
+                                        }}
+                                      >
+                                        <option value="atelier">Atelier Overlay Cards (Dark Luxury Typography Overlay)</option>
+                                        <option value="minimal">Minimal Collections Grid (House of Lucknawi Style with White Padding)</option>
+                                      </select>
+                                    </label>
+                                  )}
+
+                                  {section.type === "instagram_feed" && (
+                                    <div style={{ border: "1px solid #d4ded6", borderRadius: "8px", padding: "14px", background: "#f8faf7", marginTop: "6px" }}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                                        <span style={{ fontSize: "13px", fontWeight: 750, color: "#122a1e" }}>Instagram Reels Links</span>
+                                        <button
+                                          type="button"
+                                          className="shopifyBtnSecondary"
+                                          onClick={() => setStoreSettings((current) => ({
+                                            ...current,
+                                            instagramPosts: [
+                                              ...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []),
+                                              { id: `instagram-${Date.now()}`, mediaType: "video", url: "", caption: "", image: "" },
+                                            ],
+                                          }))}
+                                          style={{ fontSize: "11px", padding: "5px 10px" }}
+                                        >
+                                          + Add Reel
+                                        </button>
+                                      </div>
+
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                        {(storeSettings.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).map((post, postIndex) => (
+                                          <div key={post.id || postIndex} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                            <input
+                                              className="shopifyInput"
+                                              value={post.url || ""}
+                                              placeholder="https://www.instagram.com/reel/..."
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
+                                                posts[postIndex] = { ...posts[postIndex], url: e.target.value };
+                                                return { ...current, instagramPosts: posts };
+                                              })}
+                                              style={{ flex: 1 }}
+                                            />
+                                            <input
+                                              className="shopifyInput"
+                                              value={post.caption || ""}
+                                              placeholder="Caption / Collection"
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
+                                                posts[postIndex] = { ...posts[postIndex], caption: e.target.value };
+                                                return { ...current, instagramPosts: posts };
+                                              })}
+                                              style={{ width: "180px" }}
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => setStoreSettings((current) => {
+                                                const posts = (current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).filter((_, pIdx) => pIdx !== postIndex);
+                                                return { ...current, instagramPosts: posts };
+                                              })}
+                                              style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "4px" }}
+                                            >
+                                              <X size={15} />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
                               )}
+
+                              {/* Quick Insert Below */}
+                              <div style={{ marginTop: "10px", paddingTop: "12px", borderTop: "1px dashed #d5ded6", display: "flex", justifyContent: "flex-end" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAddSectionInsertIndex(index + 1);
+                                    setIsAddSectionModalOpen(true);
+                                  }}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "#16452c",
+                                    fontSize: "12px",
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                  }}
+                                >
+                                  <Plus size={14} /> Insert section below this
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -12812,47 +13450,258 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "" }) {
                     })}
                   </div>
 
-                  {/* Add Available Section Dropdown */}
-                  {(() => {
-                    const currentTypes = (storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((s) => s.type);
-                    const available = DEFAULT_HOMEPAGE_SECTIONS.filter((s) => !currentTypes.includes(s.type) && s.type !== "hero");
-                    if (!available.length) return null;
-                    return (
-                      <div style={{ display: "flex", gap: "10px", marginTop: "14px", padding: "14px", border: "1px dashed #c0d1c5", borderRadius: "10px", background: "#f8faf7" }}>
-                        <select id="sectionAddSelect" className="shopifySelect" defaultValue="" style={{ flex: 1 }}>
-                          <option value="" disabled>Choose a section to add to homepage...</option>
-                          {available.map((s) => <option key={s.type} value={s.type}>{s.label}</option>)}
-                        </select>
-                        <button
-                          type="button"
-                          className="shopifyBtnPrimary"
-                          onClick={() => {
-                            const select = document.getElementById("sectionAddSelect");
-                            const type = select?.value;
-                            if (!type) return;
-                            const template = DEFAULT_HOMEPAGE_SECTIONS.find((s) => s.type === type);
-                            if (!template) return;
-                            setStoreSettings((current) => ({
-                              ...current,
-                              homepageSections: [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS), { ...template, id: `${template.id}-${Date.now()}` }],
-                            }));
-                            select.value = "";
-                          }}
-                        >
-                          + Add Section
-                        </button>
-                      </div>
-                    );
-                  })()}
+                  {/* Add Section Button Box */}
+                  <div
+                    onClick={() => {
+                      setAddSectionInsertIndex(null);
+                      setIsAddSectionModalOpen(true);
+                    }}
+                    style={{
+                      marginTop: "16px",
+                      padding: "16px",
+                      border: "2px dashed #b7cabb",
+                      borderRadius: "10px",
+                      background: "#f9fbf9",
+                      textAlign: "center",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "6px",
+                      transition: "all 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "#173d29";
+                      e.currentTarget.style.background = "#f2f7f3";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "#b7cabb";
+                      e.currentTarget.style.background = "#f9fbf9";
+                    }}
+                  >
+                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#e2ede4", color: "#16452c", display: "grid", placeItems: "center" }}>
+                      <Plus size={18} />
+                    </div>
+                    <span style={{ fontSize: "13.5px", fontWeight: 750, color: "#122a1e" }}>
+                      + Add New Section to Homepage
+                    </span>
+                    <span style={{ fontSize: "11.5px", color: "#667a6e" }}>
+                      Choose from Featured Collections, Image with Text, Promo Banners, Testimonials, FAQ Accordion and more.
+                    </span>
+                  </div>
                 </div>
               </div>
 
+              {/* Bottom Sticky Action Bar */}
               <div className="shopifySettingsBottomBar">
-                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
-                  {storeSettingsLoading ? "Saving Sections..." : "💾 Save Page Sections"}
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                    {storeSettingsLoading ? "Saving Sections..." : "💾 Save Page Sections"}
+                  </button>
+                  <button
+                    type="button"
+                    className="shopifyBtnSecondary"
+                    onClick={() => window.open("/", "_blank")}
+                  >
+                    👁️ View Live Storefront
+                  </button>
+                </div>
+                {savedAt && (
+                  <span style={{ fontSize: "11.5px", color: "#16452c", fontWeight: 600 }}>
+                    ✓ Sections saved at {savedAt}
+                  </span>
+                )}
               </div>
             </form>
+          )}
+
+          {/* Shopify-Style Add Section Modal */}
+          {isAddSectionModalOpen && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 9999,
+                background: "rgba(10, 28, 18, 0.65)",
+                backdropFilter: "blur(4px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "20px",
+              }}
+              onClick={() => setIsAddSectionModalOpen(false)}
+            >
+              <div
+                style={{
+                  background: "#ffffff",
+                  borderRadius: "14px",
+                  width: "min(780px, 96vw)",
+                  maxHeight: "88vh",
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                  boxShadow: "0 20px 40px rgba(0,0,0,0.24)",
+                  border: "1px solid #d5dfd7",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div
+                  style={{
+                    padding: "18px 24px",
+                    borderBottom: "1px solid #e2e8e5",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    background: "#f9fbf9",
+                  }}
+                >
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 800, color: "#122a1e" }}>
+                      Add a Section to Homepage
+                    </h3>
+                    <p style={{ margin: "3px 0 0", fontSize: "12px", color: "#64776b" }}>
+                      {typeof addSectionInsertIndex === "number"
+                        ? `Inserting section at position #${addSectionInsertIndex + 1}`
+                        : "Section will be placed at the bottom of the page (can be moved anywhere anytime)"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddSectionModalOpen(false)}
+                    style={{ background: "none", border: "none", color: "#556b5d", cursor: "pointer", padding: "6px" }}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Filter Tabs */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "6px",
+                    padding: "10px 24px",
+                    borderBottom: "1px solid #eef2ef",
+                    overflowX: "auto",
+                    background: "#ffffff",
+                  }}
+                >
+                  {[
+                    { id: "all", label: "All Templates" },
+                    { id: "Products", label: "Products & Collections" },
+                    { id: "Editorial & Media", label: "Editorial & Media" },
+                    { id: "Promotions", label: "Promotions & Banners" },
+                    { id: "Social Proof", label: "Reviews & Social" },
+                    { id: "Customer Support", label: "FAQ & Tailoring" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSectionFilterCategory(tab.id)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "20px",
+                        border: sectionFilterCategory === tab.id ? "1.5px solid #16452c" : "1px solid #dbe2dd",
+                        background: sectionFilterCategory === tab.id ? "#eaf2eb" : "#ffffff",
+                        color: sectionFilterCategory === tab.id ? "#16452c" : "#4f6356",
+                        fontSize: "12px",
+                        fontWeight: sectionFilterCategory === tab.id ? 750 : 600,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Section Templates Grid */}
+                <div
+                  style={{
+                    padding: "20px 24px",
+                    overflowY: "auto",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+                    gap: "14px",
+                  }}
+                >
+                  {SECTION_TEMPLATES.filter((tpl) => {
+                    if (sectionFilterCategory === "all") return true;
+                    if (sectionFilterCategory === "Customer Support") {
+                      return tpl.categoryGroup === "Customer Support" || tpl.categoryGroup === "Specialty";
+                    }
+                    return tpl.categoryGroup === sectionFilterCategory;
+                  }).map((tpl) => (
+                    <div
+                      key={tpl.type}
+                      style={{
+                        border: "1px solid #d8e2da",
+                        borderRadius: "10px",
+                        padding: "16px",
+                        background: "#ffffff",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        transition: "all 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = "#16452c";
+                        e.currentTarget.style.boxShadow = "0 6px 16px rgba(22, 69, 44, 0.08)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = "#d8e2da";
+                        e.currentTarget.style.boxShadow = "none";
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
+                          <span style={{ fontSize: "14px", fontWeight: 800, color: "#122a1e" }}>
+                            {tpl.label}
+                          </span>
+                          {tpl.badge && (
+                            <span style={{ fontSize: "10.5px", fontWeight: 700, background: "#e8f2ea", color: "#16452c", padding: "2px 7px", borderRadius: "10px" }}>
+                              {tpl.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ margin: 0, fontSize: "11.5px", color: "#617366", lineHeight: 1.5 }}>
+                          {tpl.description}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="shopifyBtnPrimary"
+                        onClick={() => {
+                          const newSection = {
+                            ...tpl.defaultProps,
+                            id: `${tpl.type}-${Date.now()}`,
+                            type: tpl.type,
+                            enabled: true,
+                          };
+                          setStoreSettings((current) => {
+                            const currentSections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                            if (typeof addSectionInsertIndex === "number" && addSectionInsertIndex >= 0) {
+                              currentSections.splice(addSectionInsertIndex, 0, newSection);
+                            } else {
+                              currentSections.push(newSection);
+                            }
+                            return { ...current, homepageSections: currentSections };
+                          });
+                          setExpandedSectionId(newSection.id);
+                          setIsAddSectionModalOpen(false);
+                          setAddSectionInsertIndex(null);
+                        }}
+                        style={{ width: "100%", justifyContent: "center", fontSize: "12px", padding: "8px" }}
+                      >
+                        + Add to Homepage
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
           {/* 3. SIZE GUIDE MATRIX */}

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Instagram, Menu, Minus, Play, Plus, Ruler, ShieldCheck, ShoppingBag, Sparkles, Truck, UserRound, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Instagram, Menu, MessageSquare, Minus, Play, Plus, Ruler, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, UserRound, X } from "lucide-react";
 
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../../data/storeSettings";
@@ -71,6 +71,7 @@ export default function UkHomePageClient({
   const [quickViewSize, setQuickViewSize] = useState("S");
   const [quickViewQty, setQuickViewQty] = useState(1);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
+  const [expandedFaqId, setExpandedFaqId] = useState(null);
   const instagramRailRef = useRef(null);
 
   const rawDesktop = Array.isArray(safeSettings.heroDesktopImages) && safeSettings.heroDesktopImages.length
@@ -595,6 +596,291 @@ export default function UkHomePageClient({
                           {post.caption && <p>{post.caption}</p>}
                         </div>
                       </a>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          }
+
+          if (section.type === "featured_collection") {
+            const filterCat = section.category || "All";
+            const collectionProducts = (products || [])
+              .filter((p) => {
+                if (p.status === "Archived") return false;
+                if (!filterCat || filterCat === "All") return true;
+                return normalizeCategory(p.category) === normalizeCategory(filterCat);
+              })
+              .slice(0, Number(section.limit) || 4);
+
+            return (
+              <section
+                key={section.id}
+                className="shopSection featuredCollectionSection scrollReveal"
+                data-scroll-reveal
+                id={`collection-${section.id}`}
+              >
+                <div className="sectionHeading">
+                  <div>
+                    {section.eyebrow && <p className="eyebrow">{section.eyebrow}</p>}
+                    <h2>{section.heading || "Featured Collection"}</h2>
+                    {section.subtitle && <p className="sectionSubtitle">{section.subtitle}</p>}
+                  </div>
+                  {section.buttonText && (
+                    <a href={section.buttonLink || "#products"} className="featuredCollectionCta">
+                      {section.buttonText} <ArrowRight size={16} />
+                    </a>
+                  )}
+                </div>
+
+                <div className="productGrid">
+                  {collectionProducts.map((product) => (
+                    <article className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`} key={product.id}>
+                      <div className="productImage">
+                        <Image
+                          src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
+                          alt={`${product.name} - ${product.category} by Bustaniya UK`}
+                          fill
+                          sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
+                        />
+                        <a className="productCardLink" href={`/uk/product/${product.id}`} aria-label={`View ${product.name}`} />
+                        {product.badge && <span className="badge">{product.badge}</span>}
+                        {salePercent(product) > 0 && <span className="saleBadge">{salePercent(product)}% OFF</span>}
+                        <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
+                      </div>
+                      <div className="productInfo">
+                        <div>
+                          <p>{product.category}</p>
+                          <h3><a href={`/uk/product/${product.id}`}>{product.name}</a></h3>
+                        </div>
+                        <div className="productPrice">
+                          <span>{formatPrice(product.price, "uk")}</span>
+                          {salePercent(product) > 0 && <del>{formatPrice(product.compareAtPrice || product.compare_at_price, "uk")}</del>}
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                {!collectionProducts.length && (
+                  <p className="empty">No products currently available in this collection.</p>
+                )}
+              </section>
+            );
+          }
+
+          if (section.type === "image_with_text") {
+            const isImageRight = section.imagePosition === "right";
+            const imageUrl = section.imageUrl || "/bustaniya-campaign-hero-v5.png";
+            return (
+              <section
+                key={section.id}
+                className={`imageWithTextSection scrollReveal ${isImageRight ? "imageRight" : "imageLeft"}`}
+                data-scroll-reveal
+              >
+                <div className="imageWithTextContainer">
+                  <div className="imageWithTextMedia">
+                    <Image
+                      src={optimizedImageUrl(imageUrl, CLOUDINARY_IMAGE_PRESETS.heroDesktop)}
+                      alt={section.heading || "Bustaniya atelier story"}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                    />
+                  </div>
+                  <div className="imageWithTextCopy">
+                    {section.eyebrow && <span className="imageWithTextEyebrow">{section.eyebrow}</span>}
+                    {section.heading && <h2>{section.heading}</h2>}
+                    {section.subtitle && <p className="imageWithTextSubtitle">{section.subtitle}</p>}
+                    {section.content && <p className="imageWithTextBody">{section.content}</p>}
+                    {section.buttonText && (
+                      <div className="imageWithTextAction">
+                        <a href={section.buttonLink || "#products"} className="imageWithTextButton">
+                          <span>{section.buttonText}</span>
+                          <ArrowRight size={16} />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            );
+          }
+
+          if (section.type === "promo_banner") {
+            const bg = section.bgColor || "#122a1e";
+            const textClr = section.textColor || "#fdfaf3";
+            const hasBgImage = Boolean(section.imageUrl);
+            return (
+              <section
+                key={section.id}
+                className={`promoBannerSection scrollReveal ${hasBgImage ? "hasBgImage" : ""}`}
+                data-scroll-reveal
+                style={{
+                  "--promo-bg": bg,
+                  "--promo-text": textClr,
+                  backgroundImage: hasBgImage ? `url(${section.imageUrl})` : undefined,
+                }}
+              >
+                {hasBgImage && <div className="promoBannerOverlay" />}
+                <div className="promoBannerContent">
+                  {section.eyebrow && <span className="promoBannerEyebrow">{section.eyebrow}</span>}
+                  {section.heading && <h2>{section.heading}</h2>}
+                  {section.subtitle && <p className="promoBannerSubtitle">{section.subtitle}</p>}
+                  {section.buttonText && (
+                    <div className="promoBannerAction">
+                      <a href={section.buttonLink || "#products"} className="promoBannerButton">
+                        <span>{section.buttonText}</span>
+                        <ArrowRight size={16} />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          }
+
+          if (section.type === "rich_text") {
+            return (
+              <section key={section.id} className="richTextSection scrollReveal" data-scroll-reveal>
+                <div className="richTextInner">
+                  {section.eyebrow && <p className="eyebrow">{section.eyebrow}</p>}
+                  {section.heading && <h2>{section.heading}</h2>}
+                  {section.subtitle && <p className="richTextSubtitle">{section.subtitle}</p>}
+                  {section.content && <p className="richTextBody">{section.content}</p>}
+                  {section.buttonText && (
+                    <div className="richTextAction">
+                      <a href={section.buttonLink || "#products"} className="richTextBtn">
+                        <span>{section.buttonText}</span>
+                        <ArrowRight size={15} />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          }
+
+          if (section.type === "testimonials") {
+            const reviews = Array.isArray(section.items) && section.items.length ? section.items : [
+              {
+                id: "review-1",
+                name: "Ayesha Malik",
+                location: "London, UK",
+                rating: 5,
+                review: "The pure lawn fabric quality and embroidery were flawless. Delivered quickly across the UK with tracked shipping!",
+                product: "Embroidered Lawn Kurti",
+              },
+              {
+                id: "review-2",
+                name: "Fatima Zahra",
+                location: "Manchester, UK",
+                rating: 5,
+                review: "Gave my exact measurements and the tailoring was impeccable. Such a luxury experience.",
+                product: "Custom 3-Piece Festive Suit",
+              },
+              {
+                id: "review-3",
+                name: "Zainab Tariq",
+                location: "Birmingham, UK",
+                rating: 5,
+                review: "Colors and fabric texture are even better in person than the pictures. So comfortable to wear.",
+                product: "Pure Chiffon Co-ord Set",
+              },
+            ];
+
+            return (
+              <section key={section.id} className="testimonialsSection scrollReveal" data-scroll-reveal>
+                <div className="testimonialsHeader">
+                  {section.eyebrow && <p className="eyebrow">{section.eyebrow}</p>}
+                  <h2>{section.heading || "Loved by Thousands of Women"}</h2>
+                  {section.subtitle && <p className="testimonialsSubtitle">{section.subtitle}</p>}
+                </div>
+                <div className="testimonialsGrid">
+                  {reviews.map((rev, rIdx) => (
+                    <article key={rev.id || rIdx} className="testimonialCard">
+                      <div className="testimonialRating" aria-label={`${rev.rating || 5} out of 5 stars`}>
+                        {Array.from({ length: 5 }, (_, s) => (
+                          <Star
+                            key={s}
+                            size={16}
+                            fill={s < (Number(rev.rating) || 5) ? "#d4af37" : "none"}
+                            color={s < (Number(rev.rating) || 5) ? "#d4af37" : "#d1d5db"}
+                          />
+                        ))}
+                      </div>
+                      <blockquote className="testimonialQuote">
+                        "{rev.review}"
+                      </blockquote>
+                      <div className="testimonialAuthor">
+                        <div className="testimonialAuthorMeta">
+                          <div className="testimonialAuthorName">
+                            <strong>{rev.name}</strong>
+                            <span className="verifiedBuyerBadge" title="Verified Customer">
+                              <Check size={11} /> Verified Buyer
+                            </span>
+                          </div>
+                          <span className="testimonialLocation">{rev.location || "UK"}</span>
+                        </div>
+                        {rev.product && (
+                          <span className="testimonialProductTag">
+                            {rev.product}
+                          </span>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            );
+          }
+
+          if (section.type === "faq") {
+            const faqItems = Array.isArray(section.items) && section.items.length ? section.items : [
+              {
+                id: "faq-1",
+                question: "How long does delivery take to the UK?",
+                answer: "UK orders are dispatched promptly via Royal Mail Tracked and arrive in 3 to 5 business days.",
+              },
+              {
+                id: "faq-2",
+                question: "What currencies and payment methods are accepted?",
+                answer: "We accept GBP (£) with secure checkout via Visa, Mastercard, Apple Pay, and Google Pay.",
+              },
+              {
+                id: "faq-3",
+                question: "Can I request custom tailoring for UK delivery?",
+                answer: "Yes! Our master atelier crafts made-to-measure ensembles shipped directly to your UK address.",
+              },
+            ];
+
+            return (
+              <section key={section.id} className="faqSection scrollReveal" data-scroll-reveal>
+                <div className="faqHeader">
+                  {section.eyebrow && <p className="eyebrow">{section.eyebrow}</p>}
+                  <h2>{section.heading || "Frequently Asked Questions"}</h2>
+                  {section.subtitle && <p className="faqSubtitle">{section.subtitle}</p>}
+                </div>
+                <div className="faqAccordionList">
+                  {faqItems.map((item, idx) => {
+                    const isOpen = expandedFaqId === (item.id || `faq-${idx}`);
+                    return (
+                      <div key={item.id || idx} className={`faqItem ${isOpen ? "open" : ""}`}>
+                        <button
+                          type="button"
+                          className="faqQuestionButton"
+                          onClick={() => setExpandedFaqId(isOpen ? null : (item.id || `faq-${idx}`))}
+                          aria-expanded={isOpen}
+                        >
+                          <span className="faqQuestionText">{item.question}</span>
+                          <span className="faqChevron">
+                            {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                          </span>
+                        </button>
+                        {isOpen && (
+                          <div className="faqAnswer">
+                            <p>{item.answer}</p>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
