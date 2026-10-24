@@ -1,20 +1,8 @@
 {
   "states": {
-    "discord-vip-alerts": true,
-    "whatsapp-live-chat": true,
+    "whatsapp-live-chat": false,
     "flash-sale-countdown": true
   },
-  "settings": {
-    "discord-vip-alerts": {}
-  },
-  "logs": [
-    {
-      "id": "log-1792822828207-prez",
-      "timestamp": "2026-10-24T06:20:28.207Z",
-      "pluginId": "order-webhook-dispatcher",
-      "hook": "onOrderCreated",
-      "status": "success",
-      "message": "Webhook delivered to https://httpbin.org/post (HTTP 200)"
-    }
-  ]
+  "settings": {},
+  "logs": []
 }

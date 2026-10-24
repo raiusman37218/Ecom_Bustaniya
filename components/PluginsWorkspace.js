@@ -48,6 +48,7 @@ export default function PluginsWorkspace({ currentAdminUser }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeDrawerPlugin, setActiveDrawerPlugin] = useState(null);
   const [drawerSettings, setDrawerSettings] = useState({});
+  const [drawerEnabled, setDrawerEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [togglingId, setTogglingId] = useState(null);
   const [testingHook, setTestingHook] = useState(null);
@@ -67,7 +68,7 @@ export default function PluginsWorkspace({ currentAdminUser }) {
   const loadPlugins = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/plugins");
+      const res = await fetch(`/api/admin/plugins?_t=${Date.now()}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setPlugins(data.plugins || []);
@@ -102,14 +103,19 @@ export default function PluginsWorkspace({ currentAdminUser }) {
     );
 
     // If configuration drawer is open for this plugin, update drawer state too
-    if (activeDrawerPlugin && activeDrawerPlugin.id === pluginId) {
-      setActiveDrawerPlugin((prev) => ({ ...prev, enabled: nextState }));
-    }
+    setActiveDrawerPlugin((prev) => {
+      if (prev && prev.id === pluginId) {
+        return { ...prev, enabled: nextState };
+      }
+      return prev;
+    });
+    setDrawerEnabled(nextState);
 
     try {
-      const res = await fetch("/api/admin/plugins", {
+      const res = await fetch(`/api/admin/plugins?_t=${Date.now()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({ action: "toggle", pluginId, enabled: nextState }),
       });
       if (res.ok) {
@@ -117,12 +123,13 @@ export default function PluginsWorkspace({ currentAdminUser }) {
         if (data.plugins) {
           setPlugins(data.plugins);
           // Sync drawer state if open
-          if (activeDrawerPlugin && activeDrawerPlugin.id === pluginId) {
-            const updatedPlugin = data.plugins.find((p) => p.id === pluginId);
-            if (updatedPlugin) {
-              setActiveDrawerPlugin(updatedPlugin);
+          setActiveDrawerPlugin((prev) => {
+            if (prev && prev.id === pluginId) {
+              const updated = data.plugins.find((p) => p.id === pluginId);
+              return updated || { ...prev, enabled: nextState };
             }
-          }
+            return prev;
+          });
         }
         try {
           localStorage.setItem("bs:plugins:updated", String(Date.now()));
@@ -141,30 +148,37 @@ export default function PluginsWorkspace({ currentAdminUser }) {
   const openDrawer = (plugin) => {
     setActiveDrawerPlugin(plugin);
     setDrawerSettings({ ...(plugin.settings || {}) });
+    setDrawerEnabled(Boolean(plugin.enabled));
   };
 
   const closeDrawer = () => {
     setActiveDrawerPlugin(null);
     setDrawerSettings({});
+    setDrawerEnabled(true);
   };
 
   const handleSaveSettings = async () => {
     if (!activeDrawerPlugin) return;
     setSavingSettings(true);
     try {
-      const res = await fetch("/api/admin/plugins", {
+      const res = await fetch(`/api/admin/plugins?_t=${Date.now()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({
           action: "updateSettings",
           pluginId: activeDrawerPlugin.id,
-          enabled: activeDrawerPlugin.enabled,
+          enabled: drawerEnabled,
           settings: drawerSettings,
         }),
       });
       if (res.ok) {
         const data = await res.json();
         if (data.plugins) setPlugins(data.plugins);
+        try {
+          localStorage.setItem("bs:plugins:updated", String(Date.now()));
+          window.dispatchEvent(new CustomEvent("bs:plugins:changed"));
+        } catch {}
         closeDrawer();
       }
     } catch (e) {
@@ -605,6 +619,48 @@ export default function PluginsWorkspace({ currentAdminUser }) {
 
             <div className="pluginDrawerBody">
               <p className="pluginDrawerDescription">{activeDrawerPlugin.description}</p>
+
+              {/* Shopify-Style App Availability Selector */}
+              <div className="pluginDrawerStatusBox">
+                <div className="pluginDrawerStatusBoxHead">
+                  <span className="pluginDrawerStatusBoxTitle">App Availability Status</span>
+                  <p className="pluginDrawerStatusBoxDesc">
+                    Choose whether this app is currently live on your storefront or paused.
+                  </p>
+                </div>
+                <div className="pluginSegmentedControls">
+                  <button
+                    type="button"
+                    className={`pluginSegmentBtn ${drawerEnabled ? "selectedActive" : ""}`}
+                    disabled={togglingId === activeDrawerPlugin.id}
+                    onClick={() => {
+                      setDrawerEnabled(true);
+                      handleToggle(activeDrawerPlugin.id, true);
+                    }}
+                  >
+                    <span className="pluginDot active" />
+                    <div className="pluginSegmentBtnText">
+                      <strong>Active & Running</strong>
+                      <small>Live on store</small>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    className={`pluginSegmentBtn ${!drawerEnabled ? "selectedPaused" : ""}`}
+                    disabled={togglingId === activeDrawerPlugin.id}
+                    onClick={() => {
+                      setDrawerEnabled(false);
+                      handleToggle(activeDrawerPlugin.id, false);
+                    }}
+                  >
+                    <span className="pluginDot paused" />
+                    <div className="pluginSegmentBtnText">
+                      <strong>Paused / Disabled</strong>
+                      <small>Turned off</small>
+                    </div>
+                  </button>
+                </div>
+              </div>
 
               <div className="pluginFormFields">
                 {activeDrawerPlugin.settingsSchema?.map((field) => {
