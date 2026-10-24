@@ -8,3 +8,4 @@ data/admin-users.json
 *.log
 dev-*.log
 prod-*.log
+scratch/

@@ -9,6 +9,7 @@ import { recordShipmentState } from "../../../../lib/shipments";
 import { getStoreSettings } from "../../../../lib/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, paymentSnapshot } from "../../../../lib/paymentRules";
 import { sendMetaCapiEvent } from "../../../../lib/metaCapi";
+import { triggerPluginHook } from "../../../../lib/plugins/engine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -565,6 +566,21 @@ export async function POST(request) {
       console.error("Order confirmation email failed", {
         message: emailError?.message,
       });
+    });
+
+    // Trigger Shopify-Style Plugin Lifecycle Hooks
+    triggerPluginHook("onOrderCreated", {
+      orderId: orderNumber || orderId,
+      customer: `${normalizedCustomer.firstName} ${normalizedCustomer.lastName}`.trim(),
+      phone: normalizedCustomer.phone,
+      email: normalizedCustomer.email,
+      city: normalizedCustomer.city,
+      total: orderTotalVal,
+      items: verifiedItems,
+      paymentMethod: paymentAmounts.paymentMethod,
+      timestamp: new Date().toISOString(),
+    }).catch((pluginError) => {
+      console.error("Plugin onOrderCreated hook error:", pluginError);
     });
 
     const responseBody = {

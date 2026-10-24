@@ -1,0 +1,20 @@
+{
+  "id": "discord-vip-alerts",
+  "name": "Discord VIP Order Alerts",
+  "version": "1.0.0",
+  "author": "Custom Developer",
+  "category": "Automation",
+  "icon": "Sparkles",
+  "description": "Posts a rich embed to our internal Discord channel whenever a VIP order > Rs. 10,000 is placed.",
+  "enabled": true,
+  "type": "backend_hook",
+  "hooks": [
+    "onOrderCreated"
+  ],
+  "webhookUrl": "https://httpbin.org/post",
+  "storefrontHtml": "",
+  "settingsSchema": [],
+  "defaultSettings": {},
+  "isCustom": true,
+  "createdAt": "2026-10-24T06:20:55.527Z"
+}

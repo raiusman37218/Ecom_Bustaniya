@@ -21266,3 +21266,2243 @@ html {
   }
 }
 
+/* ==========================================================================
+   SHOPIFY-STANDARD DASHBOARD WORKSPACE POLISH
+   ========================================================================== */
+
+.dashboardWorkspace {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  color: #12291c;
+}
+
+.dashboardWorkspaceLoading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 420px;
+  color: #637869;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.dashboardWorkspaceLoading .spinIcon {
+  animation: spin 1s linear infinite;
+  color: #173d29;
+}
+
+/* 1. Header Command Strip */
+.dashboardWorkspaceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 24px 28px;
+  background: #ffffff;
+  border: 1px solid #e2eee4;
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(23, 61, 41, 0.03);
+}
+
+.dashboardWorkspaceHeaderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dashboardWorkspaceLiveBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 750;
+  color: #166534;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+
+.dashboardWorkspaceLiveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
+  animation: eventsLivePulse 2s ease-in-out infinite;
+}
+
+.dashboardWorkspaceHeaderLeft h1 {
+  margin: 0;
+  font-size: clamp(24px, 2.5vw, 32px);
+  font-weight: 850;
+  color: #112a1e;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+
+.dashboardWorkspaceHeaderLeft p {
+  margin: 0;
+  font-size: 13px;
+  color: #637869;
+}
+
+.dashboardWorkspaceSubtext {
+  color: #166534;
+  font-weight: 600;
+}
+
+.dashboardWorkspaceHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* Period Tabs */
+.dashboardWorkspacePeriodTabs {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f2;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid #e2eee4;
+}
+
+.dashboardWorkspacePeriodTab {
+  padding: 6px 14px;
+  border: 0;
+  background: transparent;
+  color: #556a5c;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dashboardWorkspacePeriodTab:hover {
+  color: #112a1e;
+}
+
+.dashboardWorkspacePeriodTab.isActive {
+  background: #ffffff;
+  color: #112a1e;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.dashboardWorkspaceActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboardWorkspaceRefreshBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid #dce7dd;
+  background: #ffffff;
+  color: #2e4a38;
+  font-size: 12.5px;
+  font-weight: 700;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dashboardWorkspaceRefreshBtn:hover:not(:disabled) {
+  background: #f7fbf8;
+  border-color: #c8d8ca;
+}
+
+.dashboardWorkspaceRefreshBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dashboardWorkspacePrimaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border: 1px solid #173d29;
+  background: #173d29;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 750;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 12px rgba(23, 61, 41, 0.15);
+}
+
+.dashboardWorkspacePrimaryBtn:hover {
+  background: #112a1e;
+  border-color: #112a1e;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(23, 61, 41, 0.22);
+}
+
+/* 2. Core Polaris-Grade KPI Grid */
+.dashboardWorkspaceKpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 1280px) {
+  .dashboardWorkspaceKpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px) {
+  .dashboardWorkspaceKpis {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 540px) {
+  .dashboardWorkspaceKpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboardWorkspaceKpiCard {
+  background: #ffffff;
+  border: 1px solid #e2eee4;
+  border-radius: 16px;
+  padding: 20px 22px;
+  box-shadow: 0 3px 12px rgba(23, 61, 41, 0.03);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboardWorkspaceKpiCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(23, 61, 41, 0.07);
+}
+
+.dashboardWorkspaceKpiCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.dashboardWorkspaceKpiCard.salesKpi::before { background: #166534; }
+.dashboardWorkspaceKpiCard.ordersKpi::before { background: #2563eb; }
+.dashboardWorkspaceKpiCard.aovKpi::before { background: #0d9488; }
+.dashboardWorkspaceKpiCard.cashKpi::before { background: #059669; }
+.dashboardWorkspaceKpiCard.receivableKpi::before { background: #d97706; }
+
+.dashboardWorkspaceKpiHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.dashboardWorkspaceKpiTitle {
+  font-size: 12px;
+  font-weight: 750;
+  color: #637869;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dashboardWorkspaceKpiIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboardWorkspaceKpiIcon.sales { background: #f0fdf4; color: #166534; }
+.dashboardWorkspaceKpiIcon.orders { background: #eff6ff; color: #2563eb; }
+.dashboardWorkspaceKpiIcon.aov { background: #f0fdfa; color: #0d9488; }
+.dashboardWorkspaceKpiIcon.cash { background: #ecfdf5; color: #059669; }
+.dashboardWorkspaceKpiIcon.receivable { background: #fffbeb; color: #d97706; }
+
+.dashboardWorkspaceKpiValue {
+  font-size: 26px;
+  font-weight: 850;
+  color: #112a1e;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+
+.dashboardWorkspaceKpiFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid #f2f7f3;
+}
+
+.dashboardWorkspaceTrendBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.dashboardWorkspaceTrendBadge.trendUp {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.dashboardWorkspaceTrendBadge.trendDown {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.dashboardWorkspaceTrendBadge.neutral {
+  background: #f3f6f4;
+  color: #4b6352;
+  border: 1px solid #e1e9e3;
+}
+
+.dashboardWorkspaceKpiHint {
+  font-size: 11px;
+  color: #788d7d;
+  white-space: nowrap;
+}
+
+.dashboardWorkspaceKpiLink {
+  border: 0;
+  background: transparent;
+  color: #166534;
+  font-size: 11.5px;
+  font-weight: 750;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+}
+
+.dashboardWorkspaceKpiLink:hover {
+  text-decoration: underline;
+}
+
+/* 3. Action Center: Shopify "Things to Do" */
+.dashboardWorkspaceActionCenter {
+  background: #ffffff;
+  border: 1px solid #e2eee4;
+  border-radius: 18px;
+  padding: 20px 24px;
+  box-shadow: 0 4px 16px rgba(23, 61, 41, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dashboardWorkspaceActionCenterHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboardWorkspaceActionCenterTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #112a1e;
+}
+
+.dashboardWorkspaceActionCenterTitle svg {
+  color: #166534;
+}
+
+.dashboardWorkspaceActionCenterStatus {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f3f7f4;
+  color: #3b5444;
+}
+
+.dashboardWorkspaceActionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 14px;
+}
+
+.dashboardWorkspaceActionCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.dashboardWorkspaceActionCard.warning {
+  background: #fffbeb;
+  border-color: #fef3c7;
+}
+
+.dashboardWorkspaceActionCard.alert {
+  background: #fef2f2;
+  border-color: #fee2e2;
+}
+
+.dashboardWorkspaceActionCard.neutral {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.dashboardWorkspaceActionCard.success {
+  background: #f0fdf4;
+  border-color: #dcfce7;
+}
+
+.dashboardWorkspaceActionCardLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dashboardWorkspaceActionIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dashboardWorkspaceActionIcon.warning { background: #fef3c7; color: #b45309; }
+.dashboardWorkspaceActionIcon.alert { background: #fee2e2; color: #dc2626; }
+.dashboardWorkspaceActionIcon.neutral { background: #e2e8f0; color: #475569; }
+.dashboardWorkspaceActionIcon.success { background: #dcfce7; color: #16a34a; }
+
+.dashboardWorkspaceActionCardLeft strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 750;
+  color: #112a1e;
+  line-height: 1.25;
+}
+
+.dashboardWorkspaceActionCardLeft p {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  color: #556a5c;
+  line-height: 1.4;
+}
+
+.dashboardWorkspaceActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 750;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.dashboardWorkspaceActionBtn.warning {
+  background: #ffffff;
+  border-color: #fde68a;
+  color: #b45309;
+}
+.dashboardWorkspaceActionBtn.warning:hover {
+  background: #fef3c7;
+}
+
+.dashboardWorkspaceActionBtn.alert {
+  background: #ffffff;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+.dashboardWorkspaceActionBtn.alert:hover {
+  background: #fee2e2;
+}
+
+.dashboardWorkspaceActionBtn.neutral {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+.dashboardWorkspaceActionBtn.neutral:hover {
+  background: #e2e8f0;
+}
+
+.dashboardWorkspaceActionBtn.success {
+  background: #ffffff;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+.dashboardWorkspaceActionBtn.success:hover {
+  background: #dcfce7;
+}
+
+/* 4. Two-Column Intelligence Sections */
+.dashboardWorkspaceTwoCol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 1050px) {
+  .dashboardWorkspaceTwoCol {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboardWorkspaceCard {
+  background: #ffffff;
+  border: 1px solid #e2eee4;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(23, 61, 41, 0.03);
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboardWorkspaceCardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f1f6f2;
+}
+
+.dashboardWorkspaceCardHead h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #112a1e;
+  letter-spacing: -0.02em;
+}
+
+.dashboardWorkspaceCardHead p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #637869;
+}
+
+.dashboardWorkspaceChartSummary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.dashboardWorkspaceChartStat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.dashboardWorkspaceChartStat span {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #7b8f81;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dashboardWorkspaceChartStat strong {
+  font-size: 15px;
+  font-weight: 850;
+  color: #112a1e;
+}
+
+.dashboardWorkspaceTotalBadge {
+  font-size: 11px;
+  font-weight: 750;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f1f5f2;
+  color: #2e4a38;
+}
+
+.dashboardWorkspaceHeaderAction {
+  border: 0;
+  background: transparent;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+}
+
+.dashboardWorkspaceHeaderAction:hover {
+  text-decoration: underline;
+}
+
+/* Bar Chart */
+.dashboardWorkspaceBarChart {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  height: 180px;
+  padding-top: 36px;
+  border-bottom: 1px solid #e5ede7;
+  position: relative;
+  margin-top: auto;
+}
+
+.dashboardWorkspaceBarCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  position: relative;
+  cursor: pointer;
+}
+
+.dashboardWorkspaceBarFill {
+  width: 100%;
+  max-width: 38px;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, #166534 0%, #173d29 100%);
+  transition: height 0.3s ease, filter 0.15s ease;
+}
+
+.dashboardWorkspaceBarCol:hover .dashboardWorkspaceBarFill {
+  filter: brightness(1.15);
+}
+
+.dashboardWorkspaceBarTooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #112a1e;
+  color: #ffffff;
+  font-size: 11px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 20;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.dashboardWorkspaceBarCol:hover .dashboardWorkspaceBarTooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.dashboardWorkspaceBarLabel {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #637869;
+}
+
+/* Fulfilment Pipeline */
+.dashboardWorkspacePipelineTrack {
+  display: flex;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f1f5f2;
+  margin-bottom: 20px;
+  border: 1px solid #e2eee4;
+}
+
+.dashboardWorkspacePipelineSegment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.dashboardWorkspacePipelineList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dashboardWorkspacePipelineRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #edf4ee;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.dashboardWorkspacePipelineRow:hover {
+  background: #f4f9f4;
+  border-color: #c8decb;
+  transform: translateX(2px);
+}
+
+.dashboardWorkspacePipelineRowLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboardWorkspacePipelineDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dashboardWorkspacePipelineName {
+  font-size: 12.5px;
+  font-weight: 750;
+  color: #112a1e;
+}
+
+.dashboardWorkspacePipelineRowRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboardWorkspacePipelineCount {
+  font-size: 13px;
+  font-weight: 850;
+  color: #112a1e;
+}
+
+.dashboardWorkspacePipelinePct {
+  font-size: 11px;
+  font-weight: 600;
+  color: #637869;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Ranked Items (Top Products & Cities) */
+.dashboardWorkspaceRankedList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dashboardWorkspaceRankedItem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #edf4ee;
+  transition: all 0.15s ease;
+}
+
+.dashboardWorkspaceRankedItem:hover {
+  background: #f6faf6;
+  border-color: #cce0d0;
+}
+
+.dashboardWorkspaceRankBadge {
+  font-size: 12px;
+  font-weight: 850;
+  color: #166534;
+  width: 24px;
+  text-align: center;
+}
+
+.dashboardWorkspaceRankThumb {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2eee4;
+  flex-shrink: 0;
+}
+
+.dashboardWorkspaceRankThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dashboardWorkspaceRankContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dashboardWorkspaceRankTopLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboardWorkspaceRankTopLine strong {
+  font-size: 13px;
+  font-weight: 750;
+  color: #112a1e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboardWorkspaceRankRevenue {
+  font-size: 13px;
+  font-weight: 850;
+  color: #112a1e;
+  white-space: nowrap;
+}
+
+.dashboardWorkspaceRankBottomLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: #637869;
+}
+
+.dashboardWorkspaceRankUnits {
+  font-weight: 700;
+  color: #166534;
+}
+
+/* Regional Demand */
+.dashboardWorkspaceCityRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #edf4ee;
+}
+
+.dashboardWorkspaceCityInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dashboardWorkspaceCityName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 750;
+  color: #112a1e;
+}
+
+.dashboardWorkspaceCityValues {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #637869;
+}
+
+.dashboardWorkspaceCityValues strong {
+  color: #112a1e;
+  font-weight: 800;
+}
+
+.dashboardWorkspaceCityTrack {
+  height: 6px;
+  background: #f1f5f2;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.dashboardWorkspaceCityFill {
+  height: 100%;
+  background: linear-gradient(90deg, #166534, #22c55e);
+  border-radius: 999px;
+}
+
+.dashboardWorkspaceEmptyList {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 16px;
+  color: #7b8f81;
+  font-size: 13px;
+}
+
+/* 5. Recent Orders Live Feed */
+.dashboardWorkspaceRecentOrders {
+  background: #ffffff;
+  border: 1px solid #e2eee4;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(23, 61, 41, 0.03);
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboardWorkspaceTableWrap {
+  overflow-x: auto;
+  border: 1px solid #eaf1eb;
+  border-radius: 12px;
+}
+
+.dashboardWorkspaceTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.dashboardWorkspaceTable th {
+  background: #f7faf7;
+  padding: 12px 16px;
+  font-size: 11px;
+  font-weight: 750;
+  color: #556a5c;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e5ede7;
+}
+
+.dashboardWorkspaceTable td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f6f2;
+  color: #2b3d32;
+  vertical-align: middle;
+}
+
+.dashboardWorkspaceTableRow {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.dashboardWorkspaceTableRow:hover td {
+  background: #f8faf8;
+}
+
+.dashboardWorkspaceOrderId {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 800;
+  color: #166534;
+  background: #f0fdf4;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #bbf7d0;
+}
+
+.dashboardWorkspaceOrderDate {
+  font-size: 11.5px;
+  color: #637869;
+}
+
+.dashboardWorkspaceCustomerCell {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboardWorkspaceCustomerCell strong {
+  font-size: 12.5px;
+  font-weight: 750;
+  color: #112a1e;
+}
+
+.dashboardWorkspaceCustomerCell small {
+  font-size: 11px;
+  color: #637869;
+}
+
+.dashboardWorkspaceItemsBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #f3f6f4;
+  color: #3b5444;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.dashboardWorkspaceTotalValue {
+  font-size: 13.5px;
+  font-weight: 850;
+  color: #112a1e;
+}
+
+.dashboardWorkspaceStatusPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.dashboardWorkspaceStatusPill.status-unbooked {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.dashboardWorkspaceStatusPill.status-bookedincourier {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.dashboardWorkspaceStatusPill.status-outfordelivery {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.dashboardWorkspaceStatusPill.status-delivered {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.dashboardWorkspaceStatusPill.status-returned {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.dashboardWorkspaceStatusPill.status-cancelled {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.dashboardWorkspaceInspectAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #166534;
+}
+
+/* 6. Quick Telemetry Strip */
+.dashboardWorkspaceTelemetryStrip {
+  background: linear-gradient(135deg, #f7faf7 0%, #ffffff 100%);
+  border: 1px solid #dce7dd;
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dashboardWorkspaceTelemetryLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.dashboardWorkspaceTelemetryIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #eaf4eb;
+  color: #166534;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dashboardWorkspaceTelemetryLeft strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 750;
+  color: #112a1e;
+}
+
+.dashboardWorkspaceTelemetryLeft p {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: #637869;
+}
+
+.dashboardWorkspaceTelemetryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #173d29;
+  background: #173d29;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.dashboardWorkspaceTelemetryBtn:hover {
+  background: #112a1e;
+  border-color: #112a1e;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 900px) {
+  .dashboardWorkspaceHeader {
+    padding: 18px 20px;
+  }
+  .dashboardWorkspaceHeaderRight {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .dashboardWorkspaceKpis {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboardWorkspaceKpis {
+    grid-template-columns: 1fr;
+  }
+  .dashboardWorkspacePeriodTabs {
+    width: 100%;
+    overflow-x: auto;
+  }
+}
+
+/* ==========================================================================
+   SHOPIFY-STANDARD APPS & PLUGINS WORKSPACE
+   ========================================================================== */
+
+.pluginsWorkspace {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  color: #12291c;
+}
+
+/* 1. Header Command Strip */
+.pluginsWorkspaceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 24px 28px;
+  background: #ffffff;
+  border: 1px solid #e2eee4;
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(23, 61, 41, 0.03);
+}
+
+.pluginsWorkspaceHeaderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pluginsWorkspaceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 750;
+  color: #166534;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+
+.pluginsWorkspaceHeaderLeft h1 {
+  margin: 0;
+  font-size: clamp(24px, 2.5vw, 32px);
+  font-weight: 850;
+  color: #112a1e;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+
+.pluginsWorkspaceHeaderLeft p {
+  margin: 0;
+  font-size: 13px;
+  color: #637869;
+}
+
+.pluginsWorkspaceHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pluginsWorkspaceSecondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 15px;
+  border: 1px solid #dce7dd;
+  background: #ffffff;
+  color: #2e4a38;
+  font-size: 12.5px;
+  font-weight: 700;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pluginsWorkspaceSecondaryBtn:hover:not(:disabled) {
+  background: #f7fbf8;
+  border-color: #c8d8ca;
+}
+
+.pluginsWorkspacePrimaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  border: 1px solid #173d29;
+  background: #173d29;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 750;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 12px rgba(23, 61, 41, 0.15);
+}
+
+.pluginsWorkspacePrimaryBtn:hover {
+  background: #112a1e;
+  border-color: #112a1e;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(23, 61, 41, 0.22);
+}
+
+/* 2. Quick Metrics Strip */
+.pluginsWorkspaceMetrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.pluginsWorkspaceMetricCard {
+  background: #ffffff;
+  border: 1px solid #e2eee4;
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pluginsWorkspaceMetricCard span {
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #637869;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pluginsWorkspaceMetricCard strong {
+  font-size: 24px;
+  font-weight: 850;
+  color: #112a1e;
+}
+
+.pluginsWorkspaceMetricCard small {
+  font-size: 11.5px;
+  color: #7b8f81;
+}
+
+/* 3. Toolbar: Tabs & Search */
+.pluginsWorkspaceToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pluginsWorkspaceTabs {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f2;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid #e2eee4;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.pluginsWorkspaceTab {
+  padding: 6px 14px;
+  border: 0;
+  background: transparent;
+  color: #556a5c;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.pluginsWorkspaceTab:hover {
+  color: #112a1e;
+}
+
+.pluginsWorkspaceTab.isActive {
+  background: #ffffff;
+  color: #112a1e;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.pluginsWorkspaceSearchWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #dce7dd;
+  border-radius: 10px;
+  padding: 8px 14px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.pluginsWorkspaceSearchWrap input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 12.5px;
+  color: #112a1e;
+  width: 100%;
+}
+
+/* 4. Plugins Grid & Cards */
+.pluginsWorkspaceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 18px;
+}
+
+.pluginCard {
+  background: #ffffff;
+  border: 1px solid #e2eee4;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 4px 16px rgba(23, 61, 41, 0.03);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+}
+
+.pluginCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(23, 61, 41, 0.07);
+  border-color: #c9decb;
+}
+
+.pluginCard.isEnabled {
+  border-top: 3px solid #16a34a;
+}
+
+.pluginCard.isPaused {
+  border-top: 3px solid #cbd5e1;
+  opacity: 0.92;
+}
+
+.pluginCardHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.pluginCardIconWrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #f0fdf4;
+  color: #166534;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #bbf7d0;
+  flex-shrink: 0;
+}
+
+.pluginCardInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.pluginCardTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pluginCardTitleRow h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #112a1e;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.pluginCustomTag {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #fdf2f8;
+  color: #be185d;
+  border: 1px solid #fbcfe8;
+  text-transform: uppercase;
+}
+
+.pluginCardMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pluginVersion {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7b8f81;
+}
+
+.pluginCategory {
+  font-size: 11px;
+  font-weight: 700;
+  color: #166534;
+  background: #f3f8f4;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+/* Shopify-Style Toggle Switch */
+.pluginSwitch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.pluginSwitch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.pluginSlider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: 0.2s;
+  border-radius: 34px;
+}
+
+.pluginSlider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.pluginSwitch input:checked + .pluginSlider {
+  background-color: #16a34a;
+}
+
+.pluginSwitch input:checked + .pluginSlider:before {
+  transform: translateX(18px);
+}
+
+.pluginCardDesc {
+  font-size: 12.5px;
+  color: #556a5c;
+  line-height: 1.5;
+  margin: 0 0 16px;
+  flex: 1;
+}
+
+.pluginCardTags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.pluginCapabilityTag {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.pluginCapabilityTag.widget {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.pluginCapabilityTag.hook {
+  background: #fdf4ff;
+  color: #a21caf;
+  border: 1px solid #f0abfc;
+}
+
+.pluginCapabilityTag.webhook {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.pluginTestFeedback {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.pluginTestFeedback.success {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.pluginTestFeedback.error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.pluginCardFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid #f2f7f3;
+  margin-top: auto;
+}
+
+.pluginCardStatus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #556a5c;
+}
+
+.pluginDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.pluginDot.active {
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
+}
+
+.pluginDot.paused {
+  background: #94a3b8;
+}
+
+.pluginCardButtons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pluginTestBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid #dce7dd;
+  background: #ffffff;
+  color: #2e4a38;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pluginTestBtn:hover:not(:disabled) {
+  background: #f7fbf8;
+  border-color: #c8d8ca;
+}
+
+.pluginConfigBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid #173d29;
+  background: #173d29;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 750;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pluginConfigBtn:hover {
+  background: #112a1e;
+}
+
+.pluginDeleteBtn {
+  border: 1px solid #fee2e2;
+  background: #fff1f2;
+  color: #dc2626;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pluginDeleteBtn:hover {
+  background: #fee2e2;
+}
+
+/* 5. Telemetry & Execution Log Console */
+.pluginsWorkspaceLogsCard {
+  background: #ffffff;
+  border: 1px solid #e2eee4;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(23, 61, 41, 0.03);
+}
+
+.pluginsWorkspaceLogsHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #edf4ee;
+}
+
+.pluginsWorkspaceLogsHead h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #112a1e;
+}
+
+.pluginsWorkspaceLogsHead p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #637869;
+}
+
+.pluginsLogsCount {
+  font-size: 11.5px;
+  font-weight: 750;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f1f5f2;
+  color: #2e4a38;
+}
+
+.pluginsWorkspaceLogsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.pluginsLogItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #f8faf8;
+  border: 1px solid #edf4ee;
+  font-size: 12px;
+}
+
+.pluginsLogBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+
+.pluginsLogBadge.success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.pluginsLogBadge.failed {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.pluginsLogHook {
+  font-weight: 750;
+  color: #112a1e;
+  font-family: monospace;
+  font-size: 11.5px;
+  background: #ffffff;
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid #e2eee4;
+  flex-shrink: 0;
+}
+
+.pluginsLogMsg {
+  flex: 1;
+  color: #3b5444;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pluginsLogTime {
+  color: #8aa08f;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.pluginsLogsEmpty {
+  text-align: center;
+  padding: 24px;
+  color: #8aa08f;
+  font-size: 13px;
+  margin: 0;
+}
+
+/* 6. Settings Drawer */
+.pluginDrawerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 41, 28, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pluginDrawer {
+  width: 100%;
+  max-width: 460px;
+  height: 100%;
+  background: #ffffff;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  animation: slideDrawer 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pluginDrawerHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 22px 24px;
+  border-bottom: 1px solid #eaf2eb;
+}
+
+.pluginDrawerEyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  color: #166534;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+}
+
+.pluginDrawerHead h2 {
+  margin: 2px 0 0;
+  font-size: 18px;
+  font-weight: 850;
+  color: #112a1e;
+}
+
+.pluginDrawerHead p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #637869;
+}
+
+.pluginDrawerCloseBtn {
+  border: 0;
+  background: #f1f5f2;
+  color: #556a5c;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pluginDrawerCloseBtn:hover {
+  background: #e2eee4;
+  color: #112a1e;
+}
+
+.pluginDrawerBody {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.pluginDrawerDescription {
+  font-size: 13px;
+  color: #556a5c;
+  line-height: 1.5;
+  background: #f7faf8;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid #e5eee7;
+  margin: 0 0 20px;
+}
+
+.pluginFormFields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.pluginFormField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pluginFormField label {
+  font-size: 12.5px;
+  font-weight: 750;
+  color: #112a1e;
+}
+
+.pluginFormField input[type="text"],
+.pluginFormField input[type="url"],
+.pluginFormField input[type="number"],
+.pluginFormField textarea,
+.pluginFormField select {
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid #dce7dd;
+  font-size: 13px;
+  color: #112a1e;
+  background: #ffffff;
+  outline: none;
+  font-family: inherit;
+}
+
+.pluginFormField input:focus,
+.pluginFormField textarea:focus,
+.pluginFormField select:focus {
+  border-color: #166534;
+  box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.12);
+}
+
+.pluginFieldHelp {
+  font-size: 11px;
+  color: #7b8f81;
+}
+
+.pluginColorPickerRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pluginColorPickerRow input[type="color"] {
+  width: 40px;
+  height: 36px;
+  border: 1px solid #dce7dd;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.pluginBooleanToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #112a1e;
+}
+
+.pluginDrawerFoot {
+  padding: 18px 24px;
+  border-top: 1px solid #eaf2eb;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.pluginDrawerCancelBtn {
+  padding: 9px 16px;
+  border-radius: 9px;
+  border: 1px solid #dce7dd;
+  background: #ffffff;
+  color: #2e4a38;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pluginDrawerSaveBtn {
+  padding: 9px 20px;
+  border-radius: 9px;
+  border: 1px solid #173d29;
+  background: #173d29;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 750;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(23, 61, 41, 0.15);
+}
+
+.pluginDrawerSaveBtn:hover:not(:disabled) {
+  background: #112a1e;
+}
+
+/* 7. Modal */
+.pluginModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 41, 28, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.pluginModal {
+  width: 100%;
+  max-width: 540px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScale 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pluginModalHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 22px 26px;
+  border-bottom: 1px solid #eaf2eb;
+}
+
+.pluginModalHead h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 850;
+  color: #112a1e;
+}
+
+.pluginModalHead p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #637869;
+}
+
+.pluginModalBody {
+  padding: 24px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pluginFormRow2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pluginCheckboxGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f8faf8;
+  border-radius: 9px;
+  border: 1px solid #e5eee7;
+}
+
+.pluginCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #112a1e;
+  cursor: pointer;
+}
+
+.pluginModalFoot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid #edf4ee;
+}
+
+/* 8. Storefront Widgets: Flash Sale & WhatsApp */
+.pluginPromoBanner {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  width: 100%;
+  color: #ffffff;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.pluginPromoBannerContent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.pluginPromoBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #dcffb8;
+  color: #173d29;
+  font-size: 10.5px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+
+.pluginPromoTimer {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+}
+
+.pluginPromoCoupon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  color: #173d29;
+  border: 0;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pluginPromoCoupon:hover {
+  background: #dcffb8;
+}
+
+.pluginPromoButton {
+  color: #ffffff;
+  text-decoration: underline;
+  font-weight: 750;
+  font-size: 12px;
+}
+
+.pluginPromoDismiss {
+  position: absolute;
+  right: 14px;
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.pluginPromoDismiss:hover {
+  color: #ffffff;
+}
+
+/* Floating WhatsApp Widget */
+.pluginWhatsAppFloat {
+  position: fixed;
+  bottom: 24px;
+  z-index: 990;
+}
+
+.pluginWhatsAppFloat.pos-right {
+  right: 24px;
+}
+
+.pluginWhatsAppFloat.pos-left {
+  left: 24px;
+}
+
+.pluginWhatsAppBtn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35);
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+}
+
+.pluginWhatsAppBtn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 12px 30px rgba(37, 211, 102, 0.45);
+}
+
+.pluginWhatsAppPulse {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px #16a34a;
+  animation: eventsLivePulse 1.8s ease-in-out infinite;
+}
+
+.pluginWhatsAppTooltip {
+  position: absolute;
+  right: 64px;
+  background: #112a1e;
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.pluginWhatsAppBtn:hover .pluginWhatsAppTooltip {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+
+

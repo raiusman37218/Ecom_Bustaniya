@@ -31,6 +31,8 @@ import { buildMetadata, siteConfig } from "../lib/seo";
 import MetaPixel from "../components/MetaPixel";
 import WhatsAppSupportButton from "../components/WhatsAppSupportButton";
 import RegionSwitcher from "../components/RegionSwitcher";
+import PluginWidgetsHost from "../components/PluginWidgetsHost";
+import { getActiveStorefrontWidgets } from "../lib/plugins/engine";
 import { getStoreSettings } from "../lib/storeSettings";
 
 export const metadata = {
@@ -81,6 +83,7 @@ export const viewport = {
 
 export default async function RootLayout({ children }) {
   const storeSettings = await getStoreSettings();
+  const pluginWidgets = await getActiveStorefrontWidgets();
   const gaId = storeSettings?.domainSettings?.analyticsMeasurementId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
   const metaPixelId = storeSettings?.domainSettings?.metaPixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || process.env.META_PIXEL_ID || "";
@@ -93,6 +96,7 @@ export default async function RootLayout({ children }) {
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
       </head>
       <body>
+        <PluginWidgetsHost initialWidgets={pluginWidgets} />
         <MetaPixel pixelId={metaPixelId} />
         {gtmId && (
           <noscript>

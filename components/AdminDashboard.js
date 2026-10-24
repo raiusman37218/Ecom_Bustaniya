@@ -12,6 +12,8 @@ import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS } from "../data/store
 import FinanceWorkspace from "./FinanceWorkspace";
 import EventsWorkspace from "./EventsWorkspace";
 import CustomOrdersWorkspace from "./CustomOrdersWorkspace";
+import DashboardWorkspace from "./DashboardWorkspace";
+import PluginsWorkspace from "./PluginsWorkspace";
 import { apparelSizes, fashionColors } from "../data/variantOptions";
 import AdminLogin from "./AdminLogin";
 
@@ -861,6 +863,7 @@ const navItems = [
   { name: "Finances", icon: Landmark, section: "COMMERCE" },
   { name: "Courier Ops", icon: Truck, section: "OPERATIONS" },
   { name: "Couriers", icon: Truck, section: "OPERATIONS" },
+  { name: "Apps & Plugins", icon: Sparkles, section: "OPERATIONS" },
   { name: "Settings", icon: Settings, section: "OPERATIONS" }
 ];
 
@@ -876,6 +879,7 @@ const navPermissionMap = {
   Finances: "dashboard",
   "Courier Ops": "orders",
   Couriers: "settings",
+  "Apps & Plugins": "settings",
   Settings: "settings",
 };
 
@@ -1829,7 +1833,27 @@ export default function AdminDashboard() {
         <div className="adminContent">
           {ordersError && active !== "Orders" && <div className="adminErrorBanner">{ordersError}</div>}
           {!canAccessActive && <div className="adminErrorBanner">You do not have access to this admin area.</div>}
-          {canAccessActive && active === "Dashboard" && <DashboardHome setActive={navigateAdminSection} orders={orders} products={products} metrics={metrics} connected={ordersConnected} loading={ordersLoading || catalogLoading} ordersError={ordersLoadError} currentAdminUser={currentAdminUser} onRefresh={() => refreshWorkspace()} onAddProduct={() => { navigateAdminSection("Products"); openNewProductForm(); }} onOpenOrder={(order) => { setRequestedOrderId(order.order_number || order.id); navigateAdminSection("Orders"); }} />}
+          {canAccessActive && active === "Dashboard" && (
+            <DashboardWorkspace
+              setActive={navigateAdminSection}
+              orders={orders}
+              products={products}
+              metrics={metrics}
+              connected={ordersConnected}
+              loading={ordersLoading || catalogLoading}
+              ordersError={ordersLoadError}
+              currentAdminUser={currentAdminUser}
+              onRefresh={() => refreshWorkspace()}
+              onAddProduct={() => {
+                navigateAdminSection("Products");
+                openNewProductForm();
+              }}
+              onOpenOrder={(order) => {
+                setRequestedOrderId(order.order_number || order.id);
+                navigateAdminSection("Orders");
+              }}
+            />
+          )}
           {canAccessActive && active === "Events" && <EventsWorkspace onNavigateToSettings={() => navigateAdminSection("Settings", { focus: "Tracking" })} onNavigateToOrder={(orderId) => { setRequestedOrderId(orderId); navigateAdminSection("Orders"); }} />}
           {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
           {canAccessActive && active === "Categories" && (
@@ -1862,6 +1886,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Courier Ops" && <CourierOperationsPanel />}
           {canAccessActive && active === "Couriers" && <CouriersPanel />}
+          {canAccessActive && active === "Apps & Plugins" && <PluginsWorkspace currentAdminUser={currentAdminUser} />}
           {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Settings" ? requestedAdminFocus.focus : ""} />}
         </div>
       </section>
