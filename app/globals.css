@@ -22751,6 +22751,16 @@ html {
   height: 24px;
   flex-shrink: 0;
   margin-top: 2px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.pluginSwitch:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .pluginSwitch input {
@@ -22784,12 +22794,22 @@ html {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.pluginSwitch input:checked + .pluginSlider {
+.pluginSwitch input:checked + .pluginSlider,
+.pluginSwitch.isOn .pluginSlider {
   background-color: #16a34a;
 }
 
-.pluginSwitch input:checked + .pluginSlider:before {
+.pluginSwitch input:checked + .pluginSlider:before,
+.pluginSwitch.isOn .pluginSlider:before {
   transform: translateX(18px);
+}
+
+.pluginSwitch.isOff .pluginSlider {
+  background-color: #cbd5e1;
+}
+
+.pluginSwitch.isOff .pluginSlider:before {
+  transform: translateX(0);
 }
 
 .pluginCardDesc {

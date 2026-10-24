@@ -30,7 +30,6 @@ const manrope = Manrope({
 import { Suspense } from "react";
 import { buildMetadata, siteConfig } from "../lib/seo";
 import MetaPixel from "../components/MetaPixel";
-import WhatsAppSupportButton from "../components/WhatsAppSupportButton";
 import RegionSwitcher from "../components/RegionSwitcher";
 import NavigationProgressBar from "../components/NavigationProgressBar";
 import PluginWidgetsHost from "../components/PluginWidgetsHost";
@@ -87,7 +86,6 @@ export default async function RootLayout({ children }) {
   const storeSettings = await getStoreSettings();
   const pluginWidgets = await getActiveStorefrontWidgets();
   const whatsAppPlugin = pluginWidgets.find((w) => w.id === "whatsapp-live-chat");
-  const isWhatsAppPluginActive = Boolean(whatsAppPlugin);
   const gaId = storeSettings?.domainSettings?.analyticsMeasurementId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
   const metaPixelId = storeSettings?.domainSettings?.metaPixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || process.env.META_PIXEL_ID || "";
@@ -103,7 +101,11 @@ export default async function RootLayout({ children }) {
         <Suspense fallback={null}>
           <NavigationProgressBar />
         </Suspense>
-        <PluginWidgetsHost initialWidgets={pluginWidgets} />
+        <PluginWidgetsHost
+          initialWidgets={pluginWidgets}
+          defaultPhoneNumber={whatsappNumber}
+          storeName={siteConfig.name}
+        />
         <MetaPixel pixelId={metaPixelId} />
         {gtmId && (
           <noscript>
@@ -117,13 +119,6 @@ export default async function RootLayout({ children }) {
           </noscript>
         )}
         {children}
-        {isWhatsAppPluginActive && (
-          <WhatsAppSupportButton
-            phoneNumber={whatsappNumber}
-            storeName={siteConfig.name}
-            welcomeMessage={whatsAppPlugin?.settings?.welcomeMessage}
-          />
-        )}
         <RegionSwitcher />
         {gaId && (
           <>

@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { MessageSquare, Clock, Copy, Check, X, Sparkles } from "lucide-react";
+import { Clock, Copy, Check, X, Sparkles } from "lucide-react";
+import WhatsAppSupportButton from "./WhatsAppSupportButton";
 
-export default function PluginWidgetsHost({ initialWidgets = [] }) {
+export default function PluginWidgetsHost({ initialWidgets = [], defaultPhoneNumber = "923053530008", storeName = "Bustaniya" }) {
   const [widgets, setWidgets] = useState(initialWidgets);
   const [copiedCode, setCopiedCode] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -32,7 +33,7 @@ export default function PluginWidgetsHost({ initialWidgets = [] }) {
     };
   }, []);
 
-  // Flash Sale Timer
+  // Active Storefront Plugins
   const flashSale = widgets.find((w) => w.id === "flash-sale-countdown");
   const whatsApp = widgets.find((w) => w.id === "whatsapp-live-chat");
 
@@ -118,24 +119,13 @@ export default function PluginWidgetsHost({ initialWidgets = [] }) {
         </div>
       )}
 
-      {/* 2. Floating WhatsApp Widget */}
+      {/* 2. Floating WhatsApp Widget - Controlled exclusively by active plugin status */}
       {whatsApp && (
-        <div
-          className={`pluginWhatsAppFloat ${whatsApp.settings?.position === "bottom-left" ? "pos-left" : "pos-right"}`}
-        >
-          <a
-            href={`https://wa.me/${encodeURIComponent(whatsApp.settings?.phoneNumber || "923053530008")}?text=${encodeURIComponent(whatsApp.settings?.welcomeMessage || "Salam! I have a question about Bustaniya.")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pluginWhatsAppBtn"
-            style={{ background: whatsApp.settings?.accentColor || "#25D366" }}
-            aria-label="Chat on WhatsApp"
-          >
-            {whatsApp.settings?.showNotificationBadge && <span className="pluginWhatsAppPulse" />}
-            <MessageSquare size={22} color="#ffffff" />
-            <span className="pluginWhatsAppTooltip">Chat with Bustaniya</span>
-          </a>
-        </div>
+        <WhatsAppSupportButton
+          phoneNumber={whatsApp.settings?.phoneNumber || defaultPhoneNumber}
+          storeName={storeName}
+          welcomeMessage={whatsApp.settings?.welcomeMessage}
+        />
       )}
     </>
   );

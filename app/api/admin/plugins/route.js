@@ -36,8 +36,8 @@ export async function POST(request) {
     }
 
     if (action === "updateSettings") {
-      const { pluginId, settings } = body;
-      await updatePluginConfig(pluginId, { settings });
+      const { pluginId, settings, enabled } = body;
+      await updatePluginConfig(pluginId, { settings, enabled });
       const plugins = await getAllPlugins();
       return NextResponse.json({ ok: true, message: "Settings saved successfully", plugins });
     }

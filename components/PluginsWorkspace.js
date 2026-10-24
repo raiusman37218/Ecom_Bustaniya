@@ -49,6 +49,7 @@ export default function PluginsWorkspace({ currentAdminUser }) {
   const [activeDrawerPlugin, setActiveDrawerPlugin] = useState(null);
   const [drawerSettings, setDrawerSettings] = useState({});
   const [savingSettings, setSavingSettings] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
   const [testingHook, setTestingHook] = useState(null);
   const [testSuccessMessage, setTestSuccessMessage] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -84,6 +85,9 @@ export default function PluginsWorkspace({ currentAdminUser }) {
   }, []);
 
   const handleToggle = async (pluginId, targetState) => {
+    if (togglingId) return;
+    setTogglingId(pluginId);
+
     const targetPlugin = plugins.find((p) => p.id === pluginId);
     const nextState =
       typeof targetState === "boolean"
@@ -125,10 +129,12 @@ export default function PluginsWorkspace({ currentAdminUser }) {
           window.dispatchEvent(new CustomEvent("bs:plugins:changed"));
         } catch {}
       } else {
-        loadPlugins();
+        await loadPlugins();
       }
     } catch {
-      loadPlugins();
+      await loadPlugins();
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -152,6 +158,7 @@ export default function PluginsWorkspace({ currentAdminUser }) {
         body: JSON.stringify({
           action: "updateSettings",
           pluginId: activeDrawerPlugin.id,
+          enabled: activeDrawerPlugin.enabled,
           settings: drawerSettings,
         }),
       });
@@ -391,19 +398,21 @@ export default function PluginsWorkspace({ currentAdminUser }) {
                   </div>
                 </div>
 
-                {/* Shopify-Style Toggle Switch */}
-                <label
-                  className="pluginSwitch"
+                {/* Shopify-Style Toggle Switch (Button role=switch prevents double-events & touch bounce) */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(plugin.enabled)}
+                  disabled={togglingId === plugin.id}
+                  className={`pluginSwitch ${plugin.enabled ? "isOn" : "isOff"}`}
                   title={plugin.enabled ? "Click to Pause App" : "Click to Enable App"}
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggle(plugin.id, !plugin.enabled);
+                  }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={Boolean(plugin.enabled)}
-                    onChange={(e) => handleToggle(plugin.id, e.target.checked)}
-                  />
                   <span className="pluginSlider" />
-                </label>
+                </button>
               </div>
 
               <p className="pluginCardDesc">{plugin.description}</p>
@@ -436,13 +445,18 @@ export default function PluginsWorkspace({ currentAdminUser }) {
               <div className="pluginCardFoot">
                 <button
                   type="button"
+                  disabled={togglingId === plugin.id}
                   className={`pluginCardStatusBtn ${plugin.enabled ? "active" : "paused"}`}
                   onClick={() => handleToggle(plugin.id, !plugin.enabled)}
                   title={plugin.enabled ? "Click to Pause App" : "Click to Activate App"}
                 >
                   <span className={`pluginDot ${plugin.enabled ? "active" : "paused"}`} />
-                  <span className="pluginStatusLabel">{plugin.enabled ? "Active & Running" : "Paused"}</span>
-                  <span className="pluginStatusActionText">· {plugin.enabled ? "Turn Off" : "Turn On"}</span>
+                  <span className="pluginStatusLabel">
+                    {togglingId === plugin.id ? "Updating..." : (plugin.enabled ? "Active & Running" : "Paused")}
+                  </span>
+                  <span className="pluginStatusActionText">
+                    {togglingId === plugin.id ? "" : `· ${plugin.enabled ? "Turn Off" : "Turn On"}`}
+                  </span>
                 </button>
 
                 <div className="pluginCardButtons">
@@ -578,9 +592,14 @@ export default function PluginsWorkspace({ currentAdminUser }) {
               <button
                 type="button"
                 className={`pluginDrawerToggleBtn ${activeDrawerPlugin.enabled ? "isDestructive" : "isSuccess"}`}
+                disabled={togglingId === activeDrawerPlugin.id}
                 onClick={() => handleToggle(activeDrawerPlugin.id, !activeDrawerPlugin.enabled)}
               >
-                {activeDrawerPlugin.enabled ? "Pause App" : "Activate App"}
+                {togglingId === activeDrawerPlugin.id
+                  ? "Updating..."
+                  : activeDrawerPlugin.enabled
+                  ? "Pause App"
+                  : "Activate App"}
               </button>
             </div>
 
@@ -710,9 +729,14 @@ export default function PluginsWorkspace({ currentAdminUser }) {
               <button
                 type="button"
                 className={`pluginDrawerPauseActionBtn ${activeDrawerPlugin.enabled ? "btnPause" : "btnActivate"}`}
+                disabled={togglingId === activeDrawerPlugin.id}
                 onClick={() => handleToggle(activeDrawerPlugin.id, !activeDrawerPlugin.enabled)}
               >
-                {activeDrawerPlugin.enabled ? "Pause / Disable App" : "Activate App"}
+                {togglingId === activeDrawerPlugin.id
+                  ? "Updating..."
+                  : activeDrawerPlugin.enabled
+                  ? "Pause / Disable App"
+                  : "Activate App"}
               </button>
               <button
                 type="button"
