@@ -284,7 +284,7 @@ export default function UkHomePageClient({
 
       <main className="homepageMain">
         {sections.map((section) => {
-          if (!section.enabled) return null;
+          if (section.enabled === false) return null;
           const defaults = DEFAULT_HOMEPAGE_SECTIONS.find((s) => s.id === section.id) || {};
 
           if (section.type === "hero") {

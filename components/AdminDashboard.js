@@ -12605,17 +12605,37 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "", categories: pass
                     </div>
                     <p>Reorder, customize, and add dynamic storefront sections anywhere on your homepage just like Shopify.</p>
                   </div>
-                  <button
-                    type="button"
-                    className="shopifyBtnPrimary"
-                    onClick={() => {
-                      setAddSectionInsertIndex(null);
-                      setIsAddSectionModalOpen(true);
-                    }}
-                    style={{ display: "flex", alignItems: "center", gap: "6px" }}
-                  >
-                    <Plus size={16} /> Add Section
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <button
+                      type="submit"
+                      className="shopifyBtnPrimary"
+                      disabled={storeSettingsLoading}
+                      style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                    >
+                      {storeSettingsLoading ? (
+                        <>
+                          <Loader2 size={15} className="animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={15} />
+                          <span>Save Sections</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="shopifyBtnSecondary"
+                      onClick={() => {
+                        setAddSectionInsertIndex(null);
+                        setIsAddSectionModalOpen(true);
+                      }}
+                      style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                    >
+                      <Plus size={16} /> Add Section
+                    </button>
+                  </div>
                 </div>
 
                 <div className="shopifySectionBody">
@@ -12728,18 +12748,42 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "", categories: pass
                             </div>
 
                             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              {/* Visibility Toggle */}
-                              <label className="switchLabel" style={{ fontSize: "12px", gap: "5px" }}>
-                                <input
-                                  type="checkbox"
-                                  checked={section.enabled !== false}
-                                  onChange={(e) => setStoreSettings((current) => {
-                                    const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
-                                    sections[index] = { ...sections[index], enabled: e.target.checked };
-                                    return { ...current, homepageSections: sections };
-                                  })}
-                                /> {section.enabled !== false ? "Visible" : "Hidden"}
-                              </label>
+                              {/* Visibility Toggle Pill */}
+                              <button
+                                type="button"
+                                onClick={() => setStoreSettings((current) => {
+                                  const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                  const nextState = sections[index]?.enabled === false ? true : false;
+                                  sections[index] = { ...sections[index], enabled: nextState };
+                                  return { ...current, homepageSections: sections };
+                                })}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                  padding: "5px 12px",
+                                  borderRadius: "20px",
+                                  fontSize: "12px",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  transition: "all 0.15s ease",
+                                  border: section.enabled !== false ? "1.5px solid #a3d9b6" : "1.5px solid #d1d5db",
+                                  background: section.enabled !== false ? "#e8f6ed" : "#f3f4f6",
+                                  color: section.enabled !== false ? "#16452c" : "#6b7280",
+                                }}
+                                title={section.enabled !== false ? "Click to Disable / Hide section from storefront" : "Click to Enable / Show section on storefront"}
+                              >
+                                <span
+                                  style={{
+                                    width: "8px",
+                                    height: "8px",
+                                    borderRadius: "50%",
+                                    background: section.enabled !== false ? "#10b981" : "#9ca3af",
+                                    boxShadow: section.enabled !== false ? "0 0 6px rgba(16, 185, 129, 0.5)" : "none",
+                                  }}
+                                />
+                                <span>{section.enabled !== false ? "Enabled" : "Disabled"}</span>
+                              </button>
 
                               {/* Customize / Edit Button */}
                               <button
