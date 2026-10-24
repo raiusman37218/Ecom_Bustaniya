@@ -83,8 +83,10 @@ export const viewport = {
 };
 
 export default async function RootLayout({ children }) {
-  const storeSettings = await getStoreSettings();
-  const pluginWidgets = await getActiveStorefrontWidgets();
+  const [storeSettings, pluginWidgets] = await Promise.all([
+    getStoreSettings(),
+    getActiveStorefrontWidgets(),
+  ]);
   const whatsAppPlugin = pluginWidgets.find((w) => w.id === "whatsapp-live-chat");
   const gaId = storeSettings?.domainSettings?.analyticsMeasurementId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;

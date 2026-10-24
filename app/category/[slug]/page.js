@@ -28,10 +28,13 @@ export async function generateMetadata({ params }) {
 
 export default async function CategoryPage({ params }) {
   const { slug } = await params;
-  const categories = await getCatalogCategories();
+  const [categories, products, storeSettings] = await Promise.all([
+    getCatalogCategories(),
+    getCatalogProducts(),
+    getStoreSettings(),
+  ]);
   const category = categories.find((item) => item.slug === slug && !item.parentSlug);
   if (!category) notFound();
-  const [products, storeSettings] = await Promise.all([getCatalogProducts(), getStoreSettings()]);
   const mainCategories = categories.filter((item) => !item.parentSlug);
   const subcategories = subcategoryOptions(categories, category.slug);
 

@@ -28,12 +28,14 @@ export async function generateMetadata({ params }) {
 
 export default async function SubcategoryPage({ params }) {
   const { slug, subcategory } = await params;
-  const categories = await getCatalogCategories();
+  const [categories, products, storeSettings] = await Promise.all([
+    getCatalogCategories(),
+    getCatalogProducts(),
+    getStoreSettings(),
+  ]);
   const parent = categories.find((item) => item.slug === slug && !item.parentSlug);
   const details = subcategoryOptions(categories, slug).find((item) => item.slug === subcategory);
   if (!parent || !details) notFound();
-
-  const [products, storeSettings] = await Promise.all([getCatalogProducts(), getStoreSettings()]);
   const items = products.filter((product) => normalizeCategory(product.category) === parent.name && product.subcategory === subcategory);
   // The sibling row lets shoppers switch styles without going back up a level.
   const siblings = subcategoryOptions(categories, slug);

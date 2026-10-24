@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Instagram, Menu, MessageSquare, Minus, Play, Plus, Quote, Ruler, Scissors, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, UserRound, X } from "lucide-react";
 
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
@@ -10,8 +11,9 @@ import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from "../lib/images";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
-import SizeChartModal from "./SizeChartModal";
 import { trackEvent } from "../lib/trackEvent";
+
+const SizeChartModal = dynamic(() => import("./SizeChartModal"), { ssr: false });
 
 const fallbackCategoryRecords = categories
   .filter((category) => category !== "All")
@@ -1245,7 +1247,9 @@ export default function Home({
         </div>}
       </aside>
 
-      <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} chartData={quickViewProduct?.sizeChart || storeSettings?.sizeChartSettings} />
+      {sizeChartOpen && (
+        <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} chartData={quickViewProduct?.sizeChart || storeSettings?.sizeChartSettings} />
+      )}
     </>
   );
 }

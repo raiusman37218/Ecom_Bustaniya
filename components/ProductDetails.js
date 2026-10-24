@@ -1143,7 +1143,9 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
       </div>
     )}
 
-    <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} chartData={product?.sizeChart || storeSettings?.sizeChartSettings} />
+    {sizeChartOpen && (
+      <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} chartData={product?.sizeChart || storeSettings?.sizeChartSettings} />
+    )}
     </>
   );
 }

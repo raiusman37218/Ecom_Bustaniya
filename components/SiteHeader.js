@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Search, UserRound, Heart, ShoppingBag, Menu, X } from "lucide-react";
 import AnnouncementBar from "./AnnouncementBar";
-import HeaderSearchModal from "./HeaderSearchModal";
-import HeaderAccountModal from "./HeaderAccountModal";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
+
+const HeaderSearchModal = dynamic(() => import("./HeaderSearchModal"), { ssr: false });
+const HeaderAccountModal = dynamic(() => import("./HeaderAccountModal"), { ssr: false });
 
 const DEFAULT_NAV_CATEGORIES = [
   { name: "Kurtis", slug: "kurtis" },
@@ -235,15 +237,17 @@ export default function SiteHeader({
         </a>
       </nav>
 
-      {/* Real-time Product Search Modal */}
-      <HeaderSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+      {/* Real-time Product Search Modal (Loaded on-demand only when opened) */}
+      {searchOpen && <HeaderSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />}
 
-      {/* Customer Account & Order Tracking Modal */}
-      <HeaderAccountModal
-        isOpen={accountOpen}
-        onClose={() => setAccountOpen(false)}
-        storeSettings={storeSettings}
-      />
+      {/* Customer Account & Order Tracking Modal (Loaded on-demand only when opened) */}
+      {accountOpen && (
+        <HeaderAccountModal
+          isOpen={accountOpen}
+          onClose={() => setAccountOpen(false)}
+          storeSettings={storeSettings}
+        />
+      )}
     </header>
   </>
   );
