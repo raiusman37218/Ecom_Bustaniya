@@ -13379,27 +13379,165 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "", categories: pass
                                     </div>
                                   )}
 
-                                  {section.type === "shop_by_category" && (
-                                    <label className="shopifyFieldLabel">
-                                      Category Display Style
-                                      <select
-                                        className="shopifySelect"
-                                        value={section.style || storeSettings.categorySectionStyle || "atelier"}
-                                        onChange={(e) => {
-                                          const nextStyle = e.target.value;
-                                          setStoreSettings((current) => {
-                                            const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
-                                              sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
-                                            );
-                                            return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
-                                          });
-                                        }}
-                                      >
-                                        <option value="atelier">Atelier Overlay Cards (Dark Luxury Typography Overlay)</option>
-                                        <option value="minimal">Minimal Collections Grid (House of Lucknawi Style with White Padding)</option>
-                                      </select>
-                                    </label>
-                                  )}
+                                  {section.type === "shop_by_category" && (() => {
+                                    const mainCats = (availableCategories || []).filter((c) => !c.parentSlug && c.status !== "Archived");
+                                    const currentCards = Array.isArray(section.cards) && section.cards.length > 0
+                                      ? section.cards
+                                      : mainCats.map((cat, idx) => ({
+                                          id: cat.id || `cat-${idx + 1}`,
+                                          name: cat.name || "",
+                                          slug: cat.slug || "",
+                                          image: cat.image || "",
+                                          description: cat.description || "",
+                                          enabled: cat.showOnHomepage !== false,
+                                        }));
+
+                                    const updateCard = (cardIdx, updates) => {
+                                      setStoreSettings((current) => {
+                                        const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                        const secIdx = sections.findIndex((s) => s.id === section.id || s.type === "shop_by_category");
+                                        if (secIdx === -1) return current;
+                                        const newCards = [...currentCards];
+                                        newCards[cardIdx] = { ...newCards[cardIdx], ...updates };
+                                        sections[secIdx] = { ...sections[secIdx], cards: newCards };
+                                        return { ...current, homepageSections: sections };
+                                      });
+                                    };
+
+                                    return (
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                                        <label className="shopifyFieldLabel">
+                                          Category Display Style
+                                          <select
+                                            className="shopifySelect"
+                                            value={section.style || storeSettings.categorySectionStyle || "atelier"}
+                                            onChange={(e) => {
+                                              const nextStyle = e.target.value;
+                                              setStoreSettings((current) => {
+                                                const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
+                                                  sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
+                                                );
+                                                return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
+                                              });
+                                            }}
+                                          >
+                                            <option value="atelier">Atelier Overlay Cards (Dark Luxury Typography Overlay)</option>
+                                            <option value="minimal">Minimal Collections Grid (House of Lucknawi Style with White Padding)</option>
+                                          </select>
+                                        </label>
+
+                                        {/* Category Cards Manager */}
+                                        <div style={{ border: "1px solid #d4ded6", borderRadius: "8px", padding: "14px", background: "#f8faf7" }}>
+                                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                            <div>
+                                              <span style={{ fontSize: "13px", fontWeight: 750, color: "#122a1e" }}>Homepage Category Cards</span>
+                                              <p style={{ margin: "2px 0 0", fontSize: "11px", color: "#627366" }}>
+                                                Customize card images, labels, and visibility displayed on the storefront.
+                                              </p>
+                                            </div>
+                                            <span style={{ fontSize: "11px", fontWeight: 700, background: "#e8f2ea", color: "#16452c", padding: "2px 8px", borderRadius: "10px" }}>
+                                              {currentCards.filter((c) => c.enabled !== false).length} cards active
+                                            </span>
+                                          </div>
+
+                                          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                            {currentCards.map((card, cIdx) => (
+                                              <div
+                                                key={card.id || card.slug || cIdx}
+                                                style={{
+                                                  background: "#ffffff",
+                                                  border: "1px solid #dce4dd",
+                                                  borderRadius: "8px",
+                                                  padding: "12px",
+                                                  display: "flex",
+                                                  flexDirection: "column",
+                                                  gap: "10px",
+                                                }}
+                                              >
+                                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                                    {card.image ? (
+                                                      <img
+                                                        src={card.image}
+                                                        alt={card.name}
+                                                        style={{ width: "40px", height: "40px", borderRadius: "6px", objectFit: "cover", border: "1px solid #e1e9e2" }}
+                                                      />
+                                                    ) : (
+                                                      <div style={{ width: "40px", height: "40px", borderRadius: "6px", background: "#eaf0eb", display: "grid", placeItems: "center", fontSize: "16px" }}>
+                                                        🏷️
+                                                      </div>
+                                                    )}
+                                                    <div>
+                                                      <span style={{ fontSize: "13px", fontWeight: 750, color: "#122a1e" }}>{card.name}</span>
+                                                      <span style={{ marginLeft: "6px", fontSize: "10.5px", color: "#6b7d70", background: "#f1f5f2", padding: "1px 5px", borderRadius: "4px" }}>
+                                                        /{card.slug}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+
+                                                  {/* Enable/Disable Card */}
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => updateCard(cIdx, { enabled: card.enabled === false ? true : false })}
+                                                    style={{
+                                                      display: "inline-flex",
+                                                      alignItems: "center",
+                                                      gap: "5px",
+                                                      padding: "4px 10px",
+                                                      borderRadius: "16px",
+                                                      fontSize: "11px",
+                                                      fontWeight: 700,
+                                                      cursor: "pointer",
+                                                      border: card.enabled !== false ? "1px solid #a3d9b6" : "1px solid #d1d5db",
+                                                      background: card.enabled !== false ? "#e8f6ed" : "#f3f4f6",
+                                                      color: card.enabled !== false ? "#16452c" : "#6b7280",
+                                                    }}
+                                                  >
+                                                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: card.enabled !== false ? "#10b981" : "#9ca3af" }} />
+                                                    {card.enabled !== false ? "Visible" : "Hidden"}
+                                                  </button>
+                                                </div>
+
+                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                                                  <label style={{ fontSize: "11px", fontWeight: 600, color: "#374151", display: "flex", flexDirection: "column", gap: "3px" }}>
+                                                    Card Title
+                                                    <input
+                                                      className="shopifyInput"
+                                                      style={{ fontSize: "12px", padding: "6px 8px" }}
+                                                      value={card.name}
+                                                      onChange={(e) => updateCard(cIdx, { name: e.target.value })}
+                                                      placeholder="e.g. Kurtis, Co-ord Sets"
+                                                    />
+                                                  </label>
+                                                  <label style={{ fontSize: "11px", fontWeight: 600, color: "#374151", display: "flex", flexDirection: "column", gap: "3px" }}>
+                                                    Card Image URL
+                                                    <input
+                                                      className="shopifyInput"
+                                                      style={{ fontSize: "12px", padding: "6px 8px" }}
+                                                      value={card.image}
+                                                      onChange={(e) => updateCard(cIdx, { image: e.target.value })}
+                                                      placeholder="https://... or /image.png"
+                                                    />
+                                                  </label>
+                                                </div>
+
+                                                <label style={{ fontSize: "11px", fontWeight: 600, color: "#374151", display: "flex", flexDirection: "column", gap: "3px" }}>
+                                                  Card Description / Subtitle
+                                                  <input
+                                                    className="shopifyInput"
+                                                    style={{ fontSize: "12px", padding: "6px 8px" }}
+                                                    value={card.description}
+                                                    onChange={(e) => updateCard(cIdx, { description: e.target.value })}
+                                                    placeholder="Curated essentials, made for everyday elegance."
+                                                  />
+                                                </label>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
 
                                   {section.type === "instagram_feed" && (
                                     <div style={{ border: "1px solid #d4ded6", borderRadius: "8px", padding: "14px", background: "#f8faf7", marginTop: "6px" }}>

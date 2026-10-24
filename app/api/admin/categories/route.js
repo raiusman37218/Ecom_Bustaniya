@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { fallbackCategories, getCatalogCategories, normalizeCategoryRecord } from "../../../../lib/categories";
+import { revalidatePath } from "next/cache";
+import { fallbackCategories, getCatalogCategories, invalidateCategoriesCache, normalizeCategoryRecord } from "../../../../lib/categories";
 import { authorizeAdminRequest } from "../../../../lib/adminAuth";
 import { supabaseAdminRequest } from "../../../../lib/supabaseRest";
 import { slugifyCategory } from "../../../../data/store";
@@ -83,6 +84,13 @@ export async function PUT(request) {
         prefer: "resolution=merge-duplicates,return=representation",
         body: record,
       });
+      invalidateCategoriesCache();
+      try {
+        revalidatePath("/", "page");
+        revalidatePath("/uk", "page");
+        revalidatePath("/category/[slug]", "page");
+        revalidatePath("/admin", "page");
+      } catch {}
       return NextResponse.json({ success: true, category: normalizeCategoryRecord(created?.[0]) });
     } catch (error) {
       if (!tableMissing(error)) throw error;
@@ -108,6 +116,13 @@ export async function PATCH(request) {
         prefer: "return=representation",
         body: record,
       });
+      invalidateCategoriesCache();
+      try {
+        revalidatePath("/", "page");
+        revalidatePath("/uk", "page");
+        revalidatePath("/category/[slug]", "page");
+        revalidatePath("/admin", "page");
+      } catch {}
       if (!updated?.length) {
         const upserted = await supabaseAdminRequest("catalog_categories?on_conflict=slug&select=*", {
           method: "POST",
@@ -136,6 +151,13 @@ export async function DELETE(request) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(categoryId));
     const filter = isUuid ? `id=eq.${encodeURIComponent(categoryId)}` : `slug=eq.${encodeURIComponent(categoryId)}`;
     try {
+      invalidateCategoriesCache();
+      try {
+        revalidatePath("/", "page");
+        revalidatePath("/uk", "page");
+        revalidatePath("/category/[slug]", "page");
+        revalidatePath("/admin", "page");
+      } catch {}
       if (permanent) {
         await supabaseAdminRequest(`catalog_categories?${filter}`, {
           method: "DELETE",

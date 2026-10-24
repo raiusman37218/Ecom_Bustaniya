@@ -91,6 +91,10 @@ export default function Home({
   const [cartReady, setCartReady] = useState(false);
   const [products, setProducts] = useState(() => normalizeProducts(serverProducts || []));
   const [categoryRecords, setCategoryRecords] = useState(() => (initialCategories || []).filter((category) => category && !category.parentSlug));
+
+  useEffect(() => {
+    setCategoryRecords((initialCategories || []).filter((category) => category && !category.parentSlug));
+  }, [initialCategories]);
   const [heroSlide, setHeroSlide] = useState(0);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const [quickViewSize, setQuickViewSize] = useState("S");
@@ -212,12 +216,14 @@ export default function Home({
   // The homepage collection rail deliberately follows the storefront navigation.
   // This prevents a category being discoverable in the header but missing from
   // "Shop by Category" (or the other way round).
-  const categoryCards = useMemo(() => (categoryRecords || []).filter((category) => category && category.showInHeader !== false).map((category) => ({
-    ...category,
-    name: category?.name || "",
-    slug: category?.slug || "",
-    image: (products || []).find((product) => normalizeCategory(product?.category) === category?.name)?.image || category?.image || "/bustaniya-campaign-hero-v4.png",
-  })), [categoryRecords, products]);
+  const categoryCards = useMemo(() => (categoryRecords || [])
+    .filter((category) => category && category.showOnHomepage !== false && category.status !== "Archived")
+    .map((category) => ({
+      ...category,
+      name: category?.name || "",
+      slug: category?.slug || "",
+      image: category?.image || (products || []).find((product) => normalizeCategory(product?.category) === category?.name)?.image || "/bustaniya-campaign-hero-v4.png",
+    })), [categoryRecords, products]);
 
   const bestSellers = useMemo(() => {
     const salesRank = new Map((bestSellingProductIds || []).map((id, index) => [String(id), index]));
@@ -477,6 +483,16 @@ export default function Home({
             const isLightCatBg = !catBg || ["#ffffff", "#fffefb", "#fff", "#fcf8ef", "#f7f2e8"].includes(catBg.toLowerCase().trim());
             const catTextColor = isLightCatBg ? "#173d29" : (sectionTextColors.categories || "#ffffff");
 
+            const cardsToRender = (Array.isArray(section.cards) && section.cards.length > 0)
+              ? section.cards.filter((c) => c && c.enabled !== false).map((c, idx) => ({
+                  id: c.id || `card-${idx}`,
+                  name: c.name || c.title || "",
+                  slug: c.slug || slugifyCategory(c.name || ""),
+                  description: c.description || "",
+                  image: c.image || categoryCards.find((cat) => cat.slug === c.slug || cat.name === c.name)?.image || "/bustaniya-campaign-hero-v4.png",
+                }))
+              : categoryCards;
+
             if (currentStyle === "minimal") {
               return (
                 <section key={section.id} className="categoryShowcase categoryShowcase--minimal scrollReveal" data-scroll-reveal style={{ "--section-bg": catBg, "--section-text": catTextColor, color: catTextColor }}>
@@ -485,7 +501,7 @@ export default function Home({
                     <h2 style={{ color: catTextColor }}>{sectionHeading}</h2>
                   </div>
                   <div className="categoryMinimalGrid" aria-label="Shop by category">
-                    {categoryCards.map((category) => (
+                    {cardsToRender.map((category) => (
                       <Link className="categoryMinimalCard" href={`/category/${category.slug}`} key={category.slug}>
                         <div className="categoryMinimalImageWrap">
                           <Image
@@ -521,7 +537,7 @@ export default function Home({
                   </a>
                 </header>
                 <div className="categoryCards" aria-label="Shop by category">
-                  {categoryCards.map((category, index) => (
+                  {cardsToRender.map((category, index) => (
                     <Link className={`categoryCard card${index + 1}`} href={`/category/${category.slug}`} key={category.slug} style={category.image ? { backgroundImage: `url(${optimizedImageUrl(category.image, CLOUDINARY_IMAGE_PRESETS.category)})` } : undefined}>
                       <div className="categoryCardContent">
                         <small>Collection {String(index + 1).padStart(2, "0")}</small>
