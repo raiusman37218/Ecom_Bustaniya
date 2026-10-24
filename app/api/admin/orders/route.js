@@ -28,7 +28,8 @@ export async function POST(request) {
     if (now - lastAutoPostexSyncTime > 30000) {
       lastAutoPostexSyncTime = now;
       try {
-        await syncAllActiveShipments();
+        // Run PostEx sync non-blocking in background so orders load instantly
+        syncAllActiveShipments().catch((e) => console.warn("PostEx auto-sync warning:", e?.message));
       } catch (autoSyncErr) {
         console.warn("PostEx auto-sync warning:", autoSyncErr?.message);
       }

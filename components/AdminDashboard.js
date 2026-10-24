@@ -1022,14 +1022,46 @@ export default function AdminDashboard() {
     }
   }
 
-  const [products, setProducts] = useState(() => initialProducts.map((p, index) => ({
-    ...p,
-    stock: [12, 7, 3, 18, 5, 9, 4, 11, 2, 14, 8, 6][index] ?? 10,
-  })));
-  const [adminReady, setAdminReady] = useState(false);
-  const [orders, setOrders] = useState([]);
-  const [ordersConnected, setOrdersConnected] = useState(false);
-  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [products, setProducts] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("bustaniya-admin-products");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return initialProducts.map((p, index) => ({
+      ...p,
+      stock: [12, 7, 3, 18, 5, 9, 4, 11, 2, 14, 8, 6][index] ?? 10,
+    }));
+  });
+  const [adminReady, setAdminReady] = useState(true);
+  const [orders, setOrders] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("bustaniya-admin-orders");
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return [];
+  });
+  const [ordersConnected, setOrdersConnected] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("bustaniya-admin-orders");
+        return Boolean(cached && JSON.parse(cached).length > 0);
+      } catch {}
+    }
+    return false;
+  });
+  const [ordersLoading, setOrdersLoading] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("bustaniya-admin-orders");
+        if (cached && JSON.parse(cached).length > 0) return false;
+      } catch {}
+    }
+    return true;
+  });
   const [ordersError, setOrdersError] = useState("");
   const [ordersLoadError, setOrdersLoadError] = useState("");
   const [ordersPagination, setOrdersPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
@@ -1038,17 +1070,40 @@ export default function AdminDashboard() {
   const [catalogCategories, setCatalogCategories] = useState(fallbackCategoryRecords);
   const [categorySetupNeeded, setCategorySetupNeeded] = useState(false);
   const [categorySaving, setCategorySaving] = useState(false);
-  const [currentAdminUser, setCurrentAdminUser] = useState(null);
-  const [adminAuthChecked, setAdminAuthChecked] = useState(false);
+  const [currentAdminUser, setCurrentAdminUser] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("bustaniya-admin-user");
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return null;
+  });
+  const [adminAuthChecked, setAdminAuthChecked] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return Boolean(localStorage.getItem("bustaniya-admin-user"));
+      } catch {}
+    }
+    return false;
+  });
   const [loggingOut, setLoggingOut] = useState(false);
   const [requestedOrderId, setRequestedOrderId] = useState("");
   const [requestedAdminFocus, setRequestedAdminFocus] = useState(null);
-  const [metrics, setMetrics] = useState({
-    totalSales: 0,
-    orders: 0,
-    customers: 0,
-    products: 0,
-    lowStock: 0,
+  const [metrics, setMetrics] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("bustaniya-admin-metrics");
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return {
+      totalSales: 0,
+      orders: 0,
+      customers: 0,
+      products: 0,
+      lowStock: 0,
+    };
   });
 
   // Keep every async admin action visibly busy without duplicating spinner logic
@@ -1104,12 +1159,25 @@ export default function AdminDashboard() {
       try { setProducts(JSON.parse(saved)); } catch {}
     }
     setAdminReady(true);
+    refreshWorkspace();
+
     fetch("/api/admin/me")
-      .then((response) => response.ok ? response.json() : null)
+      .then((response) => {
+        if (response.ok) return response.json();
+        if (response.status === 401 || response.status === 403) {
+          try {
+            localStorage.removeItem("bustaniya-admin-user");
+          } catch {}
+          setCurrentAdminUser(null);
+        }
+        return null;
+      })
       .then((result) => {
         if (!result?.user) return;
         setCurrentAdminUser(result.user);
-        refreshWorkspace();
+        try {
+          localStorage.setItem("bustaniya-admin-user", JSON.stringify(result.user));
+        } catch {}
       })
       .catch(() => {})
       .finally(() => setAdminAuthChecked(true));
@@ -1315,6 +1383,9 @@ export default function AdminDashboard() {
         };
       });
       setOrders(formatted);
+      try {
+        localStorage.setItem("bustaniya-admin-orders", JSON.stringify(formatted.slice(0, 30)));
+      } catch {}
       setOrdersPagination(result.pagination || { page, pageSize: ordersPagination.pageSize, total: formatted.length, totalPages: formatted.length ? 1 : 0 });
       setOrdersConnected(true);
       // Orders are the shared source for Finance and Inventory. Render them as
@@ -1359,6 +1430,9 @@ export default function AdminDashboard() {
       setCatalogCategories(categories.categories || fallbackCategoryRecords);
       setCategorySetupNeeded(Boolean(categories.needsSetup));
       setMetrics(dashboard.metrics || metrics);
+      try {
+        localStorage.setItem("bustaniya-admin-metrics", JSON.stringify(dashboard.metrics || metrics));
+      } catch {}
     } finally {
       setCatalogLoading(false);
     }
@@ -1479,6 +1553,11 @@ export default function AdminDashboard() {
     if (loggingOut) return;
     setLoggingOut(true);
     try {
+      try {
+        localStorage.removeItem("bustaniya-admin-user");
+        localStorage.removeItem("bustaniya-admin-orders");
+        localStorage.removeItem("bustaniya-admin-metrics");
+      } catch {}
       await fetch("/api/admin/logout", { method: "POST" });
     } finally {
       window.location.href = "/admin";

@@ -36,6 +36,11 @@ export default function AdminLogin() {
       });
       const result = await readLoginResponse(response);
       if (!response.ok) throw new Error(result.error || "Invalid password.");
+      if (result.user) {
+        try {
+          localStorage.setItem("bustaniya-admin-user", JSON.stringify(result.user));
+        } catch {}
+      }
       window.location.reload();
     } catch (loginError) {
       setError(loginError.message);

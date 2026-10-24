@@ -1,10 +1,10 @@
-import AdminDashboard from "../../components/AdminDashboard";
+import AdminClientWrapper from "../../components/AdminClientWrapper";
 
 export const metadata = {
   title: "Bustaniya Admin",
-  description: "Bustaniya store management dashboard"
+  description: "Bustaniya store management dashboard",
 };
 
-export default async function AdminPage() {
-  return <AdminDashboard />;
+export default function AdminPage() {
+  return <AdminClientWrapper />;
 }
