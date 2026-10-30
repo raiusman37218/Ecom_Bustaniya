@@ -829,21 +829,29 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                     ? "Select a size"
                     : <><ShoppingBag size={18} /> Add to bag</>}
                 </button>
-                <button className="wishButton" aria-label="Add to wishlist"><Heart size={18} /></button>
               </div>
             </div>
 
-            {outOfStock || isVariantOutOfStock ? (
-              <span className="buyNowButton disabledBuy">Unavailable</span>
-            ) : colors.length > 0 && !color ? (
-              <span className="buyNowButton disabledBuy">Select a color first</span>
-            ) : sizes.length > 0 && !size ? (
-              <span className="buyNowButton disabledBuy">Select a size first</span>
-            ) : (
-              <Link className="buyNowButton" href="/checkout" onClick={() => addToBag({ openDrawer: false })}>
-                Buy it now
-              </Link>
-            )}
+            {/* Second row pairs the secondary purchase path with the wishlist,
+                the way the design lays it out: quantity + add-to-bag above,
+                buy-now + wishlist below. The wishlist used to sit beside
+                add-to-bag, which left buy-now stranded on a row of its own. */}
+            <div className="purchaseRowSecondary">
+              {outOfStock || isVariantOutOfStock ? (
+                <span className="buyNowButton disabledBuy">Unavailable</span>
+              ) : colors.length > 0 && !color ? (
+                <span className="buyNowButton disabledBuy">Select a color first</span>
+              ) : sizes.length > 0 && !size ? (
+                <span className="buyNowButton disabledBuy">Select a size first</span>
+              ) : (
+                <Link className="buyNowButton" href="/checkout" onClick={() => addToBag({ openDrawer: false })}>
+                  Buy it now <ArrowRight size={16} />
+                </Link>
+              )}
+              <button className="wishButton" aria-label="Add to wishlist">
+                <Heart size={16} /> <span>Wishlist</span>
+              </button>
+            </div>
           </div>
 
           {/* WhatsApp & Instagram Direct Action Buttons */}

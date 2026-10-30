@@ -4027,3 +4027,146 @@
 .bs-st .sizeBtn.selected {
   box-shadow: inset 0 0 0 1px var(--bs-st-paper);
 }
+
+/* =============================================================
+   PRODUCT PAGE — MATCH THE IMPORTED DESIGN
+   Checked against the original Storefront.dc.html running side
+   by side at 1440px and 375px. These are the differences that
+   were actually visible, not guesses.
+   ============================================================= */
+
+/* The design sets the product title in Cormorant, like every
+   other headline in the system. It had been switched to Manrope
+   with !important, which is what made the page read as a
+   different site from the one in the design file. */
+.bs-st .productPurchase h1,
+.bs-st.productPage .productPurchase h1 {
+  font-family: var(--bs-font-display) !important;
+  font-weight: var(--bs-weight-semibold) !important;
+  font-size: clamp(30px, 3.2vw, 44px) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
+}
+
+/* Row 1: quantity + add-to-bag. Row 2: buy-now + wishlist.
+   Both rows span the column, which is what makes the block look
+   deliberate rather than ragged. */
+.bs-st .purchaseRowSecondary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  gap: 8px;
+  align-items: stretch;
+}
+/* The design keeps these two side by side right down to 375px,
+   so they only stack on genuinely tiny screens. */
+@media (max-width: 340px) {
+  .bs-st .purchaseRowSecondary { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+  .bs-st .purchaseRowSecondary .wishButton {
+    min-width: 0;
+    padding: 0 12px;
+    letter-spacing: 0.1em;
+  }
+}
+.bs-st .purchaseRowSecondary > * { align-self: stretch; }
+.bs-st .purchaseRowSecondary .buyNowButton {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 52px;
+  justify-content: space-between;
+}
+/* Wishlist is a labelled button in the design, not a bare icon. */
+.bs-st .purchaseRowSecondary .wishButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: auto;
+  min-width: 150px;
+  height: auto;
+  min-height: 52px;
+  padding: 0 18px;
+  border: 2px solid var(--bs-st-ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--bs-st-ink);
+  font: inherit;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.bs-st .purchaseRowSecondary .wishButton:hover {
+  background: var(--bs-st-ink);
+  color: var(--bs-st-paper);
+}
+
+/* Add-to-bag keeps its icon pinned to the far edge, as in the
+   design, instead of sitting next to the label. */
+.bs-st .productActions .addBagButton { justify-content: space-between; }
+
+/* Trust block is a 2x2 grid of icon + label under hairlines,
+   not a stacked list. */
+.bs-st .productTrustBar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+  padding: 18px 0;
+  border-top: var(--bs-st-hairline);
+  border-bottom: var(--bs-st-hairline);
+}
+.bs-st .productTrustItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: var(--bs-weight-regular);
+  letter-spacing: 0;
+  color: color-mix(in srgb, var(--bs-st-ink) 85%, transparent);
+}
+.bs-st .productTrustItem svg { flex: none; opacity: 0.8; }
+
+/* Colour swatches read at the design's size. */
+.bs-st .colorSwatchesList button { width: 52px; height: 52px; }
+
+/* Size row: the design keeps the buttons on a natural grid that
+   wraps, rather than stretching five of them edge to edge. */
+.bs-st .sizeOptions { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); }
+
+/* =============================================================
+   PRODUCT PAGE — REMOVE THE NESTED CONTAINER
+   <main class="productPage"> already centres the shell and adds
+   the page gutter. .productDetailLayout was centring a SECOND
+   container inside it (max-width 1440 + its own 56px gutter), and
+   .productGallery added another 4vw on the left. On a 1920 screen
+   that stacked up to roughly 350px of empty margin before any
+   content started, and left the breadcrumb indented well past the
+   header nav above it.
+
+   The inner blocks are now plain content: one container, one
+   gutter, and the breadcrumb lines up with the header.
+   ============================================================= */
+.bs-st .productDetailLayout {
+  max-width: none;
+  margin-inline: 0;
+  padding-inline: 0;
+  padding-block: clamp(18px, 2.4vw, 34px) clamp(56px, 6vw, 88px);
+}
+.bs-st .productGallery {
+  padding-inline: 0;
+}
+
+/* Same double-container trap on the collection and cart shells. */
+.bs-st .categoryProductsContainer,
+.bs-st .collectionArea,
+.bs-st .cartPageContainer {
+  max-width: none;
+  margin-inline: 0;
+  padding-inline: 0;
+}

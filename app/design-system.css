@@ -288,6 +288,10 @@
      1280 shell and uses one fluid gutter everywhere. */
   --bs-st-container: 1400px;
   --bs-st-gutter: clamp(16px, 4vw, 56px);
+  /* 1400 is the import's own width and it reads well up to about
+     1600. Past that the page starts floating in the middle of the
+     screen — on a 1920 monitor it left ~250px dead on each side —
+     so the shell steps up instead of staying pinned. */
 
   /* Chrome heights, read straight off the import's header logic:
      76px at rest, 60px once scrolled past the announcement. */
@@ -314,6 +318,13 @@
 /* Respect the OS setting. The storefront leans on reveal and hover
    motion, which is exactly what this preference exists to switch
    off; honouring it is also a baseline accessibility requirement. */
+/* Wide-screen shell. See --bs-st-container above: the storefront
+   grows in steps rather than sitting in a 1400px island on a big
+   monitor. The gutter is unchanged, so the rhythm stays the same. */
+@media (min-width: 1600px) { :root { --bs-st-container: 1560px; } }
+@media (min-width: 1800px) { :root { --bs-st-container: 1720px; } }
+@media (min-width: 2000px) { :root { --bs-st-container: 1860px; } }
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --bs-duration-fast: 0ms;
