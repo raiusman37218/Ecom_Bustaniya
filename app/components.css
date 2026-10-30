@@ -532,10 +532,8 @@ body:has(.cartOpen) .bs-region {
 
 @media (max-width: 767px) {
   .bs-region {
-    left: var(--bs-space-4);
-    bottom: var(--bs-space-4);
+    display: none !important;
   }
-  .bs-region__menu { min-width: 208px; }
 }
 
 /* -------------------------------------------------------------

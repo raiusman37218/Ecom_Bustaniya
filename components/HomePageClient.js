@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Instagram, Menu, MessageSquare, Minus, Play, Plus, Quote, Ruler, Scissors, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, UserRound, X } from "lucide-react";
+import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Instagram, Menu, MessageSquare, Minus, Play, Plus, Quote, RotateCcw, Ruler, Scissors, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, UserRound, X } from "lucide-react";
 
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../data/storeSettings";
@@ -111,6 +111,51 @@ function CampaignHeroImage({ desktopSrc, mobileSrc, alt }) {
   );
 }
 
+function BrandTrustBar() {
+  return (
+    <section className="bs-brand-trust-bar" aria-label="Customer Benefits & Assurance">
+      <div className="bs-brand-trust-container">
+        <div className="bs-brand-trust-item">
+          <div className="bs-brand-trust-icon" aria-hidden="true">
+            <Truck size={20} strokeWidth={1.8} />
+          </div>
+          <div className="bs-brand-trust-content">
+            <h4>Free Nationwide Delivery</h4>
+            <p>On orders above Rs. 5,000 &amp; advance payment</p>
+          </div>
+        </div>
+        <div className="bs-brand-trust-item">
+          <div className="bs-brand-trust-icon" aria-hidden="true">
+            <Sparkles size={20} strokeWidth={1.8} />
+          </div>
+          <div className="bs-brand-trust-content">
+            <h4>100% Pure Luxury Fabrics</h4>
+            <p>Premium unstitched &amp; prêt lawn, organza &amp; chiffon</p>
+          </div>
+        </div>
+        <div className="bs-brand-trust-item">
+          <div className="bs-brand-trust-icon" aria-hidden="true">
+            <ShieldCheck size={20} strokeWidth={1.8} />
+          </div>
+          <div className="bs-brand-trust-content">
+            <h4>Cash on Delivery</h4>
+            <p>Safe doorstep delivery nationwide via PostEx</p>
+          </div>
+        </div>
+        <div className="bs-brand-trust-item">
+          <div className="bs-brand-trust-icon" aria-hidden="true">
+            <RotateCcw size={20} strokeWidth={1.8} />
+          </div>
+          <div className="bs-brand-trust-content">
+            <h4>7-Day Easy Exchange</h4>
+            <p>Hassle-free sizing &amp; exchange guarantee</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Home({
   initialProducts: serverProducts = initialProducts,
   initialCategories = fallbackCategoryRecords,
@@ -145,6 +190,14 @@ export default function Home({
   const [quickViewQty, setQuickViewQty] = useState(1);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
   const [expandedFaqId, setExpandedFaqId] = useState(null);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterStatus, setNewsletterStatus] = useState("idle");
+
+  function handleNewsletterSubmit(e) {
+    e.preventDefault();
+    if (!newsletterEmail || !newsletterEmail.includes("@")) return;
+    setNewsletterStatus("success");
+  }
   const instagramRailRef = useRef(null);
   
   const rawDesktop = Array.isArray(safeSettings.heroDesktopImages) && safeSettings.heroDesktopImages.length
@@ -403,6 +456,7 @@ export default function Home({
             {safeSettings.storeName || "Bustaniya"} — Pakistani women&rsquo;s wear, kurtis, co-ord sets and 3 piece suits
           </h1>
         )}
+        {storeSettings.heroEnabled === false && <BrandTrustBar />}
         {homepageSectionsToRender.map((section) => {
           const defaults = DEFAULT_HOMEPAGE_SECTIONS.find((d) => d.type === section.type) || {};
 
@@ -414,76 +468,78 @@ export default function Home({
             const overlayIntensity = Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0)));
 
             return (
-              <section
-                key={section.id}
-                className={`campaignHero campaignHero--position-${desktopHero.position || "left"} campaignHero--align-${desktopHero.alignment || "left"} campaignHero--mobile-position-${mobileHero.position || "bottom"} campaignHero--mobile-align-${mobileHero.alignment || "left"} ${hasAnyContent ? "hasContent" : "mediaOnly"}`}
-                id="new"
-                style={{
-                  "--campaign-overlay": hasAnyContent ? (overlayIntensity / 100) : 0,
-                  "--campaign-overlay-color": "#102a1d",
-                  "--campaign-text-color": sectionTextColors.heroOverlay || "#173d29"
-                }}
-              >
-                <div className="campaignHeroMedia">
-                  {!hasAnyContent ? (
-                    <a
-                      href={desktopHero.primaryButtonLink || mobileHero.primaryButtonLink || "#products"}
-                      className="campaignHeroMediaLink"
-                      aria-label="Shop collection"
-                    >
+              <Fragment key={section.id}>
+                <section
+                  className={`campaignHero campaignHero--position-${desktopHero.position || "left"} campaignHero--align-${desktopHero.alignment || "left"} campaignHero--mobile-position-${mobileHero.position || "bottom"} campaignHero--mobile-align-${mobileHero.alignment || "left"} ${hasAnyContent ? "hasContent" : "mediaOnly"}`}
+                  id="new"
+                  style={{
+                    "--campaign-overlay": hasAnyContent ? (overlayIntensity / 100) : 0,
+                    "--campaign-overlay-color": "#102a1d",
+                    "--campaign-text-color": sectionTextColors.heroOverlay || "#173d29"
+                  }}
+                >
+                  <div className="campaignHeroMedia">
+                    {!hasAnyContent ? (
+                      <a
+                        href={desktopHero.primaryButtonLink || mobileHero.primaryButtonLink || "#products"}
+                        className="campaignHeroMediaLink"
+                        aria-label="Shop collection"
+                      >
+                        <CampaignHeroImage
+                          key={heroSlide}
+                          desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
+                          mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
+                          alt="Bustaniya eastern wear campaign"
+                        />
+                      </a>
+                    ) : (
                       <CampaignHeroImage
                         key={heroSlide}
                         desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
                         mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
                         alt="Bustaniya eastern wear campaign"
                       />
-                    </a>
-                  ) : (
-                    <CampaignHeroImage
-                      key={heroSlide}
-                      desktopSrc={heroDesktopImages[heroSlide % heroDesktopImages.length]}
-                      mobileSrc={heroMobileImages[heroSlide % heroMobileImages.length]}
-                      alt="Bustaniya eastern wear campaign"
-                    />
-                  )}
-                </div>
-                {hasAnyContent && overlayIntensity > 0 && <div className="campaignHeroOverlay" />}
-                {hasAnyContent && (
-                  <div className="campaignHeroInner">
-                    <div className="campaignHeroCopy">
-                      {desktopHero.eyebrow && <p className="campaignHeroDesktopOnly">{desktopHero.eyebrow}</p>}
-                      {mobileHero.eyebrow && <p className="campaignHeroMobileOnly">{mobileHero.eyebrow}</p>}
-                      {(desktopHero.heading || mobileHero.heading) && (
-                        <h1>
-                          {desktopHero.heading && <span className="campaignHeroDesktopOnly">{desktopHero.heading}</span>}
-                          {mobileHero.heading && <span className="campaignHeroMobileOnly">{mobileHero.heading}</span>}
-                        </h1>
-                      )}
-                      {desktopHero.supportingText && <span className="campaignHeroDesktopOnly">{desktopHero.supportingText}</span>}
-                      {mobileHero.supportingText && <span className="campaignHeroMobileOnly">{mobileHero.supportingText}</span>}
-                      {(desktopHero.primaryButtonText || mobileHero.primaryButtonText || desktopHero.secondaryButtonText || mobileHero.secondaryButtonText) && (
-                        <div className="campaignHeroActions">
-                          {desktopHero.primaryButtonText && <Link className="campaignHeroPrimary campaignHeroDesktopOnly" href={desktopHero.primaryButtonLink || "#products"}>{desktopHero.primaryButtonText}<ArrowRight size={17} /></Link>}
-                          {mobileHero.primaryButtonText && <Link className="campaignHeroPrimary campaignHeroMobileOnly" href={mobileHero.primaryButtonLink || "#products"}>{mobileHero.primaryButtonText}<ArrowRight size={14} /></Link>}
-                          {desktopHero.secondaryButtonText && <Link className="campaignHeroSecondary campaignHeroDesktopOnly" href={desktopHero.secondaryButtonLink || "#products"}>{desktopHero.secondaryButtonText}</Link>}
-                          {mobileHero.secondaryButtonText && <Link className="campaignHeroSecondary campaignHeroMobileOnly" href={mobileHero.secondaryButtonLink || "#products"}>{mobileHero.secondaryButtonText}</Link>}
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
-                )}
-                {heroSlideCount > 1 && <div className="campaignHeroDots" role="tablist" aria-label="Hero banner slides">
-                  {Array.from({ length: heroSlideCount }, (_, index) => <button
-                    key={index}
-                    type="button"
-                    role="tab"
-                    aria-label={`Show banner ${index + 1}`}
-                    aria-selected={heroSlide === index}
-                    className={heroSlide === index ? "active" : ""}
-                    onClick={() => setHeroSlide(index)}
-                  />)}
-                </div>}
-              </section>
+                  {hasAnyContent && overlayIntensity > 0 && <div className="campaignHeroOverlay" />}
+                  {hasAnyContent && (
+                    <div className="campaignHeroInner">
+                      <div className="campaignHeroCopy">
+                        {desktopHero.eyebrow && <p className="campaignHeroDesktopOnly">{desktopHero.eyebrow}</p>}
+                        {mobileHero.eyebrow && <p className="campaignHeroMobileOnly">{mobileHero.eyebrow}</p>}
+                        {(desktopHero.heading || mobileHero.heading) && (
+                          <h1>
+                            {desktopHero.heading && <span className="campaignHeroDesktopOnly">{desktopHero.heading}</span>}
+                            {mobileHero.heading && <span className="campaignHeroMobileOnly">{mobileHero.heading}</span>}
+                          </h1>
+                        )}
+                        {desktopHero.supportingText && <span className="campaignHeroDesktopOnly">{desktopHero.supportingText}</span>}
+                        {mobileHero.supportingText && <span className="campaignHeroMobileOnly">{mobileHero.supportingText}</span>}
+                        {(desktopHero.primaryButtonText || mobileHero.primaryButtonText || desktopHero.secondaryButtonText || mobileHero.secondaryButtonText) && (
+                          <div className="campaignHeroActions">
+                            {desktopHero.primaryButtonText && <Link className="campaignHeroPrimary campaignHeroDesktopOnly" href={desktopHero.primaryButtonLink || "#products"}>{desktopHero.primaryButtonText}<ArrowRight size={17} /></Link>}
+                            {mobileHero.primaryButtonText && <Link className="campaignHeroPrimary campaignHeroMobileOnly" href={mobileHero.primaryButtonLink || "#products"}>{mobileHero.primaryButtonText}<ArrowRight size={14} /></Link>}
+                            {desktopHero.secondaryButtonText && <Link className="campaignHeroSecondary campaignHeroDesktopOnly" href={desktopHero.secondaryButtonLink || "#products"}>{desktopHero.secondaryButtonText}</Link>}
+                            {mobileHero.secondaryButtonText && <Link className="campaignHeroSecondary campaignHeroMobileOnly" href={mobileHero.secondaryButtonLink || "#products"}>{mobileHero.secondaryButtonText}</Link>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {heroSlideCount > 1 && <div className="campaignHeroDots" role="tablist" aria-label="Hero banner slides">
+                    {Array.from({ length: heroSlideCount }, (_, index) => <button
+                      key={index}
+                      type="button"
+                      role="tab"
+                      aria-label={`Show banner ${index + 1}`}
+                      aria-selected={heroSlide === index}
+                      className={heroSlide === index ? "active" : ""}
+                      onClick={() => setHeroSlide(index)}
+                    />)}
+                  </div>}
+                </section>
+                <BrandTrustBar />
+              </Fragment>
             );
           }
 
@@ -621,8 +677,14 @@ export default function Home({
             return (
               <section key={section.id} className="shopSection khaadiTopPicks bestSellersSection scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.story, "--section-text": sectionTextColors.story }}>
                 <div className="sectionHeading">
-                  <div><p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p><h2>{section.heading || defaults.heading}</h2></div>
-                  <a href="#products">View all pieces <ArrowRight size={16} /></a>
+                  <div>
+                    <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
+                    <h2>{section.heading || defaults.heading}</h2>
+                  </div>
+                  <a href="#products" className="sectionViewAllBtn">
+                    <span>View all pieces</span>
+                    <ArrowRight size={15} />
+                  </a>
                 </div>
                 <div className="productGrid">
                   {bestSellers.map((product, pIdx) => (
@@ -637,9 +699,25 @@ export default function Home({
                         {hoverImageOf(product) && <Image className="productImageHover" src={optimizedImageUrl(hoverImageOf(product), CLOUDINARY_IMAGE_PRESETS.card)} alt="" aria-hidden="true" fill loading="lazy" sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />}
                         <Link className="productCardLink" href={`/product/${product.id}`} prefetch={true} aria-label={`View ${product.name}`} />
                         <span className="badge">Best seller</span>
+                        {salePercent(product) > 0 && <span className="saleBadge">{salePercent(product)}% OFF</span>}
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
                       </div>
-                      <div className="productInfo"><div><p>{product.category}</p><h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3></div><div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span></div></div>
+                      <div className="productInfo">
+                        <div>
+                          <p>{product.category}</p>
+                          <h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>
+                          {Array.isArray(product.colors) && product.colors.length > 0 && (
+                            <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
+                              {product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}
+                              {product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}
+                            </div>
+                          )}
+                        </div>
+                        <div className="productPrice">
+                          <span>Rs. {Number(product.price).toLocaleString()}</span>
+                          {salePercent(product) > 0 && <del>Rs. {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</del>}
+                        </div>
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -650,11 +728,47 @@ export default function Home({
 
           if (section.type === "newsletter") {
             return (
-              <section key={section.id} className="newsletter scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.newsletter, "--section-text": sectionTextColors.newsletter }}>
-                <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
-                <h2>{section.heading || defaults.heading}</h2>
-                <p>{section.subtitle || defaults.subtitle}</p>
-                <form onSubmit={(e) => e.preventDefault()}><input type="email" required aria-label="Email address for the newsletter" placeholder="Your email address" /><button aria-label="Subscribe"><ArrowRight /></button></form>
+              <section
+                key={section.id}
+                className="newsletter scrollReveal"
+                data-scroll-reveal
+                style={{ "--section-bg": sectionColors.newsletter, "--section-text": sectionTextColors.newsletter }}
+              >
+                <div className="newsletterInner">
+                  <p className="eyebrow">{section.eyebrow || defaults.eyebrow || "THE BUSTANIYA CIRCLE"}</p>
+                  <h2>{section.heading || defaults.heading || "Join The Atelier"}</h2>
+                  <p className="newsletterSubtitle">{section.subtitle || defaults.subtitle || "Be the first to preview seasonal collections, private trunk shows, and artisanal edits."}</p>
+                  
+                  {newsletterStatus === "success" ? (
+                    <div className="newsletterSuccess" role="alert">
+                      <CheckCircle2 size={24} className="newsletterSuccessIcon" />
+                      <div>
+                        <strong>Welcome to the Bustaniya Circle</strong>
+                        <p>Thank you for subscribing. Your welcome privilege code has been sent to your inbox.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <form className="newsletterForm" onSubmit={handleNewsletterSubmit}>
+                      <div className="newsletterInputGroup">
+                        <input
+                          type="email"
+                          required
+                          value={newsletterEmail}
+                          onChange={(e) => setNewsletterEmail(e.target.value)}
+                          aria-label="Email address for the newsletter"
+                          placeholder="Enter your email address"
+                        />
+                        <button type="submit" aria-label="Subscribe to newsletter">
+                          <span>SUBSCRIBE</span>
+                          <ArrowRight size={15} />
+                        </button>
+                      </div>
+                      <span className="newsletterDisclaimer">
+                        We value your privacy. Unsubscribe anytime with one click.
+                      </span>
+                    </form>
+                  )}
+                </div>
               </section>
             );
           }
