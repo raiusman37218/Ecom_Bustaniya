@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Instagram, Menu, MessageSquare, Minus, Play, Plus, Quote, RotateCcw, Ruler, Scissors, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, UserRound, X } from "lucide-react";
+import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Instagram, Menu, MessageSquare, Minus, Play, Plus, Quote, Ruler, Scissors, ShoppingBag, Sparkles, Star, UserRound, X } from "lucide-react";
 
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../data/storeSettings";
@@ -109,51 +109,6 @@ function CampaignHeroImage({ desktopSrc, mobileSrc, alt }) {
       <source media="(min-width: 768px)" srcSet={desktopSrcSet || desktopUrl} sizes="100vw" />
       <img src={desktopUrl} alt={alt || "Bustaniya campaign hero"} fetchPriority="high" decoding="async" />
     </picture>
-  );
-}
-
-function BrandTrustBar() {
-  return (
-    <section className="bs-brand-trust-bar" aria-label="Customer Benefits & Assurance">
-      <div className="bs-brand-trust-container">
-        <div className="bs-brand-trust-item">
-          <div className="bs-brand-trust-icon" aria-hidden="true">
-            <Truck size={20} strokeWidth={1.8} />
-          </div>
-          <div className="bs-brand-trust-content">
-            <h4>Free Nationwide Delivery</h4>
-            <p>On orders above Rs. 5,000 &amp; advance payment</p>
-          </div>
-        </div>
-        <div className="bs-brand-trust-item">
-          <div className="bs-brand-trust-icon" aria-hidden="true">
-            <Sparkles size={20} strokeWidth={1.8} />
-          </div>
-          <div className="bs-brand-trust-content">
-            <h4>100% Pure Luxury Fabrics</h4>
-            <p>Premium unstitched &amp; prêt lawn, organza &amp; chiffon</p>
-          </div>
-        </div>
-        <div className="bs-brand-trust-item">
-          <div className="bs-brand-trust-icon" aria-hidden="true">
-            <ShieldCheck size={20} strokeWidth={1.8} />
-          </div>
-          <div className="bs-brand-trust-content">
-            <h4>Cash on Delivery</h4>
-            <p>Safe doorstep delivery nationwide via PostEx</p>
-          </div>
-        </div>
-        <div className="bs-brand-trust-item">
-          <div className="bs-brand-trust-icon" aria-hidden="true">
-            <RotateCcw size={20} strokeWidth={1.8} />
-          </div>
-          <div className="bs-brand-trust-content">
-            <h4>7-Day Easy Exchange</h4>
-            <p>Hassle-free sizing &amp; exchange guarantee</p>
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -307,7 +262,7 @@ export default function Home({
     if (!product) return false;
     const categoryMatch = activeCategory === "All" || normalizeCategory(product.category) === activeCategory;
     return categoryMatch;
-  }), [activeCategory, products]);
+  }).slice(0, 12), [activeCategory, products]);
 
   const categoryNames = useMemo(() => ["All", ...(categoryRecords || []).map((category) => category?.name || "").filter(Boolean)], [categoryRecords]);
 
@@ -457,7 +412,6 @@ export default function Home({
             {safeSettings.storeName || "Bustaniya"} — Pakistani women&rsquo;s wear, kurtis, co-ord sets and 3 piece suits
           </h1>
         )}
-        {storeSettings.heroEnabled === false && <BrandTrustBar />}
         {homepageSectionsToRender.map((section) => {
           const defaults = DEFAULT_HOMEPAGE_SECTIONS.find((d) => d.type === section.type) || {};
 
@@ -469,10 +423,10 @@ export default function Home({
             const overlayIntensity = Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0)));
 
             return (
-              <Fragment key={section.id}>
-                <section
-                  className={`campaignHero campaignHero--position-${desktopHero.position || "left"} campaignHero--align-${desktopHero.alignment || "left"} campaignHero--mobile-position-${mobileHero.position || "bottom"} campaignHero--mobile-align-${mobileHero.alignment || "left"} ${hasAnyContent ? "hasContent" : "mediaOnly"}`}
-                  id="new"
+              <section
+                key={section.id}
+                className={`campaignHero campaignHero--position-${desktopHero.position || "left"} campaignHero--align-${desktopHero.alignment || "left"} campaignHero--mobile-position-${mobileHero.position || "bottom"} campaignHero--mobile-align-${mobileHero.alignment || "left"} ${hasAnyContent ? "hasContent" : "mediaOnly"}`}
+                id="new"
                   style={{
                     "--campaign-overlay": hasAnyContent ? (overlayIntensity / 100) : 0,
                     "--campaign-overlay-color": "#102a1d",
@@ -539,10 +493,8 @@ export default function Home({
                     />)}
                   </div>}
                 </section>
-                <BrandTrustBar />
-              </Fragment>
-            );
-          }
+              );
+            }
 
           if (section.type === "new_arrivals") {
             return (
@@ -612,7 +564,8 @@ export default function Home({
 
           if (section.type === "shop_by_category") {
             const currentStyle = section.style === "minimal" ? "minimal" : (section.style === "atelier" ? "atelier" : (storeSettings.categorySectionStyle === "minimal" ? "minimal" : "atelier"));
-            const sectionHeading = (!section.heading || section.heading === "Choose your mood") ? "Shop by Category" : section.heading;
+            const sectionHeading = (!section.heading || section.heading === "Choose your mood" || section.heading === "Shop by Category") ? "Curated Collections" : section.heading;
+            const sectionEyebrow = (section.eyebrow && section.eyebrow !== "CURATED COLLECTIONS") ? section.eyebrow : (defaults.eyebrow || "EXPLORE BY CATEGORY");
             const catBg = sectionColors.categories || "#ffffff";
             const isLightCatBg = !catBg || ["#ffffff", "#fffefb", "#fff", "#fcf8ef", "#f7f2e8"].includes(catBg.toLowerCase().trim());
             const catTextColor = isLightCatBg ? "#173d29" : (sectionTextColors.categories || "#ffffff");
@@ -631,7 +584,7 @@ export default function Home({
               return (
                 <section key={section.id} className="categoryShowcase categoryShowcase--minimal scrollReveal" data-scroll-reveal style={{ "--section-bg": catBg, "--section-text": catTextColor, color: catTextColor }}>
                   <div className="categoryMinimalHeader">
-                    {(section.eyebrow || defaults.eyebrow) && <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>}
+                    {sectionEyebrow && <p className="eyebrow">{sectionEyebrow}</p>}
                     <h2 style={{ color: catTextColor }}>{sectionHeading}</h2>
                   </div>
                   <div className="categoryMinimalGrid" aria-label="Shop by category">
@@ -663,7 +616,7 @@ export default function Home({
               <section key={section.id} className="categoryShowcase categoryShowcase--atelier scrollReveal" data-scroll-reveal style={{ "--section-bg": catBg, "--section-text": catTextColor, color: catTextColor }}>
                 <header className="categoryShowcaseIntro">
                   <div>
-                    <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
+                    {sectionEyebrow && <p className="eyebrow">{sectionEyebrow}</p>}
                     <h2 style={{ color: catTextColor }}>{sectionHeading}</h2>
                   </div>
                   <a className="categoryShowcaseAll" href="#products">
