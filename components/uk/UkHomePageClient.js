@@ -566,7 +566,7 @@ export default function UkHomePageClient({
                 </div>
                 <div className="instagramGrid instagramRail" ref={instagramRailRef}>
                   {posts.map((post, idx) => {
-                    const embedUrl = getInstagramEmbedUrl(post.url);
+                    const embedUrl = !post.image ? getInstagramEmbedUrl(post.url) : null;
                     if (embedUrl) {
                       return (
                         <article key={post.id || idx} className="instagramReelCard">
@@ -582,15 +582,6 @@ export default function UkHomePageClient({
                               allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
                             />
                           </div>
-                          {post.caption && (
-                            <div className="instagramReelInfo">
-                              <span className="instagramReelCaption">{post.caption}</span>
-                              <a href={post.url} target="_blank" rel="noopener noreferrer" className="instagramReelDirectLink" title="Watch on Instagram">
-                                <Instagram size={13} />
-                                <span>Watch Reel</span>
-                              </a>
-                            </div>
-                          )}
                         </article>
                       );
                     }

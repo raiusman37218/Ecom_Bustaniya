@@ -1483,23 +1483,113 @@
 .bs-st .newsletter form button svg { width: 16px; height: 16px; }
 
 /* -------------------------------------------------------------
-   INSTAGRAM
+   INSTAGRAM FEED
    ------------------------------------------------------------- */
+.bs-st .instagramFeedSection {
+  padding: clamp(48px, 6vw, 88px) 0;
+  overflow: hidden;
+  background: var(--section-bg, #ffffff);
+  color: var(--section-text, #173d29);
+}
+.bs-st .instagramFeedHeader {
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding-inline: var(--bs-st-gutter);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+.bs-st .instagramFeedHeader .eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, currentColor 68%, transparent);
+}
+.bs-st .instagramFeedHeader h2 {
+  font-family: var(--bs-font-display);
+  font-size: clamp(32px, 4vw, 54px);
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: -0.01em;
+  margin: 0;
+  line-height: 1.05;
+  color: inherit;
+}
+.bs-st .instagramFeedIntro {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: color-mix(in srgb, currentColor 70%, transparent);
+}
+.bs-st .instagramFollowBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  background: color-mix(in srgb, var(--bs-st-paper) 90%, transparent);
+  color: currentColor;
+  font-size: 12px;
+  font-weight: var(--bs-weight-semibold);
+  text-decoration: none;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  transition: all 0.25s ease;
+}
+.bs-st .instagramFollowBtn:hover {
+  background: var(--bs-st-ink);
+  color: var(--bs-st-paper);
+  border-color: var(--bs-st-ink);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(23, 61, 41, 0.12);
+}
+
+.bs-st .instagramCarouselShell {
+  position: relative;
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding-inline: var(--bs-st-gutter);
+}
+.bs-st .instagramCarouselButton {
+  display: none !important;
+}
+
 .bs-st .instagramFeedGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
-@media (min-width: 900px) {
-  .bs-st .instagramFeedGrid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+@media (min-width: 600px) {
+  .bs-st .instagramFeedGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
 }
-.bs-st .instagramPostImageWrap,
-.bs-st .instagramReelIframeWrap {
+@media (min-width: 1000px) {
+  .bs-st .instagramFeedGrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
+.bs-st .instagramPostCard {
+  display: block;
   position: relative;
-  aspect-ratio: 1 / 1;
+  text-decoration: none;
+  color: #fff;
+  border-radius: 4px;
   overflow: hidden;
-  border-radius: 0;
-  background: var(--bs-st-neutral-300);
+  background: var(--bs-st-neutral-200);
+  aspect-ratio: 1 / 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.bs-st .instagramPostImageWrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 .bs-st .instagramPostImageWrap img {
   position: absolute;
@@ -1507,9 +1597,118 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 900ms var(--bs-ease-out);
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.bs-st .instagramPostImageWrap:hover img { transform: scale(1.05); }
+.bs-st .instagramPostCard:hover .instagramPostImageWrap img {
+  transform: scale(1.08);
+}
+
+.bs-st .instagramPostOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(23, 61, 41, 0.15) 0%, rgba(23, 61, 41, 0.92) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 12px;
+  color: #fff;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 2;
+}
+.bs-st .instagramPostCard:hover .instagramPostOverlay,
+.bs-st .instagramPostCard:focus-visible .instagramPostOverlay {
+  opacity: 1;
+}
+.bs-st .instagramPostIcon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  margin-bottom: 2px;
+}
+.bs-st .instagramPostHandle {
+  font-size: 11px;
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.bs-st .instagramPostCaption {
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.bs-st .instagramPostCta {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  padding-bottom: 1px;
+  margin-top: 4px;
+}
+
+@media (max-width: 600px) {
+  .bs-st .instagramCarouselShell {
+    padding-inline: 0;
+  }
+  .bs-st .instagramFeedHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .bs-st .instagramFeedGrid {
+    display: flex !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x mandatory !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-inline: var(--bs-st-gutter, 16px) !important;
+    gap: 10px !important;
+  }
+  .bs-st .instagramFeedGrid::-webkit-scrollbar {
+    display: none !important;
+  }
+  .bs-st .instagramPostCard {
+    flex: 0 0 66vw !important;
+    max-width: 250px !important;
+    scroll-snap-align: start !important;
+    border-radius: 6px !important;
+  }
+  .bs-st .instagramPostCard .instagramPostOverlay {
+    opacity: 1 !important;
+    background: linear-gradient(180deg, transparent 40%, rgba(23, 61, 41, 0.85) 100%) !important;
+    justify-content: flex-end !important;
+    padding: 12px !important;
+    align-items: flex-start !important;
+    text-align: left !important;
+  }
+  .bs-st .instagramPostCard .instagramPostIcon {
+    width: 28px !important;
+    height: 28px !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+  }
+  .bs-st .instagramPostCard .instagramPostCaption,
+  .bs-st .instagramPostCard .instagramPostCta {
+    display: none !important;
+  }
+}
 
 /* =============================================================
    COLLECTION LISTING  (/category, /category/sub, /search)

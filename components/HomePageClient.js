@@ -671,21 +671,22 @@ export default function Home({
               <section key={section.id} className="instagramFeedSection scrollReveal" data-scroll-reveal style={{ "--section-bg": sectionColors.instagram || "#ffffff", "--section-text": sectionTextColors.instagram || "#173d29" }}>
                 <div className="instagramFeedHeader">
                   <div>
-                    <h2>{section.heading || defaults.heading || "Follow us Instagram"}</h2>
-                    <p className="instagramFeedIntro">Latest product drops and reels from our Instagram.</p>
+                    <p className="eyebrow">{section.eyebrow || defaults.eyebrow || "@BUSTANIYA_"}</p>
+                    <h2>{section.heading || defaults.heading || "Follow Us on Instagram"}</h2>
+                    <p className="instagramFeedIntro">Latest product drops, styling reels, and atelier moments.</p>
                   </div>
                   <p className="instagramFeedHandle">
-                    <a href={profileUrl} target="_blank" rel="noreferrer">
-                      <Instagram size={18} />
-                      <span>{handle}</span>
+                    <a href={profileUrl} target="_blank" rel="noreferrer" className="instagramFollowBtn">
+                      <Instagram size={17} />
+                      <span>Follow {handle}</span>
+                      <ArrowRight size={14} />
                     </a>
                   </p>
                 </div>
                 <div className="instagramCarouselShell">
-                  <button type="button" className="instagramCarouselButton instagramCarouselButton--previous" onClick={() => scrollInstagramRail(-1)} aria-label="Show previous Instagram posts"><ChevronLeft size={20} /></button>
                   <div className="instagramFeedGrid" ref={instagramRailRef} aria-label="Instagram Feed Gallery">
                   {posts.map((post, idx) => {
-                    const embedUrl = getInstagramEmbedUrl(post.url);
+                    const embedUrl = !post.image ? getInstagramEmbedUrl(post.url) : null;
                     if (embedUrl) {
                       return (
                         <article key={post.id || idx} className="instagramReelCard">
@@ -701,50 +702,45 @@ export default function Home({
                               allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
                             />
                           </div>
-                          {post.caption && (
-                            <div className="instagramReelInfo">
-                              <span className="instagramReelCaption">{post.caption}</span>
-                              <a href={post.url} target="_blank" rel="noreferrer" className="instagramReelDirectLink" title="Watch on Instagram">
-                                <Instagram size={13} />
-                                <span>Watch Reel</span>
-                              </a>
-                            </div>
-                          )}
                         </article>
                       );
                     }
 
+                    const isReel = post.mediaType === "video" || String(post.url || "").includes("/reel");
+                    const targetUrl = post.url || profileUrl;
+                    const fallbackImg = `/bustaniya-instagram-hero${idx > 0 ? (idx === 1 ? "-v2" : idx === 2 ? "-v3" : idx === 3 ? "-v3b" : "") : ""}.jpg`;
+                    const displayImage = post.image || fallbackImg;
+
                     return (
                       <a
                         key={post.id || idx}
-                        href={post.url || profileUrl}
+                        href={targetUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="instagramPostCard"
                         title={post.caption || `Instagram post ${idx + 1}`}
                       >
                         <div className="instagramPostImageWrap">
-                          {post.mediaType === "video" ? (
-                            <video src={post.image} muted loop playsInline preload="none" aria-label={post.caption || "Bustaniya Instagram reel"} />
-                          ) : (
-                            <Image
-                              src={post.image || "/bustaniya-instagram-hero.jpg"}
-                              alt={post.caption || "Bustaniya Instagram post"}
-                              fill
-                              sizes="(max-width: 600px) 82vw, (max-width: 1000px) 43vw, 28vw"
-                            />
-                          )}
+                          <Image
+                            src={displayImage}
+                            alt={post.caption || `Bustaniya Instagram post ${idx + 1}`}
+                            fill
+                            sizes="(max-width: 600px) 75vw, (max-width: 1000px) 33vw, 17vw"
+                            style={{ objectFit: "cover" }}
+                          />
                           <div className="instagramPostOverlay">
-                            {post.mediaType === "video" ? <Play size={28} fill="currentColor" /> : <Instagram size={28} />}
+                            <span className="instagramPostIcon">
+                              {isReel ? <Play size={22} fill="currentColor" /> : <Instagram size={22} />}
+                            </span>
                             <span className="instagramPostHandle">{handle}</span>
                             {post.caption && <span className="instagramPostCaption">{post.caption}</span>}
+                            <span className="instagramPostCta">View on Instagram &rarr;</span>
                           </div>
                         </div>
                       </a>
                     );
                   })}
                   </div>
-                  <button type="button" className="instagramCarouselButton instagramCarouselButton--next" onClick={() => scrollInstagramRail(1)} aria-label="Show next Instagram posts"><ChevronRight size={20} /></button>
                 </div>
               </section>
             );

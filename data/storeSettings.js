@@ -35,13 +35,12 @@ export function getInstagramEmbedUrl(url) {
     const raw = String(url).trim();
     if (!raw) return null;
     const clean = raw.split("?")[0].replace(/\/+$/, "");
+    // Only embed individual posts or reels that have a specific content ID
     const match = clean.match(/instagram\.com\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/i);
     if (match && match[1]) {
       return `https://www.instagram.com/p/${match[1]}/embed/`;
     }
-    if (clean.includes("instagram.com/")) {
-      return `${clean}/embed/`;
-    }
+    // Profile pages (e.g. instagram.com/bustaniya_/) are never embeds
     return null;
   } catch {
     return null;

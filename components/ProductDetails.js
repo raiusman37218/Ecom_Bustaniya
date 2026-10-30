@@ -25,9 +25,6 @@ function getInstagramEmbedUrl(url) {
     if (match && match[1]) {
       return `https://www.instagram.com/p/${match[1]}/embed/captioned/`;
     }
-    if (clean.includes("instagram.com/")) {
-      return `${clean}/embed/`;
-    }
     return null;
   } catch {
     return null;
