@@ -908,6 +908,7 @@ export default function AdminDashboard() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [selectedSizes, setSelectedSizes] = useState(["S", "M", "L"]);
   const [selectedColors, setSelectedColors] = useState(["Pink"]);
+  const [colorHexMap, setColorHexMap] = useState({});
   const [productCategory, setProductCategory] = useState("Kurtis");
   const [sizeSearch, setSizeSearch] = useState("");
   const [colorSearch, setColorSearch] = useState("");
@@ -1234,6 +1235,7 @@ export default function AdminDashboard() {
     setProductCategory("Kurtis");
     setSelectedSizes(["XS", "S", "M", "L", "XL"]);
     setSelectedColors(["Pink"]);
+    setColorHexMap({});
     setProductMedia([]);
     setProductImageUrl("");
     setMediaError("");
@@ -1253,6 +1255,7 @@ export default function AdminDashboard() {
     setProductCategory(product.category || "Kurtis");
     setSelectedSizes(Array.isArray(product.sizes) && product.sizes.length ? product.sizes : ["XS", "S", "M", "L", "XL"]);
     setSelectedColors(Array.isArray(product.colors) && product.colors.length ? product.colors : ["Pink"]);
+    setColorHexMap(product.colorHexMap || {});
     setProductMedia((product.images || [product.image]).filter(Boolean).map((src, index) => ({
       id: `existing-${product.id}-${index}`,
       name: `Product image ${index + 1}`,
@@ -1475,6 +1478,10 @@ export default function AdminDashboard() {
         sku: skuVal,
         sizes: selectedSizes,
         colors: selectedColors,
+        colorHexMap: {
+          ...colorHexMap,
+          ...Object.fromEntries(selectedColors.map((c) => [c, colorHexMap[c] || getColorHex(c)])),
+        },
         variants: selectedSizes.flatMap((size) => selectedColors.map((color) => ({
           size,
           color,
@@ -2411,7 +2418,11 @@ export default function AdminDashboard() {
                     <div className="shopifyVariantSection" style={{ marginTop: "18px" }}>
                       <ProductColorPicker
                         selectedColors={selectedColors}
-                        onChange={setSelectedColors}
+                        colorHexMap={colorHexMap}
+                        onChange={(newColors, newMap) => {
+                          setSelectedColors(newColors);
+                          if (newMap) setColorHexMap(newMap);
+                        }}
                       />
                     </div>
                   </div>

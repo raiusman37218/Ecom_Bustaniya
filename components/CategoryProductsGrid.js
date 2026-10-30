@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from "../lib/images";
+import { getColorHex } from "../data/variantOptions";
 
 export default function CategoryProductsGrid({
   initialProducts = [],
@@ -101,6 +102,15 @@ export default function CategoryProductsGrid({
                   <h3>
                     <Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link>
                   </h3>
+                  {Array.isArray(product.colors) && product.colors.length > 0 && (
+                    <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
+                      {product.colors.slice(0, 5).map((color) => {
+                        const hex = product.colorHexMap?.[color] || getColorHex(color);
+                        return <i key={color} title={color} style={{ background: hex }} />;
+                      })}
+                      {product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}
+                    </div>
+                  )}
                 </div>
 
                 {/* Colours and sizing live in CSS. They used to be inline here

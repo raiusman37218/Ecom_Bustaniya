@@ -735,7 +735,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               <div className="colorSwatchesList" role="radiogroup" aria-label="Product colors">
                 {colors.map((colorName) => {
                   const isSelected = color === colorName;
-                  const hex = getColorHex(colorName);
+                  const hex = product.colorHexMap?.[colorName] || getColorHex(colorName);
                   const inStock = isColorInStock(colorName);
                   const colorThumb = colorImages[colorName] ? (Array.isArray(colorImages[colorName]) ? colorImages[colorName][0] : colorImages[colorName]) : null;
 
@@ -1052,7 +1052,22 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               {item.badge && <span className="badge">{item.badge}</span>}
               <span className="quickAdd">Choose options</span>
             </Link>
-            <div className="productInfo"><div><p>{item.category}</p><h3><Link href={`/product/${item.id}`} prefetch={true}>{item.name}</Link></h3></div><div className="productPrice"><span>Rs. {item.price.toLocaleString()}</span><small>Regular price Rs. {item.price.toLocaleString()}</small></div></div>
+            <div className="productInfo">
+              <div>
+                <p>{item.category}</p>
+                <h3><Link href={`/product/${item.id}`} prefetch={true}>{item.name}</Link></h3>
+                {Array.isArray(item.colors) && item.colors.length > 0 && (
+                  <div className="colorSwatches" aria-label={`${item.colors.length} available colours`}>
+                    {item.colors.slice(0, 5).map((c) => {
+                      const hex = item.colorHexMap?.[c] || getColorHex(c);
+                      return <i key={c} title={c} style={{ background: hex }} />;
+                    })}
+                    {item.colors.length > 5 && <small>+{item.colors.length - 5}</small>}
+                  </div>
+                )}
+              </div>
+              <div className="productPrice"><span>Rs. {item.price.toLocaleString()}</span><small>Regular price Rs. {item.price.toLocaleString()}</small></div>
+            </div>
           </article>)}
         </div>
       </section>}

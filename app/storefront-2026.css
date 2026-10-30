@@ -1235,12 +1235,12 @@
 .bs-st .productCard .productInfo h3 {
   margin: 0;
   order: 2;
-  font-size: 19px;
-  font-weight: var(--bs-weight-semibold);
-  line-height: 1.2;
-  font-family: var(--bs-font-display);
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+  font-family: var(--bs-font-sans, var(--font-manrope), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif) !important;
   text-transform: none;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
 }
 .bs-st .productCard .productInfo h3 a {
   color: var(--bs-st-ink);
@@ -1283,8 +1283,11 @@
 .bs-st .productCard .colorSwatches i {
   width: 12px;
   height: 12px;
-  border-radius: 0;
-  border: var(--bs-st-hairline);
+  border-radius: 50% !important;
+  border: 1px solid rgba(0, 0, 0, 0.16) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  display: inline-block;
+  flex-shrink: 0;
 }
 .bs-st .productCard .colorSwatches small {
   font-size: 11px;
@@ -2110,13 +2113,14 @@
   padding: 0;
 }
 .bs-st .productPurchase h1 {
-  margin: 0;
-  font-family: var(--bs-font-display);
-  font-weight: var(--bs-weight-semibold);
-  font-size: clamp(32px, 3.6vw, 52px);
-  line-height: 1.02;
-  letter-spacing: -0.01em;
+  margin: 0 0 10px;
+  font-family: var(--bs-font-sans, var(--font-manrope), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif) !important;
+  font-weight: 700 !important;
+  font-size: clamp(22px, 2.4vw, 32px) !important;
+  line-height: 1.25 !important;
+  letter-spacing: -0.015em !important;
   text-transform: none;
+  color: var(--bs-st-ink);
 }
 
 .bs-st .detailPriceRow {

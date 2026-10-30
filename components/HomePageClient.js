@@ -9,6 +9,7 @@ import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, Chev
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from "../lib/images";
+import { getColorHex } from "../data/variantOptions";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import { trackEvent } from "../lib/trackEvent";
@@ -586,7 +587,19 @@ export default function Home({
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
                       </div>
                       <div className="productInfo">
-                        <div><p>{product.category}</p><h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>{Array.isArray(product.colors) && product.colors.length > 0 && <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>{product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}{product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}</div>}</div>
+                        <div>
+                          <p>{product.category}</p>
+                          <h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>
+                          {Array.isArray(product.colors) && product.colors.length > 0 && (
+                            <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
+                              {product.colors.slice(0, 5).map((color) => {
+                                const hex = product.colorHexMap?.[color] || getColorHex(color);
+                                return <i key={color} title={color} style={{ background: hex }} />;
+                              })}
+                              {product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}
+                            </div>
+                          )}
+                        </div>
                         <div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span>{salePercent(product) > 0 && <del>Rs. {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</del>}</div>
                       </div>
                     </article>
@@ -708,7 +721,10 @@ export default function Home({
                           <h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>
                           {Array.isArray(product.colors) && product.colors.length > 0 && (
                             <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
-                              {product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}
+                              {product.colors.slice(0, 5).map((color) => {
+                                const hex = product.colorHexMap?.[color] || getColorHex(color);
+                                return <i key={color} title={color} style={{ background: hex }} />;
+                              })}
                               {product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}
                             </div>
                           )}
@@ -929,7 +945,10 @@ export default function Home({
                           <h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>
                           {Array.isArray(product.colors) && product.colors.length > 0 && (
                             <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
-                              {product.colors.slice(0, 5).map((color) => <i key={color} title={color} style={{ backgroundColor: color.toLowerCase() }} />)}
+                              {product.colors.slice(0, 5).map((color) => {
+                                const hex = product.colorHexMap?.[color] || getColorHex(color);
+                                return <i key={color} title={color} style={{ background: hex }} />;
+                              })}
                               {product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}
                             </div>
                           )}

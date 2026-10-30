@@ -116,6 +116,101 @@ export const fashionColorsMap = Object.fromEntries(
   fashionColors.map((c) => [c.name.toLowerCase().replace(/[^a-z0-9]/g, ""), c.hex])
 );
 
+const COLOR_ALIASES = {
+  emerald: "#046307",
+  emeraldgreen: "#046307",
+  bottle: "#004225",
+  bottlegreen: "#004225",
+  forest: "#173d29",
+  forestgreen: "#173d29",
+  mint: "#98ff98",
+  mintgreen: "#98ff98",
+  sage: "#9caf88",
+  sagegreen: "#9caf88",
+  sea: "#2e8b57",
+  seagreen: "#2e8b57",
+  navy: "#172a53",
+  navyblue: "#172a53",
+  royal: "#2546a8",
+  royalblue: "#2546a8",
+  powder: "#b0e0e6",
+  powderblue: "#b0e0e6",
+  ice: "#d0f0fd",
+  iceblue: "#d0f0fd",
+  sky: "#87ceeb",
+  skyblue: "#87ceeb",
+  blush: "#de9ca7",
+  blushpink: "#de9ca7",
+  dusty: "#dcae96",
+  dustyrose: "#dcae96",
+  baby: "#f4c2c2",
+  babypink: "#f4c2c2",
+  hotpink: "#ff2d87",
+  shocking: "#fc0fc0",
+  shockingpink: "#fc0fc0",
+  deepmaroon: "#5b0e14",
+  maroon: "#800000",
+  mustard: "#d19a20",
+  rust: "#b7410e",
+  ochre: "#cc7722",
+  plum: "#673147",
+  wine: "#722f37",
+  burgundy: "#681b2b",
+  ruby: "#9b111e",
+  rubyred: "#9b111e",
+  crimson: "#dc143c",
+  deepred: "#b30000",
+  gold: "#d4af37",
+  antiquegold: "#b59410",
+  dullgold: "#c5a059",
+  copper: "#b87333",
+  bronze: "#cd7f32",
+  olive: "#556b2f",
+  olivegreen: "#556b2f",
+  khaki: "#c3b091",
+  terracotta: "#e2725b",
+  brick: "#cb4154",
+  brickred: "#cb4154",
+  charcoal: "#36454f",
+  zinc: "#7b8794",
+  offwhite: "#f7f4ed",
+  ivory: "#fffff0",
+  cream: "#fffdd0",
+  champagne: "#f7e7ce",
+  biscuit: "#e3d2be",
+  fawn: "#c8b39b",
+  sand: "#c2a477",
+  camel: "#b98c5b",
+  beige: "#d8c3a5",
+  lilac: "#c8a2c8",
+  lavender: "#b69ad4",
+  mauve: "#e0b0ff",
+  peach: "#ffcba4",
+  coral: "#ff7f50",
+  salmon: "#fa8072",
+  teal: "#187b7b",
+  turquoise: "#40e0d0",
+  peacock: "#005f73",
+  peacockblue: "#005f73",
+  indigo: "#4b0082",
+  purple: "#6a3d9a",
+  magenta: "#c2185b",
+  fuchsia: "#ff00ff",
+  pistachio: "#93c572",
+  chocolate: "#4e2a1e",
+  mocha: "#967969",
+  coffee: "#6f4e37",
+  amber: "#ffbf00",
+  black: "#171717",
+  jetblack: "#0a0a0a",
+  white: "#ffffff",
+  grey: "#808080",
+  gray: "#808080",
+  silver: "#c0c0c0",
+  multicolour: "linear-gradient(135deg,#db4c77,#f2cf32,#237542,#3267a8)",
+  multi: "linear-gradient(135deg,#db4c77,#f2cf32,#237542,#3267a8)",
+};
+
 export function suggestColorName(hex) {
   if (!hex) return "Custom";
   try {
@@ -136,9 +231,18 @@ export function suggestColorName(hex) {
 
 export function getColorHex(colorName, fallback = "#64748b") {
   if (!colorName) return fallback;
-  const clean = String(colorName).trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  const raw = String(colorName).trim();
+  if (/^#[0-9a-f]{3,8}$/i.test(raw) || /^rgb/i.test(raw) || /^hsl/i.test(raw) || raw.includes("gradient")) {
+    return raw;
+  }
+  const clean = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (COLOR_ALIASES[clean]) return COLOR_ALIASES[clean];
   if (fashionColorsMap[clean]) return fashionColorsMap[clean];
-  if (/^#[0-9a-f]{3,8}$/i.test(colorName) || /^rgb/i.test(colorName) || /^hsl/i.test(colorName)) return colorName;
+  
+  // Fuzzy alias matching (e.g. "dark maroon" contains "maroon", "light mustard" contains "mustard")
+  for (const [k, v] of Object.entries(COLOR_ALIASES)) {
+    if (clean.includes(k)) return v;
+  }
   return fallback;
 }
 

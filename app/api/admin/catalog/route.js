@@ -85,6 +85,7 @@ function formatProduct(product) {
     lowStockThreshold: Number(inventory?.low_stock_threshold || 5),
     sizes: parseJsonArray(product.size),
     colors: parseJsonArray(product.color || productMetadata.colors),
+    colorHexMap: parseJsonObject(productMetadata.colorHexMap || product.color_hex_map),
     variants: Array.isArray(productMetadata.variants) ? productMetadata.variants : [],
     colorImages: productMetadata.colorImages || {},
     images,
@@ -193,6 +194,7 @@ function normalizeProductPayload(product) {
         productType: String(product.productType || product.product_type || metadata.productType || "").trim(),
         tags: Array.isArray(product.tags) ? product.tags : metadata.tags || [],
         publishDate: String(product.publishDate || product.publish_date || metadata.publishDate || "").trim(),
+        colorHexMap: parseJsonObject(product.colorHexMap || product.color_hex_map || metadata.colorHexMap || {}),
       },
     },
   };
@@ -307,6 +309,9 @@ async function updateProductDirect(body) {
           ? { productType: String(product.productType || product.product_type || "").trim() }
           : {}),
         ...(product.tags !== undefined ? { tags: Array.isArray(product.tags) ? product.tags : [] } : {}),
+        ...(product.colorHexMap !== undefined || product.color_hex_map !== undefined
+          ? { colorHexMap: parseJsonObject(product.colorHexMap || product.color_hex_map || {}) }
+          : {}),
         ...(product.publishDate !== undefined || product.publish_date !== undefined
           ? { publishDate: String(product.publishDate || product.publish_date || "").trim() }
           : {}),

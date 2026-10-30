@@ -7,6 +7,7 @@ import { fashionColorCategories, fashionColors, getColorHex, suggestColorName } 
 
 export default function ProductColorPicker({
   selectedColors = [],
+  colorHexMap = {},
   onChange,
 }) {
   const [activeTab, setActiveTab] = useState("presets"); // "presets" | "custom"
@@ -28,19 +29,30 @@ export default function ProductColorPicker({
   }
 
   // Toggle preset color
-  function toggleColor(colorName) {
+  function toggleColor(colorItem) {
     if (!onChange) return;
+    const colorName = colorItem.name;
+    const colorHex = colorItem.hex;
     if (selectedColors.includes(colorName)) {
-      onChange(selectedColors.filter((c) => c !== colorName));
+      onChange(
+        selectedColors.filter((c) => c !== colorName),
+        colorHexMap
+      );
     } else {
-      onChange([...selectedColors, colorName]);
+      onChange(
+        [...selectedColors, colorName],
+        { ...colorHexMap, [colorName]: colorHex }
+      );
     }
   }
 
   // Remove a selected color
   function removeColor(colorName) {
     if (!onChange) return;
-    onChange(selectedColors.filter((c) => c !== colorName));
+    onChange(
+      selectedColors.filter((c) => c !== colorName),
+      colorHexMap
+    );
   }
 
   // Add custom color from spectrum
@@ -48,8 +60,11 @@ export default function ProductColorPicker({
     e.preventDefault();
     if (!customName.trim()) return;
     const finalName = customName.trim();
+    const updatedMap = { ...colorHexMap, [finalName]: customHex };
     if (!selectedColors.includes(finalName)) {
-      if (onChange) onChange([...selectedColors, finalName]);
+      if (onChange) onChange([...selectedColors, finalName], updatedMap);
+    } else {
+      if (onChange) onChange(selectedColors, updatedMap);
     }
     // Reset custom name edit flag for next pick
     setCustomNameEdited(false);
@@ -80,7 +95,7 @@ export default function ProductColorPicker({
             <button
               type="button"
               className="pcpClearBtn"
-              onClick={() => onChange && onChange([])}
+              onClick={() => onChange && onChange([], {})}
               title="Remove all colors"
             >
               <Trash2 size={13} /> Clear all
@@ -92,7 +107,7 @@ export default function ProductColorPicker({
             <span className="pcpEmptyNote">No colors selected yet. Choose from palette or use the custom picker below.</span>
           ) : (
             selectedColors.map((colorName) => {
-              const hex = getColorHex(colorName);
+              const hex = colorHexMap[colorName] || getColorHex(colorName);
               return (
                 <span key={colorName} className="pcpSelectedChip">
                   <span className="pcpChipDot" style={{ background: hex }} />
@@ -179,7 +194,7 @@ export default function ProductColorPicker({
                   type="button"
                   key={color.name}
                   className={`pcpColorBtn ${isSelected ? "selected" : ""}`}
-                  onClick={() => toggleColor(color.name)}
+                  onClick={() => toggleColor(color)}
                   title={`${color.name} (${color.hex})`}
                 >
                   <span className="pcpDot" style={{ background: color.hex }} />
