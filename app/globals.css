@@ -18169,6 +18169,489 @@ html {
   border: 1px solid rgba(0, 0, 0, 0.15);
 }
 
+/* =============================================================
+   ADMIN PRODUCT COLOR PICKER (UNIVERSAL COLOR SELECTOR)
+   ============================================================= */
+.productColorPickerRoot {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #ffffff;
+  border: 1px solid #e1e7e2;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+/* 1. Selected Tray */
+.pcpSelectedTray {
+  background: #f7faf8;
+  border: 1px solid #e2ece5;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.pcpSelectedHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.pcpSelectedCount {
+  font-size: 13px;
+  color: #173d29;
+}
+
+.pcpSelectedCount strong {
+  font-weight: 700;
+  color: #173d29;
+}
+
+.pcpClearBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 0;
+  color: #c53030;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.pcpClearBtn:hover {
+  background: rgba(197, 48, 48, 0.08);
+}
+
+.pcpChipsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 32px;
+  align-items: center;
+}
+
+.pcpEmptyNote {
+  font-size: 12px;
+  color: #8c9790;
+  font-style: italic;
+}
+
+.pcpSelectedChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 6px;
+  background: #ffffff;
+  border: 1px solid #173d29;
+  border-radius: 20px;
+  box-shadow: 0 2px 5px rgba(23, 61, 41, 0.08);
+  animation: pcpChipIn 0.2s ease-out;
+}
+
+@keyframes pcpChipIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.pcpChipDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  flex-shrink: 0;
+}
+
+.pcpChipLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #173d29;
+}
+
+.pcpChipRemove {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  background: rgba(23, 61, 41, 0.08);
+  color: #173d29;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  transition: all 0.15s ease;
+}
+
+.pcpChipRemove:hover {
+  background: #c53030;
+  color: #ffffff;
+}
+
+/* 2. Nav Tabs */
+.pcpNavTabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid #e1e7e2;
+  padding-bottom: 10px;
+}
+
+.pcpNavTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #f4f6f4;
+  color: #4b5d52;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pcpNavTab:hover {
+  background: #e8eee9;
+  color: #173d29;
+}
+
+.pcpNavTab.active {
+  background: #173d29;
+  color: #ffffff;
+  border-color: #173d29;
+  box-shadow: 0 3px 8px rgba(23, 61, 41, 0.18);
+}
+
+/* 3. Search & Category Filter */
+.pcpSearchBar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.pcpSearchIcon {
+  position: absolute;
+  left: 12px;
+  color: #798c80;
+  pointer-events: none;
+}
+
+.pcpSearchInput {
+  width: 100%;
+  height: 38px;
+  padding: 0 34px;
+  border: 1px solid #d5dfd6;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #173d29;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pcpSearchInput:focus {
+  border-color: #173d29;
+  box-shadow: 0 0 0 3px rgba(23, 61, 41, 0.1);
+}
+
+.pcpSearchClear {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: 0;
+  color: #798c80;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.pcpSearchClear:hover {
+  color: #173d29;
+}
+
+.pcpCategoryPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.pcpCatPill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid #dce4dd;
+  background: #ffffff;
+  color: #556b5e;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pcpCatPill:hover {
+  border-color: #173d29;
+  color: #173d29;
+}
+
+.pcpCatPill.active {
+  background: #173d29;
+  color: #ffffff;
+  border-color: #173d29;
+}
+
+/* 4. Preset Grid */
+.pcpGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.pcpGrid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pcpGrid::-webkit-scrollbar-thumb {
+  background: #cbd7cf;
+  border-radius: 3px;
+}
+
+.pcpColorBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid #dce4dd;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.pcpColorBtn:hover {
+  border-color: #173d29;
+  background: #f7faf8;
+}
+
+.pcpColorBtn.selected {
+  border-color: #173d29;
+  background: #edf5ee;
+  box-shadow: inset 0 0 0 1px #173d29;
+}
+
+.pcpDot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  flex-shrink: 0;
+}
+
+.pcpName {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: #243b2e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pcpCheck {
+  color: #173d29;
+  flex-shrink: 0;
+}
+
+.pcpNoResults {
+  text-align: center;
+  padding: 24px 12px;
+  color: #63756a;
+}
+
+.pcpSwitchToCustomBtn {
+  margin-top: 10px;
+  padding: 7px 16px;
+  background: #173d29;
+  color: #ffffff;
+  border: 0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 5. Custom Spectrum / Wheel Panel */
+.pcpCustomPanel {
+  background: #f9fbf9;
+  border: 1px solid #e1ebe3;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.pcpCustomLayout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.pcpWheelContainer {
+  flex-shrink: 0;
+}
+
+.pcpWheelContainer .react-colorful {
+  width: 200px;
+  height: 200px;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.pcpCustomControls {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pcpPreviewBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #d5dfd6;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.pcpBigDot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.pcpPreviewMeta {
+  display: flex;
+  flex-direction: column;
+}
+
+.pcpPreviewLabel {
+  font-size: 11px;
+  color: #798c80;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pcpPreviewHex {
+  font-size: 16px;
+  color: #173d29;
+  font-family: monospace;
+}
+
+.pcpInputRow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pcpInputLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #34483d;
+}
+
+.pcpHexInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pcpHexPrefix {
+  position: absolute;
+  left: 10px;
+  color: #798c80;
+  font-family: monospace;
+  font-weight: 700;
+}
+
+.pcpHexInput {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px 0 24px;
+  border: 1px solid #d5dfd6;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 14px;
+  background: #ffffff;
+  color: #173d29;
+  outline: none;
+}
+
+.pcpHexInput:focus {
+  border-color: #173d29;
+}
+
+.pcpNameInput {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d5dfd6;
+  border-radius: 6px;
+  font-size: 13.5px;
+  background: #ffffff;
+  color: #173d29;
+  outline: none;
+}
+
+.pcpNameInput:focus {
+  border-color: #173d29;
+}
+
+.pcpInputHint {
+  font-size: 11px;
+  color: #798c80;
+  font-weight: 400;
+}
+
+.pcpAddCustomBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  background: #173d29;
+  color: #ffffff;
+  border: 0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 3px 10px rgba(23, 61, 41, 0.2);
+}
+
+.pcpAddCustomBtn:hover {
+  background: #0d281a;
+  transform: translateY(-1px);
+}
+
 .shopifyExtendedSizesBox {
   margin-top: 8px;
   padding: 10px;

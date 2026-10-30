@@ -14,6 +14,7 @@ import EventsWorkspace from "./EventsWorkspace";
 import DashboardWorkspace from "./DashboardWorkspace";
 import PluginsWorkspace from "./PluginsWorkspace";
 import ArticlePriceCalculator from "./ArticlePriceCalculator";
+import ProductColorPicker from "./ProductColorPicker";
 import { apparelSizes, fashionColors } from "../data/variantOptions";
 import AdminLogin from "./AdminLogin";
 
@@ -2406,33 +2407,12 @@ export default function AdminDashboard() {
                       )}
                     </div>
 
-                    {/* Colors Section */}
+                    {/* Colors & Variants Section */}
                     <div className="shopifyVariantSection" style={{ marginTop: "18px" }}>
-                      <div className="shopifyVariantHeader">
-                        <b>Colours</b>
-                        <span className="shopifySelectedPill">{selectedColors.length} selected</span>
-                      </div>
-                      <div className="shopifyChipsGrid">
-                        {fashionColors.slice(0, 16).map((color) => {
-                          const isSelected = selectedColors.includes(color.name);
-                          return (
-                            <button
-                              type="button"
-                              key={color.name}
-                              className={`shopifyColorChip ${isSelected ? "selected" : ""}`}
-                              onClick={() => {
-                                setSelectedColors((curr) =>
-                                  curr.includes(color.name) ? curr.filter((c) => c !== color.name) : [...curr, color.name]
-                                );
-                              }}
-                            >
-                              <span className="colorDot" style={{ background: color.hex }} />
-                              {color.name}
-                              {isSelected && <Check size={12} className="checkIcon" />}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <ProductColorPicker
+                        selectedColors={selectedColors}
+                        onChange={setSelectedColors}
+                      />
                     </div>
                   </div>
                 </div>
