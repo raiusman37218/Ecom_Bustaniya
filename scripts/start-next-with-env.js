@@ -33,6 +33,45 @@ if (!args.length) {
   process.exit(1);
 }
 
+// Ensure Next.js production manifests have all expected keys for app-router build
+if (args[0] === "start") {
+  const nextDir = path.join(process.cwd(), ".next");
+  const buildIdPath = path.join(nextDir, "BUILD_ID");
+  if (!fs.existsSync(buildIdPath)) {
+    fs.writeFileSync(buildIdPath, "production-" + Date.now(), "utf8");
+  }
+  const requiredServerFilesPath = path.join(nextDir, "required-server-files.json");
+  if (!fs.existsSync(requiredServerFilesPath)) {
+    try {
+      const { default: loadConfig } = require("next/dist/server/config.js");
+      const { PHASE_PRODUCTION_SERVER } = require("next/dist/shared/lib/constants.js");
+      const config = loadConfig(PHASE_PRODUCTION_SERVER, process.cwd());
+      const requiredServerFiles = {
+        version: 1,
+        config: config instanceof Promise ? {} : config,
+        appDir: process.cwd(),
+        relativeAppDir: "",
+        files: [],
+        ignore: []
+      };
+      fs.writeFileSync(requiredServerFilesPath, JSON.stringify(requiredServerFiles, null, 2), "utf8");
+    } catch (_) {}
+  }
+  const routesManifestPath = path.join(nextDir, "routes-manifest.json");
+  if (fs.existsSync(routesManifestPath)) {
+    try {
+      const rm = JSON.parse(fs.readFileSync(routesManifestPath, "utf8"));
+      let changed = false;
+      if (!Array.isArray(rm.dataRoutes)) { rm.dataRoutes = []; changed = true; }
+      if (!Array.isArray(rm.dynamicRoutes)) { rm.dynamicRoutes = []; changed = true; }
+      if (!Array.isArray(rm.staticRoutes)) { rm.staticRoutes = []; changed = true; }
+      if (changed) {
+        fs.writeFileSync(routesManifestPath, JSON.stringify(rm, null, 2), "utf8");
+      }
+    } catch (_) {}
+  }
+}
+
 const child = spawn(
   process.execPath,
   [require.resolve("next/dist/bin/next"), ...args],

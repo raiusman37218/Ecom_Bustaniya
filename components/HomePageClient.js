@@ -92,8 +92,8 @@ function normalizeProducts(items) {
 }
 
 function CampaignHeroImage({ desktopSrc, mobileSrc, alt }) {
-  const safeDesktop = desktopSrc || "/bustaniya-campaign-hero-v5.png";
-  const safeMobile = mobileSrc || safeDesktop;
+  const safeDesktop = desktopSrc || "/bustaniya-campaign-hero-v6.png";
+  const safeMobile = mobileSrc || "/bustaniya-campaign-hero-mobile-v6.png";
 
   const isCloudinaryDesktop = typeof safeDesktop === "string" && safeDesktop.includes("res.cloudinary.com");
   const isCloudinaryMobile = typeof safeMobile === "string" && safeMobile.includes("res.cloudinary.com");
@@ -159,13 +159,13 @@ export default function Home({
   const rawDesktop = Array.isArray(safeSettings.heroDesktopImages) && safeSettings.heroDesktopImages.length
     ? safeSettings.heroDesktopImages
     : [safeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage];
-  const heroDesktopImages = rawDesktop.map((img) => img || "/bustaniya-campaign-hero-v5.png");
+  const heroDesktopImages = rawDesktop.map((img) => img || "/bustaniya-campaign-hero-v6.png");
 
-  const hasCustomMobile = Array.isArray(safeSettings.heroMobileImages) && safeSettings.heroMobileImages.length > 0 && safeSettings.heroMobileImages.some((img) => img && img !== DEFAULT_STORE_SETTINGS.heroMobileImage && img !== "/bustaniya-campaign-hero-mobile-v1.png" && img !== "/bustaniya-campaign-hero-v5.png");
+  const hasCustomMobile = Array.isArray(safeSettings.heroMobileImages) && safeSettings.heroMobileImages.length > 0 && safeSettings.heroMobileImages.some((img) => img && img !== DEFAULT_STORE_SETTINGS.heroMobileImage && img !== "/bustaniya-campaign-hero-mobile-v6.png" && img !== "/bustaniya-campaign-hero-v6.png");
   const rawMobile = hasCustomMobile
     ? safeSettings.heroMobileImages
-    : (safeSettings.heroMobileImage && safeSettings.heroMobileImage !== DEFAULT_STORE_SETTINGS.heroMobileImage && safeSettings.heroMobileImage !== "/bustaniya-campaign-hero-mobile-v1.png" ? [safeSettings.heroMobileImage] : heroDesktopImages);
-  const heroMobileImages = rawMobile.map((img) => img || heroDesktopImages[0] || "/bustaniya-campaign-hero-v5.png");
+    : (safeSettings.heroMobileImage && safeSettings.heroMobileImage !== DEFAULT_STORE_SETTINGS.heroMobileImage && safeSettings.heroMobileImage !== "/bustaniya-campaign-hero-mobile-v6.png" ? [safeSettings.heroMobileImage] : heroDesktopImages);
+  const heroMobileImages = rawMobile.map((img) => img || heroDesktopImages[0] || "/bustaniya-campaign-hero-v6.png");
 
   const heroSlideCount = Math.max(heroDesktopImages.length, heroMobileImages.length);
   const desktopHero = {

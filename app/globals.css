@@ -2765,7 +2765,7 @@ footer {
 .storyStats span { color:#aeb6b1; font-size:11px; margin-top:3px; }
 .newsletter { text-align:center; padding:110px 20px; background:var(--section-bg,var(--cream)); }
 .newsletter>p:not(.eyebrow) { color:#656d68; }
-.newsletter form { max-width:480px; margin:35px auto 0; display:flex; border-bottom:1px solid var(--ink); padding-bottom:9px; }
+.newsletter form:not(:has(.newsletterInputGroup)) { max-width:480px; margin:35px auto 0; display:flex; border-bottom:1px solid var(--ink); padding-bottom:9px; }
 .newsletter input { flex:1; background:transparent; border:0; outline:0; }
 .newsletter button { border:0; background:transparent; }
 /* ══════════════════════════════════════════════════════════════════
@@ -3703,22 +3703,79 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   z-index:1;
 }
 .newsletter form {
-  max-width:540px;
-  min-height:56px;
-  padding:0 8px 0 20px;
-  border:1px solid #d6dfd2;
-  border-radius:999px;
-  background:#fffefbd8;
-  box-shadow:0 16px 36px rgba(23,61,41,.09);
+  width: 100%;
+  max-width: 520px;
+  margin: 28px auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  min-height: auto;
 }
-.newsletter button {
-  width:42px;
-  height:42px;
-  border-radius:50%;
-  background:#173d29;
-  color:#fff;
-  display:grid;
-  place-items:center;
+.newsletter .newsletterInputGroup {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: #ffffff;
+  border: 1.5px solid rgba(23, 61, 41, 0.18);
+  border-radius: 999px;
+  padding: 6px 7px 6px 22px;
+  box-shadow: 0 4px 20px rgba(23, 61, 41, 0.07);
+  transition: all 0.25s ease;
+}
+.newsletter .newsletterInputGroup:focus-within {
+  border-color: #173d29;
+  box-shadow: 0 6px 26px rgba(23, 61, 41, 0.14);
+}
+.newsletter .newsletterInputGroup input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 15px;
+  color: #173d29;
+  padding: 8px 0;
+}
+.newsletter .newsletterInputGroup input::placeholder {
+  color: #8c9790;
+}
+.newsletter .newsletterInputGroup button {
+  width: auto;
+  height: auto;
+  min-height: 44px;
+  padding: 10px 24px;
+  border-radius: 999px;
+  background: #173d29;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+}
+.newsletter .newsletterInputGroup button:hover {
+  background: #8b1e2d;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(139, 30, 45, 0.3);
+}
+.newsletter .newsletterDisclaimer {
+  display: block;
+  margin-top: 14px;
+  font-size: 11.5px;
+  color: #6d7a72;
+  text-align: center;
 }
 .quickViewModal {
   border-radius:22px;
@@ -9149,10 +9206,11 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   .storyContent { padding:48px 22px 60px; }
   .storyStats { gap:18px; margin-top:38px; flex-wrap:wrap; }
   .storyStats div { min-width:120px; }
-  .newsletter { padding:70px 18px; }
-  .newsletter form { max-width:100%; gap:10px; align-items:center; }
-  .newsletter input { min-width:0; font-size:16px; }
-  .newsletter button { width:42px; height:42px; flex-shrink:0; display:grid; place-items:center; border-radius:50%; background:#fff; }
+  .newsletter { padding:64px 18px; }
+  .newsletter form { max-width:100%; margin:24px auto 0; }
+  .newsletter .newsletterInputGroup { padding:4px 5px 4px 16px; }
+  .newsletter .newsletterInputGroup input { font-size:14px; }
+  .newsletter .newsletterInputGroup button { padding:9px 18px; font-size:11px; min-height:40px; }
   .categoryShowcase { padding:72px 14px 82px; }
   .categoryCards { grid-template-columns:1fr; gap:14px; margin-top:32px; }
   .categoryCard { height:390px; border-radius:2px; }

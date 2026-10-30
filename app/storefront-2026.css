@@ -1505,24 +1505,28 @@
 
 .bs-st .newsletterForm {
   width: 100%;
-  max-width: 540px;
-  margin: 0 auto;
+  max-width: 520px;
+  margin: 28px auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .bs-st .newsletterInputGroup {
   display: flex;
   align-items: center;
+  width: 100%;
   background: #ffffff;
-  border: 1px solid rgba(23, 61, 41, 0.2);
+  border: 1.5px solid rgba(23, 61, 41, 0.18);
   border-radius: 999px;
-  padding: 5px 6px 5px 22px;
-  box-shadow: 0 4px 16px rgba(23, 61, 41, 0.06);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  padding: 6px 7px 6px 22px;
+  box-shadow: 0 4px 18px rgba(23, 61, 41, 0.07);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .bs-st .newsletterInputGroup:focus-within {
   border-color: #173d29;
-  box-shadow: 0 4px 20px rgba(23, 61, 41, 0.12);
+  box-shadow: 0 6px 26px rgba(23, 61, 41, 0.14);
 }
 
 .bs-st .newsletterInputGroup input {
@@ -1543,32 +1547,38 @@
 .bs-st .newsletterInputGroup button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 11px 22px;
+  width: auto;
+  height: auto;
+  min-height: 44px;
+  padding: 10px 24px;
   border-radius: 999px;
   border: 0;
   background: #173d29;
   color: #ffffff;
   font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.25s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .bs-st .newsletterInputGroup button:hover {
   background: #8b1e2d;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(139, 30, 45, 0.25);
+  box-shadow: 0 4px 14px rgba(139, 30, 45, 0.3);
 }
 
 .bs-st .newsletterDisclaimer {
   display: block;
   margin-top: 14px;
-  font-size: 11px;
-  color: #8c9790;
+  font-size: 11.5px;
+  color: #6d7a72;
+  text-align: center;
   letter-spacing: 0.01em;
 }
 
@@ -2695,14 +2705,22 @@
    resolves. Deliberately neutral: the same boundary also covers
    /admin, so this must not read as storefront branding.
    ------------------------------------------------------------- */
-.bs-st-loadingChrome {
-  height: calc(var(--bs-st-ann-h) + var(--bs-st-header-h));
-  background: var(--bs-st-paper);
-  border-bottom: var(--bs-st-hairline);
-}
+/* The root loading state is a 3px top progress bar (app/loading.js
+   sizes and positions the track inline). This is just the travelling
+   fill — an indeterminate sweep, since route transitions have no
+   measurable progress. */
 .bs-st-loadingChrome__bar {
-  height: var(--bs-st-ann-h);
-  background: var(--bs-st-ink);
+  height: 100%;
+  width: 40%;
+  background: var(--bs-st-accent);
+  animation: bs-st-progress 1.1s var(--bs-ease-standard) infinite;
+}
+@keyframes bs-st-progress {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bs-st-loadingChrome__bar { animation: none; width: 100%; opacity: 0.5; }
 }
 
 /* =============================================================
@@ -3723,6 +3741,35 @@
   .bs-region {
     display: none !important;
   }
+
+  /* -------------------------------------------------------------
+     11. NEWSLETTER / EMAIL BAR MOBILE REFINEMENTS
+     ------------------------------------------------------------- */
+  .bs-st .newsletter {
+    padding: 56px 16px !important;
+  }
+  .bs-st .newsletterForm {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: 22px !important;
+  }
+  .bs-st .newsletterInputGroup {
+    padding: 4px 5px 4px 16px !important;
+  }
+  .bs-st .newsletterInputGroup input {
+    font-size: 13.5px !important;
+    padding: 7px 0 !important;
+  }
+  .bs-st .newsletterInputGroup button {
+    padding: 9px 18px !important;
+    font-size: 11px !important;
+    min-height: 40px !important;
+    letter-spacing: 0.08em !important;
+  }
+  .bs-st .newsletterDisclaimer {
+    font-size: 11px !important;
+    margin-top: 10px !important;
+  }
 }
 
 /* =============================================================
@@ -3875,4 +3922,108 @@
   color: #ffffff !important;
   border-color: #173d29 !important;
   box-shadow: 0 4px 12px rgba(23, 61, 41, 0.18);
+}
+
+/* =============================================================
+   PRODUCT PAGE — POLISH PASS
+   Appended last on purpose: this file already carries a lot of
+   !important from the mobile overhaul, so the few declarations
+   here that must win say so explicitly. Nothing below changes a
+   deliberate choice made earlier (the sans-serif title stays a
+   sans-serif title) — these are measured defects only.
+   ============================================================= */
+
+/* 1 — The primary CTA row stopped 107px short of the column.
+   .productActions is a grid of [Add to bag | wishlist] but was
+   sized to content, so "ADD TO BAG" sat at its 180px minimum
+   while "BUY NOW" underneath ran the full 475px. Two stacked
+   calls-to-action at different widths is the single thing that
+   made the block look unfinished. */
+.bs-st .purchaseRowMain > .productActions,
+.bs-st .purchaseControls > .productActions {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.bs-st .productActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+.bs-st .productActions .addBagButton {
+  width: 100%;
+  min-width: 0;
+}
+/* Wishlist matches the CTA height so the row reads as one bar. */
+.bs-st .productActions .wishButton {
+  width: 52px;
+  height: auto;
+  min-height: 52px;
+  align-self: stretch;
+}
+
+/* 2 — Colour swatches were the only round control on the page.
+   Everything else in this design is square with a 2px rule, so
+   the circles read as a leftover from the old theme. */
+.bs-st .colorSwatchesList button {
+  width: 44px;
+  height: 44px;
+  padding: 4px;
+  border-radius: 0 !important;
+  border: 2px solid color-mix(in srgb, var(--bs-st-ink) 28%, transparent) !important;
+  background: transparent;
+  transition: border-color var(--bs-duration-base) ease;
+}
+.bs-st .colorSwatchesList button:hover {
+  border-color: color-mix(in srgb, var(--bs-st-ink) 60%, transparent) !important;
+}
+.bs-st .colorSwatchesList button.selected,
+.bs-st .colorSwatchesList button[aria-checked="true"],
+.bs-st .colorSwatchesList button[aria-pressed="true"] {
+  border-color: var(--bs-st-ink) !important;
+}
+.bs-st .colorSwatchFill {
+  width: 100%;
+  height: 100%;
+  border-radius: 0 !important;
+  border: 0 !important;
+}
+.bs-st .swatchCheckMark { border-radius: 0 !important; }
+
+/* 3 — The purchase column carried position:sticky, but it holds
+   the whole detail stack and runs ~1900px against a 950px
+   viewport. A sticky box taller than the viewport cannot stick;
+   it just adds a scroll quirk at the bottom of the column. */
+.bs-st .productPurchase {
+  position: static !important;
+  top: auto !important;
+}
+
+/* 4 — Give the option groups a clearer break from each other so
+   colour / size / quantity read as three decisions, not one
+   run-on block. */
+.bs-st .productOptionSection + .productOptionSection {
+  padding-top: 18px;
+  border-top: var(--bs-st-hairline);
+}
+.bs-st .selectorHeading,
+.bs-st .selectorLabelGroup {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* 5 — Size buttons: square, evenly sized, and unmistakably
+   selected. They were legible but visually weightless. */
+.bs-st .sizeOptions {
+  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  gap: 8px;
+}
+.bs-st .sizeBtn {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.bs-st .sizeBtn.selected {
+  box-shadow: inset 0 0 0 1px var(--bs-st-paper);
 }
