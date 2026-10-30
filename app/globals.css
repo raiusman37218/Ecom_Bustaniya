@@ -12159,11 +12159,15 @@ html, body {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
   min-height: 38px;
-  padding: 4px 14px 4px 5px;
-  border-radius: 999px;
-  border: 1.5px solid #dce4dd;
+  max-width: 38px;
+  max-height: 38px;
+  padding: 2.5px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 0, 0, 0.16);
   background: #ffffff;
   cursor: pointer;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
@@ -12173,32 +12177,25 @@ html, body {
 }
 
 .colorSwatchBtn:hover {
-  border-color: #9cb3a2;
-  background: #f7faf7;
-  transform: translateY(-1px);
+  border-color: rgba(0, 0, 0, 0.35);
+  transform: scale(1.08);
 }
 
 .colorSwatchBtn.selected {
   border-color: var(--forest, #173d29);
-  background: #f2f7f3;
-  box-shadow: 0 0 0 1px var(--forest, #173d29), 0 3px 10px rgba(23, 61, 41, 0.12);
-}
-
-.colorSwatchBtn.selected .colorSwatchName,
-.colorSwatchBtn.selected .swatchLabelText {
-  color: var(--forest, #173d29);
-  font-weight: 750;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4.5px var(--forest, #173d29);
+  transform: scale(1.04);
 }
 
 .colorSwatchFill {
-  width: 26px;
-  height: 26px;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  border: 1px solid rgba(0, 0, 0, 0.14);
+  border: 1px solid rgba(0, 0, 0, 0.12);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   overflow: hidden;
@@ -12206,7 +12203,7 @@ html, body {
 }
 
 .colorSwatchBtn:hover .colorSwatchFill {
-  transform: scale(1.04);
+  transform: scale(1.02);
 }
 
 .swatchCheckMark {
@@ -12216,11 +12213,7 @@ html, body {
 }
 
 .swatchLabelText {
-  font-size: 12px;
-  font-weight: 600;
-  color: #2d3748;
-  letter-spacing: 0.01em;
-  line-height: 1;
+  display: none;
 }
 
 /* Out of stock swatches & sizes */
@@ -12278,18 +12271,16 @@ html, body {
 
 @media (max-width: 600px) {
   .colorSwatchesList {
-    gap: 8px;
+    gap: 10px;
   }
   .colorSwatchBtn {
-    padding: 3px 10px 3px 4px;
-    min-height: 34px;
-  }
-  .colorSwatchFill {
-    width: 22px;
-    height: 22px;
-  }
-  .swatchLabelText {
-    font-size: 11px;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    max-width: 34px !important;
+    max-height: 34px !important;
+    padding: 2px !important;
   }
 }
 

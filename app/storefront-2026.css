@@ -2176,24 +2176,81 @@
   padding: 0;
 }
 
-/* Colour swatches — a 2px ring that fills in on the active one. */
-.bs-st .colorSwatchesList { display: flex; gap: 8px; flex-wrap: wrap; }
-.bs-st .colorSwatchesList button {
-  width: 44px;
-  height: 44px;
-  padding: 4px;
-  border: 2px solid color-mix(in srgb, var(--bs-st-ink) 30%, transparent);
-  border-radius: 0;
-  background: transparent;
-  cursor: pointer;
+/* Colour swatches — luxury circular swatches with active selection ring */
+.bs-st .colorSwatchesList {
+  display: flex !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  margin-top: 10px !important;
+}
+.bs-st .colorSwatchesList button,
+.bs-st .colorSwatchBtn {
+  position: relative !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  max-width: 38px !important;
+  max-height: 38px !important;
+  padding: 2.5px !important;
+  border-radius: 50% !important;
+  border: 1.5px solid rgba(0, 0, 0, 0.16) !important;
+  background: #ffffff !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease, box-shadow 0.18s ease !important;
+  outline: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+.bs-st .colorSwatchesList button:hover,
+.bs-st .colorSwatchBtn:hover {
+  transform: scale(1.08) !important;
+  border-color: rgba(0, 0, 0, 0.35) !important;
 }
 .bs-st .colorSwatchesList button.selected,
-.bs-st .colorSwatchesList button[aria-checked="true"] { border-color: var(--bs-st-ink); }
+.bs-st .colorSwatchesList button[aria-checked="true"],
+.bs-st .colorSwatchBtn.selected,
+.bs-st .colorSwatchBtn[aria-checked="true"] {
+  border-color: var(--bs-st-ink, #173d29) !important;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4.5px var(--bs-st-ink, #173d29) !important;
+  transform: scale(1.04) !important;
+}
 .bs-st .colorSwatchFill {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 0;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+.bs-st .swatchCheckMark {
+  color: #ffffff !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9)) !important;
+  stroke-width: 3.5 !important;
+}
+.bs-st .swatchLabelText {
+  display: none !important;
+}
+.bs-st .colorSwatchBtn.swatchOutOfStock,
+.bs-st .colorSwatchesList button.swatchOutOfStock {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+.bs-st .swatchSlash {
+  position: absolute !important;
+  width: 140% !important;
+  height: 2px !important;
+  background: #dc2626 !important;
+  transform: rotate(-45deg) !important;
+  pointer-events: none !important;
 }
 
 .bs-st .sizeOptions {

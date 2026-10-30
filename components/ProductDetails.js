@@ -133,6 +133,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const colorImages = useMemo(() => (typeof product.colorImages === "object" && product.colorImages ? product.colorImages : {}), [product.colorImages]);
 
   const [color, setColor] = useState(() => colors[0] || "");
+  const [hoveredColor, setHoveredColor] = useState(null);
   const [size, setSize] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [cart, setCart] = useState([]);
@@ -729,7 +730,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             <div className="productOptionSection colorSelectorSection">
               <div className="selectorHeading">
                 <div className="selectorLabelGroup">
-                  <b>Color:</b> <span className="selectedOptionValue">{color || "Select a color"}</span>
+                  <b>Color:</b> <span className="selectedOptionValue">{hoveredColor || color || "Select a color"}</span>
                 </div>
               </div>
               <div className="colorSwatchesList" role="radiogroup" aria-label="Product colors">
@@ -747,6 +748,8 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                       aria-checked={isSelected}
                       className={`colorSwatchBtn ${isSelected ? "selected" : ""} ${!inStock ? "swatchOutOfStock" : ""}`}
                       onClick={() => setColor(colorName)}
+                      onMouseEnter={() => setHoveredColor(colorName)}
+                      onMouseLeave={() => setHoveredColor(null)}
                       title={`${colorName}${!inStock ? " (Out of stock)" : ""}`}
                       aria-label={`Select color ${colorName}${!inStock ? " - Out of stock" : ""}`}
                     >
@@ -758,10 +761,9 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                             : hex,
                         }}
                       >
-                        {isSelected && <Check size={12} className="swatchCheckMark" />}
+                        {isSelected && <Check size={14} className="swatchCheckMark" />}
                         {!inStock && <span className="swatchSlash" />}
                       </span>
-                      <span className="swatchLabelText">{colorName}</span>
                     </button>
                   );
                 })}
