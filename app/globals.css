@@ -456,8 +456,8 @@ a { text-decoration:none; }
 .heroImage::after { content:""; position:absolute; inset:0; z-index:1; background:linear-gradient(90deg,#fffefb45 0%,transparent 45%,#0f2f1d0e 100%); pointer-events:none; }
 .hero::after { content:"BUSTANIYA / EDIT 01"; position:absolute; z-index:3; right:clamp(.55rem,2vw,1.625rem); top:clamp(5.5rem,28vw,8rem); color:#16452c; font-size:clamp(.45rem,.38rem + .22vw,.56rem); font-weight:700; letter-spacing:.22em; writing-mode:vertical-rl; opacity:.34; }
 @keyframes heroDrift {
-  from { background-position:center,center,58% center; transform:scale(1); }
-  to { background-position:center,center,64% center; transform:scale(1.025); }
+  from { transform: none; }
+  to { transform: none; }
 }
 
 /* Refined homepage hero: final overrides keep every breakpoint consistent. */
@@ -2218,10 +2218,11 @@ footer {
   .hero .primaryButton { width:max-content; max-width:100%; min-height:2.9rem; margin-top:1.25rem; padding:.8rem 1rem; box-shadow:0 12px 25px #173d2922; }
 }
 .shopSection { position:relative; padding:95px 3.2vw 105px; overflow:hidden; background:var(--section-bg,#fffefb); }
-.scrollReveal { opacity:0; transform:translateY(30px); transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1); }
-.scrollReveal.is-revealed { opacity:1; transform:translateY(0); }
-.scrollReveal .sectionHeading,.scrollReveal>h2,.scrollReveal>.eyebrow,.scrollReveal .storyImage,.scrollReveal .storyContent,.scrollReveal .categoryCards,.scrollReveal form { transition:transform .7s cubic-bezier(.2,.7,.2,1) .08s,opacity .7s cubic-bezier(.2,.7,.2,1) .08s; }
-.scrollReveal:not(.is-revealed) .sectionHeading,.scrollReveal:not(.is-revealed)>h2,.scrollReveal:not(.is-revealed)>.eyebrow,.scrollReveal:not(.is-revealed) .storyImage,.scrollReveal:not(.is-revealed) .storyContent,.scrollReveal:not(.is-revealed) .categoryCards,.scrollReveal:not(.is-revealed) form { opacity:0; transform:translateY(18px); }
+.scrollReveal { opacity:1; transform:none !important; }
+.js-reveal .scrollReveal:not(.is-revealed) { opacity:0; transition:opacity .5s ease-out; }
+.js-reveal .scrollReveal.is-revealed { opacity:1; }
+.scrollReveal .sectionHeading,.scrollReveal>h2,.scrollReveal>.eyebrow,.scrollReveal .storyImage,.scrollReveal .storyContent,.scrollReveal .categoryCards,.scrollReveal form { opacity:1 !important; transform:none !important; transition:none !important; }
+.scrollReveal:not(.is-revealed) .sectionHeading,.scrollReveal:not(.is-revealed)>h2,.scrollReveal:not(.is-revealed)>.eyebrow,.scrollReveal:not(.is-revealed) .storyImage,.scrollReveal:not(.is-revealed) .storyContent,.scrollReveal:not(.is-revealed) .categoryCards,.scrollReveal:not(.is-revealed) form { opacity:1 !important; transform:none !important; }
 @media (prefers-reduced-motion:reduce) { .scrollReveal,.scrollReveal .sectionHeading,.scrollReveal>h2,.scrollReveal>.eyebrow,.scrollReveal .storyImage,.scrollReveal .storyContent,.scrollReveal .categoryCards,.scrollReveal form { opacity:1; transform:none; transition:none; } }
 
 /* Premium collection gallery: homepage Shop by category. */
@@ -3232,11 +3233,11 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 .categoryShowcase>.eyebrow { color:#dcffb8; }
 .categoryShowcase h2 { color:#fffdf4; text-shadow:0 5px 25px #061a0f55; }
 .categoryCards { position:relative; z-index:1; display:grid; grid-template-columns:repeat(4,1fr); align-items:start; gap:14px; margin-top:52px; }
-.categoryCard { height:540px; position:relative; border:1px solid #ffffff38; background-size:auto 100%; background-position:center; overflow:hidden; box-shadow:0 24px 45px #061a0f52; transition:transform .4s ease,box-shadow .4s ease,background-size .6s ease; }
+.categoryCard { height:540px; position:relative; border:1px solid #ffffff38; background-size:cover; background-position:center; overflow:hidden; box-shadow:0 24px 45px #061a0f52; transition:transform .4s ease,box-shadow .4s ease; will-change:transform; backface-visibility:hidden; }
 .categoryCard:nth-child(even) { margin-top:34px; height:500px; }
 .categoryCard::before { content:""; position:absolute; inset:10px; z-index:2; border:1px solid #fff9dc50; opacity:.7; transition:inset .35s ease,opacity .35s ease; pointer-events:none; }
 .categoryCard::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,#0824170d 20%,#08241735 52%,#061d12ed 100%); transition:background .35s ease; }
-.categoryCard:hover { z-index:2; transform:translateY(-9px); background-size:auto 107%; box-shadow:0 34px 65px #04150c85; }
+.categoryCard:hover { z-index:2; transform:translateY(-6px); box-shadow:0 34px 65px #04150c85; }
 .categoryCard:nth-child(even):hover { transform:translateY(-9px); }
 .categoryCard:hover::before { inset:16px; opacity:1; }
 .categoryCard span { position:absolute; left:25px; right:25px; bottom:34px; z-index:3; font-family:var(--font-display); font-size:38px; font-weight:600; line-height:1; text-shadow:0 3px 18px #0009; }
@@ -9337,7 +9338,7 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   .hero .eyebrow,.hero h1,.heroText { text-shadow:0 2px 16px #fffefbdd; }
   .hero h1 { max-width:10ch; font-size:clamp(3.5rem,6.6vw,5.6rem); line-height:.84; }
   .heroText { max-width:24rem; }
-  .heroImage { position:absolute; inset:0; height:100%; animation:heroDrift 14s ease-in-out infinite alternate; }
+  .heroImage { position:absolute; inset:0; height:100%; animation:none; transform:none; }
   .heroImage img { object-fit:cover; object-position:62% center; }
   .heroImage::before { background:linear-gradient(90deg,#eaf4d8f6 0%,#f5f5e8d8 30%,#f3f1ea80 48%,transparent 66%),linear-gradient(180deg,transparent 68%,#0e2f1d22 100%); }
   .hero::after { top:auto; bottom:clamp(1.5rem,3vw,1.75rem); color:#fffdf5; opacity:.62; }
@@ -9370,7 +9371,7 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   .hero .eyebrow,.hero h1,.heroText { text-shadow:0 2px 16px #fffefbdd; }
   .hero h1 { max-width:10ch; font-size:clamp(3.5rem,6.6vw,5.6rem); line-height:.84; }
   .heroText { max-width:24rem; }
-  .heroImage { position:absolute; inset:0; height:100%; animation:heroDrift 14s ease-in-out infinite alternate; }
+  .heroImage { position:absolute; inset:0; height:100%; animation:none; transform:none; }
   .heroImage img { object-fit:cover; object-position:62% center; }
   .heroImage::before { background:linear-gradient(90deg,#eaf4d8d8 0%,#f5f5e898 28%,#f3f1ea45 46%,transparent 62%),linear-gradient(180deg,transparent 70%,#0e2f1d24 100%); }
   .heroImage::after { background:linear-gradient(90deg,#eaf4d810 0%,transparent 44%,#0f2f1d12 100%); }
@@ -9421,7 +9422,7 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   .hero h1 { max-width:11ch; font-size:clamp(4.25rem,7.5vw,7.375rem); line-height:.78; letter-spacing:-.035em; }
   .heroText { max-width:26.25rem; font-size:clamp(.875rem,.75rem + .32vw,1rem); }
   .primaryButton { min-height:48px; }
-  .heroImage { position:absolute; inset:0; height:100%; animation:heroDrift 14s ease-in-out infinite alternate; }
+  .heroImage { position:absolute; inset:0; height:100%; animation:none; transform:none; }
   .heroImage img { object-fit:cover; object-position:62% center; }
   .heroImage::before { background:linear-gradient(90deg,#eaf4d8d0 0%,#f5f5e880 26%,#f3f1ea36 43%,transparent 58%),linear-gradient(180deg,transparent 70%,#0e2f1d24 100%); }
   .heroImage::after { background:linear-gradient(90deg,#eaf4d80d 0%,transparent 42%,#0f2f1d12 100%); }

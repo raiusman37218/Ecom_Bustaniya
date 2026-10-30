@@ -41,66 +41,37 @@
   position: sticky;
   top: 0;
   z-index: 300;
-  background: rgba(255, 254, 251, .92);
+  background: rgba(255, 254, 251, .98);
   backdrop-filter: saturate(1.4) blur(12px);
   -webkit-backdrop-filter: saturate(1.4) blur(12px);
   border-bottom: 1px solid var(--bs-hair-soft);
-  transition: box-shadow .3s var(--bs-ease), background .3s var(--bs-ease);
+  transition: box-shadow .2s ease;
   transform: none !important;
   will-change: auto !important;
   overflow-anchor: none;
 }
-/* Prevent any unwanted animation, slide-down, or resizing when opening pages */
-.siteHeaderLucknawi:not(.hasScrolled),
-.siteHeaderLucknawi:not(.hasScrolled) *,
-.siteHeaderLucknawi.atTop,
-.siteHeaderLucknawi.atTop * {
-  transition: none !important;
-  animation: none !important;
-}
-.siteHeaderLucknawi .headerMiddleRow,
-.siteHeaderLucknawi .headerNavRow {
-  transform: none !important;
-  will-change: auto !important;
-}
 .siteHeaderLucknawi.isStuck {
-  box-shadow: 0 10px 30px -22px rgba(23, 61, 41, .5);
-}
-.siteHeaderLucknawi .lucknawiAnnouncementBar {
-  max-height: 48px;
-  overflow: hidden;
-  transition: max-height .3s var(--bs-ease), opacity .25s var(--bs-ease);
-}
-.siteHeaderLucknawi.isStuck .lucknawiAnnouncementBar {
-  max-height: 0;
-  min-height: 0;
-  opacity: 0;
-  pointer-events: none;
-  padding-top: 0;
-  padding-bottom: 0;
+  box-shadow: 0 4px 20px -2px rgba(23, 61, 41, .09);
+  background: rgba(255, 254, 251, .98);
 }
 .siteHeaderLucknawi .headerMiddleRow {
-  transition: padding .35s var(--bs-ease);
-}
-.siteHeaderLucknawi.isStuck .headerMiddleRow {
-  padding-top: 9px;
-  padding-bottom: 9px;
+  padding: 14px 32px;
+  transform: none !important;
+  transition: none !important;
 }
 .siteHeaderLucknawi .headerBrandLogo {
-  transition: height .35s var(--bs-ease);
+  display: flex;
+  align-items: center;
+  transition: none !important;
 }
-.siteHeaderLucknawi.isStuck .headerBrandLogo {
-  height: 40px;
-}
-.siteHeaderLucknawi.isStuck .headerBrandLogo img {
-  max-height: 40px;
+.siteHeaderLucknawi .headerBrandLogo img {
+  height: auto;
+  max-height: 48px;
+  transition: none !important;
 }
 .siteHeaderLucknawi .headerNavRow {
-  transition: padding .35s var(--bs-ease);
-}
-.siteHeaderLucknawi.isStuck .headerNavRow {
-  padding-top: 4px;
-  padding-bottom: 9px;
+  transform: none !important;
+  transition: none !important;
 }
 
 /* Nav links: refined underline that grows from the centre */
@@ -290,7 +261,11 @@
 .khaadiTopPicks .productCard--connected .productImage img {
   object-fit: var(--bs-card-fit) !important;
   object-position: var(--bs-card-focus) !important;
-  transition: transform .7s var(--bs-ease), opacity .5s var(--bs-ease);
+  transition: transform .45s cubic-bezier(0.16, 1, 0.3, 1), opacity .35s ease;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
 }
 
 /* Second image reveals on hover */
@@ -2264,8 +2239,6 @@ html, body {
     height: 38px;
   }
   .siteHeaderLucknawi .headerBrandLogo img { max-height: 38px; }
-  .siteHeaderLucknawi.isStuck .headerBrandLogo,
-  .siteHeaderLucknawi.isStuck .headerBrandLogo img { height: 32px; max-height: 32px; }
 }
 
 @media (max-width: 700px) {

@@ -29,43 +29,23 @@ export default function SiteHeader({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [localCartCount, setLocalCartCount] = useState(0);
   const [isStuck, setIsStuck] = useState(false);
-  const [hasScrolled, setHasScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
-  // Instantly reset sticky header state whenever route changes so the header never jumps/animates
+  // Smooth, jitter-free scroll handler that never shifts layout or changes header height
   useEffect(() => {
     setIsStuck(false);
-    setHasScrolled(false);
 
     let rafId = null;
-    let lastStuck = false;
-    let scrolled = false;
-
     const handleScroll = () => {
       if (rafId !== null) return;
       rafId = window.requestAnimationFrame(() => {
         const y = window.scrollY || window.pageYOffset || 0;
-        if (!scrolled && y > 10) {
-          scrolled = true;
-          setHasScrolled(true);
-        }
-        // Hysteresis dead-zone:
-        // Activate sticky compact state only after scrolling past 110px.
-        // Revert to full expanded state only when scrolling back up near the top (< 25px).
-        // This 85px buffer prevents any threshold flickering or layout shift vibration.
-        if (!lastStuck && y > 110) {
-          lastStuck = true;
-          setIsStuck(true);
-        } else if (lastStuck && y < 25) {
-          lastStuck = false;
-          setIsStuck(false);
-        }
+        setIsStuck(y > 38);
         rafId = null;
       });
     };
 
-    // Do NOT call handleScroll() synchronously on initial mount to prevent stale scrollY flash
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
       window.removeEventListener("scroll", handleScroll);
@@ -121,11 +101,12 @@ export default function SiteHeader({
 
   return (
     <>
-      <header className={`siteHeaderLucknawi ${isStuck ? "isStuck" : ""} ${hasScrolled ? "hasScrolled" : "atTop"}`}>
-        {/* 1. Top Announcement Bar */}
-        <AnnouncementBar storeSettings={storeSettings} />
+      {/* 1. Top Announcement Bar - in natural document flow, scrolls off naturally with zero jitter */}
+      <AnnouncementBar storeSettings={storeSettings} />
 
-        {/* 2. Middle Brand Row: Mobile Menu | Logo | Action Icons */}
+      {/* 2. Main Navigation Header - sticky to top: 0 with fixed, rock-solid height */}
+      <header className={`siteHeaderLucknawi ${isStuck ? "isStuck" : ""}`}>
+        {/* Middle Brand Row: Mobile Menu | Logo | Action Icons */}
         <div className="headerMiddleRow">
           <div className="headerLeftActions">
             <button
