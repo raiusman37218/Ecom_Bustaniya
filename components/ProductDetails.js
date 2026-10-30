@@ -403,6 +403,25 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     return () => clearTimeout(timer);
   }, [photoKey]);
 
+  const [showMobileBuyBar, setShowMobileBuyBar] = useState(false);
+
+  useEffect(() => {
+    let rafId = null;
+    const handleScroll = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        const y = window.scrollY || window.pageYOffset || 0;
+        setShowMobileBuyBar(y > 420);
+        rafId = null;
+      });
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
+  }, []);
+
   function addToBag({ openDrawer = true } = {}) {
     if (outOfStock || isVariantOutOfStock) return;
     trackEvent("AddToCart", {
@@ -442,7 +461,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         categories={categories}
       />
 
-      <main className="productPage">
+      <main className="bs-st productPage">
         <div className="productDetailLayout">
         <section className="productGallery mariabGallery">
           <nav className="productBreadcrumb" aria-label="Breadcrumb">
@@ -1041,6 +1060,45 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         </div>
       </section>}
     </main>
+
+    {/* Mobile Sticky Buy Bar */}
+    {showMobileBuyBar && (
+      <aside className="mobileStickyBuyBar bs-st-mobonly" aria-label="Quick mobile buy">
+        <div className="mobileStickyBuyBar__inner">
+          <div className="mobileStickyBuyBar__meta">
+            <div className="mobileStickyBuyBar__thumb">
+              <Image
+                src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
+                alt={product.name}
+                fill
+                sizes="48px"
+                style={{ objectFit: "cover" }}
+              />
+            </div>
+            <div className="mobileStickyBuyBar__info">
+              <span className="mobileStickyBuyBar__title">{product.name}</span>
+              <span className="mobileStickyBuyBar__price">Rs. {Number(product.price || 0).toLocaleString()}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="mobileStickyBuyBar__btn"
+            disabled={outOfStock || isVariantOutOfStock}
+            onClick={() => {
+              if (sizes.length > 0 && !size) {
+                const sizeEl = document.querySelector(".productSizePicker") || document.querySelector(".productActions");
+                if (sizeEl) sizeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                return;
+              }
+              addToBag({ openDrawer: true });
+            }}
+          >
+            {outOfStock || isVariantOutOfStock ? "Out of Stock" : added ? "Added!" : "Add to Bag"}
+          </button>
+        </div>
+      </aside>
+    )}
+
     {cartOpen && <div className="overlay" onClick={() => setCartOpen(false)} />}
     <aside className={cartOpen ? "cartDrawer cartOpen" : "cartDrawer"}>
       <div className="cartHeader"><h2>Your bag <span>({cartCount})</span></h2><button type="button" aria-label="Close bag" onClick={() => setCartOpen(false)}><X /></button></div>

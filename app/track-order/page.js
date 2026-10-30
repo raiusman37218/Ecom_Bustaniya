@@ -21,7 +21,7 @@ export default async function TrackOrderPage() {
   return (
     <div className="siteLayout">
       <SiteHeader storeSettings={storeSettings} categories={categories} />
-      <main className="infoPage trackOrderPage">
+      <main className="bs-st infoPage trackOrderPage">
         <section className="infoHero">
           <p className="eyebrow">ORDER TRACKING</p>
           <h1>Track Your Bustaniya Order</h1>

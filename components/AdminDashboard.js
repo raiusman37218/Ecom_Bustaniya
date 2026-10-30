@@ -11,7 +11,6 @@ import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, p
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, SECTION_TEMPLATES } from "../data/storeSettings";
 import FinanceWorkspace from "./FinanceWorkspace";
 import EventsWorkspace from "./EventsWorkspace";
-import CustomOrdersWorkspace from "./CustomOrdersWorkspace";
 import DashboardWorkspace from "./DashboardWorkspace";
 import PluginsWorkspace from "./PluginsWorkspace";
 import ArticlePriceCalculator from "./ArticlePriceCalculator";
@@ -856,7 +855,6 @@ const navItems = [
   { name: "Dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
   { name: "Events", icon: Activity, section: "OVERVIEW" },
   { name: "Orders", icon: ShoppingBag, section: "COMMERCE" },
-  { name: "Custom Orders", icon: Scissors, section: "COMMERCE" },
   { name: "Products", icon: Package, section: "COMMERCE" },
   { name: "Price Calculator", icon: Calculator, section: "COMMERCE" },
   { name: "Categories", icon: Tags, section: "COMMERCE" },
@@ -873,7 +871,6 @@ const navPermissionMap = {
   Dashboard: "dashboard",
   Events: "dashboard",
   Orders: "orders",
-  "Custom Orders": "orders",
   Products: "products",
   "Price Calculator": "products",
   Categories: "products",
@@ -1981,7 +1978,6 @@ export default function AdminDashboard() {
             />
           )}
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} onNavigateToEvents={() => navigateAdminSection("Events")} />}
-          {canAccessActive && active === "Custom Orders" && <CustomOrdersWorkspace />}
           {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}

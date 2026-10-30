@@ -16,7 +16,7 @@ export default async function AboutPage() {
   return (
     <div className="siteLayout">
       <SiteHeader storeSettings={storeSettings} activeNav="about" />
-      <main className="infoPage">
+      <main className="bs-st infoPage">
         <section className="infoHero">
           <p className="eyebrow">ABOUT BUSTANIYA</p>
           <h1>Pakistani women's clothing with everyday grace</h1>

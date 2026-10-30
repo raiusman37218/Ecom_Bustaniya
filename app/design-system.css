@@ -239,6 +239,70 @@
   --bs-control-sm: 36px;
   --bs-control-md: 44px;   /* default — also the min touch target */
   --bs-control-lg: 52px;
+
+  /* ---------------------------------------------------------
+     11. STOREFRONT 2026 — IMPORTED DESIGN
+     Ported from the Claude Design project "Storefront.dc.html"
+     (Modernist base, Bustaniya palette override). The import is
+     editorial-brutalist: a pale-green paper, 2px rules instead
+     of shadows, square corners, and Cormorant set very large.
+
+     These are ADDITIVE names (--bs-st-*). Nothing above is
+     redefined, so admin — which reads none of this layer and
+     keeps its own 533 selectors in globals.css — is untouched.
+     --------------------------------------------------------- */
+
+  /* Paper and ink. The import trades the warm cream for a pale
+     green that is the same hue family as the brand green, which
+     is what makes its large flat fills read as one surface. */
+  --bs-st-paper: #f5f9ea;
+  --bs-st-surface: #e8f1cf;
+  --bs-st-ink: #16301d;
+  --bs-st-accent: #c8175a;        /* berry — CTAs, price, wordmark */
+  --bs-st-accent-2: #1e6b2e;      /* green — secondary emphasis */
+  --bs-st-divider: color-mix(in srgb, var(--bs-st-ink) 32%, transparent);
+
+  /* Green-tinted neutral ramp. Replaces the sand ramp inside the
+     imported surfaces so image placeholders and disabled states
+     sit on the same hue as the paper. */
+  --bs-st-neutral-100: #f8fbef;
+  --bs-st-neutral-200: #eaf2d6;
+  --bs-st-neutral-300: #d8e6bd;
+  --bs-st-neutral-400: #b9cb9c;
+  --bs-st-neutral-500: #95a97b;
+  --bs-st-neutral-600: #74885e;
+  --bs-st-neutral-700: #556946;
+  --bs-st-neutral-800: #3a4b31;
+  --bs-st-neutral-900: #22311e;
+
+  --bs-st-accent-100: #fdeef3;
+  --bs-st-accent-200: #f9d3e0;
+  --bs-st-accent-300: #f2a9c3;
+  --bs-st-accent-400: #e6719b;
+  --bs-st-accent-500: #d63a73;
+  --bs-st-accent-600: #b0124b;
+  --bs-st-accent-700: #a10f44;
+  --bs-st-accent-800: #7a0c34;
+
+  /* Layout. The import is noticeably wider than the current
+     1280 shell and uses one fluid gutter everywhere. */
+  --bs-st-container: 1400px;
+  --bs-st-gutter: clamp(16px, 4vw, 56px);
+
+  /* Chrome heights, read straight off the import's header logic:
+     76px at rest, 60px once scrolled past the announcement. */
+  --bs-st-ann-h: 36px;
+  --bs-st-header-h: 76px;
+  --bs-st-header-h-stuck: 60px;
+
+  /* The import draws structure with rules, not elevation. */
+  --bs-st-rule: 2px solid var(--bs-st-divider);
+  --bs-st-hairline: 1px solid var(--bs-st-divider);
+
+  /* Micro-label treatment used on every nav item, eyebrow and
+     button in the import. */
+  --bs-st-label-size: 12px;
+  --bs-st-label-tracking: 0.14em;
 }
 
 /* Breakpoints cannot be custom properties in a media query, so they

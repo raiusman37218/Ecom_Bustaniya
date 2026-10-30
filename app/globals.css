@@ -17519,14 +17519,18 @@ html {
   opacity: 1 !important;
 }
 
+/* This block exists to guarantee the price is never hidden by a
+   stray rule. The visibility guards stay !important; colour, size
+   and weight no longer do, so a theme layer can restyle the price
+   instead of having to out-shout it. */
 .categoryPage .productPrice .priceCurrent {
   display: inline-block !important;
-  color: var(--forest, #173d29) !important;
-  font-size: 14.5px !important;
-  font-weight: 700 !important;
-  line-height: 1.2 !important;
   visibility: visible !important;
   opacity: 1 !important;
+  color: var(--forest, #173d29);
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .categoryPage .productPrice .priceCompare {
@@ -17581,7 +17585,7 @@ html {
     right: 8px;
   }
   .categoryPage .productPrice .priceCurrent {
-    font-size: 13.5px !important;
+    font-size: 13.5px;
   }
 }
 

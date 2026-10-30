@@ -57,7 +57,7 @@ export default async function SubcategoryPage({ params }) {
       ])} />
       <SiteHeader storeSettings={storeSettings} categories={categories} activeNav={slug} />
 
-      <main className="categoryPage">
+      <main className="bs-st categoryPage">
         <section className="collectionHeader">
         <nav className="collectionBreadcrumb" aria-label="Breadcrumb">
           <Link href="/">Home</Link>

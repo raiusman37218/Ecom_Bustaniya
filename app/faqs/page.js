@@ -29,7 +29,7 @@ export default async function FaqsPage() {
   return (
     <div className="siteLayout">
       <SiteHeader storeSettings={storeSettings} categories={categories} />
-      <main className="infoPage faqsPage">
+      <main className="bs-st infoPage faqsPage">
         <section className="infoHero">
           <p className="eyebrow">HELP &amp; SUPPORT</p>
           <h1>Frequently Asked Questions</h1>

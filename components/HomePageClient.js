@@ -31,6 +31,40 @@ const fallbackCategoryRecords = categories
   });
 
 /**
+ * The band colours that shipped as defaults before the 2026 storefront import.
+ * A saved value equal to one of these was never a choice the owner made — it
+ * is the old default written through by the settings form — so it is treated
+ * as "unset" and the new default wins. A colour they actually picked differs
+ * from these and is left alone.
+ */
+const LEGACY_SECTION_COLORS = {
+  products: "#fffefb",
+  categories: "#ffffff",
+  story: "#fffefb",
+  newsletter: "#f7f2e8",
+  instagram: "#ffffff",
+};
+const LEGACY_SECTION_TEXT_COLORS = {
+  products: "#173d29",
+  categories: "#173d29",
+  story: "#173d29",
+  newsletter: "#173d29",
+  instagram: "#173d29",
+};
+
+function mergeSectionPalette(defaults = {}, saved = {}, legacy = {}) {
+  const merged = { ...defaults };
+  for (const [key, value] of Object.entries(saved || {})) {
+    if (!value) continue;
+    const isLegacyDefault =
+      legacy[key] && String(value).trim().toLowerCase() === legacy[key].toLowerCase();
+    if (isLegacyDefault) continue;
+    merged[key] = value;
+  }
+  return merged;
+}
+
+/**
  * Builds a width-descriptor srcSet from a hero preset, keeping the preset's
  * aspect ratio at every width.
  */
@@ -85,8 +119,16 @@ export default function Home({
 }) {
   const safeSettings = storeSettings || DEFAULT_STORE_SETTINGS;
   const supportWhatsapp = String(safeSettings.paymentSettings?.whatsappNumber || "").replace(/[^0-9]/g, "");
-  const sectionColors = { ...DEFAULT_STORE_SETTINGS.sectionColors, ...(safeSettings.sectionColors || {}) };
-  const sectionTextColors = { ...DEFAULT_STORE_SETTINGS.sectionTextColors, ...(safeSettings.sectionTextColors || {}) };
+  const sectionColors = mergeSectionPalette(
+    DEFAULT_STORE_SETTINGS.sectionColors,
+    safeSettings.sectionColors,
+    LEGACY_SECTION_COLORS
+  );
+  const sectionTextColors = mergeSectionPalette(
+    DEFAULT_STORE_SETTINGS.sectionTextColors,
+    safeSettings.sectionTextColors,
+    LEGACY_SECTION_TEXT_COLORS
+  );
   const [activeCategory, setActiveCategory] = useState("All");
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -294,17 +336,6 @@ export default function Home({
     const configured = (safeSettings.homepageSections && safeSettings.homepageSections.length) ? safeSettings.homepageSections : DEFAULT_HOMEPAGE_SECTIONS;
     let list = [...configured];
 
-    // Defensive client-side fallback for custom_order and instagram_feed if missing from legacy data
-    const hasCustomOrder = list.some((section) => section?.type === "custom_order");
-    const customOrderDefaults = DEFAULT_HOMEPAGE_SECTIONS.find((section) => section.type === "custom_order");
-    if (!hasCustomOrder && customOrderDefaults) {
-      const insertIdx = list.findIndex((s) => s?.type === "newsletter" || s?.type === "instagram_feed");
-      if (insertIdx > -1) {
-        list.splice(insertIdx, 0, customOrderDefaults);
-      } else {
-        list.push(customOrderDefaults);
-      }
-    }
 
     const hasInstagramFeed = list.some((section) => section?.type === "instagram_feed");
     const instagramDefaults = DEFAULT_HOMEPAGE_SECTIONS.find((section) => section.type === "instagram_feed");
@@ -326,8 +357,25 @@ export default function Home({
           }
           : section
       ))
-      .filter((section) => section && section.enabled !== false);
+      .filter((section) => section && section.enabled !== false)
+      // A saved homepage order may still carry the removed custom-dress
+      // section. Nothing renders it any more, so drop it rather than leave a
+      // silent hole in the page order.
+      .filter((section) => section.type !== "custom_order");
   }, [safeSettings.homepageSections]);
+
+  // categoryRecords is deliberately top-level only, because the homepage
+  // category cards should not list subcategories. The header and footer
+  // need the unfiltered set: the mega menu is built from the children each
+  // top-level category owns, and filtering them out upstream silently
+  // emptied it.
+  const allCategories = Array.isArray(initialCategories) ? initialCategories : [];
+
+  // Both switches have to be on: the hero section has to be ordered into the
+  // page in admin, and the hero itself has to be enabled in store settings.
+  const heroLiftsUnderHeader =
+    storeSettings.heroEnabled !== false &&
+    homepageSectionsToRender.some((section) => section?.type === "hero");
 
   return (
     <>
@@ -335,11 +383,15 @@ export default function Home({
         storeSettings={storeSettings}
         cartCount={cartCount}
         onOpenCart={() => setCartOpen(true)}
-        categories={categoryRecords}
+        categories={allCategories}
         activeNav="home"
+        transparentOverHero
       />
 
-      <main>
+      {/* The column only slides under the header when there is a hero to
+          sit behind it; with the hero switched off in admin the first
+          section would otherwise disappear beneath the chrome. */}
+      <main className={`bs-st${heroLiftsUnderHeader ? " bs-st--under-header" : ""}`}>
         {/* The hero only renders an <h1> when the owner has given it heading
             text. With the image-only hero that is currently configured the
             homepage had no <h1> at all, which costs it both a landmark for
@@ -603,110 +655,6 @@ export default function Home({
                 <h2>{section.heading || defaults.heading}</h2>
                 <p>{section.subtitle || defaults.subtitle}</p>
                 <form onSubmit={(e) => e.preventDefault()}><input type="email" required aria-label="Email address for the newsletter" placeholder="Your email address" /><button aria-label="Subscribe"><ArrowRight /></button></form>
-              </section>
-            );
-          }
-
-          if (section.type === "custom_order") {
-            const bg = sectionColors.customOrder || "#10291c";
-            const textColor = sectionTextColors.customOrder || "#fcf9f2";
-            return (
-              <section
-                key={section.id}
-                className="homeCustomSection scrollReveal"
-                data-scroll-reveal
-                style={{ "--section-bg": bg, "--section-text": textColor }}
-              >
-                <div className="homeCustomContainer">
-                  <div className="homeCustomCopy">
-                    <span className="homeCustomEyebrow">
-                      <Scissors size={14} /> {section.eyebrow || defaults.eyebrow || "BESPOKE ATELIER & STITCHING"}
-                    </span>
-                    <h2 className="homeCustomHeading">
-                      {section.heading || defaults.heading || "Design Your Dream Dress"}
-                    </h2>
-                    <p className="homeCustomSubtitle">
-                      {section.subtitle || defaults.subtitle || "Have a design in mind from Pinterest or Instagram? Share your reference photo and exact custom measurements. Our master tailors will stitch it to perfection and we'll quote price directly on WhatsApp."}
-                    </p>
-
-                    <div className="homeCustomPillGrid">
-                      <div className="homeCustomPill">
-                        <Camera size={16} />
-                        <div>
-                          <strong>Upload Reference Photos</strong>
-                          <span>Any style, neckline or sleeves inspiration</span>
-                        </div>
-                      </div>
-                      <div className="homeCustomPill">
-                        <Ruler size={16} />
-                        <div>
-                          <strong>Exact Body Measurements</strong>
-                          <span>Kameez, Trouser or Standard Sizes</span>
-                        </div>
-                      </div>
-                      <div className="homeCustomPill">
-                        <MessageSquare size={16} />
-                        <div>
-                          <strong>WhatsApp Quote & Confirmation</strong>
-                          <span>Direct chat with our styling experts</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="homeCustomActions">
-                      <Link href="/custom-order" className="homeCustomPrimaryBtn">
-                        <Scissors size={18} />
-                        <span>Start Custom Dress Order</span>
-                        <ArrowRight size={16} />
-                      </Link>
-                      <a
-                        href={`https://wa.me/${(safeSettings.whatsappNumber || "923000000000").replace(/[^0-9]/g, "")}?text=${encodeURIComponent("Salam Bustaniya! I want to inquire about custom dress tailoring.")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="homeCustomSecondaryBtn"
-                      >
-                        <MessageSquare size={16} />
-                        <span>Ask on WhatsApp</span>
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="homeCustomVisual">
-                    <div className="homeCustomVisualCard">
-                      <div className="homeCustomVisualHeader">
-                        <span className="homeCustomVisualBadge">Handcrafted Elegance</span>
-                        <span className="homeCustomVisualStep">How It Works</span>
-                      </div>
-                      <ul className="homeCustomStepList">
-                        <li>
-                          <span className="homeCustomStepNum">01</span>
-                          <div>
-                            <strong>Choose Outfit & Upload Photo</strong>
-                            <p>Select 2-piece, 3-piece, maxi or kurti with reference images.</p>
-                          </div>
-                        </li>
-                        <li>
-                          <span className="homeCustomStepNum">02</span>
-                          <div>
-                            <strong>Provide Your Sizes</strong>
-                            <p>Enter exact measurements (in inches or cm) or choose standard sizes.</p>
-                          </div>
-                        </li>
-                        <li>
-                          <span className="homeCustomStepNum">03</span>
-                          <div>
-                            <strong>Get Price & Place Order</strong>
-                            <p>We review your request, quote price, and confirm order on WhatsApp.</p>
-                          </div>
-                        </li>
-                      </ul>
-                      <div className="homeCustomVisualFooter">
-                        <Sparkles size={16} className="textGold" />
-                        <span>Premium stitching • Authentic Pakistani fabrics • Nationwide COD</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </section>
             );
           }
@@ -1132,7 +1080,15 @@ export default function Home({
         })}
       </main>
 
-      <SiteFooter categories={categoryRecords} storeSettings={safeSettings} />
+      {/* The homepage already renders whatever newsletter section the owner has
+          ordered in admin, so the footer must not add a second one. */}
+      <SiteFooter
+        categories={allCategories}
+        storeSettings={safeSettings}
+        showNewsletter={!homepageSectionsToRender.some(
+          (section) => section?.type === "newsletter" && section?.enabled !== false
+        )}
+      />
 
       {quickViewProduct && (
         <>

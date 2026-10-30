@@ -77,7 +77,7 @@ export default function CartPage() {
     <>
       <SiteHeader storeSettings={storeSettings} cartCount={cartCount} />
 
-      <main className="cartPageLayout">
+      <main className="bs-st cartPageLayout">
         <div className="cartPageContainer">
         <div className="cartPageHeader">
           <div>

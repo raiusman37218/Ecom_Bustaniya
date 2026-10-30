@@ -16,7 +16,7 @@ export default async function ContactPage() {
   return (
     <div className="siteLayout">
       <SiteHeader storeSettings={storeSettings} activeNav="contact" />
-      <main className="infoPage">
+      <main className="bs-st infoPage">
         <section className="infoHero">
           <p className="eyebrow">CONTACT</p>
           <h1>Need help with an order or outfit?</h1>

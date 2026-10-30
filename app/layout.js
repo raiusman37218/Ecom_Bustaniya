@@ -1,12 +1,15 @@
 // Order matters. design-system.css defines the token vocabulary and must come
 // first so every later sheet can draw from it; components.css comes last so a
 // migrated page's `bs-` primitive wins over the legacy rules it replaces
-// without needing !important.
+// without needing !important. storefront-2026.css is the imported design and
+// comes after components.css for the same reason — it is the newest layer, and
+// every selector in it is `bs-st-` scoped so it cannot reach the admin CRM.
 import "./design-system.css";
 import "./globals.css";
 import "./campaign-hero.css";
 import "./premium.css";
 import "./components.css";
+import "./storefront-2026.css";
 import Script from "next/script";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 

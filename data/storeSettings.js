@@ -7,13 +7,6 @@ export const DEFAULT_ANNOUNCEMENTS = [
     enabled: true,
   },
   {
-    id: "default-custom-dress",
-    text: "✨ Custom Made-to-Measure Dress & Tailoring Available",
-    linkLabel: "Design yours now",
-    linkHref: "/custom-order",
-    enabled: true,
-  },
-  {
     id: "default-quality",
     text: "Thoughtfully made, premium-quality eastern wear",
     linkLabel: "",
@@ -110,15 +103,6 @@ export const DEFAULT_HOMEPAGE_SECTIONS = [
     heading: "A little beauty, delivered.",
     eyebrow: "STAY IN THE LOOP",
     subtitle: "New collections, styling inspiration and 10% off your first order.",
-  },
-  {
-    id: "custom-order",
-    type: "custom_order",
-    enabled: true,
-    label: "Custom Dress & Tailoring",
-    heading: "Design Your Dream Dress",
-    eyebrow: "BESPOKE ATELIER & STITCHING",
-    subtitle: "Upload reference photos, enter custom measurements, and get an instant quote on WhatsApp.",
   },
   {
     id: "instagram-feed",
@@ -316,19 +300,6 @@ export const SECTION_TEMPLATES = [
     },
   },
   {
-    type: "custom_order",
-    label: "Custom Tailoring Studio",
-    categoryGroup: "Specialty",
-    badge: "Bespoke Atelier",
-    description: "Interactive bespoke tailoring card allowing shoppers to order custom dresses via WhatsApp.",
-    defaultProps: {
-      label: "Custom Dress & Tailoring",
-      heading: "Design Your Dream Dress",
-      eyebrow: "BESPOKE ATELIER & STITCHING",
-      subtitle: "Upload reference photos, enter custom measurements, and get an instant quote on WhatsApp.",
-    },
-  },
-  {
     type: "newsletter",
     label: "Newsletter & VIP Club",
     categoryGroup: "Engagement",
@@ -357,23 +328,25 @@ export const SECTION_TEMPLATES = [
 ];
 
 export const DEFAULT_STORE_SETTINGS = {
+  // Defaults moved onto the imported Storefront palette: one pale-green
+  // paper for every light band, ink for the two inverted ones. These are
+  // only defaults — a colour the owner has saved in admin still wins, so
+  // any band they have already tuned keeps the value they chose.
   sectionColors: {
     heroOverlay: "#fcf8ef",
-    products: "#fffefb",
-    categories: "#ffffff",
-    story: "#fffefb",
-    newsletter: "#f7f2e8",
-    customOrder: "#10291c",
-    instagram: "#ffffff",
+    products: "#f5f9ea",
+    categories: "#f5f9ea",
+    story: "#f5f9ea",
+    newsletter: "#16301d",
+    instagram: "#f5f9ea",
   },
   sectionTextColors: {
     heroOverlay: "#173d29",
-    products: "#173d29",
-    categories: "#173d29",
-    story: "#173d29",
-    newsletter: "#173d29",
-    customOrder: "#fcf9f2",
-    instagram: "#173d29",
+    products: "#16301d",
+    categories: "#16301d",
+    story: "#16301d",
+    newsletter: "#f5f9ea",
+    instagram: "#16301d",
   },
   heroEnabled: true,
   heroDesktopImage: "/bustaniya-campaign-hero-v5.png",

@@ -550,7 +550,7 @@ export default function CheckoutPage() {
 
   if (!isCartLoaded) {
     return (
-      <main className="shopifyCheckoutPage">
+      <main className="bs-st shopifyCheckoutPage">
         <header className="shopifyCheckoutHeader">
           <Link href="/" className="shopifyCheckoutLogoLink">
             <img src="/bustaniya-logo-v2.png" alt="Bustaniya" className="shopifyCheckoutLogo" />
@@ -571,7 +571,7 @@ export default function CheckoutPage() {
 
   if (!cart.length) {
     return (
-      <main className="shopifyCheckoutPage">
+      <main className="bs-st shopifyCheckoutPage">
         <header className="shopifyCheckoutHeader">
           <Link href="/" className="shopifyCheckoutLogoLink">
             <img src="/bustaniya-logo-v2.png" alt="Bustaniya" className="shopifyCheckoutLogo" />
@@ -605,7 +605,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="shopifyCheckoutPage">
+    <main className="bs-st shopifyCheckoutPage">
       {/* 1. Header with Bustaniya Logo */}
       <header className="shopifyCheckoutHeader">
         <Link href="/" className="shopifyCheckoutLogoLink" aria-label="Bustaniya Home">
@@ -1134,7 +1134,7 @@ function OrderConfirmation({ order, items }) {
   const customerName = order.customer?.firstName || order.customer?.fullName || "Valued Customer";
 
   return (
-    <main className="orderConfirmationPage">
+    <main className="bs-st orderConfirmationPage">
       {/* Header */}
       <header className="orderConfirmationHeader">
         <Link href="/" className="shopifyCheckoutLogoLink" aria-label="Bustaniya Home">

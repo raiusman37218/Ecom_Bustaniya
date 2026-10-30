@@ -103,15 +103,13 @@ export default function CategoryProductsGrid({
                   </h3>
                 </div>
 
-                {/* Guaranteed Visible, High-Contrast Price */}
-                <div className="productPrice" style={{ display: "flex", alignItems: "center", gap: "8px", visibility: "visible", opacity: 1 }}>
-                  <span className="priceCurrent" style={{ color: "#173d29", fontSize: "14.5px", fontWeight: 700, visibility: "visible" }}>
-                    Rs. {price.toLocaleString()}
-                  </span>
+                {/* Colours and sizing live in CSS. They used to be inline here
+                    to force the price visible, but an inline style outranks
+                    every stylesheet, so the card could not be re-themed. */}
+                <div className="productPrice">
+                  <span className="priceCurrent">Rs. {price.toLocaleString()}</span>
                   {onSale && (
-                    <del className="priceCompare" style={{ color: "#8b8983", fontSize: "11.5px", fontWeight: 500 }}>
-                      Rs. {compareAtPrice.toLocaleString()}
-                    </del>
+                    <del className="priceCompare">Rs. {compareAtPrice.toLocaleString()}</del>
                   )}
                 </div>
               </div>

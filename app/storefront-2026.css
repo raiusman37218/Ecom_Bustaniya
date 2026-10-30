@@ -1,0 +1,3324 @@
+/* =============================================================
+   BUSTANIYA — STOREFRONT 2026 (imported design)
+   =============================================================
+
+   Port of the Claude Design project "Storefront.dc.html". That
+   file styles everything with ~768 inline style attributes; this
+   sheet is the same design expressed once, as classes, so the
+   React components stay readable and a value is changed in one
+   place rather than 768.
+
+   Loaded LAST — after components.css — so a migrated surface
+   wins over the legacy rules in globals.css without !important.
+
+   SCOPING: every selector here is prefixed `bs-st-`. Admin uses
+   none of them and reads none of the --bs-st-* tokens, so this
+   sheet cannot reach the admin CRM. Nothing here styles bare
+   element selectors (`body`, `a`, `h2`) for the same reason —
+   globals.css line 5 paints the body for admin too.
+
+   Everything draws from design-system.css §11. No raw hex.
+   ============================================================= */
+
+/* -------------------------------------------------------------
+   SHELL
+   The page background is applied per-surface as pages migrate,
+   not on body, so an unmigrated page keeps the cream it has.
+   ------------------------------------------------------------- */
+.bs-st {
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+  --bs-st-measure: 42ch;
+}
+.bs-st *,
+.bs-st *::before,
+.bs-st *::after { box-sizing: border-box; }
+
+.bs-st-container {
+  width: 100%;
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding-inline: var(--bs-st-gutter);
+}
+
+/* The import sets every display string in Cormorant and lets it
+   run very large; the fluid clamps below are the sizes it uses. */
+.bs-st-display {
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.bs-st-display--xl { font-size: clamp(48px, 7.5vw, 120px); }
+.bs-st-display--lg { font-size: clamp(36px, 5vw, 72px); }
+.bs-st-display--md { font-size: clamp(28px, 3.4vw, 48px); }
+.bs-st-display--sm { font-size: clamp(22px, 2.2vw, 32px); }
+
+/* Uppercase micro-label. Used for nav, eyebrows and buttons. */
+.bs-st-label {
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: var(--bs-st-label-tracking);
+  text-transform: uppercase;
+}
+
+/* -------------------------------------------------------------
+   ANNOUNCEMENT BAR
+   Inverted strip above the header: ink background, paper text.
+   ------------------------------------------------------------- */
+.bs-st-ann {
+  background: var(--bs-st-ink);
+  color: var(--bs-st-paper);
+}
+.bs-st-ann__inner {
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding-inline: var(--bs-st-gutter);
+  height: var(--bs-st-ann-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.18em;
+}
+.bs-st-ann__text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity var(--bs-duration-base) ease;
+}
+.bs-st-ann__text[data-fading="true"] { opacity: 0; }
+.bs-st-ann__links {
+  display: none;
+  gap: 24px;
+  flex: none;
+}
+.bs-st-ann__links a { color: inherit; text-decoration: none; }
+.bs-st-ann__links a:hover { text-decoration: underline; text-underline-offset: 3px; }
+@media (min-width: 1000px) { .bs-st-ann__links { display: flex; } }
+
+/* -------------------------------------------------------------
+   HEADER
+   Transparent over the home hero, solid once scrolled. The two
+   states are driven by [data-transparent] so the colour swap is
+   one attribute flip rather than a class per child.
+   ------------------------------------------------------------- */
+.bs-st-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--bs-z-header);
+  background: color-mix(in srgb, var(--bs-st-paper) 90%, transparent);
+  color: var(--bs-st-ink);
+  border-bottom: var(--bs-st-rule);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  transition:
+    background var(--bs-duration-slow) ease,
+    color var(--bs-duration-slow) ease,
+    border-color var(--bs-duration-slow) ease;
+}
+.bs-st-header[data-transparent="true"] {
+  background: transparent;
+  color: var(--bs-st-paper);
+  border-bottom-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.bs-st-header__bar {
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding-inline: var(--bs-st-gutter);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  height: var(--bs-st-header-h);
+  transition: height var(--bs-duration-slow) ease;
+}
+.bs-st-header[data-stuck="true"] .bs-st-header__bar { height: var(--bs-st-header-h-stuck); }
+
+.bs-st-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+}
+.bs-st-header__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+/* Nav link with the import's left-to-right underline wipe. */
+.bs-st-navlink {
+  color: inherit;
+  text-decoration: none;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: var(--bs-st-label-tracking);
+  padding: 6px 0;
+  white-space: nowrap;
+  background: linear-gradient(currentColor, currentColor) left bottom / 0% 2px no-repeat;
+  transition: background-size var(--bs-duration-base) ease;
+}
+.bs-st-navlink:hover,
+.bs-st-navlink[aria-expanded="true"],
+.bs-st-navlink[data-active="true"] { background-size: 100% 2px; }
+.bs-st-navlink--sale { color: var(--bs-st-accent-700); }
+.bs-st-header[data-transparent="true"] .bs-st-navlink--sale { color: var(--bs-st-paper); }
+
+.bs-st-header__brand {
+  display: block;
+  justify-self: center;
+  line-height: 0;
+}
+.bs-st-header__brand img {
+  height: clamp(30px, 3.2vw, 44px);
+  width: auto;
+  transition: filter var(--bs-duration-slow) ease;
+}
+/* The logo is dark ink on transparent; over the hero it has to
+   flip to solid white or it disappears into the photograph. */
+.bs-st-header[data-transparent="true"] .bs-st-header__brand img {
+  filter: brightness(0) invert(1);
+}
+
+.bs-st-iconbtn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+.bs-st-iconbtn:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+.bs-st-iconbtn--last { margin-right: -10px; }
+.bs-st-iconbtn__badge {
+  position: absolute;
+  top: 6px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  display: grid;
+  place-items: center;
+  background: var(--bs-st-accent);
+  color: var(--bs-st-paper);
+  font-size: 10px;
+  font-weight: var(--bs-weight-semibold);
+}
+.bs-st-iconbtn__badge--ink {
+  background: var(--bs-st-ink);
+  color: var(--bs-st-paper);
+}
+.bs-st-header[data-transparent="true"] .bs-st-iconbtn__badge--ink {
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+}
+
+/* Desktop-only pieces of the header. */
+.bs-st-deskonly { display: none; }
+@media (min-width: 1000px) {
+  .bs-st-deskonly { display: flex; }
+  .bs-st-mobonly { display: none !important; }
+}
+
+/* -------------------------------------------------------------
+   MEGA MENU
+   ------------------------------------------------------------- */
+@keyframes bs-st-mega-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+.bs-st-mega {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+  border-bottom: var(--bs-st-rule);
+  box-shadow: var(--bs-shadow-md);
+  animation: bs-st-mega-in var(--bs-duration-base) var(--bs-ease-out);
+}
+.bs-st-mega__inner {
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding: 40px var(--bs-st-gutter) 48px;
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 56px;
+}
+.bs-st-mega__title {
+  display: block;
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  color: var(--bs-st-accent-700);
+  margin-bottom: 20px;
+}
+.bs-st-mega__links {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 32px;
+}
+.bs-st-mega__link {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: var(--bs-st-hairline);
+  color: var(--bs-st-ink);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: var(--bs-weight-semibold);
+}
+.bs-st-mega__link:hover { color: var(--bs-st-accent-700); }
+.bs-st-mega__count {
+  font-size: 11px;
+  font-weight: var(--bs-weight-regular);
+  color: color-mix(in srgb, var(--bs-st-ink) 60%, transparent);
+}
+.bs-st-mega__feature {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 10;
+  background: var(--bs-st-neutral-300);
+  overflow: hidden;
+  color: var(--bs-st-paper);
+  text-decoration: none;
+}
+.bs-st-mega__feature img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bs-st-mega__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, color-mix(in srgb, var(--bs-st-ink) 70%, transparent), transparent 60%);
+}
+.bs-st-mega__caption {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 22px;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+}
+
+/* -------------------------------------------------------------
+   DRAWERS — mobile menu (left) and bag (right)
+   ------------------------------------------------------------- */
+.bs-st-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--bs-z-overlay);
+  background: color-mix(in srgb, var(--bs-st-neutral-900) 45%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--bs-duration-slow) ease;
+  border: 0;
+  padding: 0;
+}
+.bs-st-scrim[data-open="true"] { opacity: 1; pointer-events: auto; }
+
+.bs-st-drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: calc(var(--bs-z-overlay) + 1);
+  width: min(460px, 100%);
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+  display: flex;
+  flex-direction: column;
+  transition: transform 480ms var(--bs-ease-out);
+  box-shadow: var(--bs-shadow-lg);
+}
+.bs-st-drawer--right { right: 0; transform: translateX(100%); }
+.bs-st-drawer--left  { left: 0; width: min(420px, 100%); transform: translateX(-100%); overflow-y: auto; }
+.bs-st-drawer[data-open="true"] { transform: translateX(0); }
+
+.bs-st-drawer__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: var(--bs-st-rule);
+  flex: none;
+}
+.bs-st-drawer__title {
+  font-size: 20px;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+}
+.bs-st-drawer__body { flex: 1; overflow-y: auto; padding: 0 24px; }
+.bs-st-drawer__foot {
+  padding: 20px 24px 24px;
+  border-top: var(--bs-st-rule);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: none;
+}
+
+/* Free-shipping progress, straight from the import's bag drawer. */
+.bs-st-ship {
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-bottom: var(--bs-st-rule);
+  font-size: 13px;
+  flex: none;
+}
+.bs-st-ship__track { height: 4px; background: var(--bs-st-neutral-300); }
+.bs-st-ship__fill {
+  height: 100%;
+  background: var(--bs-st-ink);
+  transition: width 500ms ease;
+}
+
+.bs-st-line {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: var(--bs-st-hairline);
+}
+.bs-st-line__media {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  background: var(--bs-st-neutral-200);
+}
+.bs-st-line__media img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bs-st-line__main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.bs-st-line__top { display: flex; justify-content: space-between; gap: 10px; }
+.bs-st-line__name {
+  font-size: 14px;
+  font-weight: var(--bs-weight-semibold);
+  color: var(--bs-st-ink);
+  text-decoration: none;
+}
+.bs-st-line__meta {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--bs-st-ink) 70%, transparent);
+}
+.bs-st-line__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.bs-st-qty {
+  display: flex;
+  align-items: center;
+  border: var(--bs-st-hairline);
+}
+.bs-st-qty button {
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  color: var(--bs-st-ink);
+}
+.bs-st-qty button:disabled { opacity: 0.4; cursor: not-allowed; }
+.bs-st-qty span {
+  width: 22px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: var(--bs-weight-semibold);
+}
+
+.bs-st-textbtn {
+  background: none;
+  border: 0;
+  padding: 8px 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.12em;
+  color: var(--bs-st-ink);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.bs-st-textbtn:hover { color: var(--bs-st-accent-700); }
+
+.bs-st-totals { display: flex; justify-content: space-between; font-size: 14px; }
+.bs-st-totals--grand { font-size: 18px; font-weight: var(--bs-weight-heavy); }
+
+/* -------------------------------------------------------------
+   BUTTONS
+   Square, label-cased, with the arrow pushed to the far edge.
+   ------------------------------------------------------------- */
+.bs-st-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  text-decoration: none;
+  font: inherit;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition: background var(--bs-duration-base) ease, color var(--bs-duration-base) ease, gap var(--bs-duration-base) ease;
+}
+.bs-st-btn--wide { justify-content: space-between; width: 100%; }
+.bs-st-btn--tall { min-height: 56px; }
+.bs-st-btn--primary { background: var(--bs-st-accent); color: var(--bs-st-paper); }
+.bs-st-btn--primary:hover { background: var(--bs-st-accent-600); }
+.bs-st-btn--ink { background: var(--bs-st-ink); color: var(--bs-st-paper); }
+.bs-st-btn--ink:hover { background: var(--bs-st-accent-600); }
+.bs-st-btn--outline {
+  background: transparent;
+  color: var(--bs-st-ink);
+  border: var(--bs-st-rule);
+  min-height: 48px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+.bs-st-btn--outline:hover { background: color-mix(in srgb, var(--bs-st-ink) 7%, transparent); }
+.bs-st-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.bs-st-btn:hover { gap: 14px; }
+
+/* -------------------------------------------------------------
+   MOBILE MENU LINKS
+   ------------------------------------------------------------- */
+.bs-st-menulink {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 60px;
+  border-bottom: var(--bs-st-rule);
+  font-size: 26px;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  color: var(--bs-st-ink);
+  text-decoration: none;
+}
+.bs-st-menulink:hover { color: var(--bs-st-accent-700); }
+.bs-st-menu__list { display: flex; flex-direction: column; padding: 8px 20px; }
+.bs-st-menu__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px 20px 32px;
+  margin-top: auto;
+}
+
+/* -------------------------------------------------------------
+   NEWSLETTER BAND
+   Inverted full-bleed block that sits directly above the footer.
+   ------------------------------------------------------------- */
+.bs-st-nl {
+  background: var(--bs-st-ink);
+  color: var(--bs-st-paper);
+}
+.bs-st-nl__inner {
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding: clamp(64px, 8vw, 120px) var(--bs-st-gutter);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(32px, 5vw, 96px);
+  align-items: end;
+}
+@media (min-width: 768px) {
+  .bs-st-nl__inner { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.bs-st-nl__copy { display: flex; flex-direction: column; gap: 20px; }
+.bs-st-nl__copy p { margin: 0; font-size: 17px; line-height: 1.55; max-width: var(--bs-st-measure); }
+.bs-st-nl__form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-bottom: 2px solid var(--bs-st-paper);
+}
+.bs-st-nl__form input {
+  min-height: 56px;
+  background: transparent;
+  border: 0;
+  color: var(--bs-st-paper);
+  font: inherit;
+  font-size: 17px;
+  padding: 0;
+  outline-offset: 4px;
+}
+.bs-st-nl__form input::placeholder { color: color-mix(in srgb, var(--bs-st-paper) 65%, transparent); }
+.bs-st-nl__form button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: none;
+  border: 0;
+  color: var(--bs-st-paper);
+  font: inherit;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  padding: 0 0 0 16px;
+  transition: gap var(--bs-duration-base), color var(--bs-duration-base);
+}
+.bs-st-nl__form button:hover { gap: 18px; color: var(--bs-st-accent-400); }
+.bs-st-nl__fine { font-size: 12px; color: var(--bs-st-neutral-400); }
+.bs-st-nl__fine a { color: inherit; }
+.bs-st-nl__done {
+  margin: 0;
+  font-size: 18px;
+  font-weight: var(--bs-weight-semibold);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.bs-st-nl__err { font-size: 13px; color: var(--bs-st-accent-300); }
+
+/* -------------------------------------------------------------
+   FOOTER
+   Four columns, then the oversized wordmark, then the legal bar.
+   ------------------------------------------------------------- */
+.bs-st-footer { background: var(--bs-st-paper); color: var(--bs-st-ink); }
+.bs-st-footer__inner {
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding: clamp(56px, 7vw, 96px) var(--bs-st-gutter) 28px;
+}
+.bs-st-footer__cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 40px 32px;
+  padding-bottom: 48px;
+}
+@media (min-width: 900px) {
+  .bs-st-footer__cols { grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); }
+  .bs-st-footer__brand { grid-column: auto; }
+}
+.bs-st-footer__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  grid-column: 1 / -1;
+}
+.bs-st-footer__brand img { height: 44px; width: auto; }
+.bs-st-footer__brand p {
+  margin: 0;
+  font-size: 15px;
+  max-width: 28ch;
+  color: color-mix(in srgb, var(--bs-st-ink) 78%, transparent);
+}
+.bs-st-footer__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+}
+.bs-st-footer__nav > span {
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  margin-bottom: 6px;
+}
+.bs-st-footer__nav a,
+.bs-st-footer__nav button {
+  color: inherit;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.bs-st-footer__nav a:hover,
+.bs-st-footer__nav button:hover { color: var(--bs-st-accent-700); }
+
+/* The wordmark is decoration, not content — it is read out by the
+   logo and the copyright line, so it is hidden from a11y. */
+.bs-st-footer__mark {
+  font-size: clamp(72px, 15vw, 240px);
+  line-height: 0.85;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: -0.02em;
+  color: var(--bs-st-accent);
+  margin-left: -0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  padding-top: 24px;
+  border-top: var(--bs-st-rule);
+}
+.bs-st-footer__legal {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: var(--bs-st-rule);
+  font-size: 12px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.12em;
+}
+.bs-st-footer__social { display: flex; gap: 22px; flex-wrap: wrap; }
+.bs-st-footer__social a { color: inherit; text-decoration: none; }
+.bs-st-footer__social a:hover { color: var(--bs-st-accent-700); }
+
+/* -------------------------------------------------------------
+   A11Y
+   ------------------------------------------------------------- */
+.bs-st-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.bs-st :focus-visible {
+  outline: 2px solid var(--bs-st-accent);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------
+   HOME HERO
+   The import pulls the hero up under the header by the header's
+   own height, which is what lets the chrome sit transparent over
+   the photograph. The markup is the existing admin-driven
+   campaignHero — only its presentation is restated here, so hero
+   images, slides, per-device copy and the overlay slider all keep
+   working from admin exactly as before.
+   ------------------------------------------------------------- */
+/* The lift that puts the hero under the transparent header goes on
+   <main>, not on the hero. globals.css gives main `overflow:hidden`
+   to kill horizontal scroll, which clips anything a child pulls
+   above main's top edge — so the child's negative margin simply
+   disappeared. Moving it to main shifts the whole column up
+   instead, with nothing overflowing and nothing to clip. */
+.bs-st--under-header { margin-top: calc(-1 * (var(--bs-st-header-h) + 2px)); }
+
+.bs-st .campaignHero {
+  position: relative;
+  overflow: hidden;
+  background: var(--bs-st-ink);
+  color: var(--bs-st-paper);
+}
+
+/* The transparent header draws in paper-white, which vanishes over a
+   light hero image. The import darkens the top of its hero for the
+   same reason (its scrim is 40% ink at the top edge); this is that
+   band, sized to the chrome and only present while the hero is
+   actually sitting under it. */
+.bs-st--under-header .campaignHero::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: calc(var(--bs-st-header-h) + 56px);
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bs-st-ink) 55%, transparent),
+    transparent
+  );
+}
+.bs-st .campaignHero .campaignHeroInner { z-index: 3; }
+.bs-st .campaignHero .campaignHeroDots { z-index: 3; }
+
+/* Only a hero the owner has written copy into gets the import's
+   full-height treatment. An image-only hero keeps its 1920/800
+   aspect: admin's banner uploads are ~2.4:1, and cropping one to
+   94vh cuts the artwork off at both sides. */
+.bs-st .campaignHero.hasContent {
+  aspect-ratio: auto;
+  min-height: max(620px, 94vh);
+  max-height: none;
+}
+/* The media layer already fills the section; only a tall text hero
+   needs its image forced to cover, or it letterboxes. */
+.bs-st .campaignHero.hasContent .campaignHeroMedia,
+.bs-st .campaignHero.hasContent .campaignHeroMedia picture,
+.bs-st .campaignHero.hasContent .campaignHeroMedia img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* One scrim, darkest at the foot where the copy sits. Replaces the
+   flat overlay so the headline stays legible on a busy photograph
+   without dimming the whole image. */
+.bs-st .campaignHero .campaignHeroOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 1;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--bs-st-ink) 78%, transparent) 0%,
+    color-mix(in srgb, var(--bs-st-ink) 25%, transparent) 55%,
+    color-mix(in srgb, var(--bs-st-ink) 40%, transparent) 100%
+  );
+}
+
+.bs-st .campaignHero .campaignHeroInner {
+  position: relative;
+  height: 100%;
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding: 0 var(--bs-st-gutter) clamp(40px, 7vh, 88px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+/* The legacy copy block is a narrow 34rem column with a 10ch headline
+   clamp — both of which strangle the import's full-width headline, so
+   the widths are released here rather than inherited. */
+.bs-st .campaignHero .campaignHeroCopy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  max-width: none;
+  text-align: left;
+  color: var(--bs-st-paper);
+  animation: none;
+}
+
+/* Eyebrow, with the import's small accent square. */
+.bs-st .campaignHero .campaignHeroCopy > p {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 22px;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: inherit;
+}
+.bs-st .campaignHero .campaignHeroCopy > p::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  flex: none;
+  background: var(--bs-st-accent);
+}
+
+.bs-st .campaignHero .campaignHeroCopy h1 {
+  margin: 0;
+  max-width: none;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(56px, 10.5vw, 168px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  color: inherit;
+  text-shadow: none;
+  text-transform: none;
+}
+.bs-st .campaignHero .campaignHeroCopy h1 span { display: block; }
+
+.bs-st .campaignHero .campaignHeroCopy > span {
+  margin-top: 32px;
+  max-width: 34ch;
+  font-size: clamp(16px, 1.3vw, 19px);
+  line-height: 1.5;
+  color: inherit;
+}
+
+.bs-st .campaignHero .campaignHeroActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 32px;
+  pointer-events: auto;
+}
+.bs-st .campaignHero .campaignHeroPrimary,
+.bs-st .campaignHero .campaignHeroSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  min-height: 52px;
+  min-width: 220px;
+  padding: 0 20px;
+  border-radius: 0;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background var(--bs-duration-base) ease, color var(--bs-duration-base) ease, gap var(--bs-duration-base) ease;
+}
+.bs-st .campaignHero .campaignHeroPrimary {
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+  border: 2px solid var(--bs-st-paper);
+}
+.bs-st .campaignHero .campaignHeroPrimary:hover {
+  background: var(--bs-st-accent);
+  border-color: var(--bs-st-accent);
+  color: var(--bs-st-paper);
+  gap: 36px;
+}
+.bs-st .campaignHero .campaignHeroSecondary {
+  background: transparent;
+  border: 2px solid var(--bs-st-paper);
+  color: var(--bs-st-paper);
+}
+.bs-st .campaignHero .campaignHeroSecondary:hover {
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+  gap: 36px;
+}
+
+.bs-st .campaignHero .campaignHeroDots {
+  position: absolute;
+  left: var(--bs-st-gutter);
+  bottom: 18px;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+}
+.bs-st .campaignHero .campaignHeroDots button {
+  width: 28px;
+  height: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--bs-st-paper) 45%, transparent);
+  cursor: pointer;
+}
+.bs-st .campaignHero .campaignHeroDots button.active { background: var(--bs-st-paper); }
+
+/* -------------------------------------------------------------
+   SECTION HEADER
+   Every numbered band in the import opens the same way: a small
+   accent eyebrow, a very large Cormorant heading, a "view all" on
+   the right, and a 2px rule under the lot.
+   ------------------------------------------------------------- */
+.bs-st-sectionhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 24px;
+  border-bottom: var(--bs-st-rule);
+  margin-bottom: 24px;
+}
+.bs-st-sectionhead__eyebrow {
+  display: block;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bs-st-accent-700);
+  margin-bottom: 14px;
+}
+.bs-st-sectionhead h2 {
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  margin: 0;
+  font-size: clamp(36px, 4.8vw, 68px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+.bs-st-viewall {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bs-st-ink);
+  text-decoration: none;
+  padding: 10px 0;
+  transition: gap var(--bs-duration-base) ease, color var(--bs-duration-base) ease;
+}
+.bs-st-viewall:hover { gap: 16px; color: var(--bs-st-accent-700); }
+
+/* =============================================================
+   HOME SECTIONS
+   The markup stays the admin-driven section engine; only its
+   presentation is restated to match the import. Section order,
+   headings, eyebrows and per-band colours all still come from
+   admin — nothing below hardcodes copy or sequence.
+   ============================================================= */
+
+/* -------------------------------------------------------------
+   SECTION SHELL + HEADING
+   Every band in the import is the same container width with a
+   generous top pad, opened by an eyebrow / big Cormorant / rule.
+   ------------------------------------------------------------- */
+.bs-st .shopSection,
+.bs-st .categoryShowcase,
+.bs-st .instagramFeedSection,
+.bs-st .homeCustomSection,
+.bs-st .newsletter {
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding: clamp(72px, 9vw, 128px) var(--bs-st-gutter) 0;
+  background: var(--section-bg, var(--bs-st-paper));
+  color: var(--section-text, var(--bs-st-ink));
+}
+/* The two inverted bands run full-bleed in the import, so they
+   break out of the container they would otherwise sit inside. */
+.bs-st .newsletter,
+.bs-st .homeCustomSection {
+  max-width: none;
+  padding-inline: max(var(--bs-st-gutter), calc((100% - var(--bs-st-container)) / 2 + var(--bs-st-gutter)));
+  padding-bottom: clamp(72px, 9vw, 128px);
+  margin-top: clamp(72px, 9vw, 128px);
+}
+
+.bs-st .sectionHeading,
+.bs-st .categoryMinimalHeader,
+.bs-st .categoryShowcaseIntro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 24px;
+  border-bottom: var(--bs-st-rule);
+  margin-bottom: 32px;
+  text-align: left;
+}
+.bs-st .sectionHeading .eyebrow,
+.bs-st .categoryMinimalHeader .eyebrow,
+.bs-st .categoryShowcaseIntro .eyebrow {
+  display: block;
+  margin: 0 0 14px;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bs-st-accent-700);
+}
+.bs-st .sectionHeading h2,
+.bs-st .categoryMinimalHeader h2,
+.bs-st .categoryShowcaseIntro h2 {
+  margin: 0;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(36px, 4.8vw, 68px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+.bs-st .categoryShowcaseIntro .categoryShowcaseAll,
+.bs-st .sectionHeading a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: inherit;
+  text-decoration: none;
+  padding: 10px 0;
+  transition: gap var(--bs-duration-base) ease, color var(--bs-duration-base) ease;
+}
+.bs-st .categoryShowcaseIntro .categoryShowcaseAll:hover,
+.bs-st .sectionHeading a:hover { gap: 16px; color: var(--bs-st-accent-700); }
+
+/* -------------------------------------------------------------
+   PRODUCT GRID + CARD
+   ------------------------------------------------------------- */
+.bs-st .productGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 40px var(--bs-st-gutter);
+}
+@media (min-width: 900px) {
+  .bs-st .productGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.bs-st .productCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  width: 100%;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+.bs-st .productCard .productImage {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 0;
+  background: var(--bs-st-neutral-200);
+}
+.bs-st .productCard .productImage img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Primary pushes in slightly, the alternate shot cross-fades over
+   it — the import runs both off the same hover. */
+.bs-st .productCard .productImagePrimary {
+  transform: scale(1);
+  transition: transform 900ms var(--bs-ease-out);
+}
+.bs-st .productCard:hover .productImagePrimary { transform: scale(1.04); }
+.bs-st .productCard .productImageHover {
+  opacity: 0;
+  transition: opacity 500ms ease;
+}
+.bs-st .productCard:hover .productImageHover { opacity: 1; }
+
+.bs-st .productCard .badge,
+.bs-st .productCard .saleBadge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: auto;
+  border-radius: 0;
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+  font-size: 10px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  pointer-events: none;
+}
+.bs-st .productCard .saleBadge { top: auto; bottom: 12px; color: var(--bs-st-accent-700); }
+
+/* Quick add — hidden until hover on pointer devices, always shown
+   where there is no hover, exactly as the import decides it. */
+.bs-st .productCard .quickViewButton {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  top: auto;
+  width: auto;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 300ms ease, transform 300ms ease, background 250ms, color 250ms;
+}
+.bs-st .productCard:hover .quickViewButton,
+.bs-st .productCard:focus-within .quickViewButton {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.bs-st .productCard .quickViewButton:hover {
+  background: var(--bs-st-ink);
+  color: var(--bs-st-paper);
+}
+@media (hover: none) {
+  /* On touch/mobile, hide permanent overlay banner that obscures the dress photo */
+  .bs-st .productCard .quickViewButton { display: none !important; }
+}
+
+.bs-st .productCard .productInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  background: none;
+}
+/* The legacy card wraps category/title/swatches in one div; this
+   flattens it so the whole block is a single column and the price
+   can be ordered between the title and the swatches. */
+.bs-st .productCard .productInfo > div:first-child { display: contents; }
+.bs-st .productCard .productInfo p {
+  margin: 0;
+  order: 1;
+  font-size: 10px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bs-st-neutral-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bs-st .productCard .productInfo h3 {
+  margin: 0;
+  order: 2;
+  font-size: 19px;
+  font-weight: var(--bs-weight-semibold);
+  line-height: 1.2;
+  font-family: var(--bs-font-display);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.bs-st .productCard .productInfo h3 a {
+  color: var(--bs-st-ink);
+  text-decoration: none;
+  min-height: 2.4em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bs-st .productCard .productInfo h3 a:hover { color: var(--bs-st-accent-700); }
+.bs-st .productCard .productPrice {
+  order: 4;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+  font-weight: var(--bs-weight-semibold);
+  white-space: nowrap;
+}
+.bs-st .productCard .productPrice del {
+  color: color-mix(in srgb, var(--bs-st-ink) 55%, transparent);
+  font-weight: var(--bs-weight-regular);
+}
+.bs-st .productCard .colorSwatches {
+  order: 3;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.bs-st .productCard .colorSwatches i {
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  border: var(--bs-st-hairline);
+}
+.bs-st .productCard .colorSwatches small {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--bs-st-ink) 70%, transparent);
+}
+
+/* -------------------------------------------------------------
+   CATEGORY MOSAIC (atelier variant)
+   The import lays six tiles on a 12-column grid: a tall hero tile,
+   two stacked beside it, then the mirror of that below. Admin can
+   hold any number of categories, so the geometry is expressed as a
+   repeating six-tile cycle with dense packing, and the last tile
+   stretches to close the row rather than leaving a hole.
+   ------------------------------------------------------------- */
+.bs-st .categoryShowcase .categoryCards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 200px;
+  gap: 12px;
+}
+@media (min-width: 768px) {
+  .bs-st .categoryShowcase .categoryCards {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-auto-rows: 240px;
+    grid-auto-flow: dense;
+  }
+  .bs-st .categoryShowcase .categoryCard:nth-child(6n + 1) { grid-column: span 7; grid-row: span 2; }
+  .bs-st .categoryShowcase .categoryCard:nth-child(6n + 2),
+  .bs-st .categoryShowcase .categoryCard:nth-child(6n + 3),
+  .bs-st .categoryShowcase .categoryCard:nth-child(6n + 4),
+  .bs-st .categoryShowcase .categoryCard:nth-child(6n + 5) { grid-column: span 5; }
+  .bs-st .categoryShowcase .categoryCard:nth-child(6n + 6) { grid-column: span 7; grid-row: span 2; }
+  .bs-st .categoryShowcase .categoryCard:last-child:nth-child(3n + 1) { grid-column: span 12; grid-row: span 1; }
+  .bs-st .categoryShowcase .categoryCard:last-child:nth-child(3n + 2) { grid-column: span 7; grid-row: span 1; }
+}
+@media (min-width: 1200px) {
+  .bs-st .categoryShowcase .categoryCards { grid-auto-rows: 300px; }
+}
+
+.bs-st .categoryShowcase .categoryCard {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 0;
+  background-color: var(--bs-st-neutral-300);
+  background-size: cover;
+  background-position: center;
+  color: var(--bs-st-paper);
+  text-decoration: none;
+  transition: background-size 1100ms var(--bs-ease-out);
+}
+.bs-st .categoryShowcase .categoryCard:hover { background-size: 105%; }
+.bs-st .categoryShowcase .categoryCard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, color-mix(in srgb, var(--bs-st-ink) 55%, transparent), transparent 70%);
+  transition: background 500ms ease;
+}
+.bs-st .categoryShowcase .categoryCard:hover::before {
+  background: linear-gradient(to top, color-mix(in srgb, var(--bs-st-ink) 78%, transparent), transparent 70%);
+}
+
+.bs-st .categoryShowcase .categoryCardContent {
+  position: absolute;
+  left: clamp(16px, 2vw, 28px);
+  right: clamp(16px, 2vw, 28px);
+  bottom: clamp(16px, 2vw, 26px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  transform: translateY(0);
+  transition: transform 500ms var(--bs-ease-out);
+}
+.bs-st .categoryShowcase .categoryCard:hover .categoryCardContent { transform: translateY(-6px); }
+.bs-st .categoryShowcase .categoryCardContent small {
+  order: 1;
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.bs-st .categoryShowcase .categoryCardContent h3 {
+  order: 2;
+  margin: 0;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(28px, 3vw, 44px);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+/* The tall tiles carry the larger label, as in the import. */
+@media (min-width: 768px) {
+  .bs-st .categoryShowcase .categoryCard:nth-child(6n + 1) .categoryCardContent h3,
+  .bs-st .categoryShowcase .categoryCard:nth-child(6n + 6) .categoryCardContent h3 {
+    font-size: clamp(40px, 5vw, 88px);
+  }
+}
+/* The description and the "explore" line are not in the import's
+   tile; an arrow badge replaces them. */
+.bs-st .categoryShowcase .categoryCardContent p { display: none; }
+.bs-st .categoryShowcase .categoryCardContent b {
+  order: 3;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+  font-size: 0;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity 400ms ease, transform 400ms ease;
+}
+.bs-st .categoryShowcase .categoryCard:hover .categoryCardContent b { opacity: 1; transform: translateX(0); }
+.bs-st .categoryShowcase .categoryCardContent b svg { width: 18px; height: 18px; }
+
+/* -------------------------------------------------------------
+   CATEGORY GRID (minimal variant)
+   ------------------------------------------------------------- */
+.bs-st .categoryMinimalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (min-width: 900px) {
+  .bs-st .categoryMinimalGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.bs-st .categoryMinimalCard { text-decoration: none; color: inherit; }
+.bs-st .categoryMinimalImageWrap {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 0;
+  background: var(--bs-st-neutral-300);
+}
+.bs-st .categoryMinimalImageWrap img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 1100ms var(--bs-ease-out);
+}
+.bs-st .categoryMinimalCard:hover .categoryMinimalImageWrap img { transform: scale(1.05); }
+.bs-st .categoryMinimalTitle {
+  margin: 12px 0 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(20px, 2vw, 28px);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+/* -------------------------------------------------------------
+   NEWSLETTER BAND (home section variant)
+   ------------------------------------------------------------- */
+.bs-st .newsletter { text-align: left; }
+/* The band's background is an admin setting and may be light or
+   dark, so the eyebrow is tinted off the resolved text colour
+   rather than a fixed accent step that would only read on one. */
+.bs-st .newsletter .eyebrow {
+  margin: 0 0 14px;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, currentColor 72%, transparent);
+}
+.bs-st .newsletter h2 {
+  margin: 0 0 16px;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(48px, 7.5vw, 120px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+.bs-st .newsletter > p {
+  margin: 0 0 28px;
+  font-size: 17px;
+  line-height: 1.55;
+  max-width: 42ch;
+}
+.bs-st .newsletter form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  max-width: 620px;
+  border-bottom: 2px solid currentColor;
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.bs-st .newsletter form input {
+  min-height: 56px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  font-size: 17px;
+  padding: 0;
+  border-radius: 0;
+}
+.bs-st .newsletter form input::placeholder { color: color-mix(in srgb, currentColor 65%, transparent); }
+.bs-st .newsletter form button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  padding: 0 0 0 16px;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  transition: gap var(--bs-duration-base), color var(--bs-duration-base);
+}
+.bs-st .newsletter form button:hover { gap: 18px; color: var(--bs-st-accent); }
+.bs-st .newsletter form button svg { width: 16px; height: 16px; }
+
+/* -------------------------------------------------------------
+   INSTAGRAM
+   ------------------------------------------------------------- */
+.bs-st .instagramFeedGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (min-width: 900px) {
+  .bs-st .instagramFeedGrid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+.bs-st .instagramPostImageWrap,
+.bs-st .instagramReelIframeWrap {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: 0;
+  background: var(--bs-st-neutral-300);
+}
+.bs-st .instagramPostImageWrap img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 900ms var(--bs-ease-out);
+}
+.bs-st .instagramPostImageWrap:hover img { transform: scale(1.05); }
+
+/* =============================================================
+   COLLECTION LISTING  (/category, /category/sub, /search)
+   ============================================================= */
+.bs-st.categoryPage {
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding: clamp(32px, 5vw, 64px) var(--bs-st-gutter) clamp(72px, 9vw, 128px);
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+}
+.bs-st .collectionHeader { padding: 0; background: none; }
+
+.bs-st .collectionBreadcrumb,
+.bs-st .productBreadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.bs-st .collectionBreadcrumb a,
+.bs-st .productBreadcrumb a { color: inherit; text-decoration: none; }
+.bs-st .collectionBreadcrumb a:hover,
+.bs-st .productBreadcrumb a:hover { color: var(--bs-st-accent-700); }
+.bs-st .collectionBreadcrumbCurrent,
+.bs-st .productBreadcrumbCurrent { color: color-mix(in srgb, var(--bs-st-ink) 65%, transparent); }
+
+/* The collection title and its blurb share one baseline, with the
+   rule under both — the import's standard page opener. */
+.bs-st .collectionHeader h1 {
+  margin: 0;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(56px, 9vw, 144px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+.bs-st .collectionHeader {
+  display: flex;
+  flex-direction: column;
+}
+.bs-st .collectionIntro {
+  margin: 0;
+  font-size: 17px;
+  max-width: 48ch;
+  color: color-mix(in srgb, var(--bs-st-ink) 78%, transparent);
+  padding-bottom: 28px;
+  border-bottom: var(--bs-st-rule);
+}
+/* When the owner has written no description the rule still has to
+   land under the title, or the page opens with nothing to sit on. */
+.bs-st .collectionHeader h1:last-child,
+.bs-st .collectionHeader h1 + .subCategoryNav {
+  border-bottom: 0;
+}
+.bs-st .collectionHeader > h1 { padding-bottom: 28px; border-bottom: var(--bs-st-rule); }
+.bs-st .collectionHeader > h1:has(+ .collectionIntro) { padding-bottom: 12px; border-bottom: 0; }
+
+/* Subcategory tabs — square, 2px ink outline, filled when active. */
+.bs-st .subCategoryNav {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 16px 0;
+  border-bottom: var(--bs-st-rule);
+}
+.bs-st .subCategoryNav::-webkit-scrollbar { display: none; }
+.bs-st .subCategoryPill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 2px solid var(--bs-st-ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--bs-st-ink);
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background var(--bs-duration-base), color var(--bs-duration-base);
+}
+.bs-st .subCategoryPill:hover,
+.bs-st .subCategoryPill.isActive {
+  background: var(--bs-st-ink);
+  color: var(--bs-st-paper);
+}
+
+.bs-st .collectionArea { padding: 0; background: none; }
+.bs-st .categoryProductsContainer { background: none; }
+.bs-st .collectionTopBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0 28px;
+  font-size: 13px;
+  background: none;
+  border: 0;
+}
+.bs-st .productCountText { margin: 0; font-weight: var(--bs-weight-semibold); }
+.bs-st .sortLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.bs-st .sortSelect {
+  width: auto;
+  min-height: 40px;
+  padding: 0 32px 0 12px;
+  border: var(--bs-st-hairline);
+  border-radius: 0;
+  background: var(--bs-st-surface);
+  color: var(--bs-st-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--bs-weight-semibold);
+  cursor: pointer;
+}
+
+/* The listing card uses `quickAdd` where the home card uses
+   `quickViewButton`; same bar, same reveal. */
+.bs-st .productCard .quickAdd {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  top: auto;
+  width: auto;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+  border: 0;
+  border-radius: 0;
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+.bs-st .productCard:hover .quickAdd,
+.bs-st .productCard:focus-within .quickAdd { opacity: 1; transform: translateY(0); }
+@media (hover: none) {
+  /* Hide hover quickAdd on touch devices so card image is 100% visible */
+  .bs-st .productCard .quickAdd { display: none !important; }
+}
+.bs-st .productCard .priceCurrent {
+  font-size: 14px;
+  font-weight: var(--bs-weight-semibold);
+  color: var(--bs-st-ink);
+}
+.bs-st .productCard .priceCompare {
+  font-size: 12px;
+  font-weight: var(--bs-weight-regular);
+  color: color-mix(in srgb, var(--bs-st-ink) 55%, transparent);
+}
+
+.bs-st .emptyCategoryState {
+  padding: clamp(48px, 8vw, 96px) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+.bs-st .emptyCategoryState p {
+  margin: 0;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(28px, 3.4vw, 48px);
+  line-height: 1.02;
+}
+.bs-st .backToHomeBtn,
+.bs-st .shopMoreButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  min-height: 52px;
+  min-width: 220px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 0;
+  background: var(--bs-st-ink);
+  color: var(--bs-st-paper);
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background var(--bs-duration-base) ease, gap var(--bs-duration-base) ease;
+}
+.bs-st .backToHomeBtn:hover,
+.bs-st .shopMoreButton:hover { background: var(--bs-st-accent-600); gap: 36px; }
+
+/* =============================================================
+   PRODUCT DETAIL
+   ============================================================= */
+.bs-st.productPage {
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding: clamp(24px, 4vw, 48px) var(--bs-st-gutter) clamp(72px, 9vw, 128px);
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+}
+.bs-st .productDetailLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: start;
+}
+@media (min-width: 1000px) {
+  .bs-st .productDetailLayout { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+}
+
+.bs-st .productGallery { background: none; }
+.bs-st .galleryMainView,
+.bs-st .galleryMainPreview {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0;
+  background: var(--bs-st-neutral-200);
+}
+.bs-st .galleryThumbnails { gap: 8px; }
+.bs-st .galleryThumbnails button,
+.bs-st .galleryThumbnails > * {
+  border-radius: 0;
+}
+
+/* The purchase column tracks the gallery on long pages, clearing
+   the sticky header. */
+@media (min-width: 1000px) {
+  .bs-st .productPurchase {
+    position: sticky;
+    top: calc(var(--bs-st-header-h-stuck) + 20px);
+  }
+}
+.bs-st .productPurchase {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  min-width: 0;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.bs-st .productEyebrowRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.bs-st .productCategoryTag,
+.bs-st .productArticleTag {
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bs-st-accent-700);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+.bs-st .productPurchase h1 {
+  margin: 0;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(32px, 3.6vw, 52px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.bs-st .detailPriceRow {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-size: 22px;
+  font-weight: var(--bs-weight-heavy);
+}
+.bs-st .detailPriceMain,
+.bs-st .detailPriceAmount,
+.bs-st .detailPriceCurrency {
+  font-size: inherit;
+  font-weight: inherit;
+  color: var(--bs-st-ink);
+}
+.bs-st .detailComparePrice {
+  font-size: 16px;
+  font-weight: var(--bs-weight-regular);
+  color: color-mix(in srgb, var(--bs-st-ink) 55%, transparent);
+}
+.bs-st .detailDiscountPill {
+  border-radius: 0;
+  background: var(--bs-st-accent-100);
+  color: var(--bs-st-accent-800);
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+}
+
+.bs-st .selectorHeading,
+.bs-st .selectorLabelGroup {
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.bs-st .selectedOptionValue,
+.bs-st .selectedOptionHint {
+  font-weight: var(--bs-weight-regular);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+.bs-st .productOptionSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+/* Colour swatches — a 2px ring that fills in on the active one. */
+.bs-st .colorSwatchesList { display: flex; gap: 8px; flex-wrap: wrap; }
+.bs-st .colorSwatchesList button {
+  width: 44px;
+  height: 44px;
+  padding: 4px;
+  border: 2px solid color-mix(in srgb, var(--bs-st-ink) 30%, transparent);
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.bs-st .colorSwatchesList button.selected,
+.bs-st .colorSwatchesList button[aria-checked="true"] { border-color: var(--bs-st-ink); }
+.bs-st .colorSwatchFill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+.bs-st .sizeOptions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+}
+.bs-st .sizeBtn {
+  min-height: 48px;
+  border: 2px solid var(--bs-st-ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--bs-st-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--bs-weight-semibold);
+  cursor: pointer;
+  transition: background 200ms, color 200ms;
+}
+.bs-st .sizeBtn:hover { background: var(--bs-st-ink); color: var(--bs-st-paper); }
+.bs-st .sizeBtn.selected { background: var(--bs-st-ink); color: var(--bs-st-paper); }
+.bs-st .sizeBtn.sizeOutOfStock {
+  text-decoration: line-through;
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.bs-st .sizeBtn.sizeOutOfStock:hover { background: transparent; color: var(--bs-st-ink); }
+
+.bs-st .sizeGuidePillBtn,
+.bs-st .sizeGuideModalButton {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 4px 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--bs-st-ink);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.bs-st .sizeGuidePillBtn:hover,
+.bs-st .sizeGuideModalButton:hover { color: var(--bs-st-accent-700); }
+
+.bs-st .purchaseRowMain,
+.bs-st .purchaseControls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.bs-st .quantityControlGroup {
+  display: flex;
+  align-items: center;
+  border: 2px solid var(--bs-st-ink);
+  border-radius: 0;
+  background: transparent;
+}
+.bs-st .quantityControlGroup button {
+  width: 44px;
+  height: 48px;
+  background: none;
+  border: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--bs-st-ink);
+}
+.bs-st .quantityValue {
+  min-width: 28px;
+  text-align: center;
+  font-weight: var(--bs-weight-semibold);
+}
+
+.bs-st .addBagButton,
+.bs-st .buyNowButton,
+.bs-st .checkoutButton,
+.bs-st .whatsAppOrderSubmit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 1;
+  min-width: 180px;
+  min-height: 52px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--bs-duration-base) ease, gap var(--bs-duration-base) ease;
+}
+.bs-st .addBagButton { background: var(--bs-st-accent); color: var(--bs-st-paper); }
+.bs-st .addBagButton:hover { background: var(--bs-st-accent-600); gap: 14px; }
+.bs-st .buyNowButton,
+.bs-st .checkoutButton { background: var(--bs-st-ink); color: var(--bs-st-paper); }
+.bs-st .buyNowButton:hover,
+.bs-st .checkoutButton:hover { background: var(--bs-st-accent-600); gap: 14px; }
+.bs-st .buyNowButton.disabledBuy { opacity: 0.45; cursor: not-allowed; }
+
+/* Accordions — rules, not cards. */
+.bs-st .productDetailsAccordion {
+  border: 0;
+  border-top: var(--bs-st-hairline);
+  border-radius: 0;
+  background: none;
+  padding: 0;
+}
+.bs-st .productDetailsAccordionHeader,
+.bs-st .deliveryAccordionHeader,
+.bs-st .sizeGuideAccordionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: var(--bs-st-ink);
+}
+.bs-st .productDetailsTitle {
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.bs-st .productDetailsAccordionBody {
+  font-size: 15px;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--bs-st-ink) 80%, transparent);
+  padding-bottom: 20px;
+}
+
+.bs-st .productTrustBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 18px 0;
+  border-top: var(--bs-st-hairline);
+  border-bottom: var(--bs-st-hairline);
+  background: none;
+  border-radius: 0;
+}
+.bs-st .productTrustItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.04em;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.bs-st .relatedProducts {
+  margin-top: clamp(72px, 9vw, 128px);
+  background: none;
+}
+.bs-st .relatedProducts h2 {
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(36px, 4.8vw, 68px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  margin: 0 0 24px;
+  padding-bottom: 24px;
+  border-bottom: var(--bs-st-rule);
+}
+
+/* =============================================================
+   INFO PAGES  (/about, /contact, /faqs, /track-order)
+   ============================================================= */
+.bs-st.infoPage {
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding: clamp(32px, 5vw, 64px) var(--bs-st-gutter) clamp(72px, 9vw, 128px);
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+}
+.bs-st.infoPage h1 {
+  margin: 0 0 24px;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(48px, 7vw, 112px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  padding-bottom: 28px;
+  border-bottom: var(--bs-st-rule);
+}
+.bs-st.infoPage h2 {
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(26px, 3vw, 40px);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+/* =============================================================
+   CART / CHECKOUT / ORDER CONFIRMATION
+   Deliberately conservative: this is the money path, so the
+   two-column layout, the cost breakdown and every field keep
+   their existing structure and behaviour. Only surface is
+   restated — paper, square corners, Cormorant headings, the
+   import's two button weights.
+   ============================================================= */
+
+.bs-st.shopifyCheckoutPage,
+.bs-st.orderConfirmationPage,
+.bs-st.cartPageLayout {
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+}
+
+/* --- shared surfaces ------------------------------------------------ */
+.bs-st .shopifyAccordionCard,
+.bs-st .orderCard,
+.bs-st .shopifyCityDropdownMenu,
+.bs-st .orderWhatsAppHelpCard {
+  border-radius: 0;
+  border: var(--bs-st-hairline);
+  background: var(--bs-st-surface);
+  box-shadow: none;
+}
+
+.bs-st .shopifySectionHeading,
+.bs-st .shopifyAccordionTitle,
+.bs-st .orderCardHeaderTitle,
+.bs-st .shopifyContactHeader {
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-family: var(--bs-font-sans);
+}
+.bs-st .shopifySectionSubtitle {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--bs-st-ink) 70%, transparent);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* --- fields --------------------------------------------------------- */
+.bs-st .shopifyInput,
+.bs-st .shopifyCountryBox,
+.bs-st .shopifyCityComboboxContainer input {
+  border-radius: 0;
+  border: var(--bs-st-hairline);
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+  caret-color: var(--bs-st-accent);
+}
+.bs-st .shopifyInput:focus-visible,
+.bs-st .shopifyCityComboboxContainer input:focus-visible {
+  border-color: var(--bs-st-accent);
+  outline: none;
+  box-shadow: none;
+}
+.bs-st .shopifyInputErrorMsg { color: var(--bs-st-accent-700); font-weight: var(--bs-weight-semibold); }
+.bs-st .shopifyCheckbox { border-radius: 0; accent-color: var(--bs-st-accent); }
+.bs-st .shopifyCityDropdownItem { border-radius: 0; }
+.bs-st .shopifyCityDropdownItem:hover { background: var(--bs-st-neutral-200); }
+
+/* --- buttons -------------------------------------------------------- */
+.bs-st .shopifyCompleteOrderBtn,
+.bs-st .orderPrimaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 56px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 0;
+  background: var(--bs-st-accent);
+  color: var(--bs-st-paper);
+  font: inherit;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--bs-duration-base) ease, gap var(--bs-duration-base) ease;
+}
+.bs-st .shopifyCompleteOrderBtn:hover,
+.bs-st .orderPrimaryBtn:hover { background: var(--bs-st-accent-600); gap: 14px; }
+.bs-st .shopifyCompleteOrderBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.bs-st .orderSecondaryBtn,
+.bs-st .orderWhatsAppActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 2px solid var(--bs-st-divider);
+  border-radius: 0;
+  background: transparent;
+  color: var(--bs-st-ink);
+  font: inherit;
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.bs-st .orderSecondaryBtn:hover,
+.bs-st .orderWhatsAppActionBtn:hover { background: color-mix(in srgb, var(--bs-st-ink) 7%, transparent); }
+
+/* --- cost breakdown -------------------------------------------------- */
+.bs-st .shopifyCostRow,
+.bs-st .orderBreakdownRow {
+  font-size: 14px;
+}
+.bs-st .shopifyCostRow.isTotal,
+.bs-st .orderBreakdownRow.isTotal {
+  font-size: 18px;
+  font-weight: var(--bs-weight-heavy);
+  border-top: var(--bs-st-rule);
+}
+.bs-st .shopifyCurrencyCode {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--bs-st-ink) 60%, transparent);
+}
+
+/* --- order items ----------------------------------------------------- */
+.bs-st .orderItemThumbWrap,
+.bs-st .orderItemThumbImg {
+  border-radius: 0;
+  background: var(--bs-st-neutral-200);
+}
+.bs-st .orderItemName {
+  font-family: var(--bs-font-display);
+  font-size: 17px;
+  font-weight: var(--bs-weight-semibold);
+  line-height: 1.2;
+}
+.bs-st .orderItemMetaPill,
+.bs-st .orderItemQtyBadge {
+  border-radius: 0;
+  background: var(--bs-st-neutral-200);
+  color: var(--bs-st-ink);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+/* --- confirmation hero ------------------------------------------------ */
+.bs-st .orderHeroHeading {
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(40px, 6vw, 88px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+.bs-st .orderHeroLead {
+  font-size: 17px;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--bs-st-ink) 78%, transparent);
+}
+.bs-st .orderRefNumber,
+.bs-st .orderRefChipRow {
+  border-radius: 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+.bs-st .orderDueBar {
+  border-radius: 0;
+  background: var(--bs-st-ink);
+  color: var(--bs-st-paper);
+}
+.bs-st .orderDueAmount {
+  font-family: var(--bs-font-display);
+  font-size: clamp(28px, 3.4vw, 44px);
+  font-weight: var(--bs-weight-semibold);
+}
+.bs-st .orderSuccessCheckRing {
+  border-radius: 0;
+  background: var(--bs-st-accent);
+  color: var(--bs-st-paper);
+}
+.bs-st .orderStepIconCircle { border-radius: 0; }
+.bs-st .orderStepTitle {
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* --- cart page -------------------------------------------------------- */
+.bs-st.cartPageLayout {
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding: clamp(32px, 5vw, 64px) var(--bs-st-gutter) clamp(72px, 9vw, 128px);
+}
+.bs-st.cartPageLayout h1 {
+  margin: 0 0 28px;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(48px, 7vw, 112px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  padding-bottom: 28px;
+  border-bottom: var(--bs-st-rule);
+}
+
+/* -------------------------------------------------------------
+   QUICK ADD on the `connected` card style
+   globals.css hides it with `display:none !important` for that
+   style. The imported design shows the bar on every card, so the
+   migrated surfaces opt back in. It still only appears on hover
+   (opacity/transform above), so the card is unchanged at rest.
+   ------------------------------------------------------------- */
+.bs-st .productCard--connected .quickAdd,
+.bs-st .productCard--connected .quickViewButton {
+  display: flex !important;
+}
+
+/* -------------------------------------------------------------
+   ROOT LOADING CHROME
+   A static stand-in for the header while the root segment
+   resolves. Deliberately neutral: the same boundary also covers
+   /admin, so this must not read as storefront branding.
+   ------------------------------------------------------------- */
+.bs-st-loadingChrome {
+  height: calc(var(--bs-st-ann-h) + var(--bs-st-header-h));
+  background: var(--bs-st-paper);
+  border-bottom: var(--bs-st-hairline);
+}
+.bs-st-loadingChrome__bar {
+  height: var(--bs-st-ann-h);
+  background: var(--bs-st-ink);
+}
+
+/* =============================================================
+   CART PAGE — full port
+   Structure is the existing cart (admin pricing, advance split,
+   savings callouts all untouched); this is the import's layout:
+   lines left under 2px rules, a sticky summary block on the
+   right, everything square.
+   ============================================================= */
+.bs-st .cartPageContainer {
+  max-width: var(--bs-st-container);
+  margin-inline: auto;
+  padding: 0;
+  background: none;
+}
+
+.bs-st .cartPageHeader {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 28px;
+  border-bottom: var(--bs-st-rule);
+  background: none;
+}
+.bs-st .cartBackLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bs-st-ink);
+  text-decoration: none;
+  transition: gap var(--bs-duration-base) ease, color var(--bs-duration-base) ease;
+}
+.bs-st .cartBackLink:hover { gap: 14px; color: var(--bs-st-accent-700); }
+.bs-st .cartPageHeader h1 {
+  margin: 0;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(48px, 8vw, 128px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  padding: 0;
+  border: 0;
+}
+.bs-st .cartSubheading {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--bs-st-ink) 72%, transparent);
+}
+
+.bs-st .cartPageGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(32px, 5vw, 80px);
+  align-items: start;
+  margin-top: 32px;
+}
+@media (min-width: 1000px) {
+  .bs-st .cartPageGrid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+}
+
+/* Free-delivery progress — the import's thin track, no card. */
+.bs-st .cartThresholdBar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 0 20px;
+  margin-bottom: 4px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.bs-st .cartThresholdText {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.bs-st .cartThresholdTrack {
+  height: 4px;
+  background: var(--bs-st-neutral-300);
+  border-radius: 0;
+  overflow: hidden;
+}
+.bs-st .cartThresholdProgress {
+  height: 100%;
+  background: var(--bs-st-ink);
+  border-radius: 0;
+  transition: width 500ms ease;
+}
+
+.bs-st .cartPageList { display: block; }
+.bs-st .cartPageItemCard {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 20px;
+  padding: 20px 0;
+  border-bottom: var(--bs-st-rule);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+@media (min-width: 600px) {
+  .bs-st .cartPageItemCard { grid-template-columns: 120px minmax(0, 1fr); }
+}
+.bs-st .cartPageItemThumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 0;
+  background: var(--bs-st-neutral-200);
+}
+.bs-st .cartPageItemThumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0;
+}
+.bs-st .cartPageItemDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.bs-st .cartPageItemTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+.bs-st .cartPageCategory {
+  display: block;
+  font-size: 10px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bs-st-neutral-700);
+  margin-bottom: 4px;
+}
+/* The import sets the bag line in heavy uppercase sans, not the
+   display serif — it has to stay readable at two lines. */
+.bs-st .cartPageItemTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+.bs-st .cartPageItemTitle a { color: var(--bs-st-ink); text-decoration: none; }
+.bs-st .cartPageItemTitle a:hover { color: var(--bs-st-accent-700); }
+.bs-st .cartPageItemRemoveBtn {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  color: var(--bs-st-ink);
+  cursor: pointer;
+}
+.bs-st .cartPageItemRemoveBtn:hover { color: var(--bs-st-accent-700); }
+.bs-st .cartItemMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--bs-st-ink) 72%, transparent);
+}
+.bs-st .cartItemMeta small { font-size: inherit; }
+.bs-st .cartPageItemBottom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+.bs-st .cartPageQuantityStepper {
+  display: flex;
+  align-items: center;
+  border: 2px solid var(--bs-st-ink);
+  border-radius: 0;
+  background: transparent;
+}
+.bs-st .cartPageQuantityStepper button {
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  color: var(--bs-st-ink);
+}
+.bs-st .cartPageQuantityStepper span {
+  min-width: 24px;
+  text-align: center;
+  font-weight: var(--bs-weight-semibold);
+  font-size: 14px;
+}
+.bs-st .cartPageCurrentPrice {
+  font-size: 16px;
+  font-weight: var(--bs-weight-heavy);
+  color: var(--bs-st-ink);
+}
+.bs-st .cartPageOriginalPrice {
+  font-size: 13px;
+  font-weight: var(--bs-weight-regular);
+  color: color-mix(in srgb, var(--bs-st-ink) 55%, transparent);
+  text-decoration: line-through;
+}
+.bs-st .cartItemSavingsBadge,
+.bs-st .cartSavingsHighlight {
+  border-radius: 0;
+  background: var(--bs-st-accent-100);
+  color: var(--bs-st-accent-800);
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+}
+
+/* Summary — the one filled block on the page. */
+.bs-st .cartSummaryColumn { min-width: 0; }
+.bs-st .cartSummaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px;
+  border: 0;
+  border-radius: 0;
+  background: var(--bs-st-surface);
+  box-shadow: none;
+}
+@media (min-width: 1000px) {
+  .bs-st .cartSummaryCard {
+    position: sticky;
+    top: calc(var(--bs-st-header-h-stuck) + 20px);
+  }
+}
+.bs-st .cartSummaryCard > h2,
+.bs-st .cartSummaryCard > h3 {
+  margin: 0;
+  font-family: var(--bs-font-sans);
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.bs-st .cartSummaryBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bs-st .summaryRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.bs-st .summarySavingsRow { color: var(--bs-st-accent-700); font-weight: var(--bs-weight-semibold); }
+.bs-st .summaryTotalRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: var(--bs-weight-heavy);
+  padding-top: 12px;
+  border-top: var(--bs-st-rule);
+  text-transform: uppercase;
+}
+.bs-st .cartAdvanceSplit,
+.bs-st .cartTotalSavingsCallout {
+  border-radius: 0;
+  border: var(--bs-st-hairline);
+  background: var(--bs-st-paper);
+  font-size: 13px;
+}
+.bs-st .primaryButton.cartCheckoutBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 0;
+  background: var(--bs-st-accent);
+  color: var(--bs-st-paper);
+  font: inherit;
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background var(--bs-duration-base) ease, gap var(--bs-duration-base) ease;
+}
+.bs-st .primaryButton.cartCheckoutBtn:hover { background: var(--bs-st-accent-600); gap: 14px; }
+.bs-st .cartTrustList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: var(--bs-st-hairline);
+}
+.bs-st .cartTrustItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--bs-st-ink) 75%, transparent);
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+/* Empty bag */
+.bs-st .cartPageEmpty {
+  padding: clamp(48px, 8vw, 120px) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  text-align: left;
+  background: none;
+}
+.bs-st .cartPageEmpty .emptyCartIcon { color: var(--bs-st-neutral-500); }
+.bs-st .cartPageEmpty h2 {
+  margin: 0;
+  font-family: var(--bs-font-display);
+  font-weight: var(--bs-weight-semibold);
+  font-size: clamp(32px, 4.6vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+.bs-st .cartPageEmpty p {
+  margin: 0;
+  font-size: 17px;
+  color: color-mix(in srgb, var(--bs-st-ink) 75%, transparent);
+}
+.bs-st .primaryButton.cartEmptyCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  min-height: 52px;
+  min-width: 240px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 0;
+  background: var(--bs-st-ink);
+  color: var(--bs-st-paper);
+  font-size: var(--bs-st-label-size);
+  font-weight: var(--bs-weight-heavy);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background var(--bs-duration-base) ease, gap var(--bs-duration-base) ease;
+}
+.bs-st .primaryButton.cartEmptyCta:hover { background: var(--bs-st-accent-600); gap: 36px; }
+
+/* =============================================================
+   PRODUCT PAGE — remaining surfaces
+   ============================================================= */
+.bs-st .galleryThumbnails img,
+.bs-st .galleryMainPreview img,
+.bs-st .galleryMainView img,
+.bs-st .gridPhotoCard,
+.bs-st .gridPhotoCard img {
+  border-radius: 0;
+}
+.bs-st .galleryThumbnails button {
+  border: 2px solid transparent;
+  border-radius: 0;
+  background: var(--bs-st-neutral-200);
+  padding: 0;
+  overflow: hidden;
+}
+.bs-st .galleryThumbnails button.active,
+.bs-st .galleryThumbnails button[aria-current="true"] { border-color: var(--bs-st-ink); }
+.bs-st .mariabPhotoGrid { gap: 8px; }
+.bs-st .galleryZoomHint {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--bs-st-ink) 60%, transparent);
+}
+.bs-st .galleryNavControls button,
+.bs-st .lightboxNavBtn,
+.bs-st .lightboxCloseBtn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 0;
+  background: var(--bs-st-paper);
+  color: var(--bs-st-ink);
+  cursor: pointer;
+}
+.bs-st .galleryNavControls button:hover,
+.bs-st .lightboxNavBtn:hover,
+.bs-st .lightboxCloseBtn:hover { background: var(--bs-st-ink); color: var(--bs-st-paper); }
+
+.bs-st .wishButton {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--bs-st-ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--bs-st-ink);
+  cursor: pointer;
+}
+.bs-st .wishButton:hover { background: var(--bs-st-ink); color: var(--bs-st-paper); }
+
+.bs-st .productSocialActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* These shipped as filled buttons with white labels. Flattening
+   them to outlines means the label has to be re-inked too, or it
+   stays white on paper and disappears. */
+.bs-st .productSocialActions > a,
+.bs-st .productSocialActions > button {
+  border-radius: 0;
+  border: 2px solid var(--bs-st-divider);
+  background: transparent;
+  color: var(--bs-st-ink);
+}
+.bs-st .productSocialActions > a:hover,
+.bs-st .productSocialActions > button:hover {
+  background: color-mix(in srgb, var(--bs-st-ink) 7%, transparent);
+}
+.bs-st .productSocialActions .socialBtnLine,
+.bs-st .productSocialActions .socialBtnSub,
+.bs-st .productSocialActions .socialBtnTextWrap { color: inherit; }
+.bs-st .socialBtnIconWrap { border-radius: 0; }
+
+.bs-st .productDeliveryPromise,
+.bs-st .deliverySpecCard,
+.bs-st .productSpecificDeliveryTag {
+  border-radius: 0;
+  background: var(--bs-st-surface);
+  border: 0;
+}
+.bs-st .deliverySpecsGrid { gap: 8px; }
+.bs-st .specLabel {
+  font-size: 10px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bs-st-neutral-700);
+}
+.bs-st .specValue { font-size: 14px; font-weight: var(--bs-weight-semibold); }
+
+.bs-st .whatsAppOrderDialog {
+  border-radius: 0;
+  background: var(--bs-st-paper);
+  border: var(--bs-st-rule);
+}
+.bs-st .whatsAppOrderDialogHead {
+  font-family: var(--bs-font-display);
+  font-size: 22px;
+  font-weight: var(--bs-weight-semibold);
+}
+.bs-st .whatsAppOrderGrid input,
+.bs-st .whatsAppOrderGrid select,
+.bs-st .whatsAppOrderGrid textarea {
+  border-radius: 0;
+  border: var(--bs-st-hairline);
+  background: var(--bs-st-surface);
+}
+
+.bs-st .productRatingStars { color: var(--bs-st-accent-2); }
+.bs-st .productRatingScore,
+.bs-st .productRatingLabel { font-size: 13px; }
+.bs-st .structuredProductDetails { font-size: 15px; line-height: 1.6; }
+.bs-st .detailHighlightedText { color: var(--bs-st-accent-700); font-weight: var(--bs-weight-semibold); }
+.bs-st .detailKeyLabel {
+  font-size: 11px;
+  font-weight: var(--bs-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+
+/* =============================================================
+   BUSTANIYA — MOBILE UX & RESPONSIVENESS OVERHAUL
+   Tailored for luxury touch browsing on smartphones (< 768px)
+   ============================================================= */
+
+/* -------------------------------------------------------------
+   1. FIXED MOBILE APP-STYLE BOTTOM NAVIGATION BAR
+   ------------------------------------------------------------- */
+.bs-st-bottomnav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Offset body content so the fixed bottom bar never obscures buttons or footer */
+  body {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .bs-st-bottomnav {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: rgba(255, 254, 251, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(23, 61, 41, 0.08);
+    z-index: 98;
+    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.05);
+  }
+
+  .bs-st-bottomnav__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: #64746b;
+    text-decoration: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.15s ease, transform 0.15s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .bs-st-bottomnav__item:active {
+    transform: scale(0.94);
+  }
+  .bs-st-bottomnav__item[data-active="true"] {
+    color: var(--bs-st-ink, #173d29);
+  }
+  .bs-st-bottomnav__label {
+    font-size: 10px;
+    font-weight: var(--bs-weight-semibold, 600);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .bs-st-bottomnav__badge {
+    position: absolute;
+    top: 5px;
+    right: calc(50% - 17px);
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    background: #7b1b3a;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 2px 5px rgba(123, 27, 58, 0.35);
+  }
+
+  /* -------------------------------------------------------------
+     2. MOBILE HEADER & ANNOUNCEMENT BAR
+     ------------------------------------------------------------- */
+  .bs-st-header__bar {
+    height: 56px !important;
+    padding-inline: 14px !important;
+    gap: 8px !important;
+  }
+  .bs-st-header[data-stuck="true"] .bs-st-header__bar {
+    height: 56px !important;
+  }
+  .bs-st-header__brand img {
+    height: 30px !important;
+  }
+  .bs-st-iconbtn {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .bs-st-ann {
+    font-size: 11px !important;
+    padding: 6px 12px !important;
+    letter-spacing: 0.12em !important;
+  }
+
+  /* -------------------------------------------------------------
+     3. UPGRADED MOBILE DRAWER
+     ------------------------------------------------------------- */
+  .bs-st-drawer--left {
+    width: min(380px, 90vw) !important;
+    box-shadow: 8px 0 32px rgba(23, 61, 41, 0.16) !important;
+  }
+  .bs-st-drawer__head {
+    padding: 14px 18px !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(23, 61, 41, 0.08) !important;
+  }
+  .bs-st-drawer__searchbox {
+    padding: 14px 18px 8px;
+  }
+  .bs-st-drawer__searchtrigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 44px;
+    padding: 0 14px;
+    border: 1px solid rgba(23, 61, 41, 0.12);
+    border-radius: 999px;
+    background: #f7f5ef;
+    color: #64746b;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .bs-st-drawer__searchtrigger:hover,
+  .bs-st-drawer__searchtrigger:active {
+    background: #fff;
+    border-color: #173d29;
+    color: #173d29;
+  }
+  .bs-st-menu__list {
+    padding: 6px 18px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .bs-st-menuitem-group {
+    border-bottom: 1px solid rgba(23, 61, 41, 0.06);
+  }
+  .bs-st-menuitem-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 50px;
+  }
+  .bs-st-menulink {
+    border-bottom: 0 !important;
+    min-height: 50px !important;
+    font-size: 19px !important;
+    font-family: var(--bs-font-display) !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em !important;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #173d29 !important;
+    text-decoration: none !important;
+  }
+  .bs-st-menuitem-toggle {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    background: none;
+    border: 0;
+    color: #64746b;
+    cursor: pointer;
+    transition: transform 0.25s ease, color 0.2s ease;
+  }
+  .bs-st-menuitem-toggle.is-expanded {
+    transform: rotate(180deg);
+    color: #173d29;
+  }
+  .bs-st-menuitem-arrow {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    color: #8c9790;
+    text-decoration: none;
+  }
+  .bs-st-menu__sublist {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 0 12px 14px;
+    background: rgba(247, 245, 239, 0.5);
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .bs-st-menusublink {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #3f5548;
+    text-decoration: none;
+    font-weight: 500;
+    border-radius: 4px;
+  }
+  .bs-st-menusublink:active {
+    background: rgba(23, 61, 41, 0.08);
+    color: #173d29;
+  }
+  .bs-st-menusublink--all {
+    font-weight: 650;
+    color: #173d29;
+  }
+  .bs-st-menusublink__count {
+    font-size: 11px;
+    color: #8c9790;
+    background: #fff;
+    padding: 2px 7px;
+    border-radius: 999px;
+  }
+  .bs-st-menu__foot {
+    padding: 16px 18px 24px !important;
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-top: 1px solid rgba(23, 61, 41, 0.08);
+    background: #faf8f3;
+  }
+  .bs-st-menufoot-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #2e4336;
+    text-decoration: none;
+    padding: 8px 10px;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+  }
+  .bs-st-menufoot-item--whatsapp {
+    background: rgba(37, 211, 102, 0.1);
+    color: #0b6b2e;
+    border: 1px solid rgba(37, 211, 102, 0.25);
+  }
+
+  /* -------------------------------------------------------------
+     4. PRODUCT GRID & EDITORIAL PRODUCT CARDS ON MOBILE
+     ------------------------------------------------------------- */
+  .bs-st .productGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 16px 10px !important;
+  }
+  .bs-st .productCard {
+    gap: 8px !important;
+  }
+  .bs-st .productCard .productImage {
+    aspect-ratio: 3 / 4 !important;
+    border-radius: 4px !important;
+    overflow: hidden !important;
+  }
+  .bs-st .productCard .productInfo {
+    gap: 4px !important;
+    padding: 2px 2px 0 !important;
+  }
+  .bs-st .productCard .productInfo h3,
+  .bs-st .productCard .productTitle {
+    font-size: 13px !important;
+    line-height: 1.35 !important;
+    font-weight: 500 !important;
+    margin: 0 !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+    overflow: hidden !important;
+  }
+  .bs-st .productCard .priceCurrent {
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
+    color: #173d29 !important;
+  }
+  .bs-st .productCard .priceCompare {
+    font-size: 11px !important;
+    color: #8c9790 !important;
+  }
+  .bs-st .productCard .badge,
+  .bs-st .productCard .saleBadge {
+    top: 7px !important;
+    left: 7px !important;
+    padding: 3px 6px !important;
+    font-size: 8px !important;
+    letter-spacing: 0.1em !important;
+    border-radius: 2px !important;
+  }
+
+  /* -------------------------------------------------------------
+     5. HORIZONTAL SWIPEABLE CATEGORY TABS
+     ------------------------------------------------------------- */
+  .categoryTabs,
+  .bs-st .categoryTabs,
+  .khaadiTopPicks .categoryTabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding: 6px 14px !important;
+    margin: 0 -14px 22px !important;
+    width: calc(100% + 28px) !important;
+    gap: 8px !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  .categoryTabs::-webkit-scrollbar,
+  .bs-st .categoryTabs::-webkit-scrollbar {
+    display: none !important;
+  }
+  .categoryTabs button,
+  .bs-st .categoryTabs button {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+    padding: 8px 16px !important;
+    font-size: 11px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(23, 61, 41, 0.12) !important;
+    background: #fff !important;
+    color: #55705f !important;
+  }
+  .categoryTabs .active,
+  .bs-st .categoryTabs .active {
+    background: #173d29 !important;
+    color: #fff !important;
+    border-color: #173d29 !important;
+  }
+
+  /* -------------------------------------------------------------
+     6. CATEGORY MOSAIC ON MOBILE
+     ------------------------------------------------------------- */
+  .bs-st .categoryShowcase .categoryCards {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-auto-rows: 170px !important;
+    gap: 10px !important;
+  }
+  .bs-st .categoryShowcase .categoryCard {
+    border-radius: 4px !important;
+  }
+  .bs-st .categoryShowcase .categoryCardContent {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    gap: 4px !important;
+  }
+  .bs-st .categoryShowcase .categoryCardContent h3 {
+    font-size: 20px !important;
+    line-height: 1.1 !important;
+  }
+  .bs-st .categoryShowcase .categoryCardContent small {
+    font-size: 9px !important;
+    letter-spacing: 0.14em !important;
+  }
+
+  /* -------------------------------------------------------------
+     7. STICKY MOBILE BUY BAR ON PRODUCT PAGE
+     ------------------------------------------------------------- */
+  .mobileStickyBuyBar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(23, 61, 41, 0.1);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+    z-index: 97;
+    padding: 8px 14px;
+    animation: stickyBarSlideUp 0.25s ease-out;
+  }
+  @keyframes stickyBarSlideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .mobileStickyBuyBar__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  .mobileStickyBuyBar__meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+  }
+  .mobileStickyBuyBar__thumb {
+    position: relative;
+    width: 40px;
+    height: 48px;
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: #f0ede6;
+  }
+  .mobileStickyBuyBar__info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .mobileStickyBuyBar__title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #173d29;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mobileStickyBuyBar__price {
+    font-size: 13px;
+    font-weight: 700;
+    color: #173d29;
+  }
+  .mobileStickyBuyBar__btn {
+    flex-shrink: 0;
+    min-height: 42px;
+    padding: 0 18px;
+    background: #173d29;
+    color: #fff;
+    border: 0;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(23, 61, 41, 0.25);
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  .mobileStickyBuyBar__btn:active {
+    transform: scale(0.96);
+  }
+  .mobileStickyBuyBar__btn:disabled {
+    background: #8c9790;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  /* -------------------------------------------------------------
+     8. PRODUCT DETAILS PAGE MOBILE REFINEMENTS
+     ------------------------------------------------------------- */
+  .productPage,
+  .bs-st .productDetailLayout {
+    padding-inline: 12px !important;
+  }
+  .productActions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .productActions .addToBagBtn {
+    min-height: 50px !important;
+    font-size: 12px !important;
+  }
+  .sizeOptions button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  /* -------------------------------------------------------------
+     9. CART & CHECKOUT MOBILE REFINEMENTS
+     ------------------------------------------------------------- */
+  .bs-st-drawer--right,
+  .cartDrawer {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+}
