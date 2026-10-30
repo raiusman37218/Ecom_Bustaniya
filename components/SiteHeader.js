@@ -192,6 +192,7 @@ export default function SiteHeader({
               <Link
                 key={item.slug}
                 href={`/category/${item.slug}`}
+                prefetch={true}
                 className="bs-st-navlink bs-st-deskonly"
                 data-active={activeNav === item.slug ? "true" : "false"}
                 aria-haspopup={item.children.length > 0 ? "true" : undefined}
@@ -205,7 +206,7 @@ export default function SiteHeader({
           </nav>
 
           {/* Centre — brand */}
-          <Link href="/" className="bs-st-header__brand" aria-label="Bustaniya home">
+          <Link href="/" prefetch={true} className="bs-st-header__brand" aria-label="Bustaniya home">
             <img src="/bustaniya-logo-v2.png" alt="Bustaniya" />
           </Link>
 
@@ -213,6 +214,7 @@ export default function SiteHeader({
           <div className="bs-st-header__actions">
             <Link
               href="/search"
+              prefetch={true}
               className="bs-st-navlink bs-st-navlink--sale bs-st-deskonly"
               style={{ marginRight: 14 }}
               onMouseEnter={() => setMegaSlug("")}
@@ -266,6 +268,7 @@ export default function SiteHeader({
                     <Link
                       key={child.slug}
                       href={`/category/${child.parentSlug}/${child.slug}`}
+                      prefetch={true}
                       className="bs-st-mega__link"
                       onClick={() => setMegaSlug("")}
                     >
@@ -278,7 +281,7 @@ export default function SiteHeader({
                 </div>
               </div>
 
-              <Link href={`/category/${mega.slug}`} className="bs-st-mega__feature" onClick={() => setMegaSlug("")}>
+              <Link href={`/category/${mega.slug}`} prefetch={true} className="bs-st-mega__feature" onClick={() => setMegaSlug("")}>
                 {mega.image && (
                   <Image src={mega.image} alt="" fill sizes="(min-width: 1000px) 40vw, 100vw" style={{ objectFit: "cover" }} />
                 )}
@@ -340,7 +343,7 @@ export default function SiteHeader({
         </div>
 
         <div className="bs-st-menu__list">
-          <Link href="/" className="bs-st-menulink" onClick={closeMenu} tabIndex={menuOpen ? 0 : -1}>
+          <Link href="/" prefetch={true} className="bs-st-menulink" onClick={closeMenu} tabIndex={menuOpen ? 0 : -1}>
             <span>Home</span>
             <ArrowRight size={16} />
           </Link>
@@ -353,6 +356,7 @@ export default function SiteHeader({
                 <div className="bs-st-menuitem-row">
                   <Link
                     href={`/category/${item.slug}`}
+                    prefetch={true}
                     className="bs-st-menulink"
                     onClick={closeMenu}
                     tabIndex={menuOpen ? 0 : -1}
@@ -373,6 +377,7 @@ export default function SiteHeader({
                   ) : (
                     <Link
                       href={`/category/${item.slug}`}
+                      prefetch={true}
                       className="bs-st-menuitem-arrow"
                       onClick={closeMenu}
                       aria-label={item.name}

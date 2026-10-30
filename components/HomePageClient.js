@@ -589,7 +589,7 @@ export default function Home({
                   </div>
                   <div className="categoryMinimalGrid" aria-label="Shop by category">
                     {cardsToRender.map((category) => (
-                      <Link className="categoryMinimalCard" href={`/category/${category.slug}`} key={category.slug}>
+                      <Link className="categoryMinimalCard" href={`/category/${category.slug}`} prefetch={true} key={category.slug}>
                         <div className="categoryMinimalImageWrap">
                           <Image
                             src={optimizedImageUrl(category.image || "/bustaniya-campaign-hero-v4.png", CLOUDINARY_IMAGE_PRESETS.category)}
@@ -625,7 +625,7 @@ export default function Home({
                 </header>
                 <div className="categoryCards" aria-label="Shop by category">
                   {cardsToRender.map((category, index) => (
-                    <Link className={`categoryCard card${index + 1}`} href={`/category/${category.slug}`} key={category.slug} style={category.image ? { backgroundImage: `url(${optimizedImageUrl(category.image, CLOUDINARY_IMAGE_PRESETS.category)})` } : undefined}>
+                    <Link className={`categoryCard card${index + 1}`} href={`/category/${category.slug}`} prefetch={true} key={category.slug} style={category.image ? { backgroundImage: `url(${optimizedImageUrl(category.image, CLOUDINARY_IMAGE_PRESETS.category)})` } : undefined}>
                       <div className="categoryCardContent">
                         <small>Collection {String(index + 1).padStart(2, "0")}</small>
                         <p>{category.description || "Curated essentials, made for everyday elegance."}</p>

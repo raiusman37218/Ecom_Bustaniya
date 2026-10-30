@@ -3,8 +3,11 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
+  httpAgentOptions: {
+    keepAlive: true,
+  },
   experimental: {
-    optimizePackageImports: ["lucide-react"],
+    optimizePackageImports: ["lucide-react", "color-namer", "react-colorful"],
   },
   images: {
     loader: "custom",
