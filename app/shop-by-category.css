@@ -10,11 +10,21 @@
 .bs-cat {
   position: relative;
   width: 100%;
-  padding: clamp(32px, 4.5vw, 64px) 0 clamp(24px, 3.5vw, 48px);
+  padding: clamp(28px, 3.5vw, 48px) 0 clamp(8px, 1.2vw, 16px);
   background: var(--section-bg, var(--bs-st-paper, #f5f9ea));
   color: var(--section-text, var(--bs-st-ink, #16301d));
   font-family: var(--bs-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
   scroll-margin-top: clamp(70px, 9vw, 95px);
+  margin-bottom: 0;
+}
+
+/* Remove stacked whitespace when followed by New Arrivals */
+.bs-cat + .shopSection,
+.bs-cat + .khaadiTopPicks,
+#shop-by-category + #products,
+#shop-by-category + .shopSection,
+#shop-by-category + .khaadiTopPicks {
+  padding-top: clamp(16px, 2.2vw, 28px) !important;
 }
 
 .bs-cat *,
@@ -24,8 +34,8 @@
 }
 
 .bs-cat.bs-cat--band {
-  margin-top: clamp(32px, 4vw, 56px);
-  padding-bottom: clamp(36px, 5vw, 64px);
+  margin-top: clamp(20px, 2.8vw, 36px);
+  padding-bottom: clamp(10px, 1.4vw, 18px);
 }
 
 .bs-cat .bs-cat__inner {
@@ -308,7 +318,14 @@
    ------------------------------------------------------------- */
 @media (max-width: 599px) {
   .bs-cat {
-    padding: 28px 0 20px;
+    padding: 24px 0 10px;
+  }
+  .bs-cat + .shopSection,
+  .bs-cat + .khaadiTopPicks,
+  #shop-by-category + #products,
+  #shop-by-category + .shopSection,
+  #shop-by-category + .khaadiTopPicks {
+    padding-top: 14px !important;
   }
   .bs-cat .bs-cat__head {
     margin-bottom: 22px;

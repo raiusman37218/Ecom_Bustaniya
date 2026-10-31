@@ -569,12 +569,12 @@ a { text-decoration:none; }
   box-shadow:0 1px 4px rgba(0,0,0,0.08);
 }
 .productCard--connected .saleBadge {
-  left:auto;
-  right:10px;
+  left:10px;
+  right:auto;
   background:#7b1b3a !important;
   color:#fff !important;
 }
-.productCard--connected .badge + .saleBadge { left:auto; right:10px; }
+.productCard--connected .badge + .saleBadge { left:10px; right:auto; top:34px; }
 .productCard--connected .quickViewButton,
 .productCard--connected .quickAdd { display:none !important; }
 .productCard--connected .connectedCardAction {
@@ -2446,8 +2446,9 @@ footer {
 .productImage::after { content:none; }
 .productCard:hover .productImage img { transform:scale(1.018); }
 .productCardLink { position:absolute; inset:0; z-index:1; }
-.badge { position:absolute; z-index:3; left:10px; top:10px; padding:6px 9px; background:#fff; color:#7b1b3a; border:1px solid #eadfdb; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; }
-.saleBadge { position:absolute; z-index:3; right:9px; top:9px; padding:6px 8px; background:var(--berry); color:#fff; font-size:9px; font-weight:800; letter-spacing:.06em; }
+.badge { position:absolute; z-index:3; left:10px; top:10px; padding:5px 8px; background:#fff; color:#7b1b3a; border:1px solid #eadfdb; font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; border-radius:3px; }
+.saleBadge { position:absolute; z-index:3; left:10px; top:10px; right:auto; padding:5px 8px; background:var(--berry); color:#fff; font-size:8.5px; font-weight:800; letter-spacing:.06em; border-radius:3px; }
+.badge + .saleBadge { top:34px; left:10px; right:auto; }
 .quickViewButton { position:absolute; z-index:4; left:10px; right:10px; bottom:10px; min-height:38px; border:0; background:#fffefbf2; color:var(--forest); font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; opacity:0; transform:translateY(8px); transition:.2s; }
 .productCard:hover .quickViewButton,.quickViewButton:focus-visible { opacity:1; transform:translateY(0); }
 .productCard--connected {
@@ -3628,11 +3629,14 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
 }
 .khaadiTopPicks .badge,
 .khaadiTopPicks .saleBadge {
-  border-radius:999px;
+  border-radius:4px;
 }
 .khaadiTopPicks .saleBadge {
+  left:10px;
+  right:auto;
   background:linear-gradient(135deg,var(--berry),#9e183f);
 }
+.khaadiTopPicks .badge + .saleBadge { top:34px; left:10px; right:auto; }
 .khaadiTopPicks .productInfo {
   padding:15px 16px 18px;
 }
@@ -9186,7 +9190,8 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   .productGrid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
   .productCard { border-radius:0; box-shadow:none; }
   .quickViewButton { opacity:1; transform:none; left:7px; right:7px; bottom:7px; min-height:32px; font-size:8px; }
-  .saleBadge { right:7px; top:7px; padding:5px 6px; font-size:8px; }
+  .saleBadge { left:6px; top:6px; right:auto; padding:3px 6px; font-size:8px; border-radius:2px; }
+  .badge + .saleBadge { top:26px; left:6px; right:auto; }
   .quickViewModal { grid-template-columns:1fr; }
   .quickViewImage { min-height:280px; }
   .quickViewDetails { padding:24px 20px; }
@@ -9369,7 +9374,9 @@ body:has(.cartOpen) .whatsappSupportButton { opacity:0 !important; pointer-event
   /* Remove the stacked section padding so New Arrivals follows the category
      cards without a large empty band on mobile. */
   .categoryShowcase { padding:58px 12px 30px; }
-  .categoryShowcase + .khaadiTopPicks { padding-top:28px; }
+  .categoryShowcase + .khaadiTopPicks,
+  .bs-cat + .khaadiTopPicks,
+  #shop-by-category + #products { padding-top:18px !important; }
   .categoryCard { height:340px; background-size:cover; }
   .categoryCard:nth-child(even) { height:340px; }
   .categoryHero { min-height:330px; background-position:center top; }
