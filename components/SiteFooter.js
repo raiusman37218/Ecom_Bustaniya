@@ -142,7 +142,7 @@ export default function SiteFooter({
           <div className="bs-st-footer__cols">
             <div className="bs-st-footer__brand">
               <Link href="/" aria-label="Bustaniya home" style={{ lineHeight: 0 }}>
-                <img src="/bustaniya-logo-v2.png" alt="Bustaniya" />
+                <img src="/bustaniya-logo-v2.png" alt="Bustaniya" width={180} height={48} loading="lazy" />
               </Link>
               <p>Rooted in tradition. Made for now.</p>
             </div>

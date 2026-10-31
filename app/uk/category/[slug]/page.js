@@ -11,7 +11,18 @@ import { getStoreSettings } from "../../../../lib/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../../../lib/images";
 import { convertProductsToRegion, formatPrice } from "../../../../lib/regions";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  try {
+    const categories = await getCatalogCategories();
+    return (categories || [])
+      .filter((item) => !item.parentSlug)
+      .map((item) => ({ slug: item.slug }));
+  } catch {
+    return [];
+  }
+}
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;

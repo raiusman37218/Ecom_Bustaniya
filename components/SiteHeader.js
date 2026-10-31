@@ -244,7 +244,7 @@ export default function SiteHeader({
 
           {/* Centre — brand */}
           <Link href="/" prefetch={true} className="bs-st-header__brand" aria-label="Bustaniya home">
-            <img src="/bustaniya-logo-v2.png" alt="Bustaniya" />
+            <img src="/bustaniya-logo-v2.png" alt="Bustaniya" width={180} height={48} fetchPriority="high" />
           </Link>
 
           {/* Right — secondary nav and actions */}
@@ -356,7 +356,7 @@ export default function SiteHeader({
       >
         <div className="bs-st-drawer__head">
           <Link href="/" onClick={closeMenu} aria-label="Bustaniya Home">
-            <img src="/bustaniya-logo-v2.png" alt="Bustaniya" style={{ height: 32, width: "auto" }} />
+            <img src="/bustaniya-logo-v2.png" alt="Bustaniya" width={120} height={32} style={{ height: 32, width: "auto" }} />
           </Link>
           <button
             type="button"

@@ -43,12 +43,18 @@ function CampaignHeroImage({ desktopSrc, mobileSrc, alt }) {
   const safeMobile = mobileSrc || safeDesktop;
   const desktopUrl = optimizedImageUrl(safeDesktop, CLOUDINARY_IMAGE_PRESETS.heroDesktop);
   const mobileUrl = optimizedImageUrl(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile);
+  const isCloudinaryDesktop = typeof safeDesktop === "string" && safeDesktop.includes("res.cloudinary.com");
+  const isCloudinaryMobile = typeof safeMobile === "string" && safeMobile.includes("res.cloudinary.com");
+  const desktopWebp = !isCloudinaryDesktop && desktopUrl.endsWith(".png") ? desktopUrl.replace(/\.png$/, ".webp") : "";
+  const mobileWebp = !isCloudinaryMobile && mobileUrl.endsWith(".png") ? mobileUrl.replace(/\.png$/, ".webp") : "";
 
   return (
     <picture>
+      {mobileWebp && <source media="(max-width: 767px)" type="image/webp" srcSet={mobileWebp} />}
       <source media="(max-width: 767px)" srcSet={mobileUrl} />
+      {desktopWebp && <source media="(min-width: 768px)" type="image/webp" srcSet={desktopWebp} />}
       <source media="(min-width: 768px)" srcSet={desktopUrl} />
-      <img src={desktopUrl} alt={alt || "Bustaniya UK eastern wear campaign"} fetchPriority="high" decoding="async" />
+      <img src={desktopWebp || desktopUrl} alt={alt || "Bustaniya UK eastern wear campaign"} fetchPriority="high" decoding="async" />
     </picture>
   );
 }

@@ -116,7 +116,7 @@ export default function WishlistPageClient({ region = "pk" }) {
                 <Image
                   className="productImagePrimary"
                   src={optimizedImageUrl(
-                    product.image || "/bustaniya-campaign-hero-v4.png",
+                    product.image || "/bustaniya-campaign-hero-v4.webp",
                     CLOUDINARY_IMAGE_PRESETS.card
                   )}
                   alt={`${product.name} by Bustaniya`}

@@ -20,8 +20,8 @@ export default function PluginWidgetsHost({ initialWidgets = [], defaultPhoneNum
   };
 
   useEffect(() => {
-    fetchActiveWidgets();
-
+    // initialWidgets already provided via SSR in RootLayout.
+    // Only re-fetch if updated via admin event or storage sync.
     const handlePluginsChange = () => fetchActiveWidgets();
     window.addEventListener("bs:plugins:changed", handlePluginsChange);
     window.addEventListener("storage", (e) => {

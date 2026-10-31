@@ -11,7 +11,24 @@ import { getStoreSettings } from "../../../../../lib/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../../../../lib/images";
 import { convertProductsToRegion, formatPrice } from "../../../../../lib/regions";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  try {
+    const categories = await getCatalogCategories();
+    const parents = (categories || []).filter((item) => !item.parentSlug);
+    const params = [];
+    for (const parent of parents) {
+      const subs = subcategoryOptions(categories, parent.slug);
+      for (const sub of subs) {
+        params.push({ slug: parent.slug, subcategory: sub.slug });
+      }
+    }
+    return params;
+  } catch {
+    return [];
+  }
+}
 
 export async function generateMetadata({ params }) {
   const { slug, subcategory } = await params;

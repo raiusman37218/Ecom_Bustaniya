@@ -7,7 +7,7 @@ import { ArrowRight } from "lucide-react";
 
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
 
-const FALLBACK_IMAGE = "/bustaniya-campaign-hero-v4.png";
+const FALLBACK_IMAGE = "/bustaniya-campaign-hero-v4.webp";
 
 /**
  * Category artwork with fallback safety for missing/broken images.
@@ -15,7 +15,10 @@ const FALLBACK_IMAGE = "/bustaniya-campaign-hero-v4.png";
 function CategoryImage({ src, sizes }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [src]);
-  const source = !src || failed ? FALLBACK_IMAGE : src;
+  let source = !src || failed ? FALLBACK_IMAGE : src;
+  if (source.startsWith("/bustaniya-campaign-hero-v4.png")) {
+    source = "/bustaniya-campaign-hero-v4.webp";
+  }
   return (
     <Image
       className="bs-cat__img"

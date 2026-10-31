@@ -27,7 +27,7 @@ const fallbackCategoryRecords = categories
       name,
       slug,
       description: categoryDetails[slug]?.description || "",
-      image: categoryDetails[slug]?.image || "/bustaniya-campaign-hero-v4.png",
+      image: categoryDetails[slug]?.image || "/bustaniya-campaign-hero-v4.webp",
       parentSlug: "",
       sortOrder: (index + 1) * 10,
     };
@@ -104,12 +104,16 @@ function CampaignHeroImage({ desktopSrc, mobileSrc, alt }) {
   const mobileSrcSet = isCloudinaryMobile ? heroSrcSet(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile, [480, 640, 750, 900, 1080]) : "";
   const desktopUrl = optimizedImageUrl(safeDesktop, CLOUDINARY_IMAGE_PRESETS.heroDesktop);
   const mobileUrl = optimizedImageUrl(safeMobile, CLOUDINARY_IMAGE_PRESETS.heroMobile);
+  const desktopWebp = !isCloudinaryDesktop && desktopUrl.endsWith(".png") ? desktopUrl.replace(/\.png$/, ".webp") : "";
+  const mobileWebp = !isCloudinaryMobile && mobileUrl.endsWith(".png") ? mobileUrl.replace(/\.png$/, ".webp") : "";
 
   return (
     <picture>
+      {mobileWebp && <source media="(max-width: 767px)" type="image/webp" srcSet={mobileWebp} sizes="100vw" />}
       <source media="(max-width: 767px)" srcSet={mobileSrcSet || mobileUrl} sizes="100vw" />
+      {desktopWebp && <source media="(min-width: 768px)" type="image/webp" srcSet={desktopWebp} sizes="100vw" />}
       <source media="(min-width: 768px)" srcSet={desktopSrcSet || desktopUrl} sizes="100vw" />
-      <img src={desktopUrl} alt={alt || "Bustaniya campaign hero"} fetchPriority="high" decoding="async" />
+      <img src={desktopWebp || desktopUrl} alt={alt || "Bustaniya campaign hero"} fetchPriority="high" decoding="async" />
     </picture>
   );
 }
@@ -278,7 +282,7 @@ export default function Home({
       ...category,
       name: category?.name || "",
       slug: category?.slug || "",
-      image: category?.image || (products || []).find((product) => normalizeCategory(product?.category) === category?.name)?.image || "/bustaniya-campaign-hero-v4.png",
+      image: category?.image || (products || []).find((product) => normalizeCategory(product?.category) === category?.name)?.image || "/bustaniya-campaign-hero-v4.webp",
     })), [categoryRecords, products]);
 
   const bestSellers = useMemo(() => {
@@ -599,7 +603,7 @@ export default function Home({
                   name: c.name || c.title || "",
                   slug: c.slug || slugifyCategory(c.name || ""),
                   description: c.description || "",
-                  image: c.image || categoryCards.find((cat) => cat.slug === c.slug || cat.name === c.name)?.image || "/bustaniya-campaign-hero-v4.png",
+                  image: c.image || categoryCards.find((cat) => cat.slug === c.slug || cat.name === c.name)?.image || "/bustaniya-campaign-hero-v4.webp",
                 }))
               : categoryCards;
 
@@ -835,7 +839,7 @@ export default function Home({
                     {section.subtitle && <p className="sectionSubtitle">{section.subtitle}</p>}
                   </div>
                   {section.buttonText && (
-                    <Link href={section.buttonLink || "#products"} className="featuredCollectionCta">
+                    <Link href={section.buttonLink || "#products"} prefetch={true} className="featuredCollectionCta">
                       {section.buttonText} <ArrowRight size={16} />
                     </Link>
                   )}
@@ -945,7 +949,7 @@ export default function Home({
                     {section.content && <p className="imageWithTextBody">{section.content}</p>}
                     {section.buttonText && (
                       <div className="imageWithTextAction">
-                        <Link href={section.buttonLink || "#products"} className="imageWithTextButton">
+                        <Link href={section.buttonLink || "#products"} prefetch={true} className="imageWithTextButton">
                           <span>{section.buttonText}</span>
                           <ArrowRight size={16} />
                         </Link>
@@ -979,7 +983,7 @@ export default function Home({
                   {section.subtitle && <p className="promoBannerSubtitle">{section.subtitle}</p>}
                   {section.buttonText && (
                     <div className="promoBannerAction">
-                      <Link href={section.buttonLink || "#products"} className="promoBannerButton">
+                      <Link href={section.buttonLink || "#products"} prefetch={true} className="promoBannerButton">
                         <span>{section.buttonText}</span>
                         <ArrowRight size={16} />
                       </Link>
@@ -1000,7 +1004,7 @@ export default function Home({
                   {section.content && <p className="richTextBody">{section.content}</p>}
                   {section.buttonText && (
                     <div className="richTextAction">
-                      <Link href={section.buttonLink || "#products"} className="richTextBtn">
+                      <Link href={section.buttonLink || "#products"} prefetch={true} className="richTextBtn">
                         <span>{section.buttonText}</span>
                         <ArrowRight size={15} />
                       </Link>
@@ -1220,7 +1224,7 @@ export default function Home({
                 >
                   {Number(quickViewProduct.stock || 0) > 0 ? `Add to bag (${quickViewSize})` : "Out of stock"}
                 </button>
-                <Link className="viewFullDetailsLink" href={`/product/${quickViewProduct.id}`}>
+                <Link className="viewFullDetailsLink" href={`/product/${quickViewProduct.id}`} prefetch={true}>
                   View full details <ArrowRight size={15} />
                 </Link>
               </div>
@@ -1290,7 +1294,7 @@ export default function Home({
             </div>
           )}
           <p>Delivery charges calculated at checkout.</p>
-          <Link className="checkoutButton" href="/checkout">Checkout <ArrowRight size={18} /></Link>
+          <Link className="checkoutButton" href="/checkout" prefetch={true}>Checkout <ArrowRight size={18} /></Link>
           <button className="shopMoreButton" onClick={() => setCartOpen(false)}>Shop more</button>
         </div>}
       </aside>

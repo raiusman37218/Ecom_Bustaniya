@@ -3,6 +3,10 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
+  productionBrowserSourceMaps: false,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
+  },
   httpAgentOptions: {
     keepAlive: true,
   },
@@ -39,7 +43,7 @@ const nextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=86400, stale-while-revalidate=604800",
+            value: "public, max-age=2592000, stale-while-revalidate=86400",
           },
         ],
       },
@@ -53,20 +57,11 @@ const nextConfig = {
         ],
       },
       {
-        source: "/(favicon.ico|icon-192.png|icon-512.png|apple-icon.png|manifest.webmanifest)",
+        source: "/(.*\\.(?:png|jpg|jpeg|webp|avif|svg|ico|woff|woff2|webmanifest))",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=86400, stale-while-revalidate=604800",
-          },
-        ],
-      },
-      {
-        source: "/(bustaniya-.*\\.(?:png|jpg|jpeg|webp|avif|svg))",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=86400, stale-while-revalidate=604800",
+            value: "public, max-age=2592000, stale-while-revalidate=86400",
           },
         ],
       },

@@ -5,8 +5,20 @@ import { getCatalogProducts } from "../../../../lib/catalog";
 import { JsonLd, breadcrumbSchema, buildMetadata, productDescription, siteConfig } from "../../../../lib/seo";
 import { getStoreSettings } from "../../../../lib/storeSettings";
 import { convertProductToRegion, convertProductsToRegion } from "../../../../lib/regions";
+import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../../../lib/images";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  try {
+    const products = await getCatalogProducts();
+    return (products || []).map((product) => ({
+      id: String(product.id),
+    }));
+  } catch {
+    return [];
+  }
+}
 
 function legacyArticleNumber(id) {
   const numericId = Number(id);
@@ -61,9 +73,11 @@ export default async function UkProductPage({ params }) {
     : "coord-sets";
 
   const stock = Number(product.stock || 0);
+  const productPreloadUrl = product.image ? optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.product) : "";
 
   return (
     <>
+      {productPreloadUrl && <link rel="preload" as="image" href={productPreloadUrl} fetchPriority="high" />}
       <JsonLd
         data={breadcrumbSchema([
           { name: "Home", path: "/uk" },

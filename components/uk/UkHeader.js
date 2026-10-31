@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { UserRound, Heart, ShoppingBag, Menu, X } from "lucide-react";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { REGIONS } from "../../lib/regions";
@@ -117,20 +118,21 @@ export default function UkHeader({
           </button>
         </div>
 
-        <a href="/uk" className="headerBrandLogo" aria-label="Bustaniya UK Home">
-          <img src="/bustaniya-logo-v2.png" alt="Bustaniya" />
-        </a>
+        <Link href="/uk" prefetch={true} className="headerBrandLogo" aria-label="Bustaniya UK Home">
+          <img src="/bustaniya-logo-v2.png" alt="Bustaniya" width={180} height={48} fetchPriority="high" />
+        </Link>
 
         <div className="headerRightActions">
-          <a href="/admin" aria-label="Account" className="actionIconLink" title="Admin Account">
+          <Link href="/admin" aria-label="Account" className="actionIconLink" title="Admin Account">
             <UserRound size={22} />
-          </a>
-          <a href="/uk/wishlist" aria-label="Wishlist" className="actionIconBtn" title="Wishlist">
+          </Link>
+          <Link href="/uk/wishlist" prefetch={true} aria-label="Wishlist" className="actionIconBtn" title="Wishlist">
             <Heart size={22} />
             {wishlistCount > 0 && <span className="actionBadge">{wishlistCount}</span>}
-          </a>
-          <a
+          </Link>
+          <Link
             href="/uk/cart"
+            prefetch={true}
             aria-label="Shopping Bag"
             className="actionIconBtn cartBtn"
             onClick={handleCartClick}
@@ -138,7 +140,7 @@ export default function UkHeader({
           >
             <ShoppingBag size={22} />
             {displayCartCount > 0 && <span className="actionBadge">{displayCartCount}</span>}
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -150,37 +152,41 @@ export default function UkHeader({
             <X size={20} />
           </button>
         </div>
-        <a
+        <Link
           onClick={() => setMobileOpen(false)}
           className={activeNav === "home" ? "navItem active" : "navItem"}
           href="/uk"
+          prefetch={true}
         >
           HOME
-        </a>
+        </Link>
         {navigationCategories.map((category) => (
-          <a
+          <Link
             onClick={() => setMobileOpen(false)}
             className={activeNav === category.slug ? "navItem active" : "navItem"}
             href={`/uk/category/${category.slug}`}
             key={category.slug}
+            prefetch={true}
           >
             {category.name.toUpperCase()}
-          </a>
+          </Link>
         ))}
-        <a
+        <Link
           onClick={() => setMobileOpen(false)}
           className={activeNav === "about" ? "navItem active" : "navItem"}
           href="/uk/about"
+          prefetch={true}
         >
           ABOUT US
-        </a>
-        <a
+        </Link>
+        <Link
           onClick={() => setMobileOpen(false)}
           className={activeNav === "contact" ? "navItem active" : "navItem"}
           href="/uk/contact"
+          prefetch={true}
         >
           CONTACT US
-        </a>
+        </Link>
         <a
           className="mobileNavInstagram"
           href="https://www.instagram.com/bustaniya_/"

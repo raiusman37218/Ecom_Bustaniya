@@ -355,7 +355,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     }
     return Array.isArray(product.images) && product.images.length
       ? product.images.filter(Boolean).map((img) => optimizedImageUrl(img))
-      : [product.image || "/bustaniya-campaign-hero-v4.png"];
+      : [product.image || "/bustaniya-campaign-hero-v4.webp"];
   }, [activeColorImages, product.images, product.image]);
 
   const [activeImgIndex, setActiveImgIndex] = useState(0);

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ShieldCheck, Truck } from "lucide-react";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { REGIONS } from "../../lib/regions";
@@ -50,9 +51,9 @@ export default function UkFooter({ categories = [], storeSettings = DEFAULT_STOR
       <div className="footerMainGrid">
         {/* Brand Bio Column */}
         <div className="footerBrandCol">
-          <a className="footerLogoLink" href="/uk" aria-label="Bustaniya UK home">
-            <img src="/bustaniya-logo-v2.png" alt="Bustaniya" />
-          </a>
+          <Link className="footerLogoLink" href="/uk" prefetch={true} aria-label="Bustaniya UK home">
+            <img src="/bustaniya-logo-v2.png" alt="Bustaniya" width={180} height={48} loading="lazy" />
+          </Link>
           <p className="footerTagline">Pakistani clothing, rooted in grace.</p>
           <span className="footerBio">
             Thoughtfully designed eastern silhouettes crafted with pure fabrics, fine embroidery, and modern tailoring for everyday elegance and festive occasions across the United Kingdom.
@@ -67,13 +68,13 @@ export default function UkFooter({ categories = [], storeSettings = DEFAULT_STOR
         <div className="footerNavCol">
           <h4 className="footerColHeading">Shop</h4>
           <ul className="footerNavList">
-            <li><a href="/uk">Home</a></li>
+            <li><Link href="/uk" prefetch={true}>Home</Link></li>
             {displayCategories.map((category) => (
               <li key={category.slug}>
-                <a href={`/uk/category/${category.slug}`}>{category.name}</a>
+                <Link href={`/uk/category/${category.slug}`} prefetch={true}>{category.name}</Link>
               </li>
             ))}
-            <li><a href="/uk/cart">Shopping Bag</a></li>
+            <li><Link href="/uk/cart" prefetch={true}>Shopping Bag</Link></li>
           </ul>
         </div>
 
@@ -81,9 +82,9 @@ export default function UkFooter({ categories = [], storeSettings = DEFAULT_STOR
         <div className="footerNavCol">
           <h4 className="footerColHeading">Customer Care</h4>
           <ul className="footerNavList">
-            <li><a href="/uk/contact">Contact Us</a></li>
-            <li><a href="/uk/shipping-policy">UK Shipping &amp; Delivery</a></li>
-            <li><a href="/uk/exchange-return-policy">Returns &amp; Exchanges</a></li>
+            <li><Link href="/uk/contact" prefetch={true}>Contact Us</Link></li>
+            <li><Link href="/uk/shipping-policy" prefetch={true}>UK Shipping &amp; Delivery</Link></li>
+            <li><Link href="/uk/exchange-return-policy" prefetch={true}>Returns &amp; Exchanges</Link></li>
             <li>
               <a
                 href={`https://wa.me/${rawWhatsapp}?text=${encodeURIComponent("Assalam-o-Alaikum Bustaniya UK! I need assistance with an order.")}`}
@@ -100,10 +101,10 @@ export default function UkFooter({ categories = [], storeSettings = DEFAULT_STOR
         <div className="footerNavCol">
           <h4 className="footerColHeading">Company</h4>
           <ul className="footerNavList">
-            <li><a href="/uk/about">About Bustaniya</a></li>
-            <li><a href="/uk/privacy-policy">Privacy Policy</a></li>
-            <li><a href="/uk/terms-and-conditions">Terms &amp; Conditions</a></li>
-            <li><a href="/uk/shipping-policy">Payment Methods &amp; Delivery</a></li>
+            <li><Link href="/uk/about" prefetch={true}>About Bustaniya</Link></li>
+            <li><Link href="/uk/privacy-policy" prefetch={true}>Privacy Policy</Link></li>
+            <li><Link href="/uk/terms-and-conditions" prefetch={true}>Terms &amp; Conditions</Link></li>
+            <li><Link href="/uk/shipping-policy" prefetch={true}>Payment Methods &amp; Delivery</Link></li>
           </ul>
           <address className="footerCompanyDetails">
             <strong>BUSTANIYA LTD</strong>

@@ -837,7 +837,7 @@ const fallbackCategoryRecords = fallbackCategoryNames
       name,
       slug,
       description: categoryDetails[slug]?.description || "",
-      image: categoryDetails[slug]?.image || "/bustaniya-campaign-hero-v4.png",
+      image: categoryDetails[slug]?.image || "/bustaniya-campaign-hero-v4.webp",
       parentSlug: "",
       status: "Active",
       sortOrder: (index + 1) * 10,
@@ -1493,7 +1493,7 @@ export default function AdminDashboard() {
         publishDate: new Date().toISOString().split("T")[0],
         images: mediaImages.length
           ? mediaImages
-          : ["/bustaniya-campaign-hero-v4.png"],
+          : ["/bustaniya-campaign-hero-v4.webp"],
         delivery_fee_mode: "inherit",
         delivery_fee_pkr: null,
         deliveryInfo: "",
@@ -1760,7 +1760,7 @@ export default function AdminDashboard() {
             sku: item.sku,
             sizes: [],
             colors: [],
-            images: ["/bustaniya-campaign-hero-v4.png"],
+            images: ["/bustaniya-campaign-hero-v4.webp"],
             is_new: false,
             is_bestseller: false,
             delivery_fee_mode: "inherit",
@@ -3603,11 +3603,11 @@ function CategoriesPanel({
                   <div className="shopifyCategoryCardHeader">
                     <div className="shopifyCategoryCardLeft">
                       <img
-                        src={category.image || "/bustaniya-campaign-hero-v4.png"}
+                        src={category.image || "/bustaniya-campaign-hero-v4.webp"}
                         alt={category.name}
                         className="shopifyCategoryThumb"
                         onError={(e) => {
-                          e.currentTarget.src = "/bustaniya-campaign-hero-v4.png";
+                          e.currentTarget.src = "/bustaniya-campaign-hero-v4.webp";
                         }}
                       />
                       <div className="shopifyCategoryDetails">
@@ -3689,11 +3689,11 @@ function CategoriesPanel({
                       </button>
 
                       <img
-                        src={category.image || "/bustaniya-campaign-hero-v4.png"}
+                        src={category.image || "/bustaniya-campaign-hero-v4.webp"}
                         alt={category.name}
                         className="shopifyCategoryThumb"
                         onError={(e) => {
-                          e.currentTarget.src = "/bustaniya-campaign-hero-v4.png";
+                          e.currentTarget.src = "/bustaniya-campaign-hero-v4.webp";
                         }}
                       />
 
@@ -3821,11 +3821,11 @@ function CategoriesPanel({
                                 <div className="shopifySubcategoryLeft">
                                   <span className="shopifySubTreeBranch">↳</span>
                                   <img
-                                    src={sub.image || "/bustaniya-campaign-hero-v4.png"}
+                                    src={sub.image || "/bustaniya-campaign-hero-v4.webp"}
                                     alt={sub.name}
                                     className="shopifySubcategoryThumb"
                                     onError={(e) => {
-                                      e.currentTarget.src = "/bustaniya-campaign-hero-v4.png";
+                                      e.currentTarget.src = "/bustaniya-campaign-hero-v4.webp";
                                     }}
                                   />
                                   <div className="shopifySubcategoryDetails">
@@ -3981,7 +3981,7 @@ function CategoriesPanel({
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <img
-                          src={cat.image || "/bustaniya-campaign-hero-v4.png"}
+                          src={cat.image || "/bustaniya-campaign-hero-v4.webp"}
                           alt={cat.name}
                           style={{
                             width: 36,
@@ -3991,7 +3991,7 @@ function CategoriesPanel({
                             border: "1px solid #dce4dd",
                           }}
                           onError={(e) => {
-                            e.currentTarget.src = "/bustaniya-campaign-hero-v4.png";
+                            e.currentTarget.src = "/bustaniya-campaign-hero-v4.webp";
                           }}
                         />
                         <div>
@@ -4307,7 +4307,7 @@ function CategoryEditModal({ category, mainCategories = [], onClose, onSave, sav
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   type="text"
-                  placeholder="https://... or /bustaniya-campaign-hero-v4.png"
+                  placeholder="https://... or /bustaniya-campaign-hero-v4.webp"
                   value={image}
                   onChange={(e) => {
                     setImage(e.target.value);

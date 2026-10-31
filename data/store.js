@@ -88,7 +88,7 @@ export const categoryDetails = {
   "3-piece-suits": {
     name: "3 Piece Suits",
     description: "Shop Pakistani 3 piece suits for women with complete eastern outfits for festive, semi-formal and everyday occasions.",
-    image: "/bustaniya-campaign-hero-v4.png"
+    image: "/bustaniya-campaign-hero-v4.webp"
   }
 };
 
@@ -121,7 +121,7 @@ export const products = [
   { id: 8, name: "Rooh Layered Jacket Kurti", category: "Kurtis", subcategory: "jacket-kurti", price: 6490, badge: "New", colors: ["Rust", "Olive", "Charcoal"], description: "A jacket kurti for layered Pakistani styling and statement everyday wear. Confirm fabric, layers and measurements before ordering.", image: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=900&q=85" },
   { id: 9, name: "Meher Long Jacket Kurti", category: "Kurtis", subcategory: "jacket-kurti", price: 6990, colors: ["Purple", "Royal Blue", "Black"], description: "A long jacket kurti for women who prefer layered eastern wear. Confirm fabric, length and measurements before ordering.", image: "https://images.unsplash.com/photo-1597983073514-4a0c3e18d892?auto=format&fit=crop&w=900&q=85" },
   { id: 10, name: "Noor Everyday Kurti", category: "Kurtis", subcategory: "simple-kurti", price: 3990, colors: ["Pink", "Sky Blue", "Lilac"], description: "An everyday kurti for Pakistani women's casual eastern wear. Confirm fabric, length and measurements before ordering.", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=85" },
-  { id: 11, name: "Gulbahar 3 Piece Suit", category: "3 Piece Suits", price: 10990, badge: "New", colors: ["Rose Gold", "Peach", "Mint"], description: "A Pakistani 3 piece suit for women looking for a complete eastern outfit. Confirm fabric, included pieces and measurements before ordering.", image: "/bustaniya-campaign-hero-v4.png" },
+  { id: 11, name: "Gulbahar 3 Piece Suit", category: "3 Piece Suits", price: 10990, badge: "New", colors: ["Rose Gold", "Peach", "Mint"], description: "A Pakistani 3 piece suit for women looking for a complete eastern outfit. Confirm fabric, included pieces and measurements before ordering.", image: "/bustaniya-campaign-hero-v4.webp" },
   { id: 12, name: "Zeenat Festive 3 Piece", category: "3 Piece Suits", price: 13990, compareAtPrice: 16990, badge: "Limited", colors: ["Maroon", "Emerald", "Navy"], description: "A festive 3 piece suit for Pakistani women's occasion dressing. Confirm fabric, included pieces and measurements before ordering.", image: "https://images.unsplash.com/photo-1597983073514-4a0c3e18d892?auto=format&fit=crop&w=900&q=85" }
 ];
 
