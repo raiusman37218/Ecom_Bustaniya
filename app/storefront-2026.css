@@ -2264,30 +2264,57 @@
 }
 
 .bs-st .sizeOptions {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-  gap: 6px;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin-top: 10px !important;
 }
 .bs-st .sizeBtn {
-  min-height: 48px;
-  border: 2px solid var(--bs-st-ink);
-  border-radius: 0;
-  background: transparent;
-  color: var(--bs-st-ink);
-  font: inherit;
-  font-size: 13px;
-  font-weight: var(--bs-weight-semibold);
+  min-width: 58px;
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  background: #ffffff;
+  color: #111111;
+  font-family: var(--bs-font-sans, "Manrope", sans-serif);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: background 200ms, color 200ms;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: all 180ms ease;
 }
-.bs-st .sizeBtn:hover { background: var(--bs-st-ink); color: var(--bs-st-paper); }
-.bs-st .sizeBtn.selected { background: var(--bs-st-ink); color: var(--bs-st-paper); }
+.bs-st .sizeBtn:hover:not(.sizeOutOfStock):not(.selected) {
+  background: #ffffff;
+  color: #000000;
+  border-color: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+.bs-st .sizeBtn.selected {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border-color: #000000 !important;
+  font-weight: 600 !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18) !important;
+}
 .bs-st .sizeBtn.sizeOutOfStock {
-  text-decoration: line-through;
-  opacity: 0.35;
-  cursor: not-allowed;
+  background: #fafafa !important;
+  color: #9ca3af !important;
+  border-color: #e5e7eb !important;
+  text-decoration: line-through !important;
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
 }
-.bs-st .sizeBtn.sizeOutOfStock:hover { background: transparent; color: var(--bs-st-ink); }
+.bs-st .sizeBtn.sizeOutOfStock:hover {
+  background: #fafafa !important;
+  color: #9ca3af !important;
+}
 
 .bs-st .sizeGuidePillBtn,
 .bs-st .sizeGuideModalButton {
@@ -4002,9 +4029,11 @@
 /* 4 — Give the option groups a clearer break from each other so
    colour / size / quantity read as three decisions, not one
    run-on block. */
+.bs-st .productOptionSection,
 .bs-st .productOptionSection + .productOptionSection {
-  padding-top: 18px;
-  border-top: var(--bs-st-hairline);
+  padding-top: 0;
+  border-top: 0;
+  margin-top: 22px;
 }
 .bs-st .selectorHeading,
 .bs-st .selectorLabelGroup {
@@ -4014,18 +4043,12 @@
   gap: 12px;
 }
 
-/* 5 — Size buttons: square, evenly sized, and unmistakably
-   selected. They were legible but visually weightless. */
-.bs-st .sizeOptions {
-  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
-  gap: 8px;
-}
-.bs-st .sizeBtn {
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.bs-st .sizeBtn.selected {
-  box-shadow: inset 0 0 0 1px var(--bs-st-paper);
+.sizeLabelTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--bs-st-ink);
+  letter-spacing: -0.01em;
+  text-transform: none;
 }
 
 /* =============================================================
@@ -4134,10 +4157,6 @@
 
 /* Colour swatches read at the design's size. */
 .bs-st .colorSwatchesList button { width: 52px; height: 52px; }
-
-/* Size row: the design keeps the buttons on a natural grid that
-   wraps, rather than stretching five of them edge to edge. */
-.bs-st .sizeOptions { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); }
 
 /* =============================================================
    PRODUCT PAGE — REMOVE THE NESTED CONTAINER

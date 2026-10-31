@@ -176,7 +176,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   }, [colors, color]);
 
   useEffect(() => {
-    try { setCart(JSON.parse(localStorage.getItem("bustaniya-cart")) || []); } catch {}
+    try { setCart(JSON.parse(localStorage.getItem("bustaniya-cart")) || []); } catch { }
     setCartReady(true);
   }, []);
 
@@ -484,812 +484,791 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
       <main className="bs-st productPage">
         <div className="productDetailLayout">
-        <section className="productGallery mariabGallery">
-          <nav className="productBreadcrumb" aria-label="Breadcrumb">
-            <Link href="/">Home</Link>
-            <span aria-hidden="true">/</span>
-            <Link href={categoryHref}>{product.category}</Link>
-            <span aria-hidden="true">/</span>
-            <span className="productBreadcrumbCurrent">{product.name}</span>
-          </nav>
-          <Link className="productBack" href={categoryHref}>
-            <ArrowLeft size={16} /> Back to {product.category}
-          </Link>
+          <section className="productGallery mariabGallery">
+            <nav className="productBreadcrumb" aria-label="Breadcrumb">
+              <Link href="/">Home</Link>
+              <span aria-hidden="true">/</span>
+              <Link href={categoryHref}>{product.category}</Link>
+              <span aria-hidden="true">/</span>
+              <span className="productBreadcrumbCurrent">{product.name}</span>
+            </nav>
+            <Link className="productBack" href={categoryHref}>
+              <ArrowLeft size={16} /> Back to {product.category}
+            </Link>
 
-          <div className={`galleryWorkspace ${productImages.length > 1 ? "hasThumbnails" : "singleImage"}`}>
-            {/* Thumbnails Sidebar Column */}
-            {productImages.length > 1 && (
-              <div className="galleryThumbnails">
-                {productImages.map((img, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className={`thumbBtn ${activeImgIndex === idx ? "active" : ""}`}
-                    onClick={() => setActiveImgIndex(idx)}
-                    // Mounting the photo on hover lets it download at the size
-                    // the slot needs, so the click that follows is instant
-                    // without preloading every photo on arrival.
-                    onMouseEnter={() => mountPhoto(idx)}
-                    onFocus={() => mountPhoto(idx)}
-                    aria-label={`View photo ${idx + 1}`}
-                  >
-                    <Image
-                      src={optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
-                      alt={`${product.name} thumbnail ${idx + 1}`}
-                      width={120}
-                      height={160}
-                      sizes="120px"
-                      quality={70}
+            <div className={`galleryWorkspace ${productImages.length > 1 ? "hasThumbnails" : "singleImage"}`}>
+              {/* Thumbnails Sidebar Column */}
+              {productImages.length > 1 && (
+                <div className="galleryThumbnails">
+                  {productImages.map((img, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`thumbBtn ${activeImgIndex === idx ? "active" : ""}`}
+                      onClick={() => setActiveImgIndex(idx)}
+                      // Mounting the photo on hover lets it download at the size
+                      // the slot needs, so the click that follows is instant
+                      // without preloading every photo on arrival.
+                      onMouseEnter={() => mountPhoto(idx)}
+                      onFocus={() => mountPhoto(idx)}
+                      aria-label={`View photo ${idx + 1}`}
+                    >
+                      <Image
+                        src={optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
+                        alt={`${product.name} thumbnail ${idx + 1}`}
+                        width={120}
+                        height={160}
+                        sizes="120px"
+                        quality={70}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Main Featured Display Photo - Instant Zero-Lag Stack */}
+              <div className="galleryMainView" onClick={() => !mainImageUnavailable && setLightboxOpen(true)}>
+                {!mainImageUnavailable ? (
+                  <>
+                    {/* Instant 0ms Preview Placeholder from already-cached thumbnail */}
+                    <img
+                      key={`preview-${activeImage}`}
+                      className="galleryMainPreview"
+                      src={optimizedImageUrl(activeImage, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
+                      alt=""
+                      aria-hidden="true"
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        objectPosition: "center top",
+                        filter: loadedPhotos.has(activeImgIndex) ? "none" : "blur(10px)",
+                        transform: loadedPhotos.has(activeImgIndex) ? "none" : "scale(1.04)",
+                        opacity: loadedPhotos.has(activeImgIndex) ? 0 : 1,
+                        transition: "opacity 0.3s ease-out, filter 0.3s ease-out",
+                        zIndex: 1,
+                        pointerEvents: "none",
+                      }}
                     />
-                  </button>
+
+                    {productImages.map((img, idx) => {
+                      if (!mountedPhotos.has(idx)) return null;
+                      const isActive = activeImgIndex === idx;
+                      return (
+                        <Image
+                          key={img || idx}
+                          className={`galleryMainImage ${isActive ? "active" : ""}`}
+                          src={useOriginalMainImage ? img : optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.product)}
+                          alt={`${product.name} - View ${idx + 1} by Bustaniya`}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 650px"
+                          priority={idx === 0}
+                          loading={idx === 0 ? "eager" : "eager"}
+                          onLoad={() => {
+                            setLoadedPhotos((prev) => new Set(prev).add(idx));
+                          }}
+                          style={{
+                            objectFit: "cover",
+                            objectPosition: "center top",
+                            opacity: isActive ? 1 : 0,
+                            visibility: isActive ? "visible" : "hidden",
+                            transition: "opacity 0.2s ease-out, visibility 0.2s ease-out",
+                            pointerEvents: isActive ? "auto" : "none",
+                            zIndex: 2,
+                          }}
+                          onError={() => {
+                            if (!useOriginalMainImage) setUseOriginalMainImage(true);
+                            else setMainImageUnavailable(true);
+                          }}
+                        />
+                      );
+                    })}
+                  </>
+                ) : (
+                  <div className="galleryImageFallback">
+                    <b>Product image is unavailable</b>
+                    <span>Please choose another photo or contact us for help.</span>
+                  </div>
+                )}
+                <div className="galleryZoomHint">
+                  <Maximize2 size={15} /> <span>Click to zoom</span>
+                </div>
+                {productImages.length > 1 && (
+                  <div className="galleryNavControls" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveImgIndex((prev) => (prev > 0 ? prev - 1 : productImages.length - 1))}
+                      aria-label="Previous photo"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                    <span>{activeImgIndex + 1} / {productImages.length}</span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveImgIndex((prev) => (prev < productImages.length - 1 ? prev + 1 : 0))}
+                      aria-label="Next photo"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Maria.B Style Multi-Photo Grid View for additional photos */}
+            {productImages.length > 1 && (
+              <div className="mariabPhotoGrid">
+                {productImages.map((img, idx) => (
+                  <div className="gridPhotoCard" key={idx} onClick={() => { setActiveImgIndex(idx); setLightboxOpen(true); }}>
+                    <Image src={optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} detail photo ${idx + 1}`} fill sizes="(max-width: 1100px) 50vw, 25vw" />
+                  </div>
                 ))}
               </div>
             )}
 
-            {/* Main Featured Display Photo - Instant Zero-Lag Stack */}
-            <div className="galleryMainView" onClick={() => !mainImageUnavailable && setLightboxOpen(true)}>
-              {!mainImageUnavailable ? (
-                <>
-                  {/* Instant 0ms Preview Placeholder from already-cached thumbnail */}
-                  <img
-                    key={`preview-${activeImage}`}
-                    className="galleryMainPreview"
-                    src={optimizedImageUrl(activeImage, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
-                    alt=""
-                    aria-hidden="true"
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      objectPosition: "center top",
-                      filter: loadedPhotos.has(activeImgIndex) ? "none" : "blur(10px)",
-                      transform: loadedPhotos.has(activeImgIndex) ? "none" : "scale(1.04)",
-                      opacity: loadedPhotos.has(activeImgIndex) ? 0 : 1,
-                      transition: "opacity 0.3s ease-out, filter 0.3s ease-out",
-                      zIndex: 1,
-                      pointerEvents: "none",
-                    }}
-                  />
-
-                  {productImages.map((img, idx) => {
-                    if (!mountedPhotos.has(idx)) return null;
-                    const isActive = activeImgIndex === idx;
-                    return (
-                      <Image
-                        key={img || idx}
-                        className={`galleryMainImage ${isActive ? "active" : ""}`}
-                        src={useOriginalMainImage ? img : optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.product)}
-                        alt={`${product.name} - View ${idx + 1} by Bustaniya`}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 650px"
-                        priority={idx === 0}
-                        loading={idx === 0 ? "eager" : "eager"}
-                        onLoad={() => {
-                          setLoadedPhotos((prev) => new Set(prev).add(idx));
-                        }}
-                        style={{
-                          objectFit: "cover",
-                          objectPosition: "center top",
-                          opacity: isActive ? 1 : 0,
-                          visibility: isActive ? "visible" : "hidden",
-                          transition: "opacity 0.2s ease-out, visibility 0.2s ease-out",
-                          pointerEvents: isActive ? "auto" : "none",
-                          zIndex: 2,
-                        }}
-                        onError={() => {
-                          if (!useOriginalMainImage) setUseOriginalMainImage(true);
-                          else setMainImageUnavailable(true);
-                        }}
-                      />
-                    );
-                  })}
-                </>
-              ) : (
-                <div className="galleryImageFallback">
-                  <b>Product image is unavailable</b>
-                  <span>Please choose another photo or contact us for help.</span>
-                </div>
-              )}
-              <div className="galleryZoomHint">
-                <Maximize2 size={15} /> <span>Click to zoom</span>
-              </div>
-              {productImages.length > 1 && (
-                <div className="galleryNavControls" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveImgIndex((prev) => (prev > 0 ? prev - 1 : productImages.length - 1))}
-                    aria-label="Previous photo"
-                  >
-                    <ChevronLeft size={18} />
+            {/* Fullscreen Lightbox Zoom Modal */}
+            {lightboxOpen && (
+              <div className="galleryLightbox" role="dialog" aria-modal="true">
+                <div className="lightboxOverlay" onClick={() => setLightboxOpen(false)} />
+                <div className="lightboxContent">
+                  <button type="button" className="lightboxCloseBtn" onClick={() => setLightboxOpen(false)} aria-label="Close zoom">
+                    <X size={20} />
                   </button>
-                  <span>{activeImgIndex + 1} / {productImages.length}</span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveImgIndex((prev) => (prev < productImages.length - 1 ? prev + 1 : 0))}
-                    aria-label="Next photo"
-                  >
-                    <ChevronRight size={18} />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Maria.B Style Multi-Photo Grid View for additional photos */}
-          {productImages.length > 1 && (
-            <div className="mariabPhotoGrid">
-              {productImages.map((img, idx) => (
-                <div className="gridPhotoCard" key={idx} onClick={() => { setActiveImgIndex(idx); setLightboxOpen(true); }}>
-                  <Image src={optimizedImageUrl(img, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} detail photo ${idx + 1}`} fill sizes="(max-width: 1100px) 50vw, 25vw" />
-                </div>
-              ))}
-            </div>
-          )}
+                  {productImages.length > 1 && (
+                    <button
+                      type="button"
+                      className="lightboxNavBtn left"
+                      onClick={() => setActiveImgIndex((prev) => (prev > 0 ? prev - 1 : productImages.length - 1))}
+                    >
+                      <ChevronLeft size={24} />
+                    </button>
+                  )}
 
-          {/* Fullscreen Lightbox Zoom Modal */}
-          {lightboxOpen && (
-            <div className="galleryLightbox" role="dialog" aria-modal="true">
-              <div className="lightboxOverlay" onClick={() => setLightboxOpen(false)} />
-              <div className="lightboxContent">
-                <button type="button" className="lightboxCloseBtn" onClick={() => setLightboxOpen(false)} aria-label="Close zoom">
-                  <X size={20} />
-                </button>
+                  <div className="lightboxImgWrap">
+                    <img src={optimizedImageUrl(productImages[activeImgIndex] || productImages[0], CLOUDINARY_IMAGE_PRESETS.product)} alt={`${product.name} high res zoom`} />
+                  </div>
 
-                {productImages.length > 1 && (
-                  <button
-                    type="button"
-                    className="lightboxNavBtn left"
-                    onClick={() => setActiveImgIndex((prev) => (prev > 0 ? prev - 1 : productImages.length - 1))}
-                  >
-                    <ChevronLeft size={24} />
-                  </button>
-                )}
+                  {productImages.length > 1 && (
+                    <button
+                      type="button"
+                      className="lightboxNavBtn right"
+                      onClick={() => setActiveImgIndex((prev) => (prev < productImages.length - 1 ? prev + 1 : 0))}
+                    >
+                      <ChevronRight size={24} />
+                    </button>
+                  )}
 
-                <div className="lightboxImgWrap">
-                  <img src={optimizedImageUrl(productImages[activeImgIndex] || productImages[0], CLOUDINARY_IMAGE_PRESETS.product)} alt={`${product.name} high res zoom`} />
-                </div>
-
-                {productImages.length > 1 && (
-                  <button
-                    type="button"
-                    className="lightboxNavBtn right"
-                    onClick={() => setActiveImgIndex((prev) => (prev < productImages.length - 1 ? prev + 1 : 0))}
-                  >
-                    <ChevronRight size={24} />
-                  </button>
-                )}
-
-                <div className="lightboxCounter">
-                  {activeImgIndex + 1} of {productImages.length} — {product.name}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Instagram Reel / Video Showcase (Only rendered if URL is configured) */}
-          {instagramEmbedUrl && (
-            <div className="productInstagramReelCard">
-              <div className="instagramReelCardHeader">
-                <div className="instagramReelBrandBadge">
-                  <InstagramIcon size={18} />
-                  <div>
-                    <h3>Product Showcase Reel</h3>
-                    <p>Watch this silhouette in motion on Instagram</p>
+                  <div className="lightboxCounter">
+                    {activeImgIndex + 1} of {productImages.length} — {product.name}
                   </div>
                 </div>
-                <a
-                  href={instagramVideoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="instagramReelDirectLink"
-                  title="Open video on Instagram"
-                >
-                  <span>Watch on Instagram</span>
-                  <ExternalLink size={12} />
-                </a>
-              </div>
-              <div className="instagramIframeShell">
-                <iframe
-                  src={instagramEmbedUrl}
-                  className="instagramIframe"
-                  title={`${product.name} Instagram Video Showcase`}
-                  allowFullScreen
-                  loading="lazy"
-                  scrolling="no"
-                  frameBorder="0"
-                  allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                />
-              </div>
-            </div>
-          )}
-        </section>
-
-
-        <section className="productPurchase">
-          <div className="productEyebrowRow">
-            <span className="productCategoryTag">{product.category}</span>
-            {product.articleNumber && <span className="productArticleTag">SKU: {product.articleNumber}</span>}
-          </div>
-
-          <h1>{product.name}</h1>
-
-          <div className="productTrustRating">
-            <div className="productRatingStars" aria-label="5 out of 5 stars">
-              <Star size={13} fill="#d97706" color="#d97706" />
-              <Star size={13} fill="#d97706" color="#d97706" />
-              <Star size={13} fill="#d97706" color="#d97706" />
-              <Star size={13} fill="#d97706" color="#d97706" />
-              <Star size={13} fill="#d97706" color="#d97706" />
-            </div>
-            <span className="productRatingScore">4.9 / 5.0</span>
-            <span className="productRatingDivider">•</span>
-            <span className="productRatingLabel">Handcrafted Pakistani Pret</span>
-          </div>
-
-          <div className="detailPriceRow">
-            <div className="detailPriceMain">
-              <span className="detailPriceCurrency">Rs.</span>
-              <span className="detailPriceAmount">{activePrice.toLocaleString()}</span>
-            </div>
-            {discountPercent > 0 && (
-              <div className="detailDiscountGroup">
-                <del className="detailComparePrice">Rs. {activeCompareAtPrice.toLocaleString()}</del>
-                <span className="detailDiscountPill">{discountPercent}% OFF</span>
               </div>
             )}
-          </div>
 
-          <div className="productDeliveryPromise">
-            <Truck size={14} className="promiseIcon" />
-            <span>{isFreeDelivery ? "Free Nationwide Delivery Included" : "Fast Tracked Nationwide Shipping"}</span>
-            <span className="promiseDivider">•</span>
-            <span className="promiseCod">Cash on Delivery Available</span>
-          </div>
-
-          {/* Color Selector */}
-          {!!colors.length && (
-            <div className="productOptionSection colorSelectorSection">
-              <div className="selectorHeading">
-                <div className="selectorLabelGroup">
-                  <b>Color:</b> <span className="selectedOptionValue">{hoveredColor || color || "Select a color"}</span>
-                </div>
-              </div>
-              <div className="colorSwatchesList" role="radiogroup" aria-label="Product colors">
-                {colors.map((colorName) => {
-                  const isSelected = color === colorName;
-                  const hex = product.colorHexMap?.[colorName] || getColorHex(colorName);
-                  const inStock = isColorInStock(colorName);
-                  const colorThumb = colorImages[colorName] ? (Array.isArray(colorImages[colorName]) ? colorImages[colorName][0] : colorImages[colorName]) : null;
-
-                  return (
-                    <button
-                      key={colorName}
-                      type="button"
-                      role="radio"
-                      aria-checked={isSelected}
-                      className={`colorSwatchBtn ${isSelected ? "selected" : ""} ${!inStock ? "swatchOutOfStock" : ""}`}
-                      onClick={() => setColor(colorName)}
-                      onMouseEnter={() => setHoveredColor(colorName)}
-                      onMouseLeave={() => setHoveredColor(null)}
-                      title={`${colorName}${!inStock ? " (Out of stock)" : ""}`}
-                      aria-label={`Select color ${colorName}${!inStock ? " - Out of stock" : ""}`}
-                    >
-                      <span
-                        className="colorSwatchFill"
-                        style={{
-                          background: colorThumb
-                            ? `url(${optimizedImageUrl(colorThumb, CLOUDINARY_IMAGE_PRESETS.thumbnail)}) center/cover no-repeat`
-                            : hex,
-                        }}
-                      >
-                        {isSelected && <Check size={14} className="swatchCheckMark" />}
-                        {!inStock && <span className="swatchSlash" />}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* WearAroha Style / Bottom Pairing Selector */}
-          {!!bottomOptions.length && (
-            <div className="productOptionSection bottomSelectorSection">
-              <div className="selectorHeading">
-                <div className="selectorLabelGroup">
-                  <b>Style / Bottom:</b> <span className="selectedOptionValue">{selectedBottom || "Select style"}</span>
-                </div>
-              </div>
-              <div className="bottomOptionsList" role="radiogroup" aria-label="Style and bottom options">
-                {bottomOptions.map((opt) => {
-                  const isSelected = selectedBottom === opt.name;
-                  return (
-                    <button
-                      key={opt.name}
-                      type="button"
-                      role="radio"
-                      aria-checked={isSelected}
-                      className={`bottomOptionBtn ${isSelected ? "selected" : ""}`}
-                      onClick={() => setSelectedBottom(opt.name)}
-                    >
-                      <span className="bottomOptionName">{opt.name}</span>
-                      {opt.priceDelta > 0 ? (
-                        <span className="bottomOptionDelta">+Rs. {Number(opt.priceDelta).toLocaleString()}</span>
-                      ) : (
-                        <span className="bottomOptionBase">Shirt only</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="productOptionSection sizeSelectorSection">
-            <div className="selectorHeading">
-              <div className="selectorLabelGroup">
-                <b>Size:</b> {size ? <span className="selectedOptionValue">({size})</span> : <span className="selectedOptionHint">Choose your fit</span>}
-              </div>
-              <button type="button" className="sizeGuidePillBtn" onClick={() => setSizeChartOpen(true)}>
-                <Ruler size={13} />
-                <span>Size Guide</span>
-              </button>
-            </div>
-            <div className="sizeOptions">
-              {sizes.map((item) => {
-                const isSelected = size === item;
-                const sizeInStock = !outOfStock && (!variants.length || variants.some((v) =>
-                  String(v.size || "").toLowerCase() === String(item).toLowerCase() &&
-                  (!color || String(v.color || "").toLowerCase() === String(color).toLowerCase()) &&
-                  Number(v.stock ?? 1) > 0
-                ));
-                return (
-                  <button
-                    key={item}
-                    type="button"
-                    className={`sizeBtn ${isSelected ? "selected" : ""} ${!sizeInStock ? "sizeOutOfStock" : ""}`}
-                    onClick={() => setSize(item)}
+            {/* Instagram Reel / Video Showcase (Only rendered if URL is configured) */}
+            {instagramEmbedUrl && (
+              <div className="productInstagramReelCard">
+                <div className="instagramReelCardHeader">
+                  <div className="instagramReelBrandBadge">
+                    <InstagramIcon size={18} />
+                    <div>
+                      <h3>Product Showcase Reel</h3>
+                      <p>Watch this silhouette in motion on Instagram</p>
+                    </div>
+                  </div>
+                  <a
+                    href={instagramVideoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="instagramReelDirectLink"
+                    title="Open video on Instagram"
                   >
-                    {item}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="purchaseControls">
-            <div className="purchaseRowMain">
-              <div className="quantityControlGroup">
-                <div className="quantity productQuantity">
-                  <button aria-label="Decrease quantity" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={13} /></button>
-                  <span className="quantityValue">{quantity}</span>
-                  <button aria-label="Increase quantity" disabled={outOfStock || isVariantOutOfStock || quantity >= availableStock} onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}><Plus size={13} /></button>
+                    <span>Watch on Instagram</span>
+                    <ExternalLink size={12} />
+                  </a>
+                </div>
+                <div className="instagramIframeShell">
+                  <iframe
+                    src={instagramEmbedUrl}
+                    className="instagramIframe"
+                    title={`${product.name} Instagram Video Showcase`}
+                    allowFullScreen
+                    loading="lazy"
+                    scrolling="no"
+                    frameBorder="0"
+                    allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                  />
                 </div>
               </div>
+            )}
+          </section>
 
-              <div className="productActions">
-                <button
-                  className="addBagButton"
-                  disabled={outOfStock || isVariantOutOfStock || (sizes.length > 0 && !size) || (colors.length > 0 && !color)}
-                  onClick={addToBag}
-                >
-                  {outOfStock || isVariantOutOfStock
-                    ? "Out of stock"
-                    : added
-                    ? <><Check size={18} /> Added to bag</>
-                    : colors.length > 0 && !color
-                    ? "Select a color"
-                    : sizes.length > 0 && !size
-                    ? "Select a size"
-                    : <><ShoppingBag size={18} /> Add to bag</>}
+
+          <section className="productPurchase">
+            <h1>{product.name}</h1>
+
+            <div className="detailPriceRow">
+              <div className="detailPriceMain">
+                <span className="detailPriceCurrency">Rs.</span>
+                <span className="detailPriceAmount">{activePrice.toLocaleString()}</span>
+              </div>
+              {discountPercent > 0 && (
+                <div className="detailDiscountGroup">
+                  <del className="detailComparePrice">Rs. {activeCompareAtPrice.toLocaleString()}</del>
+                  <span className="detailDiscountPill">{discountPercent}% OFF</span>
+                </div>
+              )}
+            </div>
+
+            {/* Color Selector */}
+            {!!colors.length && (
+              <div className="productOptionSection colorSelectorSection">
+                <div className="selectorHeading">
+                  <div className="selectorLabelGroup">
+                    <b>Color:</b> <span className="selectedOptionValue">{hoveredColor || color || "Select a color"}</span>
+                  </div>
+                </div>
+                <div className="colorSwatchesList" role="radiogroup" aria-label="Product colors">
+                  {colors.map((colorName) => {
+                    const isSelected = color === colorName;
+                    const hex = product.colorHexMap?.[colorName] || getColorHex(colorName);
+                    const inStock = isColorInStock(colorName);
+                    const colorThumb = colorImages[colorName] ? (Array.isArray(colorImages[colorName]) ? colorImages[colorName][0] : colorImages[colorName]) : null;
+
+                    return (
+                      <button
+                        key={colorName}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        className={`colorSwatchBtn ${isSelected ? "selected" : ""} ${!inStock ? "swatchOutOfStock" : ""}`}
+                        onClick={() => setColor(colorName)}
+                        onMouseEnter={() => setHoveredColor(colorName)}
+                        onMouseLeave={() => setHoveredColor(null)}
+                        title={`${colorName}${!inStock ? " (Out of stock)" : ""}`}
+                        aria-label={`Select color ${colorName}${!inStock ? " - Out of stock" : ""}`}
+                      >
+                        <span
+                          className="colorSwatchFill"
+                          style={{
+                            background: colorThumb
+                              ? `url(${optimizedImageUrl(colorThumb, CLOUDINARY_IMAGE_PRESETS.thumbnail)}) center/cover no-repeat`
+                              : hex,
+                          }}
+                        >
+                          {isSelected && <Check size={14} className="swatchCheckMark" />}
+                          {!inStock && <span className="swatchSlash" />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* WearAroha Style / Bottom Pairing Selector */}
+            {!!bottomOptions.length && (
+              <div className="productOptionSection bottomSelectorSection">
+                <div className="selectorHeading">
+                  <div className="selectorLabelGroup">
+                    <b>Style / Bottom:</b> <span className="selectedOptionValue">{selectedBottom || "Select style"}</span>
+                  </div>
+                </div>
+                <div className="bottomOptionsList" role="radiogroup" aria-label="Style and bottom options">
+                  {bottomOptions.map((opt) => {
+                    const isSelected = selectedBottom === opt.name;
+                    return (
+                      <button
+                        key={opt.name}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        className={`bottomOptionBtn ${isSelected ? "selected" : ""}`}
+                        onClick={() => setSelectedBottom(opt.name)}
+                      >
+                        <span className="bottomOptionName">{opt.name}</span>
+                        {opt.priceDelta > 0 ? (
+                          <span className="bottomOptionDelta">+Rs. {Number(opt.priceDelta).toLocaleString()}</span>
+                        ) : (
+                          <span className="bottomOptionBase">Shirt only</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="productOptionSection sizeSelectorSection">
+              <div className="selectorHeading sizeSelectorHeading">
+                <div className="selectorLabelGroup">
+                  <span className="sizeLabelTitle">Size</span>
+                  {size ? <span className="selectedOptionValue">({size})</span> : null}
+                </div>
+                <button type="button" className="sizeGuidePillBtn" onClick={() => setSizeChartOpen(true)}>
+                  <Ruler size={13} />
+                  <span>Size Guide</span>
                 </button>
               </div>
+              <div className="sizeOptions" role="radiogroup" aria-label="Product sizes">
+                {sizes.map((item) => {
+                  const isSelected = size === item;
+                  const sizeInStock = !outOfStock && (!variants.length || variants.some((v) =>
+                    String(v.size || "").toLowerCase() === String(item).toLowerCase() &&
+                    (!color || String(v.color || "").toLowerCase() === String(color).toLowerCase()) &&
+                    Number(v.stock ?? 1) > 0
+                  ));
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      className={`sizeBtn ${isSelected ? "selected" : ""} ${!sizeInStock ? "sizeOutOfStock" : ""}`}
+                      onClick={() => setSize(item)}
+                      aria-label={`Size ${item}`}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Second row pairs the secondary purchase path with the wishlist,
+            <div className="purchaseControls">
+              <div className="purchaseRowMain">
+                <div className="quantityControlGroup">
+                  <div className="quantity productQuantity">
+                    <button aria-label="Decrease quantity" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={13} /></button>
+                    <span className="quantityValue">{quantity}</span>
+                    <button aria-label="Increase quantity" disabled={outOfStock || isVariantOutOfStock || quantity >= availableStock} onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}><Plus size={13} /></button>
+                  </div>
+                </div>
+
+                <div className="productActions">
+                  <button
+                    className="addBagButton"
+                    disabled={outOfStock || isVariantOutOfStock || (sizes.length > 0 && !size) || (colors.length > 0 && !color)}
+                    onClick={addToBag}
+                  >
+                    {outOfStock || isVariantOutOfStock
+                      ? "Out of stock"
+                      : added
+                        ? <><Check size={18} /> Added to bag</>
+                        : colors.length > 0 && !color
+                          ? "Select a color"
+                          : sizes.length > 0 && !size
+                            ? "Select a size"
+                            : <><ShoppingBag size={18} /> Add to bag</>}
+                  </button>
+                </div>
+              </div>
+
+              {/* Second row pairs the secondary purchase path with the wishlist,
                 the way the design lays it out: quantity + add-to-bag above,
                 buy-now + wishlist below. The wishlist used to sit beside
                 add-to-bag, which left buy-now stranded on a row of its own. */}
-            <div className="purchaseRowSecondary">
-              {outOfStock || isVariantOutOfStock ? (
-                <span className="buyNowButton disabledBuy">Unavailable</span>
-              ) : colors.length > 0 && !color ? (
-                <span className="buyNowButton disabledBuy">Select a color first</span>
-              ) : sizes.length > 0 && !size ? (
-                <span className="buyNowButton disabledBuy">Select a size first</span>
-              ) : (
-                <Link className="buyNowButton" href="/checkout" onClick={() => addToBag({ openDrawer: false })}>
-                  Buy it now <ArrowRight size={16} />
-                </Link>
-              )}
-              <button
-                type="button"
-                className={`wishButton ${isWishlisted ? "isWishlisted" : ""}`}
-                aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-                onClick={() => toggleWishlistState(product)}
-                style={isWishlisted ? { color: "#c8175a", borderColor: "#c8175a", background: "#fdeef3" } : undefined}
-              >
-                <Heart size={16} fill={isWishlisted ? "#c8175a" : "none"} color={isWishlisted ? "#c8175a" : "currentColor"} />
-                <span>{isWishlisted ? "In Wishlist" : "Wishlist"}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* WhatsApp & Instagram Direct Action Buttons */}
-          <div className="productSocialActions">
-            <button
-              type="button"
-              className="productSocialBtn productSocialBtn--whatsapp"
-              aria-label="Order on WhatsApp"
-              onClick={() => setWhatsAppOrderOpen(true)}
-            >
-              <div className="socialBtnIconWrap whatsappIconCircle">
-                <img src="/whatsapp-icon.png" alt="WhatsApp" width={22} height={22} style={{ display: "block", objectFit: "contain" }} />
-              </div>
-              <div className="socialBtnTextWrap">
-                <span className="socialBtnLine">ORDER ON WHATSAPP</span>
-                <span className="socialBtnSub">Instant sizing &amp; custom order support</span>
-              </div>
-            </button>
-
-            {hasProductInstagramVideo ? (
-              <a
-                className="productSocialBtn productSocialBtn--instagram"
-                href={instagramActionUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Watch product reel on Instagram"
-              >
-                <div className="socialBtnIconWrap instagramIconWrap">
-                  <InstagramIcon size={20} />
-                </div>
-                <div className="socialBtnTextWrap">
-                  <span className="socialBtnLine">WATCH ON INSTAGRAM</span>
-                  <span className="socialBtnSub">See silhouette in motion</span>
-                </div>
-              </a>
-            ) : null}
-          </div>
-
-          {/* Luxury Reassurance Trust Pillars */}
-          <div className="productTrustBar">
-            <div className="productTrustItem">
-              <ShieldCheck size={18} className="trustIcon" />
-              <div className="trustText">
-                <strong>Pure Fabric &amp; Tailoring</strong>
-                <span>Carefully inspected before dispatch</span>
-              </div>
-            </div>
-            <div className="productTrustItem">
-              <Truck size={18} className="trustIcon" />
-              <div className="trustText">
-                <strong>Tracked Shipping</strong>
-                <span>PostEx Courier · 3-5 Working Days</span>
-              </div>
-            </div>
-            <div className="productTrustItem">
-              <RotateCcw size={18} className="trustIcon" />
-              <div className="trustText">
-                <strong>Easy 7-Day Exchange</strong>
-                <span>Quick WhatsApp support for sizes</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 1. Product details & fabric (Open by default) */}
-          <details className="productDetailsAccordion" open>
-            <summary>Product details &amp; fabric</summary>
-            <div className="productDetailsAccordionBody">
-              <h2 className="productDetailsTitle">Description &amp; Specifications</h2>
-              <StructuredProductDetails value={productDetails} />
-              <small className="productDetailsNote">Colours may vary slightly due to camera lighting and screen resolution.</small>
-            </div>
-          </details>
-
-          {/* 2. Size Guide & measurements */}
-          <details className="productDetailsAccordion sizeGuideAccordion" id="size-guide">
-            <summary>Size guide &amp; measurements</summary>
-            <div className="productDetailsAccordionBody">
-              <div className="sizeGuideAccordionHeader">
-                <div className="sizeGuideHeaderLeft">
-                  <div className="deliveryHeaderIconWrap">
-                    <Ruler size={18} />
-                  </div>
-                  <div>
-                    <h2 className="productDetailsTitle">Size Guide &amp; Measurements</h2>
-                    <p className="deliverySubtitle">Standard Ready-to-Wear measurements (Inches &amp; CM)</p>
-                  </div>
-                </div>
+              <div className="purchaseRowSecondary">
+                {outOfStock || isVariantOutOfStock ? (
+                  <span className="buyNowButton disabledBuy">Unavailable</span>
+                ) : colors.length > 0 && !color ? (
+                  <span className="buyNowButton disabledBuy">Select a color first</span>
+                ) : sizes.length > 0 && !size ? (
+                  <span className="buyNowButton disabledBuy">Select a size first</span>
+                ) : (
+                  <Link className="buyNowButton" href="/checkout" onClick={() => addToBag({ openDrawer: false })}>
+                    Buy it now <ArrowRight size={16} />
+                  </Link>
+                )}
                 <button
                   type="button"
-                  className="sizeGuideModalButton"
-                  onClick={() => setSizeChartOpen(true)}
+                  className={`wishButton ${isWishlisted ? "isWishlisted" : ""}`}
+                  aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                  onClick={() => toggleWishlistState(product)}
+                  style={isWishlisted ? { color: "#c8175a", borderColor: "#c8175a", background: "#fdeef3" } : undefined}
                 >
-                  <Ruler size={13} /> Open Interactive Chart
+                  <Heart size={16} fill={isWishlisted ? "#c8175a" : "none"} color={isWishlisted ? "#c8175a" : "currentColor"} />
+                  <span>{isWishlisted ? "In Wishlist" : "Wishlist"}</span>
                 </button>
               </div>
-              <SizeTable chartData={product?.sizeChart || storeSettings?.sizeChartSettings} />
             </div>
-          </details>
 
-          {/* 3. Delivery & shipping information */}
-          <details className="productDetailsAccordion deliveryAccordion">
-            <summary>Delivery &amp; shipping information</summary>
-            <div className="productDetailsAccordionBody">
-              <div className="deliveryAccordionHeader">
-                <div className="deliveryHeaderIconWrap">
-                  <Truck size={20} />
+            {/* WhatsApp & Instagram Direct Action Buttons */}
+            <div className="productSocialActions">
+              <button
+                type="button"
+                className="productSocialBtn productSocialBtn--whatsapp"
+                aria-label="Order on WhatsApp"
+                onClick={() => setWhatsAppOrderOpen(true)}
+              >
+                <div className="socialBtnIconWrap whatsappIconCircle">
+                  <img src="/whatsapp-icon.png" alt="WhatsApp" width={22} height={22} style={{ display: "block", objectFit: "contain" }} />
                 </div>
-                <div>
-                  <h2 className="productDetailsTitle">Delivery Information</h2>
-                  <p className="deliverySubtitle">Nationwide tracked shipping across Pakistan</p>
+                <div className="socialBtnTextWrap">
+                  <span className="socialBtnLine">ORDER ON WHATSAPP</span>
+                  <span className="socialBtnSub">Instant sizing &amp; custom order support</span>
+                </div>
+              </button>
+
+              {hasProductInstagramVideo ? (
+                <a
+                  className="productSocialBtn productSocialBtn--instagram"
+                  href={instagramActionUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Watch product reel on Instagram"
+                >
+                  <div className="socialBtnIconWrap instagramIconWrap">
+                    <InstagramIcon size={20} />
+                  </div>
+                  <div className="socialBtnTextWrap">
+                    <span className="socialBtnLine">WATCH ON INSTAGRAM</span>
+                    <span className="socialBtnSub">See silhouette in motion</span>
+                  </div>
+                </a>
+              ) : null}
+            </div>
+
+            {/* Luxury Reassurance Trust Pillars */}
+            <div className="productTrustBar">
+              <div className="productTrustItem">
+                <ShieldCheck size={18} className="trustIcon" />
+                <div className="trustText">
+                  <strong>Pure Fabric &amp; Tailoring</strong>
+                  <span>Carefully inspected before dispatch</span>
                 </div>
               </div>
+              <div className="productTrustItem">
+                <Truck size={18} className="trustIcon" />
+                <div className="trustText">
+                  <strong>Tracked Shipping</strong>
+                  <span>PostEx Courier · 3-5 Working Days</span>
+                </div>
+              </div>
+              <div className="productTrustItem">
+                <RotateCcw size={18} className="trustIcon" />
+                <div className="trustText">
+                  <strong>Easy 7-Day Exchange</strong>
+                  <span>Quick WhatsApp support for sizes</span>
+                </div>
+              </div>
+            </div>
 
-              <div className="deliverySpecsGrid">
-                <div className="deliverySpecCard">
-                  <Clock size={16} />
-                  <div>
-                    <span className="specLabel">Estimated Delivery</span>
-                    <strong className="specValue">{estimatedDays}</strong>
-                  </div>
-                </div>
-                <div className="deliverySpecCard">
-                  <Truck size={16} />
-                  <div>
-                    <span className="specLabel">Delivery Charges</span>
-                    <strong className="specValue">{deliveryFeeSummary}</strong>
-                  </div>
-                </div>
-                {codAvailable && (
-                  <div className="deliverySpecCard">
-                    <Banknote size={16} />
+            {/* 1. Product details & fabric (Open by default) */}
+            <details className="productDetailsAccordion" open>
+              <summary>Product details &amp; fabric</summary>
+              <div className="productDetailsAccordionBody">
+                <h2 className="productDetailsTitle">Description &amp; Specifications</h2>
+                <StructuredProductDetails value={productDetails} />
+                <small className="productDetailsNote">Colours may vary slightly due to camera lighting and screen resolution.</small>
+              </div>
+            </details>
+
+            {/* 2. Size Guide & measurements */}
+            <details className="productDetailsAccordion sizeGuideAccordion" id="size-guide">
+              <summary>Size guide &amp; measurements</summary>
+              <div className="productDetailsAccordionBody">
+                <div className="sizeGuideAccordionHeader">
+                  <div className="sizeGuideHeaderLeft">
+                    <div className="deliveryHeaderIconWrap">
+                      <Ruler size={18} />
+                    </div>
                     <div>
-                      <span className="specLabel">Cash on Delivery</span>
-                      <strong className="specValue">Available</strong>
+                      <h2 className="productDetailsTitle">Size Guide &amp; Measurements</h2>
+                      <p className="deliverySubtitle">Standard Ready-to-Wear measurements (Inches &amp; CM)</p>
                     </div>
                   </div>
-                )}
-              </div>
-
-              <div className="deliveryTextBody">
-                <StructuredProductDetails value={displayDeliveryInfo} />
-              </div>
-
-              {customDeliveryText ? (
-                <div className="productSpecificDeliveryTag">
-                  <Sparkles size={13} />
-                  <span>Item-specific dispatch notes applied</span>
+                  <button
+                    type="button"
+                    className="sizeGuideModalButton"
+                    onClick={() => setSizeChartOpen(true)}
+                  >
+                    <Ruler size={13} /> Open Interactive Chart
+                  </button>
                 </div>
-              ) : null}
-
-              <div className="deliveryFooterNote">
-                <ShieldCheck size={14} />
-                <span>All parcels are packed securely and dispatched with live tracking via PostEx Courier.</span>
+                <SizeTable chartData={product?.sizeChart || storeSettings?.sizeChartSettings} />
               </div>
-            </div>
-          </details>
+            </details>
 
-          {/* 4. Return & exchange policy */}
-          <details className="productDetailsAccordion">
-            <summary>Return &amp; exchange policy</summary>
-            <div className="productDetailsAccordionBody">
-              <h2 className="productDetailsTitle">Return &amp; Exchange Overview</h2>
-              <p style={{ margin: "6px 0 12px", color: "#4f6257", fontSize: "14px", lineHeight: "1.6" }}>
-                Every order is carefully inspected and securely packed before dispatch.
-              </p>
-              <ul style={{ paddingLeft: "18px", margin: "0 0 14px", color: "#374151", fontSize: "13px", lineHeight: "1.7" }}>
-                <li>
-                  <strong>Damaged or Defective:</strong> Contact us within 24 hours of delivery with pictures/videos. Bustaniya bears all return/exchange delivery charges for confirmed issues.
-                </li>
-                <li>
-                  <strong>Exchange / Replacement:</strong> Available for unused, unwashed items with tags intact (customer covers exchange delivery charges).
-                </li>
-                <li>
-                  <strong>Refunds:</strong> No refunds for change-of-mind requests.
-                </li>
-                <li>
-                  <strong>Unboxing Video:</strong> Please record an unboxing video when opening your parcel to quickly verify any damage or missing items.
-                </li>
-              </ul>
-              <a
-                href="/exchange-return-policy"
-                style={{ display: "inline-block", color: "#166534", fontSize: "13px", fontWeight: "700", textDecoration: "underline" }}
-              >
-                Read full Return &amp; Exchange Policy &rarr;
-              </a>
-            </div>
-          </details>
-        </section>
-      </div>
-
-      {!!related.length && <section className="relatedProducts">
-        <p className="eyebrow">YOU MAY ALSO LIKE</p>
-        <h2>Complete the look</h2>
-        <div className="productGrid">
-          {related.map((item) => <article
-            className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`}
-            key={item.id}
-            onMouseEnter={() => preloadProductImage(item.image)}
-            onTouchStart={() => preloadProductImage(item.image)}
-          >
-            <Link className="productImage" href={`/product/${item.id}`} prefetch={true}>
-              <Image
-                src={optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.card)}
-                alt={`${item.name} - ${item.category} by Bustaniya`}
-                fill
-                sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
-              />
-              {item.badge && <span className="badge">{item.badge}</span>}
-              <span className="quickAdd">Choose options</span>
-            </Link>
-            <div className="productInfo">
-              <div>
-                <p>{item.category}</p>
-                <h3><Link href={`/product/${item.id}`} prefetch={true}>{item.name}</Link></h3>
-                {Array.isArray(item.colors) && item.colors.length > 0 && (
-                  <div className="colorSwatches" aria-label={`${item.colors.length} available colours`}>
-                    {item.colors.slice(0, 5).map((c) => {
-                      const hex = item.colorHexMap?.[c] || getColorHex(c);
-                      return <i key={c} title={c} style={{ background: hex }} />;
-                    })}
-                    {item.colors.length > 5 && <small>+{item.colors.length - 5}</small>}
+            {/* 3. Delivery & shipping information */}
+            <details className="productDetailsAccordion deliveryAccordion">
+              <summary>Delivery &amp; shipping information</summary>
+              <div className="productDetailsAccordionBody">
+                <div className="deliveryAccordionHeader">
+                  <div className="deliveryHeaderIconWrap">
+                    <Truck size={20} />
                   </div>
-                )}
-              </div>
-              <div className="productPrice"><span>Rs. {item.price.toLocaleString()}</span><small>Regular price Rs. {item.price.toLocaleString()}</small></div>
-            </div>
-          </article>)}
-        </div>
-      </section>}
-    </main>
-
-    {/* Mobile Sticky Buy Bar */}
-    {showMobileBuyBar && (
-      <aside className="mobileStickyBuyBar bs-st-mobonly" aria-label="Quick mobile buy">
-        <div className="mobileStickyBuyBar__inner">
-          <div className="mobileStickyBuyBar__meta">
-            <div className="mobileStickyBuyBar__thumb">
-              <Image
-                src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
-                alt={product.name}
-                fill
-                sizes="48px"
-                style={{ objectFit: "cover" }}
-              />
-            </div>
-            <div className="mobileStickyBuyBar__info">
-              <span className="mobileStickyBuyBar__title">{product.name}</span>
-              <span className="mobileStickyBuyBar__price">Rs. {Number(activePrice || 0).toLocaleString()}</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="mobileStickyBuyBar__btn"
-            disabled={outOfStock || isVariantOutOfStock}
-            onClick={() => {
-              if (sizes.length > 0 && !size) {
-                const sizeEl = document.querySelector(".productSizePicker") || document.querySelector(".productActions");
-                if (sizeEl) sizeEl.scrollIntoView({ behavior: "smooth", block: "center" });
-                return;
-              }
-              addToBag({ openDrawer: true });
-            }}
-          >
-            {outOfStock || isVariantOutOfStock ? "Out of Stock" : added ? "Added!" : "Add to Bag"}
-          </button>
-        </div>
-      </aside>
-    )}
-
-    {cartOpen && <div className="overlay" onClick={() => setCartOpen(false)} />}
-    <aside className={cartOpen ? "cartDrawer cartOpen" : "cartDrawer"}>
-      <div className="cartHeader"><h2>Your bag <span>({cartCount})</span></h2><button type="button" aria-label="Close bag" onClick={() => setCartOpen(false)}><X /></button></div>
-      <div className="cartItems">
-        {!cart.length ? (
-          <div className="emptyCart"><ShoppingBag size={36} /><h3>Your bag is empty</h3><p>Looks like you haven&apos;t added anything yet.</p><button onClick={() => setCartOpen(false)}>Continue shopping</button></div>
-        ) : cart.map((item) => {
-          const originalPrice = Number(item.compareAtPrice || item.comparePrice || item.compare_at_price || item.originalPrice || 0);
-          const price = Number(item.price || 0);
-          const hasDiscount = originalPrice > price;
-          const unitSaving = hasDiscount ? originalPrice - price : 0;
-          const itemTotalSaving = unitSaving * item.quantity;
-
-          return (
-            <div className="cartItem" key={`${item.id}-${item.size || "default"}-${item.color || "default"}-${item.bottom || "default"}`}>
-              <div style={{ backgroundImage: `url(${optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
-              <section>
-                <h3>{item.name}</h3>
-                <div className="cartItemMeta">
-                  {item.size && <small>Size: {item.size}</small>}
-                  {item.color && <small className="cartItemColor">Color: {item.color}</small>}
-                  {item.bottom && <small className="cartItemBottom">Style: {item.bottom}</small>}
+                  <div>
+                    <h2 className="productDetailsTitle">Delivery Information</h2>
+                    <p className="deliverySubtitle">Nationwide tracked shipping across Pakistan</p>
+                  </div>
                 </div>
-                <div className="cartItemPriceLine">
-                  <p className="cartItemPrice">Rs. {(item.price * item.quantity).toLocaleString()}</p>
-                  {hasDiscount && (
-                    <span className="cartItemOriginalPrice">Rs. {(originalPrice * item.quantity).toLocaleString()}</span>
+
+                <div className="deliverySpecsGrid">
+                  <div className="deliverySpecCard">
+                    <Clock size={16} />
+                    <div>
+                      <span className="specLabel">Estimated Delivery</span>
+                      <strong className="specValue">{estimatedDays}</strong>
+                    </div>
+                  </div>
+                  <div className="deliverySpecCard">
+                    <Truck size={16} />
+                    <div>
+                      <span className="specLabel">Delivery Charges</span>
+                      <strong className="specValue">{deliveryFeeSummary}</strong>
+                    </div>
+                  </div>
+                  {codAvailable && (
+                    <div className="deliverySpecCard">
+                      <Banknote size={16} />
+                      <div>
+                        <span className="specLabel">Cash on Delivery</span>
+                        <strong className="specValue">Available</strong>
+                      </div>
+                    </div>
                   )}
                 </div>
-                {hasDiscount && itemTotalSaving > 0 && (
-                  <span className="cartItemSavingsBadge">
-                    You saved Rs. {itemTotalSaving.toLocaleString()}
-                  </span>
-                )}
-                <span className="quantity">
-                  <button onClick={() => updateQuantity(item.id, item.size, item.color, item.bottom, -1)}><Minus size={14} /></button>
-                  {item.quantity}
-                  <button onClick={() => updateQuantity(item.id, item.size, item.color, item.bottom, 1)}><Plus size={14} /></button>
-                </span>
-              </section>
-            </div>
-          );
-        })}
-      </div>
-      {!!cart.length && <div className="cartFooter">
-        {totalSavings > 0 && (
-          <div className="cartTotalSavingsCallout">
-            <Sparkles size={14} />
-            <span>You saved <b>Rs. {totalSavings.toLocaleString()}</b> on this order!</span>
-          </div>
-        )}
-        <div className="cartFooterSubtotal">
-          <span>Subtotal</span>
-          <b>Rs. {subtotal.toLocaleString()}</b>
+
+                <div className="deliveryTextBody">
+                  <StructuredProductDetails value={displayDeliveryInfo} />
+                </div>
+
+                {customDeliveryText ? (
+                  <div className="productSpecificDeliveryTag">
+                    <Sparkles size={13} />
+                    <span>Item-specific dispatch notes applied</span>
+                  </div>
+                ) : null}
+
+                <div className="deliveryFooterNote">
+                  <ShieldCheck size={14} />
+                  <span>All parcels are packed securely and dispatched with live tracking via PostEx Courier.</span>
+                </div>
+              </div>
+            </details>
+
+            {/* 4. Return & exchange policy */}
+            <details className="productDetailsAccordion">
+              <summary>Return &amp; exchange policy</summary>
+              <div className="productDetailsAccordionBody">
+                <h2 className="productDetailsTitle">Return &amp; Exchange Overview</h2>
+                <p style={{ margin: "6px 0 12px", color: "#4f6257", fontSize: "14px", lineHeight: "1.6" }}>
+                  Every order is carefully inspected and securely packed before dispatch.
+                </p>
+                <ul style={{ paddingLeft: "18px", margin: "0 0 14px", color: "#374151", fontSize: "13px", lineHeight: "1.7" }}>
+                  <li>
+                    <strong>Damaged or Defective:</strong> Contact us within 24 hours of delivery with pictures/videos. Bustaniya bears all return/exchange delivery charges for confirmed issues.
+                  </li>
+                  <li>
+                    <strong>Exchange / Replacement:</strong> Available for unused, unwashed items with tags intact (customer covers exchange delivery charges).
+                  </li>
+                  <li>
+                    <strong>Refunds:</strong> No refunds for change-of-mind requests.
+                  </li>
+                  <li>
+                    <strong>Unboxing Video:</strong> Please record an unboxing video when opening your parcel to quickly verify any damage or missing items.
+                  </li>
+                </ul>
+                <a
+                  href="/exchange-return-policy"
+                  style={{ display: "inline-block", color: "#166534", fontSize: "13px", fontWeight: "700", textDecoration: "underline" }}
+                >
+                  Read full Return &amp; Exchange Policy &rarr;
+                </a>
+              </div>
+            </details>
+          </section>
         </div>
-        {totalSavings > 0 && (
-          <div className="cartFooterSavingsRow">
-            <span>Total Discount</span>
-            <b className="cartSavingsHighlight">- Rs. {totalSavings.toLocaleString()}</b>
+
+        {!!related.length && <section className="relatedProducts">
+          <p className="eyebrow">YOU MAY ALSO LIKE</p>
+          <h2>Complete the look</h2>
+          <div className="productGrid">
+            {related.map((item) => <article
+              className={`productCard productCard--${storeSettings.productCardStyle || "connected"}`}
+              key={item.id}
+              onMouseEnter={() => preloadProductImage(item.image)}
+              onTouchStart={() => preloadProductImage(item.image)}
+            >
+              <Link className="productImage" href={`/product/${item.id}`} prefetch={true}>
+                <Image
+                  src={optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.card)}
+                  alt={`${item.name} - ${item.category} by Bustaniya`}
+                  fill
+                  sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
+                />
+                {item.badge && <span className="badge">{item.badge}</span>}
+                <span className="quickAdd">Choose options</span>
+              </Link>
+              <div className="productInfo">
+                <div>
+                  <p>{item.category}</p>
+                  <h3><Link href={`/product/${item.id}`} prefetch={true}>{item.name}</Link></h3>
+                  {Array.isArray(item.colors) && item.colors.length > 0 && (
+                    <div className="colorSwatches" aria-label={`${item.colors.length} available colours`}>
+                      {item.colors.slice(0, 5).map((c) => {
+                        const hex = item.colorHexMap?.[c] || getColorHex(c);
+                        return <i key={c} title={c} style={{ background: hex }} />;
+                      })}
+                      {item.colors.length > 5 && <small>+{item.colors.length - 5}</small>}
+                    </div>
+                  )}
+                </div>
+                <div className="productPrice"><span>Rs. {item.price.toLocaleString()}</span><small>Regular price Rs. {item.price.toLocaleString()}</small></div>
+              </div>
+            </article>)}
           </div>
-        )}
-        <p>Delivery charges calculated at checkout.</p>
-        <Link className="checkoutButton" href="/checkout">Checkout <ArrowRight size={18} /></Link>
-        <button className="shopMoreButton" onClick={() => setCartOpen(false)}>Shop more</button>
-      </div>}
-    </aside>
+        </section>}
+      </main>
 
-    {whatsAppOrderOpen && (
-      <div className="whatsAppOrderBackdrop" role="presentation" onClick={() => setWhatsAppOrderOpen(false)}>
-        <section className="whatsAppOrderDialog" role="dialog" aria-modal="true" aria-labelledby="whatsapp-order-title" onClick={(event) => event.stopPropagation()}>
-          <div className="whatsAppOrderDialogHead">
-            <div>
-              <p className="eyebrow">DIRECT WHATSAPP ORDER</p>
-              <h2 id="whatsapp-order-title">Your order details</h2>
-              <span>Article no. {articleNumber} is already attached to this request.</span>
+      {/* Mobile Sticky Buy Bar */}
+      {showMobileBuyBar && (
+        <aside className="mobileStickyBuyBar bs-st-mobonly" aria-label="Quick mobile buy">
+          <div className="mobileStickyBuyBar__inner">
+            <div className="mobileStickyBuyBar__meta">
+              <div className="mobileStickyBuyBar__thumb">
+                <Image
+                  src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
+                  alt={product.name}
+                  fill
+                  sizes="48px"
+                  style={{ objectFit: "cover" }}
+                />
+              </div>
+              <div className="mobileStickyBuyBar__info">
+                <span className="mobileStickyBuyBar__title">{product.name}</span>
+                <span className="mobileStickyBuyBar__price">Rs. {Number(activePrice || 0).toLocaleString()}</span>
+              </div>
             </div>
-            <button type="button" aria-label="Close WhatsApp order form" onClick={() => setWhatsAppOrderOpen(false)}><X size={20} /></button>
+            <button
+              type="button"
+              className="mobileStickyBuyBar__btn"
+              disabled={outOfStock || isVariantOutOfStock}
+              onClick={() => {
+                if (sizes.length > 0 && !size) {
+                  const sizeEl = document.querySelector(".productSizePicker") || document.querySelector(".productActions");
+                  if (sizeEl) sizeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                  return;
+                }
+                addToBag({ openDrawer: true });
+              }}
+            >
+              {outOfStock || isVariantOutOfStock ? "Out of Stock" : added ? "Added!" : "Add to Bag"}
+            </button>
           </div>
+        </aside>
+      )}
 
-          <div className="whatsAppOrderProduct">
-            <div style={{ backgroundImage: `url(${optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
-            <span><b>{product.name}</b><small>Article {articleNumber} · Rs. {Number(product.price || 0).toLocaleString()}</small></span>
+      {cartOpen && <div className="overlay" onClick={() => setCartOpen(false)} />}
+      <aside className={cartOpen ? "cartDrawer cartOpen" : "cartDrawer"}>
+        <div className="cartHeader"><h2>Your bag <span>({cartCount})</span></h2><button type="button" aria-label="Close bag" onClick={() => setCartOpen(false)}><X /></button></div>
+        <div className="cartItems">
+          {!cart.length ? (
+            <div className="emptyCart"><ShoppingBag size={36} /><h3>Your bag is empty</h3><p>Looks like you haven&apos;t added anything yet.</p><button onClick={() => setCartOpen(false)}>Continue shopping</button></div>
+          ) : cart.map((item) => {
+            const originalPrice = Number(item.compareAtPrice || item.comparePrice || item.compare_at_price || item.originalPrice || 0);
+            const price = Number(item.price || 0);
+            const hasDiscount = originalPrice > price;
+            const unitSaving = hasDiscount ? originalPrice - price : 0;
+            const itemTotalSaving = unitSaving * item.quantity;
+
+            return (
+              <div className="cartItem" key={`${item.id}-${item.size || "default"}-${item.color || "default"}-${item.bottom || "default"}`}>
+                <div style={{ backgroundImage: `url(${optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
+                <section>
+                  <h3>{item.name}</h3>
+                  <div className="cartItemMeta">
+                    {item.size && <small>Size: {item.size}</small>}
+                    {item.color && <small className="cartItemColor">Color: {item.color}</small>}
+                    {item.bottom && <small className="cartItemBottom">Style: {item.bottom}</small>}
+                  </div>
+                  <div className="cartItemPriceLine">
+                    <p className="cartItemPrice">Rs. {(item.price * item.quantity).toLocaleString()}</p>
+                    {hasDiscount && (
+                      <span className="cartItemOriginalPrice">Rs. {(originalPrice * item.quantity).toLocaleString()}</span>
+                    )}
+                  </div>
+                  {hasDiscount && itemTotalSaving > 0 && (
+                    <span className="cartItemSavingsBadge">
+                      You saved Rs. {itemTotalSaving.toLocaleString()}
+                    </span>
+                  )}
+                  <span className="quantity">
+                    <button onClick={() => updateQuantity(item.id, item.size, item.color, item.bottom, -1)}><Minus size={14} /></button>
+                    {item.quantity}
+                    <button onClick={() => updateQuantity(item.id, item.size, item.color, item.bottom, 1)}><Plus size={14} /></button>
+                  </span>
+                </section>
+              </div>
+            );
+          })}
+        </div>
+        {!!cart.length && <div className="cartFooter">
+          {totalSavings > 0 && (
+            <div className="cartTotalSavingsCallout">
+              <Sparkles size={14} />
+              <span>You saved <b>Rs. {totalSavings.toLocaleString()}</b> on this order!</span>
+            </div>
+          )}
+          <div className="cartFooterSubtotal">
+            <span>Subtotal</span>
+            <b>Rs. {subtotal.toLocaleString()}</b>
           </div>
-
-          <form className="whatsAppOrderForm" onSubmit={submitWhatsAppOrder}>
-            <div className="whatsAppOrderGrid">
-              <label>Full name<input required autoComplete="name" value={whatsAppOrderDetails.fullName} onChange={(event) => updateWhatsAppOrderDetail("fullName", event.target.value)} placeholder="Your full name" /></label>
-              <label>WhatsApp number<input required type="tel" autoComplete="tel" value={whatsAppOrderDetails.phone} onChange={(event) => updateWhatsAppOrderDetail("phone", event.target.value)} placeholder="03xx xxxxxxx" /></label>
+          {totalSavings > 0 && (
+            <div className="cartFooterSavingsRow">
+              <span>Total Discount</span>
+              <b className="cartSavingsHighlight">- Rs. {totalSavings.toLocaleString()}</b>
             </div>
-            <label>Size<select required value={size} onChange={(event) => setSize(event.target.value)} aria-label="Select size for this WhatsApp order"><option value="" disabled>Select your size</option>{sizes.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-            <label>Email <small>(optional)</small><input type="email" autoComplete="email" value={whatsAppOrderDetails.email} onChange={(event) => updateWhatsAppOrderDetail("email", event.target.value)} placeholder="you@example.com" /></label>
-            <div className="whatsAppOrderGrid">
-              <label>City<input required autoComplete="address-level2" value={whatsAppOrderDetails.city} onChange={(event) => updateWhatsAppOrderDetail("city", event.target.value)} placeholder="e.g. Lahore" /></label>
-              <label>Nearby area / landmark <small>(optional)</small><input value={whatsAppOrderDetails.landmark} onChange={(event) => updateWhatsAppOrderDetail("landmark", event.target.value)} placeholder="e.g. Near Central Mosque" /></label>
-            </div>
-            <label>Complete address<textarea required autoComplete="street-address" rows="3" value={whatsAppOrderDetails.address} onChange={(event) => updateWhatsAppOrderDetail("address", event.target.value)} placeholder="House/flat no., street/road, block/area" /></label>
-            <p className="whatsAppOrderHelp">Your filled details and this product&apos;s article number will be added to the WhatsApp message. You can attach a screenshot or continue the conversation there.</p>
-            <button className="whatsAppOrderSubmit" type="submit"><img src="/whatsapp-icon.png" alt="WhatsApp" width={22} height={22} style={{ display: "inline-block", verticalAlign: "middle", objectFit: "contain" }} /> Continue to WhatsApp</button>
-          </form>
-        </section>
-      </div>
-    )}
+          )}
+          <p>Delivery charges calculated at checkout.</p>
+          <Link className="checkoutButton" href="/checkout">Checkout <ArrowRight size={18} /></Link>
+          <button className="shopMoreButton" onClick={() => setCartOpen(false)}>Shop more</button>
+        </div>}
+      </aside>
 
-    {sizeChartOpen && (
-      <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} chartData={product?.sizeChart || storeSettings?.sizeChartSettings} />
-    )}
+      {whatsAppOrderOpen && (
+        <div className="whatsAppOrderBackdrop" role="presentation" onClick={() => setWhatsAppOrderOpen(false)}>
+          <section className="whatsAppOrderDialog" role="dialog" aria-modal="true" aria-labelledby="whatsapp-order-title" onClick={(event) => event.stopPropagation()}>
+            <div className="whatsAppOrderDialogHead">
+              <div>
+                <p className="eyebrow">DIRECT WHATSAPP ORDER</p>
+                <h2 id="whatsapp-order-title">Your order details</h2>
+                <span>Article no. {articleNumber} is already attached to this request.</span>
+              </div>
+              <button type="button" aria-label="Close WhatsApp order form" onClick={() => setWhatsAppOrderOpen(false)}><X size={20} /></button>
+            </div>
+
+            <div className="whatsAppOrderProduct">
+              <div style={{ backgroundImage: `url(${optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
+              <span><b>{product.name}</b><small>Article {articleNumber} · Rs. {Number(product.price || 0).toLocaleString()}</small></span>
+            </div>
+
+            <form className="whatsAppOrderForm" onSubmit={submitWhatsAppOrder}>
+              <div className="whatsAppOrderGrid">
+                <label>Full name<input required autoComplete="name" value={whatsAppOrderDetails.fullName} onChange={(event) => updateWhatsAppOrderDetail("fullName", event.target.value)} placeholder="Your full name" /></label>
+                <label>WhatsApp number<input required type="tel" autoComplete="tel" value={whatsAppOrderDetails.phone} onChange={(event) => updateWhatsAppOrderDetail("phone", event.target.value)} placeholder="03xx xxxxxxx" /></label>
+              </div>
+              <label>Size<select required value={size} onChange={(event) => setSize(event.target.value)} aria-label="Select size for this WhatsApp order"><option value="" disabled>Select your size</option>{sizes.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+              <label>Email <small>(optional)</small><input type="email" autoComplete="email" value={whatsAppOrderDetails.email} onChange={(event) => updateWhatsAppOrderDetail("email", event.target.value)} placeholder="you@example.com" /></label>
+              <div className="whatsAppOrderGrid">
+                <label>City<input required autoComplete="address-level2" value={whatsAppOrderDetails.city} onChange={(event) => updateWhatsAppOrderDetail("city", event.target.value)} placeholder="e.g. Lahore" /></label>
+                <label>Nearby area / landmark <small>(optional)</small><input value={whatsAppOrderDetails.landmark} onChange={(event) => updateWhatsAppOrderDetail("landmark", event.target.value)} placeholder="e.g. Near Central Mosque" /></label>
+              </div>
+              <label>Complete address<textarea required autoComplete="street-address" rows="3" value={whatsAppOrderDetails.address} onChange={(event) => updateWhatsAppOrderDetail("address", event.target.value)} placeholder="House/flat no., street/road, block/area" /></label>
+              <p className="whatsAppOrderHelp">Your filled details and this product&apos;s article number will be added to the WhatsApp message. You can attach a screenshot or continue the conversation there.</p>
+              <button className="whatsAppOrderSubmit" type="submit"><img src="/whatsapp-icon.png" alt="WhatsApp" width={22} height={22} style={{ display: "inline-block", verticalAlign: "middle", objectFit: "contain" }} /> Continue to WhatsApp</button>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {sizeChartOpen && (
+        <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} chartData={product?.sizeChart || storeSettings?.sizeChartSettings} />
+      )}
     </>
   );
 }
