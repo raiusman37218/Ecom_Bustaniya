@@ -148,7 +148,33 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     }
   }, [bottomOptions, selectedBottom]);
 
-  const [color, setColor] = useState(() => colors[0] || "");
+  const [color, setColor] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlColor = urlParams.get("color");
+        if (urlColor && colors.some((c) => c.toLowerCase() === urlColor.toLowerCase())) {
+          return colors.find((c) => c.toLowerCase() === urlColor.toLowerCase());
+        }
+      } catch {}
+    }
+    return colors[0] || "";
+  });
+
+  const handleSelectColor = (newColor) => {
+    setColor(newColor);
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.href);
+        if (newColor) {
+          url.searchParams.set("color", newColor);
+        } else {
+          url.searchParams.delete("color");
+        }
+        window.history.replaceState({}, "", url.toString());
+      } catch {}
+    }
+  };
   const [hoveredColor, setHoveredColor] = useState(null);
   const [size, setSize] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -357,17 +383,31 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
   const activeColorImages = useMemo(() => {
     if (!color) return null;
-    if (colorImages[color]) {
-      const list = Array.isArray(colorImages[color]) ? colorImages[color] : [colorImages[color]];
+    // 1. Exact or case-insensitive match in colorImages
+    const matchedKey = Object.keys(colorImages || {}).find(
+      (k) => k.toLowerCase() === color.toLowerCase()
+    );
+    if (matchedKey && colorImages[matchedKey]) {
+      const list = Array.isArray(colorImages[matchedKey]) ? colorImages[matchedKey] : [colorImages[matchedKey]];
       const valid = list.filter(Boolean);
       if (valid.length) return valid;
     }
-    const variantMatch = variants.find(
+    // 2. Variant matches
+    const variantMatches = variants.filter(
       (v) => String(v.color || "").toLowerCase() === String(color).toLowerCase() && v.image
     );
-    if (variantMatch?.image) return [variantMatch.image];
+    if (variantMatches.length) {
+      return [...new Set(variantMatches.map((v) => v.image))];
+    }
+    // 3. Smart fallback: match by color name in product.images URLs if multiple colors exist
+    if (colors.length > 1 && Array.isArray(product.images) && product.images.length > 1) {
+      const colorWord = color.toLowerCase().replace(/[^a-z0-9]+/g, "[-_ ]?");
+      const regex = new RegExp(`(^|[^a-z0-9])${colorWord}([^a-z0-9]|$)`, "i");
+      const matched = product.images.filter((img) => regex.test(String(img)));
+      if (matched.length) return matched;
+    }
     return null;
-  }, [color, colorImages, variants]);
+  }, [color, colorImages, variants, colors.length, product.images]);
 
   const productImages = useMemo(() => {
     if (activeColorImages && activeColorImages.length) {
@@ -723,8 +763,8 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               )}
             </div>
 
-            {/* Color Selector */}
-            {!!colors.length && (
+            {/* Color Selector (Shopify style: only shown if there are multiple colors) */}
+            {colors.length > 1 && (
               <div className="productOptionSection colorSelectorSection">
                 <div className="selectorHeading">
                   <div className="selectorLabelGroup">
@@ -745,7 +785,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                         role="radio"
                         aria-checked={isSelected}
                         className={`colorSwatchBtn ${isSelected ? "selected" : ""} ${!inStock ? "swatchOutOfStock" : ""}`}
-                        onClick={() => setColor(colorName)}
+                        onClick={() => handleSelectColor(colorName)}
                         onMouseEnter={() => setHoveredColor(colorName)}
                         onMouseLeave={() => setHoveredColor(null)}
                         title={`${colorName}${!inStock ? " (Out of stock)" : ""}`}
@@ -1108,7 +1148,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                 <div>
                   <p>{item.category}</p>
                   <h3><Link href={`/product/${item.id}`} prefetch={true}>{item.name}</Link></h3>
-                  {Array.isArray(item.colors) && item.colors.length > 0 && (
+                  {Array.isArray(item.colors) && item.colors.length > 1 && (
                     <div className="colorSwatches" aria-label={`${item.colors.length} available colours`}>
                       {item.colors.slice(0, 5).map((c) => {
                         const hex = item.colorHexMap?.[c] || getColorHex(c);

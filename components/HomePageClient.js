@@ -566,11 +566,21 @@ export default function Home({
                         <div>
                           <p>{product.category}</p>
                           <h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>
-                          {Array.isArray(product.colors) && product.colors.length > 0 && (
+                          {Array.isArray(product.colors) && product.colors.length > 1 && (
                             <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
                               {product.colors.slice(0, 5).map((color) => {
                                 const hex = product.colorHexMap?.[color] || getColorHex(color);
-                                return <i key={color} title={color} style={{ background: hex }} />;
+                                return (
+                                  <Link
+                                    key={color}
+                                    href={`/product/${product.id}?color=${encodeURIComponent(color)}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    title={color}
+                                    aria-label={`View in ${color}`}
+                                  >
+                                    <i style={{ background: hex }} />
+                                  </Link>
+                                );
                               })}
                               {product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}
                             </div>
@@ -658,11 +668,21 @@ export default function Home({
                         <div>
                           <p>{product.category}</p>
                           <h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>
-                          {Array.isArray(product.colors) && product.colors.length > 0 && (
+                          {Array.isArray(product.colors) && product.colors.length > 1 && (
                             <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
                               {product.colors.slice(0, 5).map((color) => {
                                 const hex = product.colorHexMap?.[color] || getColorHex(color);
-                                return <i key={color} title={color} style={{ background: hex }} />;
+                                return (
+                                  <Link
+                                    key={color}
+                                    href={`/product/${product.id}?color=${encodeURIComponent(color)}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    title={color}
+                                    aria-label={`View in ${color}`}
+                                  >
+                                    <i style={{ background: hex }} />
+                                  </Link>
+                                );
                               })}
                               {product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}
                             </div>
@@ -899,11 +919,21 @@ export default function Home({
                         <div>
                           <p>{product.category}</p>
                           <h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>
-                          {Array.isArray(product.colors) && product.colors.length > 0 && (
+                          {Array.isArray(product.colors) && product.colors.length > 1 && (
                             <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
                               {product.colors.slice(0, 5).map((color) => {
                                 const hex = product.colorHexMap?.[color] || getColorHex(color);
-                                return <i key={color} title={color} style={{ background: hex }} />;
+                                return (
+                                  <Link
+                                    key={color}
+                                    href={`/product/${product.id}?color=${encodeURIComponent(color)}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    title={color}
+                                    aria-label={`View in ${color}`}
+                                  >
+                                    <i style={{ background: hex }} />
+                                  </Link>
+                                );
                               })}
                               {product.colors.length > 5 && <small>+{product.colors.length - 5}</small>}
                             </div>

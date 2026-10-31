@@ -213,6 +213,8 @@ function normalizeProductPayload(product) {
         tags: Array.isArray(product.tags) ? product.tags : metadata.tags || [],
         publishDate: String(product.publishDate || product.publish_date || metadata.publishDate || "").trim(),
         colorHexMap: parseJsonObject(product.colorHexMap || product.color_hex_map || metadata.colorHexMap || {}),
+        colorImages: parseJsonObject(product.colorImages || product.color_images || metadata.colorImages || {}),
+        variants: Array.isArray(product.variants) ? product.variants : (Array.isArray(metadata.variants) ? metadata.variants : []),
         bottomOptions: Array.isArray(product.bottomOptions) ? product.bottomOptions : (Array.isArray(metadata.bottomOptions) ? metadata.bottomOptions : []),
       },
     },
@@ -310,7 +312,7 @@ async function updateProductDirect(body) {
   if (product.cost_total_pkr !== undefined || product.costTotalPkr !== undefined) {
     updates.cost_total_pkr = normalizeNonNegativeNumber(product.cost_total_pkr ?? product.costTotalPkr, "Product cost");
   }
-  if (product.cost_breakdown !== undefined || product.costBreakdown !== undefined || product.deliveryInfo !== undefined || product.delivery_info !== undefined || product.deliveryText !== undefined || product.bottomOptions !== undefined || product.bottom_options !== undefined || product.enableBottomOptions !== undefined) {
+  if (product.cost_breakdown !== undefined || product.costBreakdown !== undefined || product.deliveryInfo !== undefined || product.delivery_info !== undefined || product.deliveryText !== undefined || product.bottomOptions !== undefined || product.bottom_options !== undefined || product.enableBottomOptions !== undefined || product.colorImages !== undefined || product.color_images !== undefined || product.variants !== undefined) {
     const incomingBreakdown = parseJsonObject(product.cost_breakdown ?? product.costBreakdown ?? {});
     const incomingMetadata = parseJsonObject(incomingBreakdown.metadata);
     updates.cost_breakdown = {
@@ -330,6 +332,8 @@ async function updateProductDirect(body) {
         ...(product.tags !== undefined ? { tags: Array.isArray(product.tags) ? product.tags : [] } : {}),
         ...(product.bottomOptions !== undefined || product.bottom_options !== undefined ? { bottomOptions: Array.isArray(product.bottomOptions ?? product.bottom_options) ? (product.bottomOptions ?? product.bottom_options) : [] } : {}),
         ...(product.enableBottomOptions !== undefined ? { enableBottomOptions: Boolean(product.enableBottomOptions) } : {}),
+        ...(product.colorImages !== undefined || product.color_images !== undefined ? { colorImages: parseJsonObject(product.colorImages || product.color_images || {}) } : {}),
+        ...(product.variants !== undefined ? { variants: Array.isArray(product.variants) ? product.variants : [] } : {}),
         ...(product.colorHexMap !== undefined || product.color_hex_map !== undefined
           ? { colorHexMap: parseJsonObject(product.colorHexMap || product.color_hex_map || {}) }
           : {}),

@@ -15,7 +15,7 @@ import DashboardWorkspace from "./DashboardWorkspace";
 import PluginsWorkspace from "./PluginsWorkspace";
 import ArticlePriceCalculator from "./ArticlePriceCalculator";
 import ProductColorPicker from "./ProductColorPicker";
-import { apparelSizes, fashionColors, getColorHex } from "../data/variantOptions";
+import { apparelSizes, detectColorsFromText, fashionColors, getColorHex } from "../data/variantOptions";
 import AdminLogin from "./AdminLogin";
 
 const STANDARD_APPAREL_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "Custom"];
@@ -907,7 +907,8 @@ export default function AdminDashboard() {
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [selectedSizes, setSelectedSizes] = useState(["S", "M", "L"]);
-  const [selectedColors, setSelectedColors] = useState(["Pink"]);
+  const [selectedColors, setSelectedColors] = useState([]);
+  const [detectedColorsHint, setDetectedColorsHint] = useState([]);
   const [colorHexMap, setColorHexMap] = useState({});
   const [bottomOptions, setBottomOptions] = useState([]);
   const [enableBottomOptions, setEnableBottomOptions] = useState(false);
@@ -1238,7 +1239,8 @@ export default function AdminDashboard() {
     setEditingProduct(null);
     setProductCategory("Kurtis");
     setSelectedSizes(["XS", "S", "M", "L", "XL"]);
-    setSelectedColors(["Pink"]);
+    setSelectedColors([]);
+    setDetectedColorsHint([]);
     setColorHexMap({});
     setEnableBottomOptions(true);
     setBottomOptions([
@@ -1267,7 +1269,8 @@ export default function AdminDashboard() {
     setEditingProduct(product);
     setProductCategory(product.category || "Kurtis");
     setSelectedSizes(Array.isArray(product.sizes) && product.sizes.length ? product.sizes : ["XS", "S", "M", "L", "XL"]);
-    setSelectedColors(Array.isArray(product.colors) && product.colors.length ? product.colors : ["Pink"]);
+    setSelectedColors(Array.isArray(product.colors) ? product.colors : []);
+    setDetectedColorsHint(detectColorsFromText(product.name || ""));
     setColorHexMap(product.colorHexMap || {});
     const explicitEnable = product.enableBottomOptions !== undefined ? product.enableBottomOptions : null;
     const hasExplicitBottoms = Array.isArray(product.bottomOptions);
@@ -1283,11 +1286,23 @@ export default function AdminDashboard() {
     }
     setNewBottomName("");
     setNewBottomDelta(0);
-    setProductMedia((product.images || [product.image]).filter(Boolean).map((src, index) => ({
-      id: `existing-${product.id}-${index}`,
-      name: `Product image ${index + 1}`,
-      src,
-    })));
+    const existingColorImages = product.colorImages || product.color_images || product.costBreakdown?.metadata?.colorImages || {};
+    setProductMedia((product.images || [product.image]).filter(Boolean).map((src, index) => {
+      let assignedColor = "";
+      for (const [col, imgs] of Object.entries(existingColorImages)) {
+        const arr = Array.isArray(imgs) ? imgs : [imgs];
+        if (arr.includes(src)) {
+          assignedColor = col;
+          break;
+        }
+      }
+      return {
+        id: `existing-${product.id}-${index}`,
+        name: `Product image ${index + 1}`,
+        src,
+        colorTag: assignedColor,
+      };
+    }));
     setProductImageUrl("");
     setMediaError("");
     setProductPrice(Number(product.price || 0));
@@ -1478,7 +1493,21 @@ export default function AdminDashboard() {
     setProductSaving(true);
     setCatalogLoading(true);
     try {
-      const mediaImages = await uploadProductMedia();
+      const { urls: mediaImages, items: finalMediaItems } = await uploadProductMedia();
+      const colorImagesMap = {};
+      if (selectedColors.length > 0) {
+        selectedColors.forEach((c) => {
+          colorImagesMap[c] = [];
+        });
+        (finalMediaItems || []).forEach((item) => {
+          if (item.colorTag && colorImagesMap[item.colorTag]) {
+            colorImagesMap[item.colorTag].push(item.src);
+          }
+        });
+        Object.keys(colorImagesMap).forEach((c) => {
+          if (!colorImagesMap[c].length) delete colorImagesMap[c];
+        });
+      }
       const seoTitle = String(form.get("seoTitle") || "").trim();
       const name = String(form.get("name") || "").trim();
       const priceVal = Number(form.get("price") || 0);
@@ -1522,7 +1551,9 @@ export default function AdminDashboard() {
           color,
           sku: `${skuVal || "BST"}-${size}-${color}`.replace(/\s+/g, "-").toUpperCase(),
           stock: Math.max(0, Math.floor(stockVal / Math.max(1, selectedSizes.length * selectedColors.length))),
+          image: colorImagesMap[color]?.[0] || mediaImages[0] || "",
         }))),
+        colorImages: colorImagesMap,
         tags: tagsList,
         status: statusVal,
         publishDate: new Date().toISOString().split("T")[0],
@@ -1562,6 +1593,14 @@ export default function AdminDashboard() {
             productType: categoryVal || "Women's clothing",
             tags: tagsList,
             publishDate: new Date().toISOString().split("T")[0],
+            colorImages: colorImagesMap,
+            variants: selectedSizes.flatMap((size) => selectedColors.map((color) => ({
+              size,
+              color,
+              sku: `${skuVal || "BST"}-${size}-${color}`.replace(/\s+/g, "-").toUpperCase(),
+              stock: Math.max(0, Math.floor(stockVal / Math.max(1, selectedSizes.length * selectedColors.length))),
+              image: colorImagesMap[color]?.[0] || mediaImages[0] || "",
+            }))),
           },
         },
       };
@@ -1642,12 +1681,17 @@ export default function AdminDashboard() {
     }
 
     try {
-      const items = await Promise.all(imageFiles.map(async (file) => ({
-        id: `${file.name}-${file.lastModified}-${file.size}`,
-        name: file.name,
-        file,
-        src: await readImageFile(file),
-      })));
+      const items = await Promise.all(imageFiles.map(async (file) => {
+        const detected = detectColorsFromText(file.name);
+        const autoColor = detected.length ? detected[0] : "";
+        return {
+          id: `${file.name}-${file.lastModified}-${file.size}`,
+          name: file.name,
+          file,
+          src: await readImageFile(file),
+          colorTag: autoColor,
+        };
+      }));
       setProductMedia((current) => [...current, ...items]);
     } catch (error) {
       setMediaError(error.message || "Unable to load these photos.");
@@ -1695,21 +1739,31 @@ export default function AdminDashboard() {
   }
 
   async function uploadProductMedia() {
-    if (!productMedia.length) return [];
+    if (!productMedia.length) return { urls: [], items: [] };
     const form = new FormData();
     const uploadItems = productMedia.filter((item) => item.file);
     uploadItems.forEach((item) => form.append("files", item.file, item.name));
-    if (!uploadItems.length) return productMedia.map((item) => item.src);
 
-    const response = await fetch("/api/admin/uploads", {
-      method: "POST",
-      body: form,
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "Unable to upload product photos.");
+    let uploadedUrls = [];
+    if (uploadItems.length) {
+      const response = await fetch("/api/admin/uploads", {
+        method: "POST",
+        body: form,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to upload product photos.");
+      uploadedUrls = [...(result.urls || [])];
+    }
 
-    const uploadedUrls = [...(result.urls || [])];
-    return productMedia.map((item) => item.file ? uploadedUrls.shift() : item.src).filter(Boolean);
+    const finalItems = productMedia.map((item) => ({
+      src: item.file ? uploadedUrls.shift() : item.src,
+      colorTag: item.colorTag || "",
+    })).filter((item) => Boolean(item.src));
+
+    return {
+      urls: finalItems.map((i) => i.src),
+      items: finalItems,
+    };
   }
 
   function closeProductForm() {
@@ -2117,7 +2171,49 @@ export default function AdminDashboard() {
                         required
                         defaultValue={editingProduct?.name || ""}
                         placeholder="Short sleeve t-shirt, Aylin co-ord set, etc."
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const detected = detectColorsFromText(val);
+                          setDetectedColorsHint(detected);
+                          if (detected.length > 0) {
+                            setSelectedColors((prev) => {
+                              const merged = Array.from(new Set([...prev, ...detected]));
+                              const newMap = { ...colorHexMap };
+                              merged.forEach((c) => {
+                                if (!newMap[c]) newMap[c] = getColorHex(c);
+                              });
+                              setColorHexMap(newMap);
+                              return merged;
+                            });
+                          }
+                        }}
                       />
+                      {detectedColorsHint.length > 0 && (
+                        <div style={{ marginTop: "6px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", fontSize: "12px", color: "#166534" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontWeight: 600 }}>
+                            <Sparkles size={13} color="#16a34a" /> Auto-detected color{detectedColorsHint.length > 1 ? "s" : ""}:
+                          </span>
+                          {detectedColorsHint.map((c) => (
+                            <span
+                              key={c}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "5px",
+                                background: "#dcfce7",
+                                color: "#15803d",
+                                border: "1px solid #86efac",
+                                padding: "2px 8px",
+                                borderRadius: "12px",
+                                fontWeight: 500,
+                              }}
+                            >
+                              <span style={{ width: 8, height: 8, borderRadius: "50%", background: getColorHex(c) }} />
+                              {c} ✓
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="shopifyField">
                       <div className="shopifyToolbarHeader">
@@ -2241,6 +2337,26 @@ export default function AdminDashboard() {
                                 <Trash2 size={13} />
                               </button>
                             </div>
+                            {selectedColors.length > 1 && (
+                              <div className="shopifyMediaColorSelect">
+                                <select
+                                  value={item.colorTag || ""}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setProductMedia((prev) =>
+                                      prev.map((m) => (m.id === item.id ? { ...m, colorTag: val } : m))
+                                    );
+                                  }}
+                                  title="Assign photo to color"
+                                >
+                                  <option value="">All / Shared</option>
+                                  {selectedColors.map((c) => (
+                                    <option key={c} value={c}>{c}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

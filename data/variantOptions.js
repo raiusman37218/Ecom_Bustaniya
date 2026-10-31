@@ -40,6 +40,8 @@ export const fashionColors = [
   { name: "Zinc", hex: "#7b8794", category: "neutrals" },
 
   // Festive & Eastern Favorites
+  { name: "Red", hex: "#dc2626", category: "festive" },
+  { name: "Green", hex: "#16a34a", category: "festive" },
   { name: "Maroon", hex: "#800000", category: "festive" },
   { name: "Deep Maroon", hex: "#5b0e14", category: "festive" },
   { name: "Bottle Green", hex: "#004225", category: "festive" },
@@ -64,6 +66,8 @@ export const fashionColors = [
   { name: "Bronze", hex: "#cd7f32", category: "festive" },
 
   // Summer Pastels
+  { name: "Pink", hex: "#f472b6", category: "pastels" },
+  { name: "Yellow", hex: "#eab308", category: "pastels" },
   { name: "Powder Blue", hex: "#b0e0e6", category: "pastels" },
   { name: "Sky Blue", hex: "#87ceeb", category: "pastels" },
   { name: "Ice Blue", hex: "#d0f0fd", category: "pastels" },
@@ -85,6 +89,8 @@ export const fashionColors = [
   { name: "Vanilla", hex: "#f3e5ab", category: "pastels" },
 
   // Jewel & Royal Shades
+  { name: "Blue", hex: "#2563eb", category: "jewel" },
+  { name: "Purple", hex: "#9333ea", category: "jewel" },
   { name: "Royal Blue", hex: "#2546a8", category: "jewel" },
   { name: "Navy Blue", hex: "#172a53", category: "jewel" },
   { name: "Midnight Blue", hex: "#191970", category: "jewel" },
@@ -98,6 +104,7 @@ export const fashionColors = [
   { name: "Violet", hex: "#8a2be2", category: "jewel" },
 
   // Earthy & Warm
+  { name: "Orange", hex: "#ea580c", category: "earthy" },
   { name: "Olive Green", hex: "#556b2f", category: "earthy" },
   { name: "Khaki", hex: "#c3b091", category: "earthy" },
   { name: "Terracotta", hex: "#e2725b", category: "earthy" },
@@ -245,4 +252,33 @@ export function getColorHex(colorName, fallback = "#64748b") {
   }
   return fallback;
 }
+
+/**
+ * Shopify-style automatic color detection from product title, description, or filename.
+ * Scans for known fashion colors, synonyms, and Pakistani ethnic shades.
+ */
+export function detectColorsFromText(text) {
+  if (!text) return [];
+  const lower = String(text).toLowerCase();
+  const matched = [];
+
+  // Sort candidate colors by name length descending so multi-word colors (e.g. "Royal Blue", "Bottle Green") match first
+  const sorted = [...fashionColors].sort((a, b) => b.name.length - a.name.length);
+
+  for (const c of sorted) {
+    const cLower = c.name.toLowerCase();
+    // Word boundary regex
+    const escaped = cLower.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+    const regex = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i");
+    if (regex.test(lower)) {
+      // Do not add single word if it's already part of a multi-word color (e.g. don't add "Blue" if "Royal Blue" is matched)
+      const alreadySubsumed = matched.some((m) => m.toLowerCase().includes(cLower));
+      if (!alreadySubsumed && !matched.includes(c.name)) {
+        matched.push(c.name);
+      }
+    }
+  }
+  return matched;
+}
+
 
