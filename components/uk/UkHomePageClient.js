@@ -453,7 +453,8 @@ export default function UkHomePageClient({
 
           if (section.type === "shop_by_category") {
             const currentStyle = section.style === "minimal" ? "minimal" : (section.style === "atelier" ? "atelier" : (storeSettings.categorySectionStyle === "minimal" ? "minimal" : "atelier"));
-            const sectionHeading = (!section.heading || section.heading === "Choose your mood") ? "Shop by Category" : section.heading;
+            const sectionHeading = (!section.heading || section.heading === "Choose your mood" || section.heading === "Shop by Category" || section.heading === "Curated Collections") ? "Shop by collection" : section.heading;
+            const sectionEyebrow = (section.eyebrow && section.eyebrow !== "CURATED COLLECTIONS" && section.eyebrow !== "EXPLORE BY CATEGORY") ? section.eyebrow : "FRESH DROPS EVERY WEEK";
             const catBg = sectionColors.categories || "#ffffff";
             const isLightCatBg = !catBg || ["#ffffff", "#fffefb", "#fff", "#fcf8ef", "#f7f2e8"].includes(catBg.toLowerCase().trim());
             const catTextColor = isLightCatBg ? "#173d29" : (sectionTextColors.categories || "#ffffff");
@@ -474,7 +475,7 @@ export default function UkHomePageClient({
                 key={section.id}
                 categories={cardsToRender}
                 variant={currentStyle}
-                eyebrow={section.eyebrow || defaults.eyebrow || ""}
+                eyebrow={sectionEyebrow}
                 heading={sectionHeading}
                 subtitle={section.subtitle || ""}
                 viewAllHref="#products"
