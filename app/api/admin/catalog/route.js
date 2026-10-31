@@ -114,7 +114,8 @@ function formatProduct(product) {
     seoTitle: String(productMetadata.seoTitle || ""),
     seoDescription: String(productMetadata.seoDescription || ""),
     urlHandle: String(productMetadata.urlHandle || ""),
-    bottomOptions: Array.isArray(productMetadata.bottomOptions) ? productMetadata.bottomOptions : (categorySelection.category === "Kurtis" ? DEFAULT_KURTI_BOTTOM_OPTIONS : []),
+    enableBottomOptions: productMetadata.enableBottomOptions !== undefined ? Boolean(productMetadata.enableBottomOptions) : (Array.isArray(productMetadata.bottomOptions) ? productMetadata.bottomOptions.length > 0 : undefined),
+    bottomOptions: Array.isArray(productMetadata.bottomOptions) ? productMetadata.bottomOptions : (productMetadata.enableBottomOptions === false ? [] : (categorySelection.category === "Kurtis" ? DEFAULT_KURTI_BOTTOM_OPTIONS : [])),
   };
 }
 
@@ -529,7 +530,30 @@ export async function PUT(request) {
           prefer: "return=minimal",
           body: {
             cost_total_pkr: Number(body.product.cost_total_pkr || 0),
-            cost_breakdown: body.product.cost_breakdown || {},
+            cost_breakdown: await (async () => {
+            const targetId = typeof rows !== "undefined" && rows?.[0]?.id ? rows[0].id : body.productId;
+            const existingRows = await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(targetId)}&select=cost_breakdown`).catch(() => []);
+            const existingBreakdown = parseJsonObject(existingRows?.[0]?.cost_breakdown);
+            const existingMetadata = parseJsonObject(existingBreakdown.metadata);
+            const incomingBreakdown = parseJsonObject(body.product?.cost_breakdown || {});
+            const incomingMetadata = parseJsonObject(incomingBreakdown.metadata);
+            const targetBottomOptions = Array.isArray(body.product?.bottomOptions)
+              ? body.product.bottomOptions
+              : (Array.isArray(incomingMetadata.bottomOptions) ? incomingMetadata.bottomOptions : existingMetadata.bottomOptions);
+            const targetEnableBottoms = body.product?.enableBottomOptions !== undefined
+              ? Boolean(body.product.enableBottomOptions)
+              : (incomingMetadata.enableBottomOptions !== undefined ? Boolean(incomingMetadata.enableBottomOptions) : existingMetadata.enableBottomOptions);
+            return {
+              ...existingBreakdown,
+              ...incomingBreakdown,
+              metadata: {
+                ...existingMetadata,
+                ...incomingMetadata,
+                ...(targetBottomOptions !== undefined ? { bottomOptions: targetBottomOptions } : {}),
+                ...(targetEnableBottoms !== undefined ? { enableBottomOptions: targetEnableBottoms } : {}),
+              },
+            };
+          })(),
             ...(body.product.status !== undefined ? { instock: body.product.status === "Active" } : {}),
           },
         });
@@ -600,7 +624,30 @@ export async function PATCH(request) {
         prefer: "return=minimal",
         body: {
           cost_total_pkr: Number(body.product.cost_total_pkr || 0),
-          cost_breakdown: body.product.cost_breakdown || {},
+          cost_breakdown: await (async () => {
+            const targetId = typeof rows !== "undefined" && rows?.[0]?.id ? rows[0].id : body.productId;
+            const existingRows = await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(targetId)}&select=cost_breakdown`).catch(() => []);
+            const existingBreakdown = parseJsonObject(existingRows?.[0]?.cost_breakdown);
+            const existingMetadata = parseJsonObject(existingBreakdown.metadata);
+            const incomingBreakdown = parseJsonObject(body.product?.cost_breakdown || {});
+            const incomingMetadata = parseJsonObject(incomingBreakdown.metadata);
+            const targetBottomOptions = Array.isArray(body.product?.bottomOptions)
+              ? body.product.bottomOptions
+              : (Array.isArray(incomingMetadata.bottomOptions) ? incomingMetadata.bottomOptions : existingMetadata.bottomOptions);
+            const targetEnableBottoms = body.product?.enableBottomOptions !== undefined
+              ? Boolean(body.product.enableBottomOptions)
+              : (incomingMetadata.enableBottomOptions !== undefined ? Boolean(incomingMetadata.enableBottomOptions) : existingMetadata.enableBottomOptions);
+            return {
+              ...existingBreakdown,
+              ...incomingBreakdown,
+              metadata: {
+                ...existingMetadata,
+                ...incomingMetadata,
+                ...(targetBottomOptions !== undefined ? { bottomOptions: targetBottomOptions } : {}),
+                ...(targetEnableBottoms !== undefined ? { enableBottomOptions: targetEnableBottoms } : {}),
+              },
+            };
+          })(),
           ...(body.product.status !== undefined ? { instock: body.product.status === "Active" } : {}),
         },
       });

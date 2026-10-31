@@ -109,7 +109,9 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
   const [size, setSize] = useState(product?.sizes?.[0] || "S");
   const [color, setColor] = useState(product?.colors?.[0] || "");
   const bottomOptions = useMemo(() => {
-    if (Array.isArray(product?.bottomOptions) && product.bottomOptions.length > 0) {
+    if (product?.enableBottomOptions === false) return [];
+    if (Array.isArray(product?.bottomOptions)) return product.bottomOptions;
+    if (false) {
       return product.bottomOptions;
     }
     const cat = String(product?.category || "").toLowerCase();
@@ -122,7 +124,7 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
       ];
     }
     return [];
-  }, [product?.bottomOptions, product?.category]);
+  }, [product?.bottomOptions, product?.category, product?.enableBottomOptions]);
 
   const [selectedBottom, setSelectedBottom] = useState(() => (bottomOptions.length ? bottomOptions[0].name : ""));
 

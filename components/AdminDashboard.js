@@ -472,7 +472,7 @@ function ExecutiveAnalyticsSuite({
   liveOrders = [],
   products = [],
   pixelFunnel = null,
-  setActive = () => {},
+  setActive = () => { },
 }) {
   const maxDailySales = Math.max(...salesByDay.map((day) => day.sales), 1);
   const peakDay = salesByDay.reduce((best, current) => (current.sales > best.sales ? current : best), { label: "—", sales: 0 });
@@ -1034,7 +1034,7 @@ export default function AdminDashboard() {
       try {
         const saved = localStorage.getItem("bustaniya-admin-products");
         if (saved) return JSON.parse(saved);
-      } catch {}
+      } catch { }
     }
     return initialProducts.map((p, index) => ({
       ...p,
@@ -1047,7 +1047,7 @@ export default function AdminDashboard() {
       try {
         const cached = localStorage.getItem("bustaniya-admin-orders");
         if (cached) return JSON.parse(cached);
-      } catch {}
+      } catch { }
     }
     return [];
   });
@@ -1056,7 +1056,7 @@ export default function AdminDashboard() {
       try {
         const cached = localStorage.getItem("bustaniya-admin-orders");
         return Boolean(cached && JSON.parse(cached).length > 0);
-      } catch {}
+      } catch { }
     }
     return false;
   });
@@ -1065,7 +1065,7 @@ export default function AdminDashboard() {
       try {
         const cached = localStorage.getItem("bustaniya-admin-orders");
         if (cached && JSON.parse(cached).length > 0) return false;
-      } catch {}
+      } catch { }
     }
     return true;
   });
@@ -1082,7 +1082,7 @@ export default function AdminDashboard() {
       try {
         const cached = localStorage.getItem("bustaniya-admin-user");
         if (cached) return JSON.parse(cached);
-      } catch {}
+      } catch { }
     }
     return null;
   });
@@ -1090,7 +1090,7 @@ export default function AdminDashboard() {
     if (typeof window !== "undefined") {
       try {
         return Boolean(localStorage.getItem("bustaniya-admin-user"));
-      } catch {}
+      } catch { }
     }
     return false;
   });
@@ -1102,7 +1102,7 @@ export default function AdminDashboard() {
       try {
         const cached = localStorage.getItem("bustaniya-admin-metrics");
         if (cached) return JSON.parse(cached);
-      } catch {}
+      } catch { }
     }
     return {
       totalSales: 0,
@@ -1163,7 +1163,7 @@ export default function AdminDashboard() {
     setActiveSectionReady(true);
     const saved = localStorage.getItem("bustaniya-admin-products");
     if (saved) {
-      try { setProducts(JSON.parse(saved)); } catch {}
+      try { setProducts(JSON.parse(saved)); } catch { }
     }
     setAdminReady(true);
     refreshWorkspace();
@@ -1174,7 +1174,7 @@ export default function AdminDashboard() {
         if (response.status === 401 || response.status === 403) {
           try {
             localStorage.removeItem("bustaniya-admin-user");
-          } catch {}
+          } catch { }
           setCurrentAdminUser(null);
         }
         return null;
@@ -1184,9 +1184,9 @@ export default function AdminDashboard() {
         setCurrentAdminUser(result.user);
         try {
           localStorage.setItem("bustaniya-admin-user", JSON.stringify(result.user));
-        } catch {}
+        } catch { }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setAdminAuthChecked(true));
   }, []);
 
@@ -1269,9 +1269,15 @@ export default function AdminDashboard() {
     setSelectedSizes(Array.isArray(product.sizes) && product.sizes.length ? product.sizes : ["XS", "S", "M", "L", "XL"]);
     setSelectedColors(Array.isArray(product.colors) && product.colors.length ? product.colors : ["Pink"]);
     setColorHexMap(product.colorHexMap || {});
-    const hasBottoms = Array.isArray(product.bottomOptions) && product.bottomOptions.length > 0;
+    const explicitEnable = product.enableBottomOptions !== undefined ? product.enableBottomOptions : null;
+    const hasExplicitBottoms = Array.isArray(product.bottomOptions);
+    const hasBottoms = hasExplicitBottoms && product.bottomOptions.length > 0 && explicitEnable !== false;
+    const isExplicitlyDisabled = explicitEnable === false || (hasExplicitBottoms && product.bottomOptions.length === 0);
     const isKurti = String(product.category || "").toLowerCase().includes("kurti");
-    if (hasBottoms) {
+    if (isExplicitlyDisabled) {
+      setEnableBottomOptions(false);
+      setBottomOptions([]);
+    } else if (hasBottoms) {
       setEnableBottomOptions(true);
       setBottomOptions(product.bottomOptions);
     } else if (isKurti) {
@@ -1422,7 +1428,7 @@ export default function AdminDashboard() {
       setOrders(formatted);
       try {
         localStorage.setItem("bustaniya-admin-orders", JSON.stringify(formatted.slice(0, 30)));
-      } catch {}
+      } catch { }
       setOrdersPagination(result.pagination || { page, pageSize: ordersPagination.pageSize, total: formatted.length, totalPages: formatted.length ? 1 : 0 });
       setOrdersConnected(true);
       // Orders are the shared source for Finance and Inventory. Render them as
@@ -1469,7 +1475,7 @@ export default function AdminDashboard() {
       setMetrics(dashboard.metrics || metrics);
       try {
         localStorage.setItem("bustaniya-admin-metrics", JSON.stringify(dashboard.metrics || metrics));
-      } catch {}
+      } catch { }
     } finally {
       setCatalogLoading(false);
     }
@@ -1499,9 +1505,9 @@ export default function AdminDashboard() {
       const instagramUrl = String(form.get("instagramVideoUrl") || "").trim();
       const finalBottomOptions = enableBottomOptions
         ? bottomOptions.filter((opt) => opt && opt.name && String(opt.name).trim()).map((opt) => ({
-            name: String(opt.name).trim(),
-            priceDelta: Math.max(0, Number(opt.priceDelta || 0)),
-          }))
+          name: String(opt.name).trim(),
+          priceDelta: Math.max(0, Number(opt.priceDelta || 0)),
+        }))
         : [];
 
       const productPayload = {
@@ -1514,6 +1520,7 @@ export default function AdminDashboard() {
         price: priceVal,
         compare_at_price: compareVal,
         bottomOptions: finalBottomOptions,
+            enableBottomOptions: Boolean(enableBottomOptions && finalBottomOptions.length > 0),
         sku: skuVal,
         sizes: selectedSizes,
         colors: selectedColors,
@@ -1560,6 +1567,7 @@ export default function AdminDashboard() {
             seoDescription: String(form.get("seoDescription") || "").trim(),
             urlHandle: String(form.get("urlHandle") || "").trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
             bottomOptions: finalBottomOptions,
+            enableBottomOptions: Boolean(enableBottomOptions && finalBottomOptions.length > 0),
             compareAtPrice: compareVal,
             status: statusVal,
             productType: categoryVal || "Women's clothing",
@@ -1592,6 +1600,7 @@ export default function AdminDashboard() {
       setShowProductForm(false);
     } catch (saveError) {
       setOrdersError(saveError.message);
+      setMediaError(saveError.message);
     } finally {
       setProductSaving(false);
       setCatalogLoading(false);
@@ -1606,7 +1615,7 @@ export default function AdminDashboard() {
         localStorage.removeItem("bustaniya-admin-user");
         localStorage.removeItem("bustaniya-admin-orders");
         localStorage.removeItem("bustaniya-admin-metrics");
-      } catch {}
+      } catch { }
       await fetch("/api/admin/logout", { method: "POST" });
     } finally {
       window.location.href = "/admin";
@@ -1761,6 +1770,7 @@ export default function AdminDashboard() {
       await loadAdminData();
     } catch (saveError) {
       setOrdersError(saveError.message);
+      setMediaError(saveError.message);
     } finally {
       setCatalogLoading(false);
     }
@@ -1815,6 +1825,7 @@ export default function AdminDashboard() {
       return true;
     } catch (saveError) {
       setOrdersError(saveError.message);
+      setMediaError(saveError.message);
       throw saveError;
     } finally {
       setCatalogLoading(false);
@@ -3027,7 +3038,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     })
       .then((response) => (response.ok ? response.json() : null))
       .then((result) => { if (!cancelled && result?.summary) setPixelFunnel(result.summary); })
-      .catch(() => {});
+      .catch(() => { });
     return () => { cancelled = true; };
   }, [dashboardPeriod]);
   const isOwnerDashboard = !currentAdminUser || currentAdminUser.role === "Owner";
@@ -3193,7 +3204,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     .filter(isDeliveredOrder);
   const deliveredCount = deliveredScoped.length;
   const averageOrderValue = deliveredCount ? Math.round(salesPeriodTotal / deliveredCount) : 0;
-  
+
   const customerKeys = deliveredScoped.map(orderCustomerIdentity).filter(Boolean);
   const customerOrderCounts = customerKeys.reduce((map, key) => map.set(key, (map.get(key) || 0) + 1), new Map());
   const repeatCustomers = [...customerOrderCounts.values()].filter((count) => count > 1).length;
@@ -3205,7 +3216,7 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   return <>
     <div className="adminTitle dashboardTitle">
       <div>
-        <p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday:"long", day:"numeric", month:"long" }) : "Loading date…"}</p>
+        <p>{dashboardNow ? dashboardNow.toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long" }) : "Loading date…"}</p>
         <h1>{dashboardNow && dashboardNow.getHours() < 12 ? "Good morning" : dashboardNow && dashboardNow.getHours() < 17 ? "Good afternoon" : "Good evening"}, Bustaniya</h1>
         <span>{connected ? ("Live store insights" + (dashboardUpdatedAt ? ` · Updated ${dashboardUpdatedAt.toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}` : "")) : "Connect Supabase orders to load live store data."}</span>
       </div>
@@ -3417,7 +3428,7 @@ function Metric({ icon: Icon, label, value, change, note }) {
 function DashboardLoadingState() {
   return <section className="dashboardDataLoading" aria-busy="true" aria-label="Loading live dashboard data">
     <div className="adminLoadingHeading"><span className="adminSkeleton adminLoadingEyebrow" /><span className="adminSkeleton adminLoadingTitle" /><span className="adminSkeleton adminLoadingSubtitle" /></div>
-    <div className="adminLoadingMetricGrid">{[1,2,3,4].map((item) => <div className="adminLoadingMetric" key={item}><span className="adminSkeleton" /><span className="adminSkeleton" /><span className="adminSkeleton" /></div>)}</div>
+    <div className="adminLoadingMetricGrid">{[1, 2, 3, 4].map((item) => <div className="adminLoadingMetric" key={item}><span className="adminSkeleton" /><span className="adminSkeleton" /><span className="adminSkeleton" /></div>)}</div>
     <p className="adminLoadingStatus">Loading live orders, products and Finance data…</p>
   </section>;
 }
@@ -3581,14 +3592,11 @@ function CategoriesPanel({
       : visibleCategories.filter((item) => item.parentSlug === category.slug).length;
 
     const warningMsg = isSub
-      ? `Are you sure you want to archive subcategory "${category.name}"?${
-          count > 0 ? ` ${count} product${count === 1 ? "" : "s"} are mapped to this subcategory.` : ""
-        } It will be hidden from storefront navigation. Products will not be deleted.`
-      : `Are you sure you want to archive collection "${category.name}"?${
-          count > 0 ? ` ${count} product${count === 1 ? "" : "s"} are mapped to it.` : ""
-        }${
-          childCount > 0 ? ` ${childCount} nested subcategor${childCount === 1 ? "y" : "ies"} will also be hidden.` : ""
-        } It will be hidden from storefront navigation. Products will not be deleted.`;
+      ? `Are you sure you want to archive subcategory "${category.name}"?${count > 0 ? ` ${count} product${count === 1 ? "" : "s"} are mapped to this subcategory.` : ""
+      } It will be hidden from storefront navigation. Products will not be deleted.`
+      : `Are you sure you want to archive collection "${category.name}"?${count > 0 ? ` ${count} product${count === 1 ? "" : "s"} are mapped to it.` : ""
+      }${childCount > 0 ? ` ${childCount} nested subcategor${childCount === 1 ? "y" : "ies"} will also be hidden.` : ""
+      } It will be hidden from storefront navigation. Products will not be deleted.`;
 
     if (typeof onConfirmAction === "function") {
       onConfirmAction({
@@ -3927,11 +3935,11 @@ function CategoriesPanel({
               const query = searchQuery.trim().toLowerCase();
               const matchingChildren = query
                 ? children.filter(
-                    (c) =>
-                      c.name.toLowerCase().includes(query) ||
-                      c.slug.toLowerCase().includes(query) ||
-                      (c.description || "").toLowerCase().includes(query)
-                  )
+                  (c) =>
+                    c.name.toLowerCase().includes(query) ||
+                    c.slug.toLowerCase().includes(query) ||
+                    (c.description || "").toLowerCase().includes(query)
+                )
                 : children;
 
               return (
@@ -3961,9 +3969,8 @@ function CategoriesPanel({
                         <div className="shopifyCategoryTitleRow">
                           <span className="shopifyCategoryName">{category.name}</span>
                           <span
-                            className={`statusBadge ${
-                              category.status === "Active" ? "activeStatus" : "processing"
-                            }`}
+                            className={`statusBadge ${category.status === "Active" ? "activeStatus" : "processing"
+                              }`}
                           >
                             {category.status}
                           </span>
@@ -4092,9 +4099,8 @@ function CategoriesPanel({
                                     <div className="shopifyCategoryTitleRow">
                                       <span className="shopifySubcategoryTitle">{sub.name}</span>
                                       <span
-                                        className={`statusBadge ${
-                                          sub.status === "Active" ? "activeStatus" : "processing"
-                                        }`}
+                                        className={`statusBadge ${sub.status === "Active" ? "activeStatus" : "processing"
+                                          }`}
                                       >
                                         {sub.status}
                                       </span>
@@ -4306,13 +4312,12 @@ function CategoriesPanel({
                     </td>
                     <td>
                       <span
-                        className={`statusBadge ${
-                          cat.status === "Active"
+                        className={`statusBadge ${cat.status === "Active"
                             ? "activeStatus"
                             : cat.status === "Archived"
-                            ? "archived"
-                            : "processing"
-                        }`}
+                              ? "archived"
+                              : "processing"
+                          }`}
                       >
                         {cat.status}
                       </span>
@@ -4788,7 +4793,7 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
 
   function exportProducts() {
     const csv = [
-      ["Title","Description","Images","Price","Compare at price","Category","Collection","Status","Sizes","Colors","Stock","Low stock threshold"],
+      ["Title", "Description", "Images", "Price", "Compare at price", "Category", "Collection", "Status", "Sizes", "Colors", "Stock", "Low stock threshold"],
       ...products.map((product) => [
         product.name,
         product.description || "",
@@ -4803,10 +4808,10 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
         product.stock || 0,
         product.lowStockThreshold || 5,
       ]),
-    ].map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"','""')}"`).join(",")).join("\n");
+    ].map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    link.download = `bustaniya-products-${new Date().toISOString().slice(0,10)}.csv`;
+    link.download = `bustaniya-products-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   }
@@ -4845,7 +4850,7 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
     </div>
     <section className="adminCard managementCard">
       <div className="catalogToolbar">
-        <div className="orderTabs">{["All","Active","Draft","Archived","Unlisted","Low stock","Missing cost"].map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item}</button>)}</div>
+        <div className="orderTabs">{["All", "Active", "Draft", "Archived", "Unlisted", "Low stock", "Missing cost"].map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item}</button>)}</div>
         <div className="catalogActions">
           <TableDensityToggle density={tableDensity} onChange={setTableDensity} />
           <div className="inlineSearch"><Search /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." /></div>
@@ -4862,7 +4867,7 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
           const variants = productVariants(product);
           const status = productStatus(product);
           return <tr key={product.id}>
-            <td><div className="tableProduct"><span style={{ backgroundImage: `url(${product.image})` }} /><div><b>{product.name}</b><small className="trackingNumber">{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4,"0")}`}</small></div></div></td>
+            <td><div className="tableProduct"><span style={{ backgroundImage: `url(${product.image})` }} /><div><b>{product.name}</b><small className="trackingNumber">{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4, "0")}`}</small></div></div></td>
             <td>{productCollection(product)}</td>
             <td><b>Rs. {Number(product.price || 0).toLocaleString()}</b></td>
             <td>{Number(product.costTotalPkr || 0) ? `Rs. ${Number(product.costTotalPkr).toLocaleString()}` : <span className="expenseAmount">Missing cost</span>}</td>
@@ -4874,7 +4879,7 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
           </tr>;
         })}
       </tbody></table>
-      {!visibleProducts.length && <EmptyState icon={Package} title="No products found" description="No products match your current search or filter criteria." actionText="Add Product" onAction={onAdd} />}
+        {!visibleProducts.length && <EmptyState icon={Package} title="No products found" description="No products match your current search or filter criteria." actionText="Add Product" onAction={onAdd} />}
       </div>
     </section>
     {variantProduct && <VariantInventoryDrawer product={variantProduct} onClose={() => setVariantProduct(null)} />}
@@ -6512,7 +6517,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
       const csv = await response.blob();
       const link = document.createElement("a");
       link.href = URL.createObjectURL(csv);
-      link.download = `bustaniya-orders-${new Date().toISOString().slice(0,10)}.csv`;
+      link.download = `bustaniya-orders-${new Date().toISOString().slice(0, 10)}.csv`;
       link.click();
       URL.revokeObjectURL(link.href);
     } catch (exportError) {
@@ -7021,7 +7026,7 @@ function CourierOperationsPanel() {
       <VisualBars title="Provider workload" subtitle="Shipment distribution across connected courier services." items={courierProviderVisual} />
     </div>
     <section className="adminCard courierCommandCard"><div className="inventoryListHead"><div><h2>Courier workflow</h2><span>Daily staff routine from booking to Finance settlement.</span></div></div><div className="courierFlowSteps"><div><b>1</b><span>Book order</span></div><div><b>2</b><span>Tracking saved</span></div><div><b>3</b><span>Sync status</span></div><div><b>4</b><span>Delivered / returned</span></div><div><b>5</b><span>PostEx Wallet</span></div></div></section>
-    <section className="adminCard settingsForm settingsWideForm courierFilters"><div className="formRow"><label>Courier<select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}><option value="all">All couriers</option>{snapshot.couriers.map((courier) => <option key={courier.id} value={courier.provider}>{courier.name}</option>)}</select></label><label>Status<select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">All statuses</option>{["booked","picked_up","in_transit","out_for_delivery","delivered","attempted","on_hold","returned","cancelled","manual_delivery"].map((status) => <option value={status} key={status}>{statusLabel(status)}</option>)}</select></label><label>Queue<select value={filters.queue} onChange={(event) => setFilters((current) => ({ ...current, queue: event.target.value }))}><option value="all">All shipments</option><option value="delayed">Delayed only</option><option value="failed">Failed sync only</option></select></label></div><div className="orderTabs courierQuickFilters"><button type="button" className={filters.queue === "all" && filters.status === "all" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "all", status: "all" }))}>All</button><button type="button" className={filters.status === "out_for_delivery" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, status: "out_for_delivery", queue: "all" }))}>Out for delivery</button><button type="button" className={filters.status === "delivered" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, status: "delivered", queue: "all" }))}>Delivered</button><button type="button" className={filters.queue === "delayed" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "delayed", status: "all" }))}>Delayed</button><button type="button" className={filters.queue === "failed" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "failed", status: "all" }))}>Needs retry</button></div></section>
+    <section className="adminCard settingsForm settingsWideForm courierFilters"><div className="formRow"><label>Courier<select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}><option value="all">All couriers</option>{snapshot.couriers.map((courier) => <option key={courier.id} value={courier.provider}>{courier.name}</option>)}</select></label><label>Status<select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">All statuses</option>{["booked", "picked_up", "in_transit", "out_for_delivery", "delivered", "attempted", "on_hold", "returned", "cancelled", "manual_delivery"].map((status) => <option value={status} key={status}>{statusLabel(status)}</option>)}</select></label><label>Queue<select value={filters.queue} onChange={(event) => setFilters((current) => ({ ...current, queue: event.target.value }))}><option value="all">All shipments</option><option value="delayed">Delayed only</option><option value="failed">Failed sync only</option></select></label></div><div className="orderTabs courierQuickFilters"><button type="button" className={filters.queue === "all" && filters.status === "all" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "all", status: "all" }))}>All</button><button type="button" className={filters.status === "out_for_delivery" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, status: "out_for_delivery", queue: "all" }))}>Out for delivery</button><button type="button" className={filters.status === "delivered" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, status: "delivered", queue: "all" }))}>Delivered</button><button type="button" className={filters.queue === "delayed" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "delayed", status: "all" }))}>Delayed</button><button type="button" className={filters.queue === "failed" ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, queue: "failed", status: "all" }))}>Needs retry</button></div></section>
     <section className="adminCard settingsForm settingsWideForm"><div className="inventoryListHead"><div><h2>Shipment queue</h2><span>{rows.length} shipment{rows.length === 1 ? "" : "s"} shown</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order / tracking</th><th>Courier</th><th>Service</th><th>Live status</th><th>Last sync</th><th>Issue</th><th /></tr></thead><tbody>{rows.map((shipment) => <tr key={shipment.id}><td><b>#{shipment.order_number}</b><small className="trackingNumber"><br />{shipment.courier_tracking_number || "No tracking number"}</small></td><td>{shipment.courierName}</td><td>{shipment.courier_service_type || "—"}</td><td><span className={`statusBadge ${shipment.courier_normalized_status}`}>{String(shipment.courier_normalized_status || "unassigned").replaceAll("_", " ")}</span><small className="trackingNumber"><br />{shipment.courier_raw_status || "—"}</small></td><td>{shipment.courier_last_synced_at ? new Date(shipment.courier_last_synced_at).toLocaleString("en-PK") : "Never"}</td><td>{shipment.courier_sync_error ? <small className="expenseAmount">{shipment.courier_sync_error}</small> : shipment.isDelayed ? <small className="expenseAmount">Delayed</small> : "—"}</td><td>{shipment.provider === "postex" && shipment.courier_tracking_number && <button type="button" className="editProductButton" onClick={() => syncShipment(shipment.id)} disabled={syncing === shipment.id}>{syncing === shipment.id ? "Syncing..." : shipment.courier_sync_error ? "Retry" : "Sync"}</button>}</td></tr>)}{!loading && !rows.length && <tr><td colSpan="7" className="emptyFinanceCell">No shipment matches these filters.</td></tr>}{loading && <tr><td colSpan="7" className="emptyFinanceCell">Loading shipment queue...</td></tr>}</tbody></table></div></section>
   </>;
 }
@@ -7104,16 +7109,16 @@ function CouriersPanel() {
       <div className="formRow"><label>Provider<select name="provider" value={selectedProvider} onChange={(event) => setSelectedProvider(event.target.value)}>{courierProviderOptions.map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select></label>{!isPostex && <label>Courier name<input name="name" required defaultValue={courier.name || ""} placeholder="e.g. Leopards COD" /></label>}</div>
       {isPostex && <><input type="hidden" name="name" value={courier.name || "PostEx"} /><input type="hidden" name="code" value={courier.code || "postex"} /><input type="hidden" name="status" value="active" /><div className="inventoryAlert"><Truck /><div><b>What to add for PostEx</b><span>Paste the API token from your PostEx merchant portal. Pickup address code is optional and only needed if PostEx gave you one for booking orders.</span></div></div><div className="formRow"><label>PostEx API token<input name="apiToken" type="password" autoComplete="new-password" required={!courier.credentialState?.apiToken} placeholder={courier.credentialPreview?.apiToken || "Paste PostEx API token"} /></label><label>Pickup address code <small>(optional)</small><input name="pickupAddressCode" defaultValue={courier.pickupAddressCode || ""} placeholder="Only if PostEx provided it" /></label></div><label className="switchLabel"><input name="isDefault" type="checkbox" defaultChecked={Boolean(courier.isDefault)} /> Use PostEx as default courier</label></>}
       {!isPostex && <>
-      <div className="formRow"><label>Internal code<input name="code" required defaultValue={courier.code || ""} placeholder="postex-cod" pattern="[A-Za-z0-9_-]+" /></label><label>Status<select name="status" defaultValue={courier.status || "active"}><option value="active">Active</option><option value="paused">Paused</option><option value="disconnected">Disconnected</option></select></label></div>
-      <div className="formRow"><label>API base URL<input name="apiBaseUrl" type="url" defaultValue={courier.apiBaseUrl || ""} placeholder="https://api.courier.pk/..." /></label><label>Merchant / account ID<input name="merchantId" defaultValue={courier.merchantId || ""} /></label></div>
-      <div className="formRow"><label>Pickup address code<input name="pickupAddressCode" defaultValue={courier.pickupAddressCode || ""} /></label><label className="switchLabel"><input name="isDefault" type="checkbox" defaultChecked={Boolean(courier.isDefault)} /> Use as default courier</label></div>
-      <h3>Routing rules</h3><p className="trackingNumber">Used to recommend the lowest-cost eligible courier when an order is booked.</p>
-      <div className="formRow"><label>Covered cities<input name="coveredCities" defaultValue={Array.isArray(courier.settings?.coveredCities) ? courier.settings.coveredCities.join(", ") : ""} placeholder="Lahore, Karachi, Islamabad (blank = all)" /></label><label>Estimated cost (PKR)<input name="estimatedCostPkr" type="number" min="0" defaultValue={courier.settings?.estimatedCostPkr || 0} /></label></div>
-      <div className="formRow"><label>Priority<input name="priority" type="number" min="0" defaultValue={courier.settings?.priority || 0} placeholder="Higher wins after cost" /></label><div className="settingsPermissionGrid"><label className="switchLabel"><input name="codEnabled" type="checkbox" defaultChecked={courier.settings?.codEnabled !== false} /> COD supported</label><label className="switchLabel"><input name="prepaidEnabled" type="checkbox" defaultChecked={courier.settings?.prepaidEnabled !== false} /> Prepaid supported</label></div></div>
-      <h3>Secure API credentials</h3><p className="trackingNumber">Leave a credential blank to retain its saved value. These values are accepted by the server but never displayed again.</p>
-      <div className="formRow"><label>API token<input name="apiToken" type="password" autoComplete="new-password" placeholder={courier.credentialPreview?.apiToken || "Paste API token"} /></label><label>API key<input name="apiKey" type="password" autoComplete="new-password" placeholder={courier.credentialPreview?.apiKey || "Paste API key"} /></label></div>
-      <div className="formRow"><label>API secret<input name="apiSecret" type="password" autoComplete="new-password" placeholder={courier.credentialState?.apiSecret ? "Saved — enter a new value to replace" : "Optional API secret"} /></label><label>Webhook secret<input name="webhookSecret" type="password" autoComplete="new-password" placeholder={courier.credentialState?.webhookSecret ? "Saved — enter a new value to replace" : "Optional webhook secret"} /></label></div>
-      <h3>Supported features</h3><div className="settingsPermissionGrid">{[["booking", "Create shipment"], ["tracking", "Tracking sync"], ["settlements", "COD settlements"], ["cities", "City lookup"], ["webhooks", "Webhook updates"]].map(([key, label]) => <label className="switchLabel" key={key}><input name={key} type="checkbox" defaultChecked={Boolean(courier.capabilities?.[key])} /> {label}</label>)}</div>
+        <div className="formRow"><label>Internal code<input name="code" required defaultValue={courier.code || ""} placeholder="postex-cod" pattern="[A-Za-z0-9_-]+" /></label><label>Status<select name="status" defaultValue={courier.status || "active"}><option value="active">Active</option><option value="paused">Paused</option><option value="disconnected">Disconnected</option></select></label></div>
+        <div className="formRow"><label>API base URL<input name="apiBaseUrl" type="url" defaultValue={courier.apiBaseUrl || ""} placeholder="https://api.courier.pk/..." /></label><label>Merchant / account ID<input name="merchantId" defaultValue={courier.merchantId || ""} /></label></div>
+        <div className="formRow"><label>Pickup address code<input name="pickupAddressCode" defaultValue={courier.pickupAddressCode || ""} /></label><label className="switchLabel"><input name="isDefault" type="checkbox" defaultChecked={Boolean(courier.isDefault)} /> Use as default courier</label></div>
+        <h3>Routing rules</h3><p className="trackingNumber">Used to recommend the lowest-cost eligible courier when an order is booked.</p>
+        <div className="formRow"><label>Covered cities<input name="coveredCities" defaultValue={Array.isArray(courier.settings?.coveredCities) ? courier.settings.coveredCities.join(", ") : ""} placeholder="Lahore, Karachi, Islamabad (blank = all)" /></label><label>Estimated cost (PKR)<input name="estimatedCostPkr" type="number" min="0" defaultValue={courier.settings?.estimatedCostPkr || 0} /></label></div>
+        <div className="formRow"><label>Priority<input name="priority" type="number" min="0" defaultValue={courier.settings?.priority || 0} placeholder="Higher wins after cost" /></label><div className="settingsPermissionGrid"><label className="switchLabel"><input name="codEnabled" type="checkbox" defaultChecked={courier.settings?.codEnabled !== false} /> COD supported</label><label className="switchLabel"><input name="prepaidEnabled" type="checkbox" defaultChecked={courier.settings?.prepaidEnabled !== false} /> Prepaid supported</label></div></div>
+        <h3>Secure API credentials</h3><p className="trackingNumber">Leave a credential blank to retain its saved value. These values are accepted by the server but never displayed again.</p>
+        <div className="formRow"><label>API token<input name="apiToken" type="password" autoComplete="new-password" placeholder={courier.credentialPreview?.apiToken || "Paste API token"} /></label><label>API key<input name="apiKey" type="password" autoComplete="new-password" placeholder={courier.credentialPreview?.apiKey || "Paste API key"} /></label></div>
+        <div className="formRow"><label>API secret<input name="apiSecret" type="password" autoComplete="new-password" placeholder={courier.credentialState?.apiSecret ? "Saved — enter a new value to replace" : "Optional API secret"} /></label><label>Webhook secret<input name="webhookSecret" type="password" autoComplete="new-password" placeholder={courier.credentialState?.webhookSecret ? "Saved — enter a new value to replace" : "Optional webhook secret"} /></label></div>
+        <h3>Supported features</h3><div className="settingsPermissionGrid">{[["booking", "Create shipment"], ["tracking", "Tracking sync"], ["settlements", "COD settlements"], ["cities", "City lookup"], ["webhooks", "Webhook updates"]].map(([key, label]) => <label className="switchLabel" key={key}><input name={key} type="checkbox" defaultChecked={Boolean(courier.capabilities?.[key])} /> {label}</label>)}</div>
       </>}
       <button disabled={saving || !snapshot.setupAvailable}>{saving ? "Saving..." : isPostex ? "Save PostEx API" : "Save courier connection"}</button>
     </form>}
@@ -7169,7 +7174,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
     fetch("/api/admin/finance/setup", { cache: "no-store" })
       .then((response) => response.json())
       .then((result) => { if (active) setFinanceSetup(result); })
-      .catch(() => {});
+      .catch(() => { });
     return () => { active = false; };
   }, [isOwnerFinance]);
 
@@ -7219,7 +7224,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
         setDeliveryExpense(manual.deliveryExpense);
         setExpenses(manual.manualExpenses);
         if (!serverHasManualData && legacyHasManualData) {
-          fetch("/api/admin/finance-transactions", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(manual) }).then((migrationResponse) => { if (migrationResponse.ok) localStorage.removeItem("bustaniya-admin-finance"); }).catch(() => {});
+          fetch("/api/admin/finance-transactions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(manual) }).then((migrationResponse) => { if (migrationResponse.ok) localStorage.removeItem("bustaniya-admin-finance"); }).catch(() => { });
         }
       })
       .catch((error) => { if (active) setCashbookError(error.message); })
@@ -7371,7 +7376,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
     { label: "Net profit", value: Math.max(0, netProfit), color: "#4777a8" },
   ].filter((item) => item.value > 0);
 
-  async function addMarketingCampaign(event) { event.preventDefault(); const formElement = event.currentTarget; const data = new FormData(formElement); const next = [{ id: `campaign-${Date.now()}`, name: String(data.get("name") || "").trim(), platform: data.get("platform") || "Other", spend: Number(data.get("spend") || 0), sales: Number(data.get("sales") || 0), customers: Number(data.get("customers") || 0), date: data.get("date") || today }, ...marketingCampaigns]; if (!next[0].name) return; setCashbookLoading(true); try { const response = await fetch("/api/admin/finance-transactions", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ transactions:cashbookTransactions, allocation:profitAllocation, supplierBills, fixedCosts:Number(fixedCosts||0), marketingCampaigns:next }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to save campaign."); setMarketingCampaigns(result.marketingCampaigns || next); formElement?.reset(); } catch (error) { setCashbookError(error.message); } finally { setCashbookLoading(false); } }
+  async function addMarketingCampaign(event) { event.preventDefault(); const formElement = event.currentTarget; const data = new FormData(formElement); const next = [{ id: `campaign-${Date.now()}`, name: String(data.get("name") || "").trim(), platform: data.get("platform") || "Other", spend: Number(data.get("spend") || 0), sales: Number(data.get("sales") || 0), customers: Number(data.get("customers") || 0), date: data.get("date") || today }, ...marketingCampaigns]; if (!next[0].name) return; setCashbookLoading(true); try { const response = await fetch("/api/admin/finance-transactions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactions: cashbookTransactions, allocation: profitAllocation, supplierBills, fixedCosts: Number(fixedCosts || 0), marketingCampaigns: next }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to save campaign."); setMarketingCampaigns(result.marketingCampaigns || next); formElement?.reset(); } catch (error) { setCashbookError(error.message); } finally { setCashbookLoading(false); } }
 
   async function saveFixedCosts(event) {
     event.preventDefault(); setCashbookLoading(true); setCashbookError("");
@@ -7783,7 +7788,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
     setCashbookError("");
     const payload = { manualExpenses: next.manualExpenses ?? expenses, packagingExpense: Number(next.packagingExpense ?? packagingExpense ?? 0), deliveryExpense: Number(next.deliveryExpense ?? deliveryExpense ?? 0) };
     try {
-      const response = await fetch("/api/admin/finance-transactions", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
+      const response = await fetch("/api/admin/finance-transactions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to save Finance expenses.");
       setExpenses(result.manualExpenses || payload.manualExpenses);
@@ -7866,7 +7871,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
 
   function exportFinance() {
     const csv = [
-      ["Metric","Value"],
+      ["Metric", "Value"],
       ["Gross revenue", grossRevenue],
       ["Delivered orders", deliveredOrderCount],
       ["Total products sold", totalProductsSold],
@@ -7895,10 +7900,10 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
       ["Net profit", netProfit],
       ["Inventory retail value", inventoryRetailValue],
       ["Inventory cost value", inventoryCostValue],
-    ].map((row) => row.map((cell) => `"${String(cell).replaceAll('"','""')}"`).join(",")).join("\n");
+    ].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([csv], { type:"text/csv" }));
-    link.download = `bustaniya-finance-${new Date().toISOString().slice(0,10)}.csv`;
+    link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    link.download = `bustaniya-finance-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   }
@@ -8007,67 +8012,67 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
       </div>
 
       {showAdvancedPostex && <>
-      <div className="financeGrid financeGridWide settlementWorkspace">
-        <div className="adminCard managementCard">
-          <div className="inventoryListHead"><div><h2>Order settlement status</h2><span>Full CPR-style PostEx deductions, settlement status and bank allocation by tracking number.</span></div><b>{postexPayments.length} tracked</b></div>
-          <div className="adminTableWrap"><table className="adminTable financeTable settlementTable">
-            <thead><tr><th>Sr.</th><th>Order ref.</th><th>Tracking</th><th>Weight</th><th>Pickup date</th><th>Origin city</th><th>Delivery city</th><th>Status</th><th>COD amount</th><th>Upfront amount</th><th>Reserve amount</th><th>D/R date</th><th>Shipping charges</th><th>Upfront charges</th><th>GST</th><th>Deduction (4%)</th><th>Net amount</th><th>Bank allocated</th><th>Remaining</th></tr></thead>
-            <tbody>
-              {postexPayments.map((payment, index) => {
-                const detail = postexSettlementDetail(payment);
-                const expected = Number(detail.net || payment.expected_net_pkr || 0);
-                const allocated = Number(postexAllocatedByPayment.get(String(payment.id)) || 0);
-                return <tr key={payment.id}>
-                  <td>{index + 1}</td>
-                  <td><b>{detail.orderRef}</b><small className="trackingNumber">{payment.order_number || ""}</small></td>
-                  <td><a href={`https://merchant.postex.pk/main/order/${detail.trackingNumber}`} target="_blank">{detail.trackingNumber}</a></td>
-                  <td>{detail.weight}</td>
-                  <td>{detail.pickupDate}</td>
-                  <td>{detail.originCity}</td>
-                  <td>{detail.deliveryCity}</td>
-                  <td><span className={`statusBadge ${payment.payment_status}`}>{detail.status}</span>{payment.postex_settled && <small className="trackingNumber">PostEx settled</small>}</td>
-                  <td>{money(detail.cod)}</td>
-                  <td>{money(detail.upfrontAmount)}</td>
-                  <td>{money(detail.reserveAmount)}</td>
-                  <td>{detail.drDate}</td>
-                  <td className={detail.shipping ? "expenseAmount" : ""}>{money(detail.shipping)}</td>
-                  <td className={detail.upfrontCharges ? "expenseAmount" : ""}>{money(detail.upfrontCharges)}</td>
-                  <td className={detail.gst ? "expenseAmount" : ""}>{money(detail.gst)}</td>
-                  <td className={detail.deduction4 ? "expenseAmount" : ""}>{money(detail.deduction4)}</td>
-                  <td><b>{money(expected)}</b></td>
-                  <td className={allocated ? "incomeAmount" : ""}>{money(allocated)}</td>
-                  <td className={expected > allocated ? "expenseAmount" : "incomeAmount"}>{money(Math.max(0, expected - allocated))}</td>
-                </tr>;
-              })}
-              {!postexPayments.length && <tr><td colSpan="7" className="emptyFinanceCell">Click “Sync PostEx” to load payment status for booked orders.</td></tr>}
-            </tbody>
-          </table></div>
+        <div className="financeGrid financeGridWide settlementWorkspace">
+          <div className="adminCard managementCard">
+            <div className="inventoryListHead"><div><h2>Order settlement status</h2><span>Full CPR-style PostEx deductions, settlement status and bank allocation by tracking number.</span></div><b>{postexPayments.length} tracked</b></div>
+            <div className="adminTableWrap"><table className="adminTable financeTable settlementTable">
+              <thead><tr><th>Sr.</th><th>Order ref.</th><th>Tracking</th><th>Weight</th><th>Pickup date</th><th>Origin city</th><th>Delivery city</th><th>Status</th><th>COD amount</th><th>Upfront amount</th><th>Reserve amount</th><th>D/R date</th><th>Shipping charges</th><th>Upfront charges</th><th>GST</th><th>Deduction (4%)</th><th>Net amount</th><th>Bank allocated</th><th>Remaining</th></tr></thead>
+              <tbody>
+                {postexPayments.map((payment, index) => {
+                  const detail = postexSettlementDetail(payment);
+                  const expected = Number(detail.net || payment.expected_net_pkr || 0);
+                  const allocated = Number(postexAllocatedByPayment.get(String(payment.id)) || 0);
+                  return <tr key={payment.id}>
+                    <td>{index + 1}</td>
+                    <td><b>{detail.orderRef}</b><small className="trackingNumber">{payment.order_number || ""}</small></td>
+                    <td><a href={`https://merchant.postex.pk/main/order/${detail.trackingNumber}`} target="_blank">{detail.trackingNumber}</a></td>
+                    <td>{detail.weight}</td>
+                    <td>{detail.pickupDate}</td>
+                    <td>{detail.originCity}</td>
+                    <td>{detail.deliveryCity}</td>
+                    <td><span className={`statusBadge ${payment.payment_status}`}>{detail.status}</span>{payment.postex_settled && <small className="trackingNumber">PostEx settled</small>}</td>
+                    <td>{money(detail.cod)}</td>
+                    <td>{money(detail.upfrontAmount)}</td>
+                    <td>{money(detail.reserveAmount)}</td>
+                    <td>{detail.drDate}</td>
+                    <td className={detail.shipping ? "expenseAmount" : ""}>{money(detail.shipping)}</td>
+                    <td className={detail.upfrontCharges ? "expenseAmount" : ""}>{money(detail.upfrontCharges)}</td>
+                    <td className={detail.gst ? "expenseAmount" : ""}>{money(detail.gst)}</td>
+                    <td className={detail.deduction4 ? "expenseAmount" : ""}>{money(detail.deduction4)}</td>
+                    <td><b>{money(expected)}</b></td>
+                    <td className={allocated ? "incomeAmount" : ""}>{money(allocated)}</td>
+                    <td className={expected > allocated ? "expenseAmount" : "incomeAmount"}>{money(Math.max(0, expected - allocated))}</td>
+                  </tr>;
+                })}
+                {!postexPayments.length && <tr><td colSpan="7" className="emptyFinanceCell">Click “Sync PostEx” to load payment status for booked orders.</td></tr>}
+              </tbody>
+            </table></div>
+          </div>
+
+          <form className="adminCard financeExpenseForm settlementForm" onSubmit={saveCprBatch}>
+            <h2>Record CPR / weekly receipt</h2>
+            <p className="trackingNumber">Use this for PostEx settlement reconciliation only. The CPR amount/status will appear here, but it will not increase Available Cash. When the money is visible in your bank or wallet, enter the verified receipt in the form above.</p>
+            <div className="formRow"><label>CPR number<input name="cprNumber" required placeholder="e.g. CPR-2026-W30" /></label><label>CPR date<input name="cprDate" type="date" /></label></div>
+            <div className="formRow"><label>Period start<input name="periodStart" type="date" /></label><label>Period end<input name="periodEnd" type="date" /></label></div>
+            <label>Tracking numbers<textarea rows="6" required value={cprTrackingText} onChange={(event) => setCprTrackingText(event.target.value)} placeholder={"One tracking number per line\n28640330000063"} /></label>
+            <label className="settlementFileInput">Import tracking list (CSV/TXT)<input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={importCprTrackingFile} /></label>
+            <div className="formRow"><label>Expected CPR amount<input name="expectedAmountPkr" type="number" min="0" step="0.01" placeholder="Auto from selected orders" /></label><label>Other statement deductions<input name="additionalDeductionsPkr" type="number" min="0" step="0.01" defaultValue="0" /></label></div>
+            <div className="formRow"><label>CPR bank amount (reconciliation only)<input name="bankReceivedPkr" type="number" min="0" step="0.01" required /></label><label>Statement date<input name="bankReceivedDate" type="date" /></label></div>
+            <label>Notes<input name="notes" placeholder="Short payment, adjustment, bank reference..." /></label>
+            <button disabled={postexSyncing || !postexSnapshot.setupAvailable}>{postexSyncing ? "Saving..." : "Save reconciliation"}</button>
+          </form>
         </div>
 
-        <form className="adminCard financeExpenseForm settlementForm" onSubmit={saveCprBatch}>
-          <h2>Record CPR / weekly receipt</h2>
-          <p className="trackingNumber">Use this for PostEx settlement reconciliation only. The CPR amount/status will appear here, but it will not increase Available Cash. When the money is visible in your bank or wallet, enter the verified receipt in the form above.</p>
-          <div className="formRow"><label>CPR number<input name="cprNumber" required placeholder="e.g. CPR-2026-W30" /></label><label>CPR date<input name="cprDate" type="date" /></label></div>
-          <div className="formRow"><label>Period start<input name="periodStart" type="date" /></label><label>Period end<input name="periodEnd" type="date" /></label></div>
-          <label>Tracking numbers<textarea rows="6" required value={cprTrackingText} onChange={(event) => setCprTrackingText(event.target.value)} placeholder={"One tracking number per line\n28640330000063"} /></label>
-          <label className="settlementFileInput">Import tracking list (CSV/TXT)<input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={importCprTrackingFile} /></label>
-          <div className="formRow"><label>Expected CPR amount<input name="expectedAmountPkr" type="number" min="0" step="0.01" placeholder="Auto from selected orders" /></label><label>Other statement deductions<input name="additionalDeductionsPkr" type="number" min="0" step="0.01" defaultValue="0" /></label></div>
-          <div className="formRow"><label>CPR bank amount (reconciliation only)<input name="bankReceivedPkr" type="number" min="0" step="0.01" required /></label><label>Statement date<input name="bankReceivedDate" type="date" /></label></div>
-          <label>Notes<input name="notes" placeholder="Short payment, adjustment, bank reference..." /></label>
-          <button disabled={postexSyncing || !postexSnapshot.setupAvailable}>{postexSyncing ? "Saving..." : "Save reconciliation"}</button>
-        </form>
-      </div>
-
-      <div className="adminCard managementCard settlementHistory">
-        <div className="inventoryListHead"><div><h2>CPR history</h2><span>Every weekly or biweekly PostEx settlement record. This is reconciliation only; Available Cash uses manual bank receipts.</span></div><b>{postexBatches.length} batches</b></div>
-        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>CPR</th><th>Period</th><th>Orders</th><th>Expected bank</th><th>Received (reconciliation)</th><th>Carry forward</th><th>Status</th><th>Action</th></tr></thead><tbody>
-          {postexBatches.map((batch) => {
-            const voided = isVoidedPostexBatch(batch);
-            return <tr key={batch.id}><td><b>{batch.cpr_number}</b><small className="trackingNumber">{batch.cpr_date || "No CPR date"}</small></td><td>{batch.period_start || "—"} to {batch.period_end || "—"}</td><td>{batch.items?.length || 0}</td><td>{money(batch.expected_bank_pkr)}</td><td className={voided ? "" : "incomeAmount"}>{money(batch.bank_received_pkr)}</td><td className={Number(batch.carried_forward_pkr || 0) ? "expenseAmount" : ""}>{money(batch.carried_forward_pkr)}</td><td><span className={`statusBadge ${voided ? "cancelled" : batch.status}`}>{voided ? "voided" : batch.status}</span>{voided && <small className="trackingNumber"><br />Reversed</small>}</td><td>{!voided && isOwnerFinance ? <button type="button" className="removeProductButton" disabled={voidingPostexBatchId === batch.id || postexSyncing} aria-busy={voidingPostexBatchId === batch.id} onClick={() => requestVoidPostexBatch(batch)}>{voidingPostexBatchId === batch.id ? "Voiding..." : "Void"}</button> : "—"}</td></tr>;
-          })}
-          {!postexBatches.length && <tr><td colSpan="8" className="emptyFinanceCell">No CPR receipts have been recorded yet.</td></tr>}
-        </tbody></table></div>
-      </div>
+        <div className="adminCard managementCard settlementHistory">
+          <div className="inventoryListHead"><div><h2>CPR history</h2><span>Every weekly or biweekly PostEx settlement record. This is reconciliation only; Available Cash uses manual bank receipts.</span></div><b>{postexBatches.length} batches</b></div>
+          <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>CPR</th><th>Period</th><th>Orders</th><th>Expected bank</th><th>Received (reconciliation)</th><th>Carry forward</th><th>Status</th><th>Action</th></tr></thead><tbody>
+            {postexBatches.map((batch) => {
+              const voided = isVoidedPostexBatch(batch);
+              return <tr key={batch.id}><td><b>{batch.cpr_number}</b><small className="trackingNumber">{batch.cpr_date || "No CPR date"}</small></td><td>{batch.period_start || "—"} to {batch.period_end || "—"}</td><td>{batch.items?.length || 0}</td><td>{money(batch.expected_bank_pkr)}</td><td className={voided ? "" : "incomeAmount"}>{money(batch.bank_received_pkr)}</td><td className={Number(batch.carried_forward_pkr || 0) ? "expenseAmount" : ""}>{money(batch.carried_forward_pkr)}</td><td><span className={`statusBadge ${voided ? "cancelled" : batch.status}`}>{voided ? "voided" : batch.status}</span>{voided && <small className="trackingNumber"><br />Reversed</small>}</td><td>{!voided && isOwnerFinance ? <button type="button" className="removeProductButton" disabled={voidingPostexBatchId === batch.id || postexSyncing} aria-busy={voidingPostexBatchId === batch.id} onClick={() => requestVoidPostexBatch(batch)}>{voidingPostexBatchId === batch.id ? "Voiding..." : "Void"}</button> : "—"}</td></tr>;
+            })}
+            {!postexBatches.length && <tr><td colSpan="8" className="emptyFinanceCell">No CPR receipts have been recorded yet.</td></tr>}
+          </tbody></table></div>
+        </div>
       </>}
     </section>}
 
@@ -8138,274 +8143,274 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
     </>}
 
     {financeTab === "overview" && <>
-    <div className="miniMetricGrid financeMetrics">
-      <article><CircleDollarSign /><span><b>{money(grossRevenue)}</b>Total sales</span></article>
-      <article><ShoppingBag /><span><b>{deliveredOrderCount}</b>Delivered orders</span></article>
-      <article><Package /><span><b>{totalProductsSold}</b>Total products sold</span></article>
-      <article><WalletCards /><span><b>{money(deliveredCogs)}</b>Total product cost</span></article>
-      <article><ShoppingBag /><span><b>{money(courierDeliveryCost)}</b>Courier delivery cost</span></article>
-      <article><WalletCards /><span><b>{money(availableCash)}</b>Available business cash</span></article>
-      <article><Landmark /><span><b>{money(receivedCash)}</b>Manually verified PostEx receipts</span></article>
-      {totalCustomerAdvance > 0 && <article><CircleDollarSign /><span><b style={{ color: "#15803d" }}>{money(totalCustomerAdvance)}</b>Customer advance recorded</span></article>}
-      <article><CircleDollarSign /><span><b>{money(otherBusinessIncome)}</b>Other business income</span></article>
-      <article><CircleDollarSign /><span><b>{money(ownerInvestments)}</b>Owner funds added</span></article>
-      <article className={ownerWithdrawals ? "alertMetric" : ""}><CircleDollarSign /><span><b>{money(ownerWithdrawals)}</b>Owner withdrawals</span></article>
-      <article className={returnedOrderCount ? "alertMetric" : ""}><Package /><span><b>{returnedOrderCount}</b>Returned orders</span></article>
-      <article className={returnCourierCost ? "alertMetric" : ""}><TrendingUp /><span><b>{money(returnCourierCost)}</b>Return courier loss</span></article>
-      <article className={receivables ? "alertMetric" : ""}><Landmark /><span><b>{money(receivables)}</b>PostEx receivable</span></article>
-      <article className={overdueSupplierBills.length ? "alertMetric" : ""}><Landmark /><span><b>{money(supplierPayableTotal)}</b>Supplier payables</span></article>
-      <article><TrendingUp /><span><b>{money(profitAfterProductCost)}</b>Profit before deductions</span></article>
-      <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Final net profit</span></article>
-    </div>
-    <div className="adminVisualGrid">
-      <VisualDonut title="Cash allocation" subtitle="Where your available cash, receivables and owner capital currently sit." centerValue={money(Math.max(0, availableCash))} centerLabel="available" items={financeCashVisual} />
-      <VisualBars title="Profit waterfall" subtitle="Revenue flow from gross sales through costs to final net profit." format={(value) => money(value)} items={financeCostVisual} />
-    </div>
+      <div className="miniMetricGrid financeMetrics">
+        <article><CircleDollarSign /><span><b>{money(grossRevenue)}</b>Total sales</span></article>
+        <article><ShoppingBag /><span><b>{deliveredOrderCount}</b>Delivered orders</span></article>
+        <article><Package /><span><b>{totalProductsSold}</b>Total products sold</span></article>
+        <article><WalletCards /><span><b>{money(deliveredCogs)}</b>Total product cost</span></article>
+        <article><ShoppingBag /><span><b>{money(courierDeliveryCost)}</b>Courier delivery cost</span></article>
+        <article><WalletCards /><span><b>{money(availableCash)}</b>Available business cash</span></article>
+        <article><Landmark /><span><b>{money(receivedCash)}</b>Manually verified PostEx receipts</span></article>
+        {totalCustomerAdvance > 0 && <article><CircleDollarSign /><span><b style={{ color: "#15803d" }}>{money(totalCustomerAdvance)}</b>Customer advance recorded</span></article>}
+        <article><CircleDollarSign /><span><b>{money(otherBusinessIncome)}</b>Other business income</span></article>
+        <article><CircleDollarSign /><span><b>{money(ownerInvestments)}</b>Owner funds added</span></article>
+        <article className={ownerWithdrawals ? "alertMetric" : ""}><CircleDollarSign /><span><b>{money(ownerWithdrawals)}</b>Owner withdrawals</span></article>
+        <article className={returnedOrderCount ? "alertMetric" : ""}><Package /><span><b>{returnedOrderCount}</b>Returned orders</span></article>
+        <article className={returnCourierCost ? "alertMetric" : ""}><TrendingUp /><span><b>{money(returnCourierCost)}</b>Return courier loss</span></article>
+        <article className={receivables ? "alertMetric" : ""}><Landmark /><span><b>{money(receivables)}</b>PostEx receivable</span></article>
+        <article className={overdueSupplierBills.length ? "alertMetric" : ""}><Landmark /><span><b>{money(supplierPayableTotal)}</b>Supplier payables</span></article>
+        <article><TrendingUp /><span><b>{money(profitAfterProductCost)}</b>Profit before deductions</span></article>
+        <article className={netProfit < 0 ? "alertMetric" : ""}><TrendingUp /><span><b>{money(netProfit)}</b>Final net profit</span></article>
+      </div>
+      <div className="adminVisualGrid">
+        <VisualDonut title="Cash allocation" subtitle="Where your available cash, receivables and owner capital currently sit." centerValue={money(Math.max(0, availableCash))} centerLabel="available" items={financeCashVisual} />
+        <VisualBars title="Profit waterfall" subtitle="Revenue flow from gross sales through costs to final net profit." format={(value) => money(value)} items={financeCostVisual} />
+      </div>
 
-    <section className="financeGrid financeGridWide">
-      <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Where money comes from</h2><p>Only verified bank entries increase Available Cash.</p></div></div>
-        <div className="financeStatement">
-          <div><span>Manually verified PostEx receipts</span><b>+ {money(receivedCash)}</b></div>
-          {totalCustomerAdvance > 0 && <div><span>Customer advance recorded (orders)</span><b style={{ color: "#15803d" }}>{money(totalCustomerAdvance)}</b></div>}
-          <div><span>Other recorded business income</span><b>+ {money(otherBusinessIncome)}</b></div>
-          <div><span>Owner funds added</span><b>+ {money(ownerInvestments)}</b></div>
-          {cashResetAdjustment > 0 && <div><span>Opening balance adjustment</span><b>+ {money(cashResetAdjustment)}</b></div>}
-          <div className="statementTotal"><span>Verified cash received</span><b>{money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
+      <section className="financeGrid financeGridWide">
+        <div className="adminCard financeSummaryCard">
+          <div className="cardHeading"><div><h2>Where money comes from</h2><p>Only verified bank entries increase Available Cash.</p></div></div>
+          <div className="financeStatement">
+            <div><span>Manually verified PostEx receipts</span><b>+ {money(receivedCash)}</b></div>
+            {totalCustomerAdvance > 0 && <div><span>Customer advance recorded (orders)</span><b style={{ color: "#15803d" }}>{money(totalCustomerAdvance)}</b></div>}
+            <div><span>Other recorded business income</span><b>+ {money(otherBusinessIncome)}</b></div>
+            <div><span>Owner funds added</span><b>+ {money(ownerInvestments)}</b></div>
+            {cashResetAdjustment > 0 && <div><span>Opening balance adjustment</span><b>+ {money(cashResetAdjustment)}</b></div>}
+            <div className="statementTotal"><span>Verified cash received</span><b>{money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
+          </div>
         </div>
-      </div>
-      <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Where money goes</h2><p>Stock purchases reduce cash now; COGS is recognised when the product sells.</p></div></div>
-        <div className="financeStatement">
-          <div><span>Fabric / stock</span><b>- {money(fabricCashOutflow)}</b></div>
-          <div><span>Tailoring / stitching</span><b>- {money(tailoringCashOutflow)}</b></div>
-          <div><span>Lace / embellishment</span><b>- {money(laceCashOutflow)}</b></div>
-          <div><span>Other stock / production</span><b>- {money(Math.max(0, inventoryCashOutflow - fabricCashOutflow - tailoringCashOutflow - laceCashOutflow))}</b></div>
-          <div><span>Operating expenses + supplier payments</span><b>- {money(manualOperatingExpenseTotal + cashbookOperatingExpenses + packagingTotal + deliveryTotal + supplierPaymentTotal)}</b></div>
-          <div><span>Owner withdrawals</span><b>- {money(ownerWithdrawals)}</b></div>
-          {cashResetAdjustment < 0 && <div><span>Opening balance reset</span><b>- {money(Math.abs(cashResetAdjustment))}</b></div>}
-          <div className="statementTotal"><span>Available business cash</span><b>{money(availableCash)}</b></div>
+        <div className="adminCard financeSummaryCard">
+          <div className="cardHeading"><div><h2>Where money goes</h2><p>Stock purchases reduce cash now; COGS is recognised when the product sells.</p></div></div>
+          <div className="financeStatement">
+            <div><span>Fabric / stock</span><b>- {money(fabricCashOutflow)}</b></div>
+            <div><span>Tailoring / stitching</span><b>- {money(tailoringCashOutflow)}</b></div>
+            <div><span>Lace / embellishment</span><b>- {money(laceCashOutflow)}</b></div>
+            <div><span>Other stock / production</span><b>- {money(Math.max(0, inventoryCashOutflow - fabricCashOutflow - tailoringCashOutflow - laceCashOutflow))}</b></div>
+            <div><span>Operating expenses + supplier payments</span><b>- {money(manualOperatingExpenseTotal + cashbookOperatingExpenses + packagingTotal + deliveryTotal + supplierPaymentTotal)}</b></div>
+            <div><span>Owner withdrawals</span><b>- {money(ownerWithdrawals)}</b></div>
+            {cashResetAdjustment < 0 && <div><span>Opening balance reset</span><b>- {money(Math.abs(cashResetAdjustment))}</b></div>}
+            <div className="statementTotal"><span>Available business cash</span><b>{money(availableCash)}</b></div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    {/* Customer Advance Receipts Breakdown Table Section */}
-    <section className="adminCard managementCard" style={{ marginTop: "16px" }}>
-      <div className="inventoryListHead">
-        <div>
-          <h2>🟢 Customer Advance Receipts</h2>
-          <span>All advance confirmation fees (e.g. Rs. 250) and prepaid order payments recorded for customers.</span>
+      {/* Customer Advance Receipts Breakdown Table Section */}
+      <section className="adminCard managementCard" style={{ marginTop: "16px" }}>
+        <div className="inventoryListHead">
+          <div>
+            <h2>🟢 Customer Advance Receipts</h2>
+            <span>All advance confirmation fees (e.g. Rs. 250) and prepaid order payments recorded for customers.</span>
+          </div>
+          <b style={{ color: "#15803d", fontSize: "16px" }}>
+            Total Advance: {money(totalCustomerAdvance)}
+          </b>
         </div>
-        <b style={{ color: "#15803d", fontSize: "16px" }}>
-          Total Advance: {money(totalCustomerAdvance)}
-        </b>
-      </div>
-      <div className="adminTableWrap">
-        <table className="adminTable financeTable">
-          <thead>
-            <tr>
-              <th>Customer</th>
-              <th>Order Ref</th>
-              <th>City</th>
-              <th>Advance Recorded</th>
-              <th>Remaining PostEx COD</th>
-              <th>Payment Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {safeOrders.filter((order) => Number(order.amount_payable_in_advance_pkr ?? order.amountPayableInAdvance ?? 0) > 0).map((order) => {
-              const advance = Number(order.amount_payable_in_advance_pkr ?? order.amountPayableInAdvance ?? 0);
-              const totalVal = Number(order.total_pkr ?? order.total ?? 0);
-              const cod = Math.max(0, totalVal - advance);
-              const refNum = order.order_number ? `#${order.order_number}` : (order.id ? (String(order.id).startsWith("#") ? order.id : `#${order.id}`) : "—");
-              const custName = order.shipping_full_name || order.guest_name || order.customer || "Guest";
-              const custPhone = order.shipping_phone || order.guest_phone || order.phone || "—";
-              const custCity = order.shipping_city || order.city || "—";
-              const pStatus = order.payment_proof_status || order.payment_status || order.paymentStatus || "Awaiting Payment";
-              return (
-                <tr key={String(order.id || order.order_number || Math.random())}>
-                  <td><b>{custName}</b><small className="trackingNumber"><br />{custPhone}</small></td>
-                  <td><b>{refNum}</b></td>
-                  <td>{custCity}</td>
-                  <td className="incomeAmount"><b>+ {money(advance)}</b></td>
-                  <td style={{ color: cod === 0 ? "#15803d" : "#1e40af", fontWeight: 700 }}>
-                    {cod === 0 ? "Rs. 0 (Prepaid)" : money(cod)}
-                  </td>
-                  <td>
-                    <span className={`statusBadge ${String(pStatus).replaceAll(" ", "").toLowerCase()}`}>
-                      {pStatus}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-            {!safeOrders.filter((order) => Number(order.amount_payable_in_advance_pkr ?? order.amountPayableInAdvance ?? 0) > 0).length && (
+        <div className="adminTableWrap">
+          <table className="adminTable financeTable">
+            <thead>
               <tr>
-                <td colSpan="6" className="emptyFinanceCell">No customer advance receipts recorded yet.</td>
+                <th>Customer</th>
+                <th>Order Ref</th>
+                <th>City</th>
+                <th>Advance Recorded</th>
+                <th>Remaining PostEx COD</th>
+                <th>Payment Status</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
+            </thead>
+            <tbody>
+              {safeOrders.filter((order) => Number(order.amount_payable_in_advance_pkr ?? order.amountPayableInAdvance ?? 0) > 0).map((order) => {
+                const advance = Number(order.amount_payable_in_advance_pkr ?? order.amountPayableInAdvance ?? 0);
+                const totalVal = Number(order.total_pkr ?? order.total ?? 0);
+                const cod = Math.max(0, totalVal - advance);
+                const refNum = order.order_number ? `#${order.order_number}` : (order.id ? (String(order.id).startsWith("#") ? order.id : `#${order.id}`) : "—");
+                const custName = order.shipping_full_name || order.guest_name || order.customer || "Guest";
+                const custPhone = order.shipping_phone || order.guest_phone || order.phone || "—";
+                const custCity = order.shipping_city || order.city || "—";
+                const pStatus = order.payment_proof_status || order.payment_status || order.paymentStatus || "Awaiting Payment";
+                return (
+                  <tr key={String(order.id || order.order_number || Math.random())}>
+                    <td><b>{custName}</b><small className="trackingNumber"><br />{custPhone}</small></td>
+                    <td><b>{refNum}</b></td>
+                    <td>{custCity}</td>
+                    <td className="incomeAmount"><b>+ {money(advance)}</b></td>
+                    <td style={{ color: cod === 0 ? "#15803d" : "#1e40af", fontWeight: 700 }}>
+                      {cod === 0 ? "Rs. 0 (Prepaid)" : money(cod)}
+                    </td>
+                    <td>
+                      <span className={`statusBadge ${String(pStatus).replaceAll(" ", "").toLowerCase()}`}>
+                        {pStatus}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!safeOrders.filter((order) => Number(order.amount_payable_in_advance_pkr ?? order.amountPayableInAdvance ?? 0) > 0).length && (
+                <tr>
+                  <td colSpan="6" className="emptyFinanceCell">No customer advance receipts recorded yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-    <section className="financeGrid financeGridWide">
-      <form className="adminCard financeExpenseForm" onSubmit={saveProfitAllocation}>
-        <h2>Profit allocation planner <HelpHint text="This only plans how current net profit may be used. It does not move cash or create an expense." /></h2>
-        <p className="trackingNumber">Plan from current net profit only. Saving this plan does not create an expense or personal withdrawal.</p>
-        <div className="formRow"><label>Marketing %<input type="number" min="0" max="100" value={profitAllocation.marketingPercent} onChange={(event) => setProfitAllocation((current) => ({ ...current, marketingPercent: event.target.value }))} /></label><label>Owner / family %<input type="number" min="0" max="100" value={profitAllocation.ownerPercent} onChange={(event) => setProfitAllocation((current) => ({ ...current, ownerPercent: event.target.value }))} /></label></div>
-        <div className="financeStatement"><div><span>Current net profit to allocate</span><b>{money(allocatableProfit)}</b></div><div><span>Marketing budget ({profitAllocation.marketingPercent || 0}%)</span><b>{money(marketingAllocation)}</b></div><div><span>Owner / family amount ({profitAllocation.ownerPercent || 0}%)</span><b>{money(ownerAllocation)}</b></div><div className="statementTotal"><span>New stock / reinvestment ({Math.max(0, 100 - Number(profitAllocation.marketingPercent || 0) - Number(profitAllocation.ownerPercent || 0))}%)</span><b>{money(stockAllocation)}</b></div></div>
-        <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save allocation plan"}</button>
-      </form>
-    </section>
+      <section className="financeGrid financeGridWide">
+        <form className="adminCard financeExpenseForm" onSubmit={saveProfitAllocation}>
+          <h2>Profit allocation planner <HelpHint text="This only plans how current net profit may be used. It does not move cash or create an expense." /></h2>
+          <p className="trackingNumber">Plan from current net profit only. Saving this plan does not create an expense or personal withdrawal.</p>
+          <div className="formRow"><label>Marketing %<input type="number" min="0" max="100" value={profitAllocation.marketingPercent} onChange={(event) => setProfitAllocation((current) => ({ ...current, marketingPercent: event.target.value }))} /></label><label>Owner / family %<input type="number" min="0" max="100" value={profitAllocation.ownerPercent} onChange={(event) => setProfitAllocation((current) => ({ ...current, ownerPercent: event.target.value }))} /></label></div>
+          <div className="financeStatement"><div><span>Current net profit to allocate</span><b>{money(allocatableProfit)}</b></div><div><span>Marketing budget ({profitAllocation.marketingPercent || 0}%)</span><b>{money(marketingAllocation)}</b></div><div><span>Owner / family amount ({profitAllocation.ownerPercent || 0}%)</span><b>{money(ownerAllocation)}</b></div><div className="statementTotal"><span>New stock / reinvestment ({Math.max(0, 100 - Number(profitAllocation.marketingPercent || 0) - Number(profitAllocation.ownerPercent || 0))}%)</span><b>{money(stockAllocation)}</b></div></div>
+          <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save allocation plan"}</button>
+        </form>
+      </section>
 
-    <section className="financeGrid financeGridWide"><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Management KPIs</h2><p>Owner view of sales, customers, inventory and cash health.</p></div></div><div className="financeStatement"><div><span>Average order value</span><b>{money(deliveredOrderCount ? grossRevenue / deliveredOrderCount : 0)}</b></div><div><span>Return rate</span><b>{deliveredOrderCount + returnedOrderCount ? Math.round(returnedOrderCount / (deliveredOrderCount + returnedOrderCount) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{safeProducts.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div className="statementTotal"><span>Cash after 30-day forecast</span><b>{money(expectedClosingCash)}</b></div></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Inventory finance</h2><p>Retail and saved purchase value</p></div></div><div className="inventoryFinanceList"><div><span>Retail value on hand</span><b>{money(inventoryRetailValue)}</b></div><div><span>Purchase value on hand</span><b>{money(inventoryCostValue)}</b></div><div><span>Low-stock retail exposure</span><b>{money(lowStockValue)}</b></div><div><span>Products tracked</span><b>{safeProducts.length}</b></div></div></div></section>
+      <section className="financeGrid financeGridWide"><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Management KPIs</h2><p>Owner view of sales, customers, inventory and cash health.</p></div></div><div className="financeStatement"><div><span>Average order value</span><b>{money(deliveredOrderCount ? grossRevenue / deliveredOrderCount : 0)}</b></div><div><span>Return rate</span><b>{deliveredOrderCount + returnedOrderCount ? Math.round(returnedOrderCount / (deliveredOrderCount + returnedOrderCount) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{safeProducts.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div className="statementTotal"><span>Cash after 30-day forecast</span><b>{money(expectedClosingCash)}</b></div></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Inventory finance</h2><p>Retail and saved purchase value</p></div></div><div className="inventoryFinanceList"><div><span>Retail value on hand</span><b>{money(inventoryRetailValue)}</b></div><div><span>Purchase value on hand</span><b>{money(inventoryCostValue)}</b></div><div><span>Low-stock retail exposure</span><b>{money(lowStockValue)}</b></div><div><span>Products tracked</span><b>{safeProducts.length}</b></div></div></div></section>
 
-    <section className="financeGrid financeGridWide">
-      <div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>30-day cash-flow forecast</h2><p>Estimate based on current cash, pending COD and supplier bills due within 30 days.</p></div></div><div className="financeStatement"><div><span>Current available cash</span><b>{money(availableCash)}</b></div><div><span>Expected COD collections</span><b>+ {money(receivables)}</b></div><div><span>Supplier payables due</span><b>- {money(upcomingPayables)}</b></div><div className="statementTotal"><span>Expected closing cash</span><b>{money(expectedClosingCash)}</b></div></div></div>
-      <form className="adminCard financeExpenseForm" onSubmit={saveFixedCosts}><h2>Break-even calculator <HelpHint text="Fixed monthly costs are regular costs like rent, salaries, utilities and software. Contribution per order excludes fixed costs." /></h2><label>Monthly fixed costs<input type="number" min="0" value={fixedCosts} onChange={(event) => setFixedCosts(event.target.value)} placeholder="Rent, salaries, utilities..." /></label><div className="financeStatement"><div><span>Average contribution per delivered order</span><b>{money(contributionPerOrder)}</b></div><div><span>Break-even delivered orders</span><b>{breakEvenOrders || "Add sales data"}</b></div><div className="statementTotal"><span>Break-even sales target</span><b>{breakEvenOrders ? money(breakEvenOrders * (grossRevenue / deliveredOrderCount)) : "—"}</b></div></div><button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save fixed costs"}</button></form>
-    </section>
+      <section className="financeGrid financeGridWide">
+        <div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>30-day cash-flow forecast</h2><p>Estimate based on current cash, pending COD and supplier bills due within 30 days.</p></div></div><div className="financeStatement"><div><span>Current available cash</span><b>{money(availableCash)}</b></div><div><span>Expected COD collections</span><b>+ {money(receivables)}</b></div><div><span>Supplier payables due</span><b>- {money(upcomingPayables)}</b></div><div className="statementTotal"><span>Expected closing cash</span><b>{money(expectedClosingCash)}</b></div></div></div>
+        <form className="adminCard financeExpenseForm" onSubmit={saveFixedCosts}><h2>Break-even calculator <HelpHint text="Fixed monthly costs are regular costs like rent, salaries, utilities and software. Contribution per order excludes fixed costs." /></h2><label>Monthly fixed costs<input type="number" min="0" value={fixedCosts} onChange={(event) => setFixedCosts(event.target.value)} placeholder="Rent, salaries, utilities..." /></label><div className="financeStatement"><div><span>Average contribution per delivered order</span><b>{money(contributionPerOrder)}</b></div><div><span>Break-even delivered orders</span><b>{breakEvenOrders || "Add sales data"}</b></div><div className="statementTotal"><span>Break-even sales target</span><b>{breakEvenOrders ? money(breakEvenOrders * (grossRevenue / deliveredOrderCount)) : "—"}</b></div></div><button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save fixed costs"}</button></form>
+      </section>
     </>}
 
     {financeTab === "marketing" && <>
 
-    <section className="financeGrid financeGridWide"><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Management KPIs</h2><p>Owner view of sales, customers, inventory and cash health.</p></div></div><div className="financeStatement"><div><span>Average order value</span><b>{money(deliveredOrderCount ? grossRevenue / deliveredOrderCount : 0)}</b></div><div><span>Return rate</span><b>{deliveredOrderCount + returnedOrderCount ? Math.round(returnedOrderCount / (deliveredOrderCount + returnedOrderCount) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{safeProducts.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div className="statementTotal"><span>Cash after 30-day forecast</span><b>{money(expectedClosingCash)}</b></div></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Marketing ROI</h2><p>Only campaign-attributed sales are included.</p></div></div><div className="financeStatement"><div><span>Campaign spend</span><b>{money(marketingSpendTotal)}</b></div><div><span>Attributed sales</span><b>{money(marketingSalesTotal)}</b></div><div><span>ROAS</span><b>{marketingSpendTotal ? `${(marketingSalesTotal / marketingSpendTotal).toFixed(2)}x` : "—"}</b></div><div className="statementTotal"><span>Customer acquisition cost</span><b>{marketingCustomersTotal ? money(marketingSpendTotal / marketingCustomersTotal) : "—"}</b></div></div></div></section>
-    <section className="financeGrid financeGridWide"><div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>Marketing campaigns</h2><span>Spend and attributed results</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Campaign</th><th>Platform</th><th>Spend</th><th>Sales</th><th>ROAS</th></tr></thead><tbody>{marketingCampaigns.map((campaign) => <tr key={campaign.id}><td><b>{campaign.name}</b></td><td>{campaign.platform}</td><td>{money(campaign.spend)}</td><td>{money(campaign.sales)}</td><td>{campaign.spend ? `${(campaign.sales / campaign.spend).toFixed(2)}x` : "—"}</td></tr>)}{!marketingCampaigns.length && <tr><td colSpan="5" className="emptyFinanceCell">No campaigns added yet.</td></tr>}</tbody></table></div></div><form className="adminCard financeExpenseForm" onSubmit={addMarketingCampaign}><h2>Add marketing campaign</h2><label>Campaign name<input name="name" required placeholder="e.g. Eid Instagram campaign" /></label><div className="formRow"><label>Platform<select name="platform"><option>Instagram</option><option>Meta Ads</option><option>TikTok</option><option>Google</option><option>Other</option></select></label><label>Date<input name="date" type="date" defaultValue={today} /></label></div><div className="formRow"><label>Spend<input name="spend" type="number" min="0" defaultValue="0" /></label><label>Attributed sales<input name="sales" type="number" min="0" defaultValue="0" /></label></div><label>New customers<input name="customers" type="number" min="0" defaultValue="0" /></label><button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save campaign"}</button></form></section>
+      <section className="financeGrid financeGridWide"><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Management KPIs</h2><p>Owner view of sales, customers, inventory and cash health.</p></div></div><div className="financeStatement"><div><span>Average order value</span><b>{money(deliveredOrderCount ? grossRevenue / deliveredOrderCount : 0)}</b></div><div><span>Return rate</span><b>{deliveredOrderCount + returnedOrderCount ? Math.round(returnedOrderCount / (deliveredOrderCount + returnedOrderCount) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{safeProducts.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div className="statementTotal"><span>Cash after 30-day forecast</span><b>{money(expectedClosingCash)}</b></div></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Marketing ROI</h2><p>Only campaign-attributed sales are included.</p></div></div><div className="financeStatement"><div><span>Campaign spend</span><b>{money(marketingSpendTotal)}</b></div><div><span>Attributed sales</span><b>{money(marketingSalesTotal)}</b></div><div><span>ROAS</span><b>{marketingSpendTotal ? `${(marketingSalesTotal / marketingSpendTotal).toFixed(2)}x` : "—"}</b></div><div className="statementTotal"><span>Customer acquisition cost</span><b>{marketingCustomersTotal ? money(marketingSpendTotal / marketingCustomersTotal) : "—"}</b></div></div></div></section>
+      <section className="financeGrid financeGridWide"><div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>Marketing campaigns</h2><span>Spend and attributed results</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Campaign</th><th>Platform</th><th>Spend</th><th>Sales</th><th>ROAS</th></tr></thead><tbody>{marketingCampaigns.map((campaign) => <tr key={campaign.id}><td><b>{campaign.name}</b></td><td>{campaign.platform}</td><td>{money(campaign.spend)}</td><td>{money(campaign.sales)}</td><td>{campaign.spend ? `${(campaign.sales / campaign.spend).toFixed(2)}x` : "—"}</td></tr>)}{!marketingCampaigns.length && <tr><td colSpan="5" className="emptyFinanceCell">No campaigns added yet.</td></tr>}</tbody></table></div></div><form className="adminCard financeExpenseForm" onSubmit={addMarketingCampaign}><h2>Add marketing campaign</h2><label>Campaign name<input name="name" required placeholder="e.g. Eid Instagram campaign" /></label><div className="formRow"><label>Platform<select name="platform"><option>Instagram</option><option>Meta Ads</option><option>TikTok</option><option>Google</option><option>Other</option></select></label><label>Date<input name="date" type="date" defaultValue={today} /></label></div><div className="formRow"><label>Spend<input name="spend" type="number" min="0" defaultValue="0" /></label><label>Attributed sales<input name="sales" type="number" min="0" defaultValue="0" /></label></div><label>New customers<input name="customers" type="number" min="0" defaultValue="0" /></label><button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save campaign"}</button></form></section>
     </>}
 
     {financeTab === "suppliers" && <>
-    <section className="financeGrid financeGridWide">
-      <div className="adminCard managementCard">
-        <div className="inventoryListHead"><div><h2>Supplier payables</h2><span>{overdueSupplierBills.length ? `${overdueSupplierBills.length} overdue — action needed` : "Bills and due dates"}</span></div><b>{money(supplierPayableTotal)} due</b></div>
-      <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Supplier</th><th>Reference</th><th>Due date</th><th>Bill</th><th>Paid</th><th>Remaining</th><th /></tr></thead><tbody>{supplierBills.map((bill) => { const remaining = Math.max(0, Number(bill.total) - Number(bill.paid)); const payments = cashbookTransactions.filter((entry) => entry.supplierBillId === bill.id && !entry.voided); const dueSoon = bill.dueDate && bill.dueDate >= today && bill.dueDate <= new Date(Date.now() + 7 * 86400000).toISOString().slice(0,10); return <tr key={bill.id}><td><b>{bill.supplier}</b>{payments.length > 0 && <small><br />{payments.length} active payment{payments.length === 1 ? "" : "s"}: {payments.map((entry) => `${entry.date} ${money(entry.amount)}`).join(" · ")}</small>}</td><td>{bill.reference || "—"}</td><td className={dueSoon && remaining ? "expenseAmount" : ""}>{bill.dueDate || "—"}{dueSoon && remaining ? <small><br />Due soon</small> : null}</td><td>{money(bill.total)}</td><td>{money(bill.paid)}</td><td className={bill.dueDate && bill.dueDate < today && remaining ? "expenseAmount" : ""}>{money(remaining)}</td><td>{remaining > 0 && <button className="editProductButton" onClick={() => recordSupplierPayment(bill)} disabled={cashbookLoading} aria-busy={cashbookLoading}>Pay</button>}</td></tr>; })}{!supplierBills.length && <tr><td colSpan="7" className="emptyFinanceCell">No supplier bills added yet.</td></tr>}</tbody></table></div>
-      </div>
-      <form className="adminCard financeExpenseForm" onSubmit={addSupplierBill}>
-        <h2>Add supplier bill</h2><p className="trackingNumber">Record the full bill, any amount already paid, and the due date. This creates a payable, not an expense twice.</p>
-        <label>Supplier<input name="supplier" required placeholder="e.g. Main fabric supplier" /></label><div className="formRow"><label>Bill/reference<input name="reference" placeholder="Invoice or WhatsApp ref" /></label><label>Bill date<input name="date" type="date" defaultValue={today} /></label></div><div className="formRow"><label>Total bill<input name="total" type="number" min="1" required /></label><label>Already paid<input name="paid" type="number" min="0" defaultValue="0" /></label></div><label>Due date<input name="dueDate" type="date" /></label><label>Note<input name="note" placeholder="What was purchased" /></label><button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save payable"}</button>
-      </form>
-    </section>
+      <section className="financeGrid financeGridWide">
+        <div className="adminCard managementCard">
+          <div className="inventoryListHead"><div><h2>Supplier payables</h2><span>{overdueSupplierBills.length ? `${overdueSupplierBills.length} overdue — action needed` : "Bills and due dates"}</span></div><b>{money(supplierPayableTotal)} due</b></div>
+          <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Supplier</th><th>Reference</th><th>Due date</th><th>Bill</th><th>Paid</th><th>Remaining</th><th /></tr></thead><tbody>{supplierBills.map((bill) => { const remaining = Math.max(0, Number(bill.total) - Number(bill.paid)); const payments = cashbookTransactions.filter((entry) => entry.supplierBillId === bill.id && !entry.voided); const dueSoon = bill.dueDate && bill.dueDate >= today && bill.dueDate <= new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10); return <tr key={bill.id}><td><b>{bill.supplier}</b>{payments.length > 0 && <small><br />{payments.length} active payment{payments.length === 1 ? "" : "s"}: {payments.map((entry) => `${entry.date} ${money(entry.amount)}`).join(" · ")}</small>}</td><td>{bill.reference || "—"}</td><td className={dueSoon && remaining ? "expenseAmount" : ""}>{bill.dueDate || "—"}{dueSoon && remaining ? <small><br />Due soon</small> : null}</td><td>{money(bill.total)}</td><td>{money(bill.paid)}</td><td className={bill.dueDate && bill.dueDate < today && remaining ? "expenseAmount" : ""}>{money(remaining)}</td><td>{remaining > 0 && <button className="editProductButton" onClick={() => recordSupplierPayment(bill)} disabled={cashbookLoading} aria-busy={cashbookLoading}>Pay</button>}</td></tr>; })}{!supplierBills.length && <tr><td colSpan="7" className="emptyFinanceCell">No supplier bills added yet.</td></tr>}</tbody></table></div>
+        </div>
+        <form className="adminCard financeExpenseForm" onSubmit={addSupplierBill}>
+          <h2>Add supplier bill</h2><p className="trackingNumber">Record the full bill, any amount already paid, and the due date. This creates a payable, not an expense twice.</p>
+          <label>Supplier<input name="supplier" required placeholder="e.g. Main fabric supplier" /></label><div className="formRow"><label>Bill/reference<input name="reference" placeholder="Invoice or WhatsApp ref" /></label><label>Bill date<input name="date" type="date" defaultValue={today} /></label></div><div className="formRow"><label>Total bill<input name="total" type="number" min="1" required /></label><label>Already paid<input name="paid" type="number" min="0" defaultValue="0" /></label></div><label>Due date<input name="dueDate" type="date" /></label><label>Note<input name="note" placeholder="What was purchased" /></label><button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save payable"}</button>
+        </form>
+      </section>
     </>}
 
     {financeTab === "pnl" && <>
-    <section className="financeGrid financeGridWide">
-      <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Profit &amp; Loss statement</h2><p>Actual delivered-order performance. Product cost is recognised only when units sell.</p></div><b>{profitMargin}% net margin</b></div>
-        <div className="financeStatement">
-          <div><span>Sales revenue</span><b>+ {money(grossRevenue)}</b></div>
-          <div><span>Less: cost of goods sold</span><b>- {money(deliveredCogs)}</b></div>
-          <div><span>Gross profit</span><b>{money(grossRevenue - deliveredCogs)}</b></div>
-          <div><span>Less: actual PostEx GST + 4% deduction</span><b>- {money(gstTaxTotal)}</b></div>
-          <div><span>Less: actual delivered-order PostEx shipping</span><b>- {money(courierDeliveryCost)}</b></div>
-          <div><span>Less: actual returned-order PostEx loss</span><b>- {money(returnCourierCost)}</b></div>
-          <div><span>Less: operating expenses</span><b>- {money(profitExpenseTotal)}</b></div>
-          <div className="statementTotal"><span>Net profit / loss</span><b>{money(netProfit)}</b></div>
+      <section className="financeGrid financeGridWide">
+        <div className="adminCard financeSummaryCard">
+          <div className="cardHeading"><div><h2>Profit &amp; Loss statement</h2><p>Actual delivered-order performance. Product cost is recognised only when units sell.</p></div><b>{profitMargin}% net margin</b></div>
+          <div className="financeStatement">
+            <div><span>Sales revenue</span><b>+ {money(grossRevenue)}</b></div>
+            <div><span>Less: cost of goods sold</span><b>- {money(deliveredCogs)}</b></div>
+            <div><span>Gross profit</span><b>{money(grossRevenue - deliveredCogs)}</b></div>
+            <div><span>Less: actual PostEx GST + 4% deduction</span><b>- {money(gstTaxTotal)}</b></div>
+            <div><span>Less: actual delivered-order PostEx shipping</span><b>- {money(courierDeliveryCost)}</b></div>
+            <div><span>Less: actual returned-order PostEx loss</span><b>- {money(returnCourierCost)}</b></div>
+            <div><span>Less: operating expenses</span><b>- {money(profitExpenseTotal)}</b></div>
+            <div className="statementTotal"><span>Net profit / loss</span><b>{money(netProfit)}</b></div>
+          </div>
         </div>
-      </div>
-      <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Returns-loss report</h2><p>Returned orders do not create sales revenue. Courier loss uses actual PostEx synced return/shipping deductions.</p></div></div>
-        <div className="financeStatement">
-          <div><span>Returned orders</span><b>{returnedOrderCount}</b></div>
-          <div><span>Return rate</span><b>{deliveredOrderCount + returnedOrderCount ? Math.round((returnedOrderCount / (deliveredOrderCount + returnedOrderCount)) * 100) : 0}%</b></div>
-          <div><span>Return courier cost</span><b>- {money(returnCourierCost)}</b></div>
-          <div><span>Stock action</span><b>Inspect before restock</b></div>
+        <div className="adminCard financeSummaryCard">
+          <div className="cardHeading"><div><h2>Returns-loss report</h2><p>Returned orders do not create sales revenue. Courier loss uses actual PostEx synced return/shipping deductions.</p></div></div>
+          <div className="financeStatement">
+            <div><span>Returned orders</span><b>{returnedOrderCount}</b></div>
+            <div><span>Return rate</span><b>{deliveredOrderCount + returnedOrderCount ? Math.round((returnedOrderCount / (deliveredOrderCount + returnedOrderCount)) * 100) : 0}%</b></div>
+            <div><span>Return courier cost</span><b>- {money(returnCourierCost)}</b></div>
+            <div><span>Stock action</span><b>Inspect before restock</b></div>
+          </div>
+          {returnedOrders.length > 0 && <div className="trackingNumber">Returned: {returnedOrders.slice(0, 4).map((order) => `${order.id} (${order.customer})`).join(" · ")}{returnedOrders.length > 4 ? ` +${returnedOrders.length - 4} more` : ""}</div>}
         </div>
-        {returnedOrders.length > 0 && <div className="trackingNumber">Returned: {returnedOrders.slice(0, 4).map((order) => `${order.id} (${order.customer})`).join(" · ")}{returnedOrders.length > 4 ? ` +${returnedOrders.length - 4} more` : ""}</div>}
-      </div>
-    </section>
+      </section>
 
-    <section className="financeGrid">
-      <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Profit summary <HelpHint text="COGS means the saved cost of delivered products. Cashbook stock purchases are not deducted twice; their cost is counted when units sell." /></h2><p>Follow the steps below from sales to final profit.</p></div><b>{profitMargin}% margin</b></div>
-        <div className="financeStatement">
-          <div><span>1. Product sales ({totalProductsSold} items)</span><b>+ {money(deliveredProductRevenue)}</b></div>
-          <div><span>2. Delivery fees collected</span><b>{deliveryCollected >= 0 ? "+ " : "- "}{money(Math.abs(deliveryCollected))}</b></div>
-          <div><span>3. Total sale received</span><b>{money(grossRevenue)}</b></div>
-          <div><span>4. Less: saved product cost</span><b>- {money(deliveredCogs)}</b></div>
-          <div><span>5. Profit after product cost</span><b>{money(profitAfterProductCost)}</b></div>
-          <div><span>6. Less: actual PostEx GST + 4% deduction</span><b>- {money(gstTaxTotal)}</b></div>
-          <div><span>7. Less: actual delivered-order PostEx shipping</span><b>- {money(courierDeliveryCost)}</b></div>
-          <div><span>8. Less: actual returned-order PostEx loss</span><b>- {money(returnCourierCost)}</b></div>
-          <div><span>9. Less: operating expenses</span><b>- {money(profitExpenseTotal)}</b></div>
-          {productionCashOutflow > 0 && <div><span>Stock purchases tracked in Cashbook</span><b>{money(productionCashOutflow)} (deducted when units sell)</b></div>}
-          <div className="statementTotal"><span>10. Final net profit</span><b>{money(netProfit)}</b></div>
+      <section className="financeGrid">
+        <div className="adminCard financeSummaryCard">
+          <div className="cardHeading"><div><h2>Profit summary <HelpHint text="COGS means the saved cost of delivered products. Cashbook stock purchases are not deducted twice; their cost is counted when units sell." /></h2><p>Follow the steps below from sales to final profit.</p></div><b>{profitMargin}% margin</b></div>
+          <div className="financeStatement">
+            <div><span>1. Product sales ({totalProductsSold} items)</span><b>+ {money(deliveredProductRevenue)}</b></div>
+            <div><span>2. Delivery fees collected</span><b>{deliveryCollected >= 0 ? "+ " : "- "}{money(Math.abs(deliveryCollected))}</b></div>
+            <div><span>3. Total sale received</span><b>{money(grossRevenue)}</b></div>
+            <div><span>4. Less: saved product cost</span><b>- {money(deliveredCogs)}</b></div>
+            <div><span>5. Profit after product cost</span><b>{money(profitAfterProductCost)}</b></div>
+            <div><span>6. Less: actual PostEx GST + 4% deduction</span><b>- {money(gstTaxTotal)}</b></div>
+            <div><span>7. Less: actual delivered-order PostEx shipping</span><b>- {money(courierDeliveryCost)}</b></div>
+            <div><span>8. Less: actual returned-order PostEx loss</span><b>- {money(returnCourierCost)}</b></div>
+            <div><span>9. Less: operating expenses</span><b>- {money(profitExpenseTotal)}</b></div>
+            {productionCashOutflow > 0 && <div><span>Stock purchases tracked in Cashbook</span><b>{money(productionCashOutflow)} (deducted when units sell)</b></div>}
+            <div className="statementTotal"><span>10. Final net profit</span><b>{money(netProfit)}</b></div>
+          </div>
+          <div className="financeControls">
+            <label>GST<input readOnly value="Actual from PostEx" /></label>
+            <label>Tax<input readOnly value="4% deduction / PostEx data" /></label>
+            <label>Packaging expense<input type="number" min="0" value={packagingExpense} onChange={(event) => setPackagingExpense(event.target.value)} onBlur={() => saveManualFinance({ packagingExpense })} /></label>
+            <label>Extra delivery expense<input type="number" min="0" value={deliveryExpense} onChange={(event) => setDeliveryExpense(event.target.value)} onBlur={() => saveManualFinance({ deliveryExpense })} /></label>
+          </div>
         </div>
-        <div className="financeControls">
-          <label>GST<input readOnly value="Actual from PostEx" /></label>
-          <label>Tax<input readOnly value="4% deduction / PostEx data" /></label>
-          <label>Packaging expense<input type="number" min="0" value={packagingExpense} onChange={(event) => setPackagingExpense(event.target.value)} onBlur={() => saveManualFinance({ packagingExpense })} /></label>
-          <label>Extra delivery expense<input type="number" min="0" value={deliveryExpense} onChange={(event) => setDeliveryExpense(event.target.value)} onBlur={() => saveManualFinance({ deliveryExpense })} /></label>
-        </div>
-      </div>
 
-      <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Inventory finance</h2><p>Retail and saved purchase value</p></div></div>
-        <div className="inventoryFinanceList">
-          <div><span>Retail value on hand</span><b>{money(inventoryRetailValue)}</b></div>
-          <div><span>Purchase value on hand</span><b>{money(inventoryCostValue)}</b></div>
-          <div><span>Low-stock retail exposure</span><b>{money(lowStockValue)}</b></div>
-          <div><span>Products tracked</span><b>{safeProducts.length}</b></div>
+        <div className="adminCard financeSummaryCard">
+          <div className="cardHeading"><div><h2>Inventory finance</h2><p>Retail and saved purchase value</p></div></div>
+          <div className="inventoryFinanceList">
+            <div><span>Retail value on hand</span><b>{money(inventoryRetailValue)}</b></div>
+            <div><span>Purchase value on hand</span><b>{money(inventoryCostValue)}</b></div>
+            <div><span>Low-stock retail exposure</span><b>{money(lowStockValue)}</b></div>
+            <div><span>Products tracked</span><b>{safeProducts.length}</b></div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
     </>}
 
     {financeTab === "cashbook" && <>
-    <section className="financeGrid financeGridWide">
-      <div className={`adminCard financeSummaryCard ${availableCash < 0 ? "alertMetric" : ""}`}>
-        <div className="cardHeading"><div><h2>Available Cash</h2><p>Current spendable balance after every active receipt, payment, expense and withdrawal.</p></div><div className="cashBalanceCardActions"><WalletCards /><button type="button" className="removeProductButton" onClick={requestResetAvailableCash} disabled={cashbookLoading || Math.abs(Number(availableCash || 0)) < 0.01} aria-busy={cashbookLoading}>{cashbookLoading ? "Processing..." : "Reset to Rs. 0"}</button></div></div>
-        <div className="financeStatement">
-          <div><span>Current balance</span><b>{money(availableCash)}</b></div>
-          <div><span>Cash coming in</span><b className="cashPlus">+ {money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
-          <div><span>Cash already used</span><b className="cashMinus">- {money(cashOutflowTotal + ownerWithdrawals)}</b></div>
-          {cashResetAdjustment !== 0 && <div><span>Opening balance adjustment</span><b className={cashResetAdjustment < 0 ? "cashMinus" : "cashPlus"}>{cashResetAdjustment < 0 ? "-" : "+"} {money(Math.abs(cashResetAdjustment))}</b></div>}
-          <div className="statementTotal"><span>Rule</span><b>{availableCash < 0 ? "Cash shortfall — add funds or review entries" : "Every active movement is included"}</b></div>
+      <section className="financeGrid financeGridWide">
+        <div className={`adminCard financeSummaryCard ${availableCash < 0 ? "alertMetric" : ""}`}>
+          <div className="cardHeading"><div><h2>Available Cash</h2><p>Current spendable balance after every active receipt, payment, expense and withdrawal.</p></div><div className="cashBalanceCardActions"><WalletCards /><button type="button" className="removeProductButton" onClick={requestResetAvailableCash} disabled={cashbookLoading || Math.abs(Number(availableCash || 0)) < 0.01} aria-busy={cashbookLoading}>{cashbookLoading ? "Processing..." : "Reset to Rs. 0"}</button></div></div>
+          <div className="financeStatement">
+            <div><span>Current balance</span><b>{money(availableCash)}</b></div>
+            <div><span>Cash coming in</span><b className="cashPlus">+ {money(receivedCash + otherBusinessIncome + ownerInvestments)}</b></div>
+            <div><span>Cash already used</span><b className="cashMinus">- {money(cashOutflowTotal + ownerWithdrawals)}</b></div>
+            {cashResetAdjustment !== 0 && <div><span>Opening balance adjustment</span><b className={cashResetAdjustment < 0 ? "cashMinus" : "cashPlus"}>{cashResetAdjustment < 0 ? "-" : "+"} {money(Math.abs(cashResetAdjustment))}</b></div>}
+            <div className="statementTotal"><span>Rule</span><b>{availableCash < 0 ? "Cash shortfall — add funds or review entries" : "Every active movement is included"}</b></div>
+          </div>
+          <p className="cashBreakdownNote">Incoming receipts add to the balance. Expenses, supplier/tailor payments and withdrawals subtract from it. Voiding an entry restores exactly that movement.</p>
         </div>
-        <p className="cashBreakdownNote">Incoming receipts add to the balance. Expenses, supplier/tailor payments and withdrawals subtract from it. Voiding an entry restores exactly that movement.</p>
-      </div>
-      <div className="adminCard managementCard">
-        <div className="inventoryListHead"><div><h2>Finance ledger</h2><span>Orders, cash movements and expenses. PostEx settlement status stays in Settlements.</span></div></div>
-        <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Ref</th><th>Date</th><th>Type</th><th>Account</th><th>Status</th><th>Amount</th><th>Action</th></tr></thead><tbody>
-          {ledgerRows.map((row) => <tr key={`${row.id}-${row.type}`}><td><b>{row.id}</b></td><td>{row.date}</td><td>{row.type}</td><td>{row.account}</td><td><span className={`statusBadge ${String(row.status).toLowerCase()}`}>{row.status}</span></td><td className={row.amount < 0 ? "expenseAmount" : "incomeAmount"}>{row.amount < 0 ? "-" : "+"} {money(Math.abs(row.amount))}</td><td>{row.financeEntry && !row.voided && isOwnerFinance ? (isLinkedFinanceEntry(row.financeEntry) ? <small className="trackingNumber">Use batch</small> : <button type="button" className="removeProductButton" onClick={() => requestVoidCashbookEntry(row.financeEntry)} disabled={cashbookLoading} aria-busy={cashbookLoading}>Void</button>) : row.voided ? <small className="trackingNumber">Voided</small> : "—"}</td></tr>)}
-          {!ledgerRows.length && <tr><td colSpan="7" className="emptyFinanceCell">No finance entries yet.</td></tr>}
-        </tbody></table></div>
-      </div>
+        <div className="adminCard managementCard">
+          <div className="inventoryListHead"><div><h2>Finance ledger</h2><span>Orders, cash movements and expenses. PostEx settlement status stays in Settlements.</span></div></div>
+          <div className="adminTableWrap"><table className="adminTable financeTable"><thead><tr><th>Ref</th><th>Date</th><th>Type</th><th>Account</th><th>Status</th><th>Amount</th><th>Action</th></tr></thead><tbody>
+            {ledgerRows.map((row) => <tr key={`${row.id}-${row.type}`}><td><b>{row.id}</b></td><td>{row.date}</td><td>{row.type}</td><td>{row.account}</td><td><span className={`statusBadge ${String(row.status).toLowerCase()}`}>{row.status}</span></td><td className={row.amount < 0 ? "expenseAmount" : "incomeAmount"}>{row.amount < 0 ? "-" : "+"} {money(Math.abs(row.amount))}</td><td>{row.financeEntry && !row.voided && isOwnerFinance ? (isLinkedFinanceEntry(row.financeEntry) ? <small className="trackingNumber">Use batch</small> : <button type="button" className="removeProductButton" onClick={() => requestVoidCashbookEntry(row.financeEntry)} disabled={cashbookLoading} aria-busy={cashbookLoading}>Void</button>) : row.voided ? <small className="trackingNumber">Voided</small> : "—"}</td></tr>)}
+            {!ledgerRows.length && <tr><td colSpan="7" className="emptyFinanceCell">No finance entries yet.</td></tr>}
+          </tbody></table></div>
+        </div>
 
-      <form className="adminCard financeExpenseForm" onSubmit={addCashbookTransaction}>
-        <h2>Add cash movement</h2>
-        <p className="trackingNumber">Har real cash movement yahan record karein. Expense, supplier/tailor payment aur withdrawal Available Cash se minus honge; income aur owner funds plus honge. PostEx settlement status khud cash nahi banata.</p>
-        <div className="formRow"><label>Money direction<select name="type"><option value="business_expense">Money paid / expense</option><option value="other_income">Other business income</option><option value="owner_investment">Owner funds added</option><option value="owner_withdrawal">Owner withdrawal</option></select></label><label>Category<select name="category" value={cashbookCategory} onChange={(event) => setCashbookCategory(event.target.value)}><option>Fabric / stock</option><option>Tailoring / stitching</option><option>Lace / embellishment</option><option>Packaging</option><option>Marketing</option><option>Courier / delivery</option><option>Rent &amp; utilities</option><option>Salaries &amp; labour</option><option>Operations</option><option>Other</option></select></label></div>
-        {cashbookCategory === "Other" && <label>Custom category name<input name="otherCategory" required maxLength="120" placeholder="e.g. Photography, repairs, samples" /></label>}
-        <label>What was it for?<input name="title" required placeholder="e.g. Stitching payment for Farshi suits" /></label>
-        <div className="formRow"><label>Tailor / supplier / source<input name="counterparty" placeholder="e.g. Amina Tailors" /></label><label>Amount<input name="amount" type="number" min="0.01" step="0.01" required placeholder="0" /></label></div>
-        <div className="formRow"><label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label><label>Reference (optional)<input name="reference" placeholder="Invoice, bank ref, WhatsApp ref" /></label></div>
-        <label>Note (optional)<input name="note" placeholder="Extra detail for later checking" /></label>
-        <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save cash movement"}</button>
-      </form>
+        <form className="adminCard financeExpenseForm" onSubmit={addCashbookTransaction}>
+          <h2>Add cash movement</h2>
+          <p className="trackingNumber">Har real cash movement yahan record karein. Expense, supplier/tailor payment aur withdrawal Available Cash se minus honge; income aur owner funds plus honge. PostEx settlement status khud cash nahi banata.</p>
+          <div className="formRow"><label>Money direction<select name="type"><option value="business_expense">Money paid / expense</option><option value="other_income">Other business income</option><option value="owner_investment">Owner funds added</option><option value="owner_withdrawal">Owner withdrawal</option></select></label><label>Category<select name="category" value={cashbookCategory} onChange={(event) => setCashbookCategory(event.target.value)}><option>Fabric / stock</option><option>Tailoring / stitching</option><option>Lace / embellishment</option><option>Packaging</option><option>Marketing</option><option>Courier / delivery</option><option>Rent &amp; utilities</option><option>Salaries &amp; labour</option><option>Operations</option><option>Other</option></select></label></div>
+          {cashbookCategory === "Other" && <label>Custom category name<input name="otherCategory" required maxLength="120" placeholder="e.g. Photography, repairs, samples" /></label>}
+          <label>What was it for?<input name="title" required placeholder="e.g. Stitching payment for Farshi suits" /></label>
+          <div className="formRow"><label>Tailor / supplier / source<input name="counterparty" placeholder="e.g. Amina Tailors" /></label><label>Amount<input name="amount" type="number" min="0.01" step="0.01" required placeholder="0" /></label></div>
+          <div className="formRow"><label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label><label>Reference (optional)<input name="reference" placeholder="Invoice, bank ref, WhatsApp ref" /></label></div>
+          <label>Note (optional)<input name="note" placeholder="Extra detail for later checking" /></label>
+          <button disabled={cashbookLoading}>{cashbookLoading ? "Saving..." : "Save cash movement"}</button>
+        </form>
 
-    </section>
+      </section>
 
     </>}
 
     {financeTab === "reports" && <>
-    <section className="financeGrid financeGridWide financeReportsPanel">
-      <div className="adminCard financeSummaryCard">
-        <div className="cardHeading"><div><h2>Reports &amp; exports</h2><p>Download the current finance period for review or sharing.</p></div></div>
-        <div className="financeStatement"><div><span>Selected period</span><b>{financePeriod === "all" ? "All time" : financePeriod === "month" ? "This month" : "Last month"}</b></div><div><span>Delivered sales</span><b>{money(grossRevenue)}</b></div><div><span>Net profit / loss</span><b>{money(netProfit)}</b></div><div className="statementTotal"><span>Supplier payables</span><b>{money(supplierPayableTotal)}</b></div></div>
-      </div>
-      <VisualBars
-        title="Financial overview"
-        subtitle="Period summary — revenue, costs and outstanding payables."
-        format={(value) => money(value)}
-        items={[
-          { label: "Delivered revenue", value: grossRevenue, color: "#1d6840" },
-          { label: "Product cost (COGS)", value: deliveredCogs, color: "#c78b2b" },
-          { label: "PostEx & courier fees", value: courierDeliveryCost + returnCourierCost + gstTaxTotal, color: "#b73543" },
-          { label: "Supplier payables", value: supplierPayableTotal, color: "#8d2449" },
-        ]}
-      />
-      <div className="adminCard financeExpenseForm"><h2>Export finance report</h2><p className="trackingNumber">CSV includes sales, costs, courier, GST/tax, cash and inventory values for the selected period.</p><button type="button" onClick={exportFinance}><ReceiptText /> Download CSV report</button></div>
-    </section>
+      <section className="financeGrid financeGridWide financeReportsPanel">
+        <div className="adminCard financeSummaryCard">
+          <div className="cardHeading"><div><h2>Reports &amp; exports</h2><p>Download the current finance period for review or sharing.</p></div></div>
+          <div className="financeStatement"><div><span>Selected period</span><b>{financePeriod === "all" ? "All time" : financePeriod === "month" ? "This month" : "Last month"}</b></div><div><span>Delivered sales</span><b>{money(grossRevenue)}</b></div><div><span>Net profit / loss</span><b>{money(netProfit)}</b></div><div className="statementTotal"><span>Supplier payables</span><b>{money(supplierPayableTotal)}</b></div></div>
+        </div>
+        <VisualBars
+          title="Financial overview"
+          subtitle="Period summary — revenue, costs and outstanding payables."
+          format={(value) => money(value)}
+          items={[
+            { label: "Delivered revenue", value: grossRevenue, color: "#1d6840" },
+            { label: "Product cost (COGS)", value: deliveredCogs, color: "#c78b2b" },
+            { label: "PostEx & courier fees", value: courierDeliveryCost + returnCourierCost + gstTaxTotal, color: "#b73543" },
+            { label: "Supplier payables", value: supplierPayableTotal, color: "#8d2449" },
+          ]}
+        />
+        <div className="adminCard financeExpenseForm"><h2>Export finance report</h2><p className="trackingNumber">CSV includes sales, costs, courier, GST/tax, cash and inventory values for the selected period.</p><button type="button" onClick={exportFinance}><ReceiptText /> Download CSV report</button></div>
+      </section>
     </>}
   </div>;
 }
@@ -8697,7 +8702,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
           setProjectionFinanceAvailable(true);
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => { if (active) setProjectionFinanceLoaded(true); });
     return () => { active = false; };
   }, []);
@@ -8742,7 +8747,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
           );
         }
       })
-      .catch(() => {})
+      .catch(() => { })
     return () => { active = false; };
   }, []);
 
@@ -8999,7 +9004,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       </section>)}
       <button type="button" onClick={() => setProductionItems((current) => [...current, newProductionItem()])}><Plus /> Add another design</button>
       <section className="adminCard" style={{ padding: "14px", marginTop: "12px" }}><p className="fieldTitle">Shared costs for all designs (PKR)</p><p className="trackingNumber">These costs are divided across every suit by quantity.</p><div className="formRow"><label>Shared fabric<input name="shared-fabric" type="number" min="0" defaultValue="0" /></label><label>Shared stitching<input name="shared-stitching" type="number" min="0" defaultValue="0" /></label></div><div className="formRow"><label>Shared stitching material<input name="shared-stitchingMaterial" type="number" min="0" defaultValue="0" /></label><label>Shared packaging<input name="shared-packaging" type="number" min="0" defaultValue="0" /></label></div><div className="formRow"><label>Shared travel / transport<input name="shared-travel" type="number" min="0" defaultValue="0" /></label><label>Shared other<input name="shared-other" type="number" min="0" defaultValue="0" /></label></div></section>
-      <label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label><label>Batch note<textarea name="note" rows="2" placeholder="Supplier, stitching unit or batch reference" /></label><button className="dialogSave" disabled={productionSaving}>{productionSaving ? "Saving batch..." : "Save batch, allocate costs & add stock"}</button>
+      <label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label><label>Batch note<textarea name="note" rows="2" placeholder="Supplier, stitching unit or batch reference" /></label><button className="dialogSave" disabled={productionSaving}>{productionSaving ? "Saving batch..." : "Save batch, allocate costs & add stock"}</button>
     </form></div>;
   }
 
@@ -9039,19 +9044,19 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     </section>
 
     <div className="inventoryTabs">
-      {["Stock","Sources","History"].map(item => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item === "Sources" ? "Sources & Materials" : item}</button>)}
+      {["Stock", "Sources", "History"].map(item => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item === "Sources" ? "Sources & Materials" : item}</button>)}
     </div>
 
     {tab === "Stock" && <section className="adminCard managementCard inventoryLedger">
       <div className="inventoryViewBar">
-        {["All","Low stock","Out of stock"].map(item => <button type="button" key={item} className={inventoryView === item ? "active" : ""} onClick={() => setInventoryView(item)}>{item}</button>)}
+        {["All", "Low stock", "Out of stock"].map(item => <button type="button" key={item} className={inventoryView === item ? "active" : ""} onClick={() => setInventoryView(item)}>{item}</button>)}
       </div>
       <div className="inventoryControlBar simpleInventoryControls">
         <div className="inlineSearch"><Search /><input value={inventorySearch} onChange={(event) => setInventorySearch(event.target.value)} placeholder="Search products or SKU..." /></div>
         <button type="button" onClick={() => setProductionOpen(true)}><Plus /> Create production batch</button>
         <button type="button" onClick={() => openAdjust("__custom__")}><Plus /> Add product with stock</button>
       </div>
-      <div className="adminTableWrap"><table className="adminTable inventoryTable simpleInventoryTable"><thead><tr><th>Product</th><th>SKU</th><th>Available</th><th>Threshold</th><th>Retail value</th><th>Status</th><th /></tr></thead><tbody>{visibleInventoryRows.map(product => { const status = inventoryStatus(product); return <tr key={product.id}><td><div className="tableProduct"><span style={{backgroundImage:`url(${product.image})`}}/><b>{product.name}</b></div></td><td>{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4,"0")}`}</td><td><b className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)}</b></td><td>{Number(product.lowStockThreshold || 5)}</td><td>Rs. {(Number(product.price || 0) * Number(product.stock || 0)).toLocaleString()}</td><td><span className={`statusBadge ${status.className}`}>{status.label}</span></td><td><button className="adjustStockButton" onClick={() => openAdjust(product.id)}>Adjust</button></td></tr>})}</tbody></table>{!visibleInventoryRows.length&&<div className="inventoryEmpty">No products match this view.</div>}</div>
+      <div className="adminTableWrap"><table className="adminTable inventoryTable simpleInventoryTable"><thead><tr><th>Product</th><th>SKU</th><th>Available</th><th>Threshold</th><th>Retail value</th><th>Status</th><th /></tr></thead><tbody>{visibleInventoryRows.map(product => { const status = inventoryStatus(product); return <tr key={product.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${product.image})` }} /><b>{product.name}</b></div></td><td>{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4, "0")}`}</td><td><b className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)}</b></td><td>{Number(product.lowStockThreshold || 5)}</td><td>Rs. {(Number(product.price || 0) * Number(product.stock || 0)).toLocaleString()}</td><td><span className={`statusBadge ${status.className}`}>{status.label}</span></td><td><button className="adjustStockButton" onClick={() => openAdjust(product.id)}>Adjust</button></td></tr> })}</tbody></table>{!visibleInventoryRows.length && <div className="inventoryEmpty">No products match this view.</div>}</div>
     </section>}
 
     {tab === "Stock" && <section className="adminCard managementCard inventoryLedger">
@@ -9075,7 +9080,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       saving={resourcesSaving}
     />}
 
-    {tab === "History" && <InventoryList title="Stock adjustment history" headers={["Product","Change","Reason","Date","User"]} rows={history.map(x => [x.product, x.change > 0 ? `+${x.change}` : x.change, x.reason, x.date, x.user])} empty="No stock adjustments yet." />}
+    {tab === "History" && <InventoryList title="Stock adjustment history" headers={["Product", "Change", "Reason", "Date", "User"]} rows={history.map(x => [x.product, x.change > 0 ? `+${x.change}` : x.change, x.reason, x.date, x.user])} empty="No stock adjustments yet." />}
 
     {dialogOpen && <InventoryDialog products={products} productChoice={dialogProductId} setProductChoice={setDialogProductId} onClose={() => setDialogOpen(false)} onAdjust={adjustStock} />}
     {voidBatch && <><div className="adminOverlay" onClick={closeVoidBatch} /><form className="inventoryDialog" onSubmit={voidProductionBatch}>
@@ -9088,7 +9093,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       <DialogHead title={`Add cost to ${batchCostBatch.id}`} onClose={() => !batchCostSaving && setBatchCostBatch(null)} />
       <p className="trackingNumber">Batch: {batchCostBatch.productName} · {Number(batchCostBatch.quantity || 0)} suits. Yeh amount isi batch ke total aur per-suit cost mein add hogi; Finance Cashbook mein bhi ek hi linked entry banegi.</p>
       <div className="formRow"><label>Cost type<select name="costKey" defaultValue="stitching"><option value="fabric">Fabric</option><option value="stitching">Stitching / tailor</option><option value="stitchingMaterial">Lace / embellishment</option><option value="packaging">Packaging</option><option value="travel">Travel / transport</option><option value="other">Other production cost</option></select></label><label>Amount<input name="amount" type="number" min="0.01" step="0.01" required autoFocus /></label></div>
-      <div className="formRow"><label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} /></label><label>Tailor / supplier<input name="counterparty" placeholder="e.g. Amina Tailors" /></label></div>
+      <div className="formRow"><label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label><label>Tailor / supplier<input name="counterparty" placeholder="e.g. Amina Tailors" /></label></div>
       <button
         type="submit"
         disabled={batchCostSaving}
@@ -9173,7 +9178,7 @@ function InventorySourcesPanel({
 }
 
 function InventoryList({ title, action, onAction, headers, rows, empty }) {
-  return <section className="adminCard managementCard"><div className="inventoryListHead"><div><h2>{title}</h2><span>{rows.length} records</span></div>{action&&<button onClick={onAction}><Plus />{action}</button>}</div><div className="adminTableWrap"><table className="adminTable"><thead><tr>{headers.map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}>{j===0?<b>{cell}</b>:cell}</td>)}</tr>)}</tbody></table>{!rows.length&&<div className="inventoryEmpty">{empty||"No records found."}</div>}</div></section>;
+  return <section className="adminCard managementCard"><div className="inventoryListHead"><div><h2>{title}</h2><span>{rows.length} records</span></div>{action && <button onClick={onAction}><Plus />{action}</button>}</div><div className="adminTableWrap"><table className="adminTable"><thead><tr>{headers.map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{rows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j}>{j === 0 ? <b>{cell}</b> : cell}</td>)}</tr>)}</tbody></table>{!rows.length && <div className="inventoryEmpty">{empty || "No records found."}</div>}</div></section>;
 }
 
 function VariantInventoryDrawer({ product, onClose }) {
@@ -9191,16 +9196,16 @@ function VariantInventoryDrawer({ product, onClose }) {
 }
 
 function InventoryDialog({ products, productChoice, setProductChoice, onClose, onAdjust }) {
-  return <><div className="adminOverlay" onClick={onClose}/><form className="inventoryDialog" onSubmit={onAdjust}><DialogHead title="Adjust inventory" onClose={onClose}/>
-    <label>Product<select name="product" value={productChoice} onChange={(event)=>setProductChoice(event.target.value)}><option value="__custom__">Add new product</option>{products.map(p=><option value={p.id} key={p.id}>{p.name} - {p.stock} available</option>)}</select></label>
-    {productChoice==="__custom__"&&<div className="formRow"><label>Product name<input name="customName" required placeholder="e.g. Embroidered Dupatta"/></label><label>SKU<input name="customSku" placeholder="Optional"/></label></div>}
-    <label>{productChoice==="__custom__"?"Opening stock":"Stock change"}<input name="amount" required type="number" placeholder={productChoice==="__custom__"?"10":"+10 or -2"}/></label>
+  return <><div className="adminOverlay" onClick={onClose} /><form className="inventoryDialog" onSubmit={onAdjust}><DialogHead title="Adjust inventory" onClose={onClose} />
+    <label>Product<select name="product" value={productChoice} onChange={(event) => setProductChoice(event.target.value)}><option value="__custom__">Add new product</option>{products.map(p => <option value={p.id} key={p.id}>{p.name} - {p.stock} available</option>)}</select></label>
+    {productChoice === "__custom__" && <div className="formRow"><label>Product name<input name="customName" required placeholder="e.g. Embroidered Dupatta" /></label><label>SKU<input name="customSku" placeholder="Optional" /></label></div>}
+    <label>{productChoice === "__custom__" ? "Opening stock" : "Stock change"}<input name="amount" required type="number" placeholder={productChoice === "__custom__" ? "10" : "+10 or -2"} /></label>
     <label>Reason<select name="reason"><option>Stock count correction</option><option>Received stock</option><option>Damaged</option><option>Returned</option><option>Promotion</option></select></label>
     <button className="dialogSave">Save stock</button>
   </form></>;
 }
 
-function DialogHead({title,onClose}) { return <div className="dialogHead"><h2>{title}</h2><button type="button" onClick={onClose}><X/></button></div>; }
+function DialogHead({ title, onClose }) { return <div className="dialogHead"><h2>{title}</h2><button type="button" onClick={onClose}><X /></button></div>; }
 
 function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) {
   const makeItem = () => ({ key: `${Date.now()}-${Math.random()}`, productId: products[0]?.id ? String(products[0].id) : "__custom__", quantity: 1, size: "", color: "", customName: "", unitPrice: "" });
@@ -9265,7 +9270,7 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
       <div className="adminOverlay" onClick={onClose} />
       <form className="orderDialog" onSubmit={onCreate} style={{ maxWidth: "720px", width: "95%" }}>
         <DialogHead title="Create Custom Order" onClose={onClose} />
-        
+
         <div className="formRow">
           <label>
             Customer Full Name
@@ -10311,8 +10316,8 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                       {isDelivered
                         ? `· Delivery complete. Total Rs. ${currentCod.toLocaleString()} collected`
                         : isBooked
-                        ? `· Booked with PostEx (CN: ${tracking}). Ready for courier dispatch.`
-                        : `· Create courier booking to generate PostEx tracking consignment.`}
+                          ? `· Booked with PostEx (CN: ${tracking}). Ready for courier dispatch.`
+                          : `· Create courier booking to generate PostEx tracking consignment.`}
                     </span>
                   </div>
 
@@ -11499,8 +11504,8 @@ function OrderTable({
                         {money.isFullyAdvanced
                           ? "100% Prepaid"
                           : money.hasAdvance
-                          ? `COD: Rs. ${money.cod.toLocaleString()}`
-                          : `COD: Rs. ${money.cod.toLocaleString()}`}
+                            ? `COD: Rs. ${money.cod.toLocaleString()}`
+                            : `COD: Rs. ${money.cod.toLocaleString()}`}
                       </span>
                     </div>
                   </td>
@@ -11723,9 +11728,9 @@ function DashboardAnalytics({ orders, products, connected, period, setPeriod }) 
     map.set(key, current);
     return map;
   }, new Map());
-  const topProducts = [...productSales.values()].sort((a,b) => b.quantity - a.quantity).slice(0, 5);
+  const topProducts = [...productSales.values()].sort((a, b) => b.quantity - a.quantity).slice(0, 5);
   const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
-  return <section className="analyticsSystem" aria-labelledby="dashboard-analytics-heading"><div className="adminTitle dashboardAnalyticsTitle"><div><p>BUSINESS INTELLIGENCE</p><h2 id="dashboard-analytics-heading">Performance analytics</h2><span>{connected ? "Live delivered-order performance, matched by customer identity and product ID / SKU." : "Connect live orders to view performance."}</span></div><div className="orderTabs" aria-label="Analytics period">{[["7","7 days"],["30","30 days"],["90","90 days"]].map(([value,label]) => <button type="button" className={period === value ? "active" : ""} aria-pressed={period === value} onClick={() => setPeriod(value)} key={value}>{label}</button>)}</div></div><div className="miniMetricGrid financeMetrics"><article><CircleDollarSign /><span><b>{money(sales)}</b>Delivered sales <small className={salesChange !== null && salesChange < 0 ? "metricTrendDown" : "metricTrendUp"}>{salesChange === null ? "No prior-period baseline" : `${salesChange >= 0 ? "+" : ""}${salesChange}% vs previous ${days} days`}</small></span></article><article><ShoppingBag /><span><b>{delivered.length}</b>Fulfilled orders</span></article><article><TrendingUp /><span><b>{money(delivered.length ? sales / delivered.length : 0)}</b>Average order value</span></article><article><Users /><span><b>{customerOrderCounts.size ? Math.round(repeatCustomers / customerOrderCounts.size * 100) : 0}%</b>Repeat customer rate</span></article><article className={returned.length ? "alertMetric" : ""}><Package /><span><b>{returned.length}</b>Returned orders</span></article></div><div className="financeGrid financeGridWide"><div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>Top products sold</h2><span>Delivered units matched by product ID, then SKU, then exact product name.</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Product / SKU</th><th>Units sold</th><th>Current stock</th></tr></thead><tbody>{topProducts.map((row) => <tr key={row.key}><td><b>{row.name}</b><small className="trackingNumber">{row.sku}</small></td><td>{row.quantity}</td><td>{row.product?.stock ?? "—"}</td></tr>)}{!topProducts.length && <tr><td colSpan="3" className="emptyFinanceCell">No delivered product sales in this period.</td></tr>}</tbody></table></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Operations health</h2><p>Actionable indicators for the selected period.</p></div></div><div className="financeStatement"><div><span>Return rate</span><b>{delivered.length + returned.length ? Math.round(returned.length / (delivered.length + returned.length) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{products.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div><span>Products with missing cost</span><b>{products.filter((product) => !Number(product.costTotalPkr || 0)).length}</b></div><div className="statementTotal"><span>Next action</span><b>{products.some((product) => !Number(product.costTotalPkr || 0)) ? "Add missing product costs" : "Review low stock"}</b></div></div></div></div></section>;
+  return <section className="analyticsSystem" aria-labelledby="dashboard-analytics-heading"><div className="adminTitle dashboardAnalyticsTitle"><div><p>BUSINESS INTELLIGENCE</p><h2 id="dashboard-analytics-heading">Performance analytics</h2><span>{connected ? "Live delivered-order performance, matched by customer identity and product ID / SKU." : "Connect live orders to view performance."}</span></div><div className="orderTabs" aria-label="Analytics period">{[["7", "7 days"], ["30", "30 days"], ["90", "90 days"]].map(([value, label]) => <button type="button" className={period === value ? "active" : ""} aria-pressed={period === value} onClick={() => setPeriod(value)} key={value}>{label}</button>)}</div></div><div className="miniMetricGrid financeMetrics"><article><CircleDollarSign /><span><b>{money(sales)}</b>Delivered sales <small className={salesChange !== null && salesChange < 0 ? "metricTrendDown" : "metricTrendUp"}>{salesChange === null ? "No prior-period baseline" : `${salesChange >= 0 ? "+" : ""}${salesChange}% vs previous ${days} days`}</small></span></article><article><ShoppingBag /><span><b>{delivered.length}</b>Fulfilled orders</span></article><article><TrendingUp /><span><b>{money(delivered.length ? sales / delivered.length : 0)}</b>Average order value</span></article><article><Users /><span><b>{customerOrderCounts.size ? Math.round(repeatCustomers / customerOrderCounts.size * 100) : 0}%</b>Repeat customer rate</span></article><article className={returned.length ? "alertMetric" : ""}><Package /><span><b>{returned.length}</b>Returned orders</span></article></div><div className="financeGrid financeGridWide"><div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>Top products sold</h2><span>Delivered units matched by product ID, then SKU, then exact product name.</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Product / SKU</th><th>Units sold</th><th>Current stock</th></tr></thead><tbody>{topProducts.map((row) => <tr key={row.key}><td><b>{row.name}</b><small className="trackingNumber">{row.sku}</small></td><td>{row.quantity}</td><td>{row.product?.stock ?? "—"}</td></tr>)}{!topProducts.length && <tr><td colSpan="3" className="emptyFinanceCell">No delivered product sales in this period.</td></tr>}</tbody></table></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Operations health</h2><p>Actionable indicators for the selected period.</p></div></div><div className="financeStatement"><div><span>Return rate</span><b>{delivered.length + returned.length ? Math.round(returned.length / (delivered.length + returned.length) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{products.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div><span>Products with missing cost</span><b>{products.filter((product) => !Number(product.costTotalPkr || 0)).length}</b></div><div className="statementTotal"><span>Next action</span><b>{products.some((product) => !Number(product.costTotalPkr || 0)) ? "Add missing product costs" : "Review low stock"}</b></div></div></div></div></section>;
 }
 
 function CustomersPanel({ orders, onOpen }) {
@@ -11734,7 +11739,7 @@ function CustomersPanel({ orders, onOpen }) {
   const [selectedId, setSelectedId] = useState("");
   const [edits, setEdits] = useState({});
   const customers = useMemo(() => buildCustomerProfiles(orders).map((customer) => ({ ...customer, ...(edits[customer.id] || {}) })), [edits, orders]);
-  const segments = ["All","VIP","Repeat buyer","New customer","Instagram DM"];
+  const segments = ["All", "VIP", "Repeat buyer", "New customer", "Instagram DM"];
   const visibleCustomers = customers.filter((customer) => {
     const matchesSegment = segment === "All" || (customer.tags || []).includes(segment);
     const query = search.toLowerCase();
@@ -11759,12 +11764,12 @@ function CustomersPanel({ orders, onOpen }) {
 
   function exportCustomers() {
     const csv = [
-      ["Name","Phone","Email","City","Orders","Total spent","Tags","Notes"],
+      ["Name", "Phone", "Email", "City", "Orders", "Total spent", "Tags", "Notes"],
       ...customers.map((customer) => [customer.name, customer.phone, customer.email, customer.city, customer.orders.length, customer.totalSpent, customer.tags.join(" | "), customer.notes || ""]),
-    ].map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"','""')}"`).join(",")).join("\n");
+    ].map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    link.download = `bustaniya-customers-${new Date().toISOString().slice(0,10)}.csv`;
+    link.download = `bustaniya-customers-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   }
@@ -11782,7 +11787,7 @@ function CustomersPanel({ orders, onOpen }) {
       <div className="adminTableWrap"><table className="adminTable customerTable"><thead><tr><th>Customer</th><th>Contact</th><th>Orders</th><th>Total spent</th><th>Last order</th><th>Tags</th><th /></tr></thead><tbody>
         {visibleCustomers.map((customer) => <tr key={customer.id}><td><b>{customer.name}</b><small className="trackingNumber"><br />{customer.city || "No city"}</small></td><td>{customer.phone || "-"}<small className="trackingNumber"><br />{customer.email || "No email"}</small></td><td>{customer.orders.length}</td><td><b>Rs. {Number(customer.totalSpent || 0).toLocaleString()}</b></td><td>{customer.lastOrder || "-"}</td><td><div className="tagList">{customer.tags.map((tag) => <span key={tag} className="statusBadge active">{tag}</span>)}</div></td><td><button className="editProductButton" onClick={() => setSelectedId(customer.id)}>Open</button></td></tr>)}
       </tbody></table>
-      {!visibleCustomers.length && <EmptyState icon={Users} title="No customers found" description="No customer profiles match your search query or selected segment." />}
+        {!visibleCustomers.length && <EmptyState icon={Users} title="No customers found" description="No customer profiles match your search query or selected segment." />}
       </div>
     </section>
     {selectedCustomer && <CustomerProfileDrawer customer={selectedCustomer} onClose={() => setSelectedId("")} onUpdate={updateCustomer} />}
@@ -13833,13 +13838,13 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "", categories: pass
                                     const currentCards = Array.isArray(section.cards) && section.cards.length > 0
                                       ? section.cards
                                       : mainCats.map((cat, idx) => ({
-                                          id: cat.id || `cat-${idx + 1}`,
-                                          name: cat.name || "",
-                                          slug: cat.slug || "",
-                                          image: cat.image || "",
-                                          description: cat.description || "",
-                                          enabled: cat.showOnHomepage !== false,
-                                        }));
+                                        id: cat.id || `cat-${idx + 1}`,
+                                        name: cat.name || "",
+                                        slug: cat.slug || "",
+                                        image: cat.image || "",
+                                        description: cat.description || "",
+                                        enabled: cat.showOnHomepage !== false,
+                                      }));
 
                                     const updateCard = (cardIdx, updates) => {
                                       setStoreSettings((current) => {
@@ -15449,7 +15454,7 @@ function WorkspaceDrawer({ workspace, onClose, onSave, activity }) {
           <div className="workspaceInfo"><div><b>{records.length}</b><span>Local records</span></div><div><b>Ready</b><span>Supabase status</span></div></div>
           <div className="workspaceList">
             {records.length ? records.map(record => <article key={record.id}><div><b>{record.title}</b><span>{record.created}</span></div><p>{record.value}</p><i>{record.status}</i><button><MoreHorizontal /></button></article>)
-            : <div className="workspaceEmpty"><Package /><h3>No records yet</h3><p>Create your first {workspace.feature.toLowerCase()} record. It will work locally until Supabase is connected.</p><button onClick={() => setCreateMode(true)}><Plus /> Create record</button></div>}
+              : <div className="workspaceEmpty"><Package /><h3>No records yet</h3><p>Create your first {workspace.feature.toLowerCase()} record. It will work locally until Supabase is connected.</p><button onClick={() => setCreateMode(true)}><Plus /> Create record</button></div>}
           </div>
         </section>
       </div>

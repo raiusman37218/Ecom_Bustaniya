@@ -133,7 +133,9 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const variants = useMemo(() => Array.isArray(product.variants) ? product.variants : [], [product.variants]);
   const colorImages = useMemo(() => (typeof product.colorImages === "object" && product.colorImages ? product.colorImages : {}), [product.colorImages]);
   const bottomOptions = useMemo(() => {
-    if (Array.isArray(product.bottomOptions) && product.bottomOptions.length > 0) {
+    if (product?.enableBottomOptions === false) return [];
+    if (Array.isArray(product.bottomOptions)) return product.bottomOptions;
+    if (false) {
       return product.bottomOptions;
     }
     const cat = String(product.category || "").toLowerCase();
@@ -146,7 +148,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
       ];
     }
     return [];
-  }, [product.bottomOptions, product.category]);
+  }, [product.bottomOptions, product.category, product.enableBottomOptions]);
 
   const [selectedBottom, setSelectedBottom] = useState(() => (bottomOptions.length ? bottomOptions[0].name : ""));
 
