@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Instagram, Menu, MessageSquare, Minus, Play, Plus, Quote, Ruler, Scissors, ShoppingBag, Sparkles, Star, UserRound, X } from "lucide-react";
+import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Heart, Instagram, Menu, MessageSquare, Minus, Play, Plus, Quote, Ruler, Scissors, ShoppingBag, Sparkles, Star, UserRound, X } from "lucide-react";
 
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts, slugifyCategory } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../data/storeSettings";
@@ -14,6 +14,7 @@ import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import ShopByCategory from "./ShopByCategory";
 import { trackEvent } from "../lib/trackEvent";
+import { useWishlist } from "../lib/wishlist";
 
 const SizeChartModal = dynamic(() => import("./SizeChartModal"), { ssr: false });
 
@@ -132,6 +133,7 @@ export default function Home({
     LEGACY_SECTION_TEXT_COLORS
   );
   const [activeCategory, setActiveCategory] = useState("All");
+  const { isInWishlist, toggle: toggleWishlist } = useWishlist();
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [cartReady, setCartReady] = useState(false);
@@ -537,6 +539,23 @@ export default function Home({
                         <Link className="productCardLink" href={`/product/${product.id}`} prefetch={true} aria-label={`View ${product.name}`} />
                         {product.badge && <span className="badge">{product.badge}</span>}
                         {salePercent(product) > 0 && <span className="saleBadge">{salePercent(product)}% OFF</span>}
+                        <button
+                          type="button"
+                          className={`productCardWishBtn ${isInWishlist(product.id) ? "isWishlisted" : ""}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleWishlist(product);
+                          }}
+                          aria-label={isInWishlist(product.id) ? "Remove from wishlist" : "Add to wishlist"}
+                          title={isInWishlist(product.id) ? "In Wishlist" : "Add to Wishlist"}
+                        >
+                          <Heart
+                            size={16}
+                            fill={isInWishlist(product.id) ? "#c8175a" : "none"}
+                            color={isInWishlist(product.id) ? "#c8175a" : "#16301d"}
+                          />
+                        </button>
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
                       </div>
                       <div className="productInfo">
@@ -853,6 +872,23 @@ export default function Home({
                         <Link className="productCardLink" href={`/product/${product.id}`} prefetch={true} aria-label={`View ${product.name}`} />
                         {product.badge && <span className="badge">{product.badge}</span>}
                         {salePercent(product) > 0 && <span className="saleBadge">{salePercent(product)}% OFF</span>}
+                        <button
+                          type="button"
+                          className={`productCardWishBtn ${isInWishlist(product.id) ? "isWishlisted" : ""}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleWishlist(product);
+                          }}
+                          aria-label={isInWishlist(product.id) ? "Remove from wishlist" : "Add to wishlist"}
+                          title={isInWishlist(product.id) ? "In Wishlist" : "Add to Wishlist"}
+                        >
+                          <Heart
+                            size={16}
+                            fill={isInWishlist(product.id) ? "#c8175a" : "none"}
+                            color={isInWishlist(product.id) ? "#c8175a" : "#16301d"}
+                          />
+                        </button>
                         <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
                       </div>
                       <div className="productInfo">

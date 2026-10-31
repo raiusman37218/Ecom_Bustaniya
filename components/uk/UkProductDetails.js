@@ -12,6 +12,7 @@ import { convertProductsToRegion, convertProductToRegion, formatPrice, REGIONS }
 import SizeChartModal, { SizeTable } from "../SizeChartModal";
 import UkHeader from "./UkHeader";
 import UkFooter from "./UkFooter";
+import { useWishlist } from "../../lib/wishlist";
 
 function WhatsAppIcon({ size = 18, className = "" }) {
   return (
@@ -113,6 +114,8 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
   const [cartReady, setCartReady] = useState(false);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const { isInWishlist, toggle: toggleWishlist } = useWishlist();
+  const isWishlisted = isInWishlist(product?.id);
 
   useEffect(() => {
     try {
@@ -342,15 +345,39 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
 
             {/* CTA Buttons */}
             <div className="detailActionButtons">
-              <button
-                type="button"
-                className="detailAddBagBtn primaryButton"
-                onClick={() => addToCart()}
-                disabled={outOfStock}
-              >
-                <ShoppingBag size={18} />
-                {outOfStock ? "Out of Stock" : `Add to Bag · ${formatPrice(product.price * quantity, "uk")}`}
-              </button>
+              <div style={{ display: "flex", gap: "10px", alignItems: "stretch", width: "100%" }}>
+                <button
+                  type="button"
+                  className="detailAddBagBtn primaryButton"
+                  onClick={() => addToCart()}
+                  disabled={outOfStock}
+                  style={{ flex: 1 }}
+                >
+                  <ShoppingBag size={18} />
+                  {outOfStock ? "Out of Stock" : `Add to Bag · ${formatPrice(product.price * quantity, "uk")}`}
+                </button>
+
+                <button
+                  type="button"
+                  className={`detailWishBtn ${isWishlisted ? "isWishlisted" : ""}`}
+                  aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                  onClick={() => toggleWishlist(product)}
+                  style={{
+                    width: "52px",
+                    display: "grid",
+                    placeItems: "center",
+                    border: isWishlisted ? "2px solid #c8175a" : "2px solid #16301d",
+                    background: isWishlisted ? "#fdeef3" : "transparent",
+                    color: isWishlisted ? "#c8175a" : "#16301d",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    flexShrink: 0
+                  }}
+                  title={isWishlisted ? "In Wishlist" : "Add to Wishlist"}
+                >
+                  <Heart size={20} fill={isWishlisted ? "#c8175a" : "none"} color={isWishlisted ? "#c8175a" : "currentColor"} />
+                </button>
+              </div>
 
               <a
                 href={whatsappHref}

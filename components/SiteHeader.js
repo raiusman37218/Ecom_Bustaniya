@@ -47,6 +47,7 @@ export default function SiteHeader({
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [localCartCount, setLocalCartCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
   const [isStuck, setIsStuck] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -87,15 +88,51 @@ export default function SiteHeader({
   }, [pathname]);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("bustaniya-cart") || localStorage.getItem("bustaniya_cart");
-      if (saved) {
-        const items = JSON.parse(saved);
-        if (Array.isArray(items)) {
-          setLocalCartCount(items.reduce((acc, item) => acc + (item.quantity || 1), 0));
+    function updateCounts() {
+      try {
+        const saved = localStorage.getItem("bustaniya-cart") || localStorage.getItem("bustaniya_cart");
+        if (saved) {
+          const items = JSON.parse(saved);
+          if (Array.isArray(items)) {
+            setLocalCartCount(items.reduce((acc, item) => acc + (item.quantity || 1), 0));
+          }
+        } else {
+          setLocalCartCount(0);
         }
+      } catch { }
+
+      try {
+        const savedW = localStorage.getItem("bustaniya_wishlist");
+        if (savedW) {
+          const wItems = JSON.parse(savedW);
+          if (Array.isArray(wItems)) {
+            setWishlistCount(wItems.length);
+          }
+        } else {
+          setWishlistCount(0);
+        }
+      } catch { }
+    }
+
+    updateCounts();
+
+    const handleWishlistUpdated = (e) => {
+      if (e?.detail?.items && Array.isArray(e.detail.items)) {
+        setWishlistCount(e.detail.items.length);
+      } else {
+        updateCounts();
       }
-    } catch {}
+    };
+
+    window.addEventListener("storage", updateCounts);
+    window.addEventListener("wishlist-updated", handleWishlistUpdated);
+    window.addEventListener("cart-updated", updateCounts);
+
+    return () => {
+      window.removeEventListener("storage", updateCounts);
+      window.removeEventListener("wishlist-updated", handleWishlistUpdated);
+      window.removeEventListener("cart-updated", updateCounts);
+    };
   }, []);
 
   // Escape closes whichever overlay is open, innermost first.
@@ -241,8 +278,14 @@ export default function SiteHeader({
               <UserRound size={20} />
             </button>
 
-            <Link href="/track-order" className="bs-st-iconbtn bs-st-deskonly" aria-label="Track your order">
+            <Link
+              href="/wishlist"
+              className="bs-st-iconbtn"
+              aria-label={`Wishlist, ${wishlistCount} items`}
+              title="Saved items"
+            >
               <Heart size={20} />
+              {wishlistCount > 0 && <span className="bs-st-iconbtn__badge">{wishlistCount}</span>}
             </Link>
 
             <Link
@@ -431,6 +474,15 @@ export default function SiteHeader({
 
         <div className="bs-st-menu__foot">
           <Link
+            href="/wishlist"
+            className="bs-st-menufoot-item"
+            onClick={closeMenu}
+            tabIndex={menuOpen ? 0 : -1}
+          >
+            <Heart size={17} />
+            <span>Wishlist {wishlistCount > 0 ? `(${wishlistCount})` : ""}</span>
+          </Link>
+          <Link
             href="/track-order"
             className="bs-st-menufoot-item"
             onClick={closeMenu}
@@ -496,13 +548,18 @@ export default function SiteHeader({
         </button>
 
         <Link
-          href="/track-order"
+          href="/wishlist"
           className="bs-st-bottomnav__item"
-          data-active={pathname === "/track-order" ? "true" : "false"}
-          aria-label="Track Your Order"
+          data-active={pathname === "/wishlist" ? "true" : "false"}
+          aria-label={`Wishlist, ${wishlistCount} items`}
         >
-          <Truck size={20} />
-          <span className="bs-st-bottomnav__label">Track</span>
+          <div style={{ position: "relative" }}>
+            <Heart size={20} />
+            {wishlistCount > 0 && (
+              <span className="bs-st-bottomnav__badge">{wishlistCount}</span>
+            )}
+          </div>
+          <span className="bs-st-bottomnav__label">Wishlist</span>
         </Link>
 
         <button

@@ -1,0 +1,200 @@
+/* =============================================================
+   BUSTANIYA — WISHLIST SYSTEM STYLES
+   ============================================================= */
+
+.wishlistPageMain {
+  max-width: var(--bs-st-container, 1400px);
+  margin-inline: auto;
+  padding: clamp(32px, 5vw, 64px) var(--bs-st-gutter, 20px) clamp(64px, 8vw, 120px);
+  min-height: 60vh;
+}
+
+.wishlistPageHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 24px;
+  border-bottom: var(--bs-st-rule, 2px solid rgba(22, 48, 29, 0.16));
+  margin-bottom: clamp(24px, 4vw, 40px);
+}
+
+.wishlistPageHeader h1 {
+  margin: 6px 0 0;
+  font-family: var(--bs-font-display, "Cormorant Garamond", Georgia, serif);
+  font-weight: var(--bs-weight-semibold, 600);
+  font-size: clamp(36px, 5vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  color: var(--bs-st-ink, #16301d);
+}
+
+.wishlistSubtitle {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: color-mix(in srgb, var(--bs-st-ink, #16301d) 70%, transparent);
+}
+
+.wishlistClearBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(22, 48, 29, 0.2);
+  background: transparent;
+  color: var(--bs-st-ink, #16301d);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.wishlistClearBtn:hover {
+  background: #a10f44;
+  border-color: #a10f44;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* Empty State */
+.wishlistEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: clamp(64px, 10vw, 120px) 20px;
+  max-width: 540px;
+  margin-inline: auto;
+  gap: 16px;
+}
+
+.wishlistEmptyIconWrapper {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bs-st-accent-500, #d63a73) 12%, transparent);
+  color: var(--bs-st-accent, #c8175a);
+  display: grid;
+  place-items: center;
+  margin-bottom: 8px;
+}
+
+.wishlistEmpty h2 {
+  margin: 0;
+  font-family: var(--bs-font-display, "Cormorant Garamond", Georgia, serif);
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 600;
+  color: var(--bs-st-ink, #16301d);
+}
+
+.wishlistEmpty p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--bs-st-ink, #16301d) 72%, transparent);
+}
+
+.wishlistEmpty .cartEmptyCta {
+  margin-top: 14px;
+}
+
+/* Product Card Wishlist Elements */
+.wishlistCardRemoveBtn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 6;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.wishlistCardRemoveBtn:hover {
+  transform: scale(1.1);
+  background: #ffffff;
+}
+
+.wishlistCardActions {
+  margin-top: 14px;
+  width: 100%;
+}
+
+.wishlistAddBagBtn {
+  width: 100%;
+  height: 44px;
+  border: 0;
+  background: var(--bs-st-ink, #16301d);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.25s ease, transform 0.2s ease;
+}
+
+.wishlistAddBagBtn:hover:not(:disabled) {
+  background: #102a1d;
+  transform: translateY(-1px);
+}
+
+.wishlistAddBagBtn.isAdded {
+  background: #1e6b2e;
+  cursor: default;
+}
+
+/* Floating Wishlist Button on Catalog Product Cards */
+.productCardWishBtn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 6;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(22, 48, 29, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  color: var(--bs-st-ink, #16301d);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.25s ease;
+}
+
+.productCardWishBtn:hover {
+  transform: scale(1.12);
+  background: #ffffff;
+  color: var(--bs-st-accent, #c8175a);
+}
+
+.productCardWishBtn.isWishlisted {
+  color: var(--bs-st-accent, #c8175a);
+  background: #ffffff;
+  border-color: rgba(200, 23, 90, 0.25);
+}
+
+.wishlistLoading {
+  padding: 80px 20px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--bs-st-ink, #16301d);
+}
+

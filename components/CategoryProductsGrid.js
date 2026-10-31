@@ -3,9 +3,10 @@
 import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import { ChevronDown, SlidersHorizontal, ArrowUpDown, Heart } from "lucide-react";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from "../lib/images";
 import { getColorHex } from "../data/variantOptions";
+import { useWishlist } from "../lib/wishlist";
 
 export default function CategoryProductsGrid({
   initialProducts = [],
@@ -13,6 +14,7 @@ export default function CategoryProductsGrid({
   categoryName = "",
 }) {
   const [sortBy, setSortBy] = useState("featured");
+  const { isInWishlist, toggle: toggleWishlist } = useWishlist();
 
   const sortedProducts = useMemo(() => {
     const list = [...initialProducts];
@@ -95,6 +97,24 @@ export default function CategoryProductsGrid({
                 {onSale && salePercent > 0 && <span className="saleBadge">{salePercent}% OFF</span>}
                 <span className="quickAdd">Choose options</span>
               </Link>
+
+              <button
+                type="button"
+                className={`productCardWishBtn ${isInWishlist(product.id) ? "isWishlisted" : ""}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleWishlist(product);
+                }}
+                aria-label={isInWishlist(product.id) ? "Remove from wishlist" : "Add to wishlist"}
+                title={isInWishlist(product.id) ? "In Wishlist" : "Add to Wishlist"}
+              >
+                <Heart
+                  size={16}
+                  fill={isInWishlist(product.id) ? "#c8175a" : "none"}
+                  color={isInWishlist(product.id) ? "#c8175a" : "#16301d"}
+                />
+              </button>
 
               <div className="productInfo">
                 <div>

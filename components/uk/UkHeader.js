@@ -21,9 +21,10 @@ export default function UkHeader({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [localCartCount, setLocalCartCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
 
   useEffect(() => {
-    function loadCartCount() {
+    function loadCounts() {
       try {
         const saved = localStorage.getItem(REGIONS.uk.cartStorageKey);
         if (saved) {
@@ -31,18 +32,42 @@ export default function UkHeader({
           if (Array.isArray(items)) {
             const total = items.reduce((acc, item) => acc + (item.quantity || 1), 0);
             setLocalCartCount(total);
-            return;
+          } else {
+            setLocalCartCount(0);
           }
+        } else {
+          setLocalCartCount(0);
         }
-        setLocalCartCount(0);
       } catch {
         setLocalCartCount(0);
       }
+
+      try {
+        const savedW = localStorage.getItem("bustaniya_wishlist");
+        if (savedW) {
+          const wItems = JSON.parse(savedW);
+          if (Array.isArray(wItems)) {
+            setWishlistCount(wItems.length);
+          } else {
+            setWishlistCount(0);
+          }
+        } else {
+          setWishlistCount(0);
+        }
+      } catch {
+        setWishlistCount(0);
+      }
     }
 
-    loadCartCount();
-    window.addEventListener("cartUpdated-uk", loadCartCount);
-    return () => window.removeEventListener("cartUpdated-uk", loadCartCount);
+    loadCounts();
+    window.addEventListener("cartUpdated-uk", loadCounts);
+    window.addEventListener("wishlist-updated", loadCounts);
+    window.addEventListener("storage", loadCounts);
+    return () => {
+      window.removeEventListener("cartUpdated-uk", loadCounts);
+      window.removeEventListener("wishlist-updated", loadCounts);
+      window.removeEventListener("storage", loadCounts);
+    };
   }, []);
 
   const displayCartCount = typeof initialCartCount === "number" ? initialCartCount : localCartCount;
@@ -100,10 +125,10 @@ export default function UkHeader({
           <a href="/admin" aria-label="Account" className="actionIconLink" title="Admin Account">
             <UserRound size={22} />
           </a>
-          <button type="button" aria-label="Wishlist" className="actionIconBtn" title="Wishlist">
+          <a href="/uk/wishlist" aria-label="Wishlist" className="actionIconBtn" title="Wishlist">
             <Heart size={22} />
-            <span className="actionBadge">0</span>
-          </button>
+            {wishlistCount > 0 && <span className="actionBadge">{wishlistCount}</span>}
+          </a>
           <a
             href="/uk/cart"
             aria-label="Shopping Bag"

@@ -14,6 +14,7 @@ import { categoryToSlug } from "../data/store";
 import { getColorHex } from "../data/variantOptions";
 import SizeChartModal, { SizeTable } from "./SizeChartModal";
 import SiteHeader from "./SiteHeader";
+import { useWishlist } from "../lib/wishlist";
 
 function getInstagramEmbedUrl(url) {
   if (!url) return null;
@@ -141,6 +142,8 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
   const [cartReady, setCartReady] = useState(false);
   const [added, setAdded] = useState(false);
+  const { isInWishlist, toggle: toggleWishlistState } = useWishlist();
+  const isWishlisted = isInWishlist(product?.id);
   const [whatsAppOrderOpen, setWhatsAppOrderOpen] = useState(false);
   const [whatsAppOrderDetails, setWhatsAppOrderDetails] = useState({
     fullName: "",
@@ -848,8 +851,15 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                   Buy it now <ArrowRight size={16} />
                 </Link>
               )}
-              <button className="wishButton" aria-label="Add to wishlist">
-                <Heart size={16} /> <span>Wishlist</span>
+              <button
+                type="button"
+                className={`wishButton ${isWishlisted ? "isWishlisted" : ""}`}
+                aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                onClick={() => toggleWishlistState(product)}
+                style={isWishlisted ? { color: "#c8175a", borderColor: "#c8175a", background: "#fdeef3" } : undefined}
+              >
+                <Heart size={16} fill={isWishlisted ? "#c8175a" : "none"} color={isWishlisted ? "#c8175a" : "currentColor"} />
+                <span>{isWishlisted ? "In Wishlist" : "Wishlist"}</span>
               </button>
             </div>
           </div>
