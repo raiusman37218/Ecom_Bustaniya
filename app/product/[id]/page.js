@@ -27,12 +27,21 @@ function legacyArticleNumber(id) {
 }
 
 function findProduct(products, id) {
-  const legacyArticle = legacyArticleNumber(id);
-  return products.find((item) =>
-    String(item.id) === String(id) ||
-    String(item.articleNumber || "") === legacyArticle ||
-    String(item.sku || "") === legacyArticle
-  );
+  const target = String(id || "").trim().toLowerCase();
+  const legacyArticle = legacyArticleNumber(id).toLowerCase();
+  return products.find((item) => {
+    const itemId = String(item.id || "").toLowerCase();
+    const itemArticle = String(item.articleNumber || "").toLowerCase();
+    const itemSku = String(item.sku || "").toLowerCase();
+    const itemHandle = String(item.cost_breakdown?.metadata?.urlHandle || "").toLowerCase();
+    return (
+      itemId === target ||
+      (legacyArticle && (itemArticle === legacyArticle || itemSku === legacyArticle)) ||
+      (itemArticle && itemArticle === target) ||
+      (itemSku && itemSku === target) ||
+      (itemHandle && itemHandle === target)
+    );
+  });
 }
 
 export async function generateMetadata({ params }) {

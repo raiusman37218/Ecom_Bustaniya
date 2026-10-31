@@ -111,20 +111,8 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
   const bottomOptions = useMemo(() => {
     if (product?.enableBottomOptions === false) return [];
     if (Array.isArray(product?.bottomOptions)) return product.bottomOptions;
-    if (false) {
-      return product.bottomOptions;
-    }
-    const cat = String(product?.category || "").toLowerCase();
-    if (cat.includes("kurti")) {
-      return [
-        { name: "Shirt Only", priceDelta: 0 },
-        { name: "With Plazo", priceDelta: 15 },
-        { name: "With Shalwar", priceDelta: 15 },
-        { name: "With Trouser", priceDelta: 15 },
-      ];
-    }
     return [];
-  }, [product?.bottomOptions, product?.category, product?.enableBottomOptions]);
+  }, [product?.bottomOptions, product?.enableBottomOptions]);
 
   const [selectedBottom, setSelectedBottom] = useState(() => (bottomOptions.length ? bottomOptions[0].name : ""));
 

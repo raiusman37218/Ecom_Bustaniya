@@ -1,4 +1,20 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
+
+function revalidateCatalogPaths(productId) {
+  try {
+    if (productId) {
+      revalidatePath(`/product/${productId}`);
+      revalidatePath(`/uk/product/${productId}`);
+    }
+    revalidatePath("/product/[id]", "page");
+    revalidatePath("/uk/product/[id]", "page");
+    revalidatePath("/category/[slug]", "page");
+    revalidatePath("/", "page");
+    revalidatePath("/uk", "page");
+    revalidatePath("/admin", "page");
+  } catch {}
+}
 import { DEFAULT_KURTI_BOTTOM_OPTIONS, formatCategorySelection, parseCategorySelection } from "../../../../data/store";
 import { authorizeAdminRequest } from "../../../../lib/adminAuth";
 import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabaseRest";
@@ -115,7 +131,7 @@ function formatProduct(product) {
     seoDescription: String(productMetadata.seoDescription || ""),
     urlHandle: String(productMetadata.urlHandle || ""),
     enableBottomOptions: productMetadata.enableBottomOptions !== undefined ? Boolean(productMetadata.enableBottomOptions) : (Array.isArray(productMetadata.bottomOptions) ? productMetadata.bottomOptions.length > 0 : undefined),
-    bottomOptions: productMetadata.enableBottomOptions === false ? [] : Array.isArray(productMetadata.bottomOptions) ? productMetadata.bottomOptions : (categorySelection.category === "Kurtis" ? DEFAULT_KURTI_BOTTOM_OPTIONS : []),
+    bottomOptions: productMetadata.enableBottomOptions === false ? [] : Array.isArray(productMetadata.bottomOptions) ? productMetadata.bottomOptions : [],
   };
 }
 
@@ -294,7 +310,7 @@ async function updateProductDirect(body) {
   if (product.cost_total_pkr !== undefined || product.costTotalPkr !== undefined) {
     updates.cost_total_pkr = normalizeNonNegativeNumber(product.cost_total_pkr ?? product.costTotalPkr, "Product cost");
   }
-  if (product.cost_breakdown !== undefined || product.costBreakdown !== undefined || product.deliveryInfo !== undefined || product.delivery_info !== undefined || product.deliveryText !== undefined || product.bottomOptions !== undefined || product.bottom_options !== undefined) {
+  if (product.cost_breakdown !== undefined || product.costBreakdown !== undefined || product.deliveryInfo !== undefined || product.delivery_info !== undefined || product.deliveryText !== undefined || product.bottomOptions !== undefined || product.bottom_options !== undefined || product.enableBottomOptions !== undefined) {
     const incomingBreakdown = parseJsonObject(product.cost_breakdown ?? product.costBreakdown ?? {});
     const incomingMetadata = parseJsonObject(incomingBreakdown.metadata);
     updates.cost_breakdown = {
@@ -313,6 +329,7 @@ async function updateProductDirect(body) {
           : {}),
         ...(product.tags !== undefined ? { tags: Array.isArray(product.tags) ? product.tags : [] } : {}),
         ...(product.bottomOptions !== undefined || product.bottom_options !== undefined ? { bottomOptions: Array.isArray(product.bottomOptions ?? product.bottom_options) ? (product.bottomOptions ?? product.bottom_options) : [] } : {}),
+        ...(product.enableBottomOptions !== undefined ? { enableBottomOptions: Boolean(product.enableBottomOptions) } : {}),
         ...(product.colorHexMap !== undefined || product.color_hex_map !== undefined
           ? { colorHexMap: parseJsonObject(product.colorHexMap || product.color_hex_map || {}) }
           : {}),
@@ -405,7 +422,7 @@ async function adjustInventoryDirect(body) {
       stock_before: before,
       stock_after: after,
     },
-  }).catch(() => {});
+  }).catch(() => { });
 
   return { stock_before: before, stock_after: after };
 }
@@ -425,7 +442,7 @@ async function archiveProductDirect(productId) {
     body: {
       stock_quantity: 0,
     },
-  }).catch(() => {});
+  }).catch(() => { });
 
   return { deleted: false, archived: true };
 }
@@ -438,13 +455,13 @@ async function deleteProductDirect(productId) {
     await supabaseAdminRequest(`inventory_movements?product_id=eq.${encodeURIComponent(productId)}`, {
       method: "DELETE",
       prefer: "return=minimal",
-    }).catch(() => {});
+    }).catch(() => { });
 
     // 2. Delete inventory record
     await supabaseAdminRequest(`inventory?product_id=eq.${encodeURIComponent(productId)}`, {
       method: "DELETE",
       prefer: "return=minimal",
-    }).catch(() => {});
+    }).catch(() => { });
 
     // 3. Delete product from products table
     await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(productId)}`, {
@@ -467,7 +484,7 @@ async function deleteProductDirect(productId) {
         instock: false,
         cost_breakdown: updatedBreakdown,
       },
-    }).catch(() => {});
+    }).catch(() => { });
 
     return { deleted: false, archived: true };
   }
@@ -531,35 +548,36 @@ export async function PUT(request) {
           body: {
             cost_total_pkr: Number(body.product.cost_total_pkr || 0),
             cost_breakdown: await (async () => {
-            const targetId = typeof rows !== "undefined" && rows?.[0]?.id ? rows[0].id : body.productId;
-            const existingRows = await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(targetId)}&select=cost_breakdown`).catch(() => []);
-            const existingBreakdown = parseJsonObject(existingRows?.[0]?.cost_breakdown);
-            const existingMetadata = parseJsonObject(existingBreakdown.metadata);
-            const incomingBreakdown = parseJsonObject(body.product?.cost_breakdown || {});
-            const incomingMetadata = parseJsonObject(incomingBreakdown.metadata);
-            const targetBottomOptions = Array.isArray(body.product?.bottomOptions)
-              ? body.product.bottomOptions
-              : (Array.isArray(incomingMetadata.bottomOptions) ? incomingMetadata.bottomOptions : existingMetadata.bottomOptions);
-            const targetEnableBottoms = body.product?.enableBottomOptions !== undefined
-              ? Boolean(body.product.enableBottomOptions)
-              : (incomingMetadata.enableBottomOptions !== undefined ? Boolean(incomingMetadata.enableBottomOptions) : existingMetadata.enableBottomOptions);
-            return {
-              ...existingBreakdown,
-              ...incomingBreakdown,
-              metadata: {
-                ...existingMetadata,
-                ...incomingMetadata,
-                ...(targetBottomOptions !== undefined ? { bottomOptions: targetBottomOptions } : {}),
-                ...(targetEnableBottoms !== undefined ? { enableBottomOptions: targetEnableBottoms } : {}),
-              },
-            };
-          })(),
+              const targetId = typeof rows !== "undefined" && rows?.[0]?.id ? rows[0].id : body.productId;
+              const existingRows = await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(targetId)}&select=cost_breakdown`).catch(() => []);
+              const existingBreakdown = parseJsonObject(existingRows?.[0]?.cost_breakdown);
+              const existingMetadata = parseJsonObject(existingBreakdown.metadata);
+              const incomingBreakdown = parseJsonObject(body.product?.cost_breakdown || {});
+              const incomingMetadata = parseJsonObject(incomingBreakdown.metadata);
+              const targetBottomOptions = Array.isArray(body.product?.bottomOptions)
+                ? body.product.bottomOptions
+                : (Array.isArray(incomingMetadata.bottomOptions) ? incomingMetadata.bottomOptions : existingMetadata.bottomOptions);
+              const targetEnableBottoms = body.product?.enableBottomOptions !== undefined
+                ? Boolean(body.product.enableBottomOptions)
+                : (incomingMetadata.enableBottomOptions !== undefined ? Boolean(incomingMetadata.enableBottomOptions) : existingMetadata.enableBottomOptions);
+              return {
+                ...existingBreakdown,
+                ...incomingBreakdown,
+                metadata: {
+                  ...existingMetadata,
+                  ...incomingMetadata,
+                  ...(targetBottomOptions !== undefined ? { bottomOptions: targetBottomOptions } : {}),
+                  ...(targetEnableBottoms !== undefined ? { enableBottomOptions: targetEnableBottoms } : {}),
+                },
+              };
+            })(),
             ...(body.product.status !== undefined ? { instock: body.product.status === "Active" } : {}),
           },
         });
       }
     }
     invalidateCatalogCache();
+    revalidateCatalogPaths(result);
     return NextResponse.json({ success: true, result });
   } catch (error) {
     return errorResponse(error);
@@ -653,6 +671,7 @@ export async function PATCH(request) {
       });
     }
     invalidateCatalogCache();
+    revalidateCatalogPaths(body.productId);
     return NextResponse.json({ success: true, result });
   } catch (error) {
     return errorResponse(error);
@@ -676,6 +695,7 @@ export async function DELETE(request) {
       result = await deleteProductDirect(productId);
     }
     invalidateCatalogCache();
+    revalidateCatalogPaths(productId);
     return NextResponse.json({
       success: true,
       ...result,

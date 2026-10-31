@@ -1274,23 +1274,12 @@ export default function AdminDashboard() {
     const hasBottoms = hasExplicitBottoms && product.bottomOptions.length > 0 && explicitEnable !== false;
     const isExplicitlyDisabled = explicitEnable === false || (hasExplicitBottoms && product.bottomOptions.length === 0);
     const isKurti = String(product.category || "").toLowerCase().includes("kurti");
-    if (isExplicitlyDisabled) {
+    if (isExplicitlyDisabled || !hasBottoms) {
       setEnableBottomOptions(false);
       setBottomOptions([]);
-    } else if (hasBottoms) {
+    } else {
       setEnableBottomOptions(true);
       setBottomOptions(product.bottomOptions);
-    } else if (isKurti) {
-      setEnableBottomOptions(true);
-      setBottomOptions([
-        { name: "Shirt Only", priceDelta: 0 },
-        { name: "With Plazo", priceDelta: 1500 },
-        { name: "With Shalwar", priceDelta: 1500 },
-        { name: "With Trouser", priceDelta: 1500 },
-      ]);
-    } else {
-      setEnableBottomOptions(false);
-      setBottomOptions([]);
     }
     setNewBottomName("");
     setNewBottomDelta(0);
