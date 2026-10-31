@@ -115,7 +115,7 @@ function formatProduct(product) {
     seoDescription: String(productMetadata.seoDescription || ""),
     urlHandle: String(productMetadata.urlHandle || ""),
     enableBottomOptions: productMetadata.enableBottomOptions !== undefined ? Boolean(productMetadata.enableBottomOptions) : (Array.isArray(productMetadata.bottomOptions) ? productMetadata.bottomOptions.length > 0 : undefined),
-    bottomOptions: Array.isArray(productMetadata.bottomOptions) ? productMetadata.bottomOptions : (productMetadata.enableBottomOptions === false ? [] : (categorySelection.category === "Kurtis" ? DEFAULT_KURTI_BOTTOM_OPTIONS : [])),
+    bottomOptions: productMetadata.enableBottomOptions === false ? [] : Array.isArray(productMetadata.bottomOptions) ? productMetadata.bottomOptions : (categorySelection.category === "Kurtis" ? DEFAULT_KURTI_BOTTOM_OPTIONS : []),
   };
 }
 

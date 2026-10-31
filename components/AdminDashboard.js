@@ -15,7 +15,7 @@ import DashboardWorkspace from "./DashboardWorkspace";
 import PluginsWorkspace from "./PluginsWorkspace";
 import ArticlePriceCalculator from "./ArticlePriceCalculator";
 import ProductColorPicker from "./ProductColorPicker";
-import { apparelSizes, fashionColors } from "../data/variantOptions";
+import { apparelSizes, fashionColors, getColorHex } from "../data/variantOptions";
 import AdminLogin from "./AdminLogin";
 
 const STANDARD_APPAREL_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "Custom"];
