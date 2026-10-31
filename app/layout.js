@@ -10,6 +10,8 @@ import "./campaign-hero.css";
 import "./premium.css";
 import "./components.css";
 import "./storefront-2026.css";
+// Homepage "Shop by Category" band. `bs-cat` scoped, loaded last.
+import "./shop-by-category.css";
 import Script from "next/script";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 

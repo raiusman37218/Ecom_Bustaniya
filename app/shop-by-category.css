@@ -1,0 +1,455 @@
+/* =============================================================
+   BUSTANIYA — SHOP BY CATEGORY
+   =============================================================
+
+   Homepage category band rendered by components/ShopByCategory.js
+   (PK and UK storefronts).
+
+   Every selector is prefixed `bs-cat` and the markup uses none of
+   the legacy class names (.categoryShowcase, .categoryCard, ...),
+   so the older layers in globals.css / premium.css /
+   storefront-2026.css — including their !important mobile blocks —
+   cannot reach it. Loaded last in app/layout.js.
+
+   Layout: one scroll-snap rail.
+     phones   — full-bleed swipe row, next tile peeks in
+     tablets  — 2–3 tiles in view
+     desktop  — tiles fill the container; arrows only if overflow
+   ============================================================= */
+
+.bs-cat {
+  --cat-gap: clamp(12px, 1.4vw, 20px);
+  --cat-per-view: 1.38;
+  --cat-gutter: var(--bs-st-gutter, 20px);
+  --cat-ink: var(--section-text, var(--bs-st-ink, #16301d));
+  --cat-paper: var(--section-bg, var(--bs-st-paper, #f5f9ea));
+  --cat-ease: var(--bs-ease-out, cubic-bezier(.16, 1, .3, 1));
+
+  position: relative;
+  width: 100%;
+  padding: clamp(64px, 8vw, 120px) 0 0;
+  background: var(--cat-paper);
+  color: var(--cat-ink);
+  font-family: var(--bs-font-sans, system-ui, sans-serif);
+}
+.bs-cat *,
+.bs-cat *::before,
+.bs-cat *::after { box-sizing: border-box; }
+
+/* A coloured band (owner picked a non-paper background in admin)
+   needs its own breathing room on both edges. */
+.bs-cat.bs-cat--band {
+  margin-top: clamp(56px, 7vw, 104px);
+  padding-bottom: clamp(56px, 7vw, 104px);
+}
+
+.bs-cat .bs-cat__inner {
+  width: 100%;
+  max-width: var(--bs-st-container, 1400px);
+  margin-inline: auto;
+  padding-inline: var(--cat-gutter);
+}
+
+/* -------------------------------------------------------------
+   HEADER
+   ------------------------------------------------------------- */
+.bs-cat .bs-cat__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 32px;
+  margin-bottom: clamp(24px, 3vw, 44px);
+}
+.bs-cat .bs-cat__heading { min-width: 0; flex: 1 1 320px; }
+
+.bs-cat .bs-cat__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--bs-st-accent-700, #a10f44);
+}
+.bs-cat .bs-cat__eyebrow::before {
+  content: "";
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+}
+.bs-cat.bs-cat--band .bs-cat__eyebrow { color: inherit; opacity: 0.78; }
+
+.bs-cat .bs-cat__title {
+  margin: 0;
+  font-family: var(--bs-font-display, Georgia, serif);
+  font-weight: var(--bs-weight-semibold, 600);
+  font-size: clamp(34px, 4.6vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  text-transform: none;
+  color: inherit;
+}
+.bs-cat .bs-cat__subtitle {
+  margin: 14px 0 0;
+  max-width: 48ch;
+  font-size: 15px;
+  line-height: 1.6;
+  opacity: 0.72;
+}
+
+.bs-cat .bs-cat__tools {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: none;
+}
+
+.bs-cat .bs-cat__all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  transition: gap 0.35s var(--cat-ease), opacity 0.25s ease;
+}
+.bs-cat .bs-cat__all:hover { gap: 13px; }
+
+.bs-cat .bs-cat__nav { display: none; gap: 8px; }
+@media (min-width: 1024px) {
+  .bs-cat .bs-cat__nav { display: flex; }
+}
+.bs-cat .bs-cat__arrow {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, currentColor 26%, transparent);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
+}
+.bs-cat .bs-cat__arrow:hover:not(:disabled) {
+  background: var(--cat-ink);
+  border-color: var(--cat-ink);
+  color: var(--cat-paper);
+}
+.bs-cat .bs-cat__arrow:disabled { opacity: 0.3; cursor: default; }
+
+.bs-cat .bs-cat__all:focus-visible,
+.bs-cat .bs-cat__arrow:focus-visible {
+  outline: 2px solid var(--bs-st-accent, #c8175a);
+  outline-offset: 3px;
+}
+
+/* -------------------------------------------------------------
+   RAIL
+   The rail bleeds into the gutters so tiles swipe in from the
+   screen edge on phones, while the first tile still lines up with
+   the heading (scroll-padding = gutter).
+   ------------------------------------------------------------- */
+.bs-cat .bs-cat__rail {
+  list-style: none;
+  display: flex;
+  gap: var(--cat-gap);
+  margin: 0 calc(-1 * var(--cat-gutter));
+  padding: 0 var(--cat-gutter);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--cat-gutter);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.bs-cat .bs-cat__rail::-webkit-scrollbar { display: none; }
+
+.bs-cat .bs-cat__item {
+  flex: 0 0 calc((100% - (var(--cat-per-view) - 1) * var(--cat-gap)) / var(--cat-per-view));
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  scroll-snap-align: start;
+}
+
+/* Tiles in view, per breakpoint. On desktop the count is capped by
+   how many categories exist, so 3 categories fill the row instead
+   of leaving an empty slot. */
+@media (min-width: 600px) {
+  .bs-cat--atelier { --cat-per-view: 2.25; }
+}
+@media (min-width: 1024px) {
+  .bs-cat--atelier { --cat-per-view: min(var(--cat-count, 4), 4); }
+}
+
+.bs-cat--minimal { --cat-per-view: 2.2; }
+@media (min-width: 600px) {
+  .bs-cat--minimal { --cat-per-view: 3.2; }
+}
+@media (min-width: 1024px) {
+  .bs-cat--minimal { --cat-per-view: min(var(--cat-count, 4), 4); }
+}
+@media (min-width: 1280px) {
+  .bs-cat--minimal { --cat-per-view: min(var(--cat-count, 5), 5); }
+}
+
+/* -------------------------------------------------------------
+   CARD (shared)
+   ------------------------------------------------------------- */
+.bs-cat .bs-cat__card {
+  position: relative;
+  display: block;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.bs-cat .bs-cat__media {
+  position: relative;
+  display: block;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 2px;
+  background: var(--bs-st-neutral-300, #d8e6bd);
+}
+.bs-cat .bs-cat__img {
+  object-fit: cover;
+  object-position: center top;
+  transform: scale(1.001);
+  transition: transform 1.2s var(--cat-ease);
+}
+.bs-cat .bs-cat__card:focus-visible .bs-cat__media {
+  outline: 2px solid var(--bs-st-accent, #c8175a);
+  outline-offset: 3px;
+}
+.bs-cat .bs-cat__card:active .bs-cat__img { transform: scale(1.03); }
+
+.bs-cat .bs-cat__name {
+  margin: 0;
+  font-family: var(--bs-font-display, Georgia, serif);
+  font-weight: var(--bs-weight-semibold, 600);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+
+.bs-cat .bs-cat__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-transform: uppercase;
+  transition: gap 0.4s var(--cat-ease), background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* -------------------------------------------------------------
+   ATELIER — name over the image
+   ------------------------------------------------------------- */
+.bs-cat--atelier .bs-cat__shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(12, 26, 16, 0) 38%,
+    rgba(12, 26, 16, 0.28) 60%,
+    rgba(12, 26, 16, 0.82) 100%
+  );
+  transition: opacity 0.5s ease;
+}
+/* Fine inset frame that draws in on hover - a boutique-window cue. */
+.bs-cat--atelier .bs-cat__media::after {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  z-index: 2;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0);
+  transition: border-color 0.5s ease, inset 0.5s var(--cat-ease);
+}
+
+.bs-cat--atelier .bs-cat__body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: clamp(18px, 2vw, 30px);
+  color: #ffffff;
+  transition: transform 0.5s var(--cat-ease);
+}
+.bs-cat--atelier .bs-cat__index {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  opacity: 0.82;
+}
+.bs-cat--atelier .bs-cat__name {
+  font-size: clamp(26px, 2.3vw, 36px);
+  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.18);
+}
+.bs-cat--atelier .bs-cat__desc {
+  display: none;
+  max-width: 34ch;
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.88;
+}
+.bs-cat--atelier .bs-cat__cta {
+  margin-top: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+/* Fewer, wider tiles on desktop get a calmer ratio so a two-category
+   store doesn't render two 900px-tall posters. */
+@media (min-width: 1024px) {
+  .bs-cat--atelier[data-count="1"] .bs-cat__media { aspect-ratio: 21 / 9; }
+  .bs-cat--atelier[data-count="2"] .bs-cat__media { aspect-ratio: 4 / 3; }
+  .bs-cat--atelier[data-count="3"] .bs-cat__media { aspect-ratio: 4 / 5; }
+}
+
+@media (min-width: 1024px) and (hover: hover) {
+  .bs-cat--atelier .bs-cat__desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.5s var(--cat-ease), opacity 0.4s ease;
+  }
+  .bs-cat--atelier .bs-cat__card:hover .bs-cat__desc,
+  .bs-cat--atelier .bs-cat__card:focus-visible .bs-cat__desc {
+    max-height: 3.2em;
+    opacity: 0.88;
+  }
+}
+
+/* -------------------------------------------------------------
+   MINIMAL — name under the image
+   ------------------------------------------------------------- */
+.bs-cat--minimal .bs-cat__media {
+  aspect-ratio: 4 / 5;
+  border-radius: 4px;
+}
+.bs-cat--minimal .bs-cat__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+}
+.bs-cat--minimal .bs-cat__name {
+  font-size: clamp(17px, 1.6vw, 24px);
+  line-height: 1.15;
+}
+.bs-cat--minimal .bs-cat__cta {
+  flex: none;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+}
+.bs-cat--minimal .bs-cat__cta-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+@media (max-width: 599px) {
+  .bs-cat--minimal .bs-cat__body { padding-top: 10px; gap: 8px; }
+  .bs-cat--minimal .bs-cat__cta { width: 28px; height: 28px; }
+  .bs-cat--minimal .bs-cat__cta svg { width: 12px; height: 12px; }
+}
+
+/* -------------------------------------------------------------
+   HOVER (pointer devices only - no sticky hover on phones)
+   ------------------------------------------------------------- */
+@media (hover: hover) {
+  .bs-cat .bs-cat__card:hover .bs-cat__img { transform: scale(1.06); }
+
+  .bs-cat--atelier .bs-cat__card:hover .bs-cat__media::after {
+    inset: 12px;
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+  .bs-cat--atelier .bs-cat__card:hover .bs-cat__body { transform: translateY(-4px); }
+  .bs-cat--atelier .bs-cat__card:hover .bs-cat__cta { gap: 14px; border-color: #ffffff; }
+
+  .bs-cat--minimal .bs-cat__card:hover .bs-cat__cta {
+    background: var(--cat-ink);
+    border-color: var(--cat-ink);
+    color: var(--cat-paper);
+  }
+}
+
+/* -------------------------------------------------------------
+   SCROLL PROGRESS
+   ------------------------------------------------------------- */
+.bs-cat .bs-cat__progress {
+  position: relative;
+  height: 2px;
+  margin-top: clamp(20px, 2.4vw, 32px);
+  border-radius: 2px;
+  overflow: hidden;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.bs-cat .bs-cat__progress-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  transition: transform 0.12s linear, width 0.2s ease;
+}
+
+/* -------------------------------------------------------------
+   PHONE HEADER
+   ------------------------------------------------------------- */
+@media (max-width: 599px) {
+  .bs-cat .bs-cat__head { align-items: flex-end; gap: 12px 16px; }
+  .bs-cat .bs-cat__heading { flex-basis: 0; flex-grow: 1; }
+  .bs-cat .bs-cat__eyebrow { margin-bottom: 10px; font-size: 10px; letter-spacing: 0.2em; }
+  .bs-cat .bs-cat__eyebrow::before { width: 20px; }
+  .bs-cat .bs-cat__title { font-size: clamp(30px, 8.6vw, 38px); }
+  .bs-cat .bs-cat__subtitle { font-size: 14px; }
+  .bs-cat .bs-cat__all { font-size: 10.5px; letter-spacing: 0.14em; }
+  .bs-cat--atelier .bs-cat__name { font-size: 26px; }
+  .bs-cat--atelier .bs-cat__body { padding: 18px; gap: 6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bs-cat *,
+  .bs-cat *::before,
+  .bs-cat *::after { transition: none !important; }
+  .bs-cat .bs-cat__card:hover .bs-cat__img { transform: none; }
+}
+

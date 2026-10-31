@@ -6,12 +6,13 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Instagram, Menu, MessageSquare, Minus, Play, Plus, Quote, Ruler, Scissors, ShoppingBag, Sparkles, Star, UserRound, X } from "lucide-react";
 
-import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../data/store";
+import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts, slugifyCategory } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from "../lib/images";
 import { getColorHex } from "../data/variantOptions";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
+import ShopByCategory from "./ShopByCategory";
 import { trackEvent } from "../lib/trackEvent";
 
 const SizeChartModal = dynamic(() => import("./SizeChartModal"), { ssr: false });
@@ -569,6 +570,9 @@ export default function Home({
             const catBg = sectionColors.categories || "#ffffff";
             const isLightCatBg = !catBg || ["#ffffff", "#fffefb", "#fff", "#fcf8ef", "#f7f2e8"].includes(catBg.toLowerCase().trim());
             const catTextColor = isLightCatBg ? "#173d29" : (sectionTextColors.categories || "#ffffff");
+            // Only a background that differs from the page paper reads as a
+            // separate band and needs padding on both edges.
+            const isCatBand = !isLightCatBg && !["#f5f9ea", "#f8fbef"].includes(catBg.toLowerCase().trim());
 
             const cardsToRender = (Array.isArray(section.cards) && section.cards.length > 0)
               ? section.cards.filter((c) => c && c.enabled !== false).map((c, idx) => ({
@@ -580,62 +584,21 @@ export default function Home({
                 }))
               : categoryCards;
 
-            if (currentStyle === "minimal") {
-              return (
-                <section key={section.id} className="categoryShowcase categoryShowcase--minimal scrollReveal" data-scroll-reveal style={{ "--section-bg": catBg, "--section-text": catTextColor, color: catTextColor }}>
-                  <div className="categoryMinimalHeader">
-                    {sectionEyebrow && <p className="eyebrow">{sectionEyebrow}</p>}
-                    <h2 style={{ color: catTextColor }}>{sectionHeading}</h2>
-                  </div>
-                  <div className="categoryMinimalGrid" aria-label="Shop by category">
-                    {cardsToRender.map((category) => (
-                      <Link className="categoryMinimalCard" href={`/category/${category.slug}`} prefetch={true} key={category.slug}>
-                        <div className="categoryMinimalImageWrap">
-                          <Image
-                            src={optimizedImageUrl(category.image || "/bustaniya-campaign-hero-v4.png", CLOUDINARY_IMAGE_PRESETS.category)}
-                            alt={category.name}
-                            fill
-                            sizes="(max-width: 600px) 50vw, (max-width: 1000px) 25vw, 300px"
-                          />
-                          <span className="categoryCardOverlay">
-                            <span className="categoryCardBtn">Explore Collection <ArrowRight size={14} /></span>
-                          </span>
-                        </div>
-                        <h3 className="categoryMinimalTitle">
-                          <span>{category.name}</span>
-                          <ArrowRight size={14} className="categoryTitleArrow" />
-                        </h3>
-                      </Link>
-                    ))}
-                  </div>
-                </section>
-              );
-            }
-
             return (
-              <section key={section.id} className="categoryShowcase categoryShowcase--atelier scrollReveal" data-scroll-reveal style={{ "--section-bg": catBg, "--section-text": catTextColor, color: catTextColor }}>
-                <header className="categoryShowcaseIntro">
-                  <div>
-                    {sectionEyebrow && <p className="eyebrow">{sectionEyebrow}</p>}
-                    <h2 style={{ color: catTextColor }}>{sectionHeading}</h2>
-                  </div>
-                  <a className="categoryShowcaseAll" href="#products">
-                    View all pieces <ArrowRight size={15} aria-hidden="true" />
-                  </a>
-                </header>
-                <div className="categoryCards" aria-label="Shop by category">
-                  {cardsToRender.map((category, index) => (
-                    <Link className={`categoryCard card${index + 1}`} href={`/category/${category.slug}`} prefetch={true} key={category.slug} style={category.image ? { backgroundImage: `url(${optimizedImageUrl(category.image, CLOUDINARY_IMAGE_PRESETS.category)})` } : undefined}>
-                      <div className="categoryCardContent">
-                        <small>Collection {String(index + 1).padStart(2, "0")}</small>
-                        <p>{category.description || "Curated essentials, made for everyday elegance."}</p>
-                        <h3>{category.name}</h3>
-                        <b>Explore collection <ArrowRight size={15} aria-hidden="true" /></b>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </section>
+              <ShopByCategory
+                key={section.id}
+                categories={cardsToRender}
+                variant={currentStyle}
+                eyebrow={sectionEyebrow}
+                heading={sectionHeading}
+                subtitle={section.subtitle || ""}
+                viewAllHref="#products"
+                viewAllLabel="View all"
+                hrefFor={(category) => `/category/${category.slug}`}
+                background={catBg}
+                textColor={catTextColor}
+                band={isCatBand}
+              />
             );
           }
 

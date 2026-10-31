@@ -4,13 +4,14 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Instagram, Menu, MessageSquare, Minus, Play, Plus, Ruler, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, UserRound, X } from "lucide-react";
 
-import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts } from "../../data/store";
+import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts, slugifyCategory } from "../../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../lib/images";
 import { convertProductsToRegion, formatPrice, REGIONS } from "../../lib/regions";
 import UkHeader from "./UkHeader";
 import UkFooter from "./UkFooter";
 import SizeChartModal from "../SizeChartModal";
+import ShopByCategory from "../ShopByCategory";
 
 const fallbackCategoryRecords = categories
   .filter((category) => category !== "All")
@@ -447,63 +448,23 @@ export default function UkHomePageClient({
                   image: c.image || categoryCards.find((cat) => cat.slug === c.slug || cat.name === c.name)?.image || "/bustaniya-campaign-hero-v4.png",
                 }))
               : categoryCards;
-
-            if (currentStyle === "minimal") {
-              return (
-                <section key={section.id} className="categoryShowcase categoryShowcase--minimal scrollReveal" data-scroll-reveal style={{ "--section-bg": catBg, "--section-text": catTextColor, color: catTextColor }}>
-                  <div className="categoryMinimalHeader">
-                    {(section.eyebrow || defaults.eyebrow) && <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>}
-                    <h2 style={{ color: catTextColor }}>{sectionHeading}</h2>
-                  </div>
-                  <div className="categoryMinimalGrid" aria-label="Shop by category">
-                    {cardsToRender.map((category) => (
-                      <a className="categoryMinimalCard" href={`/uk/category/${category.slug}`} key={category.slug}>
-                        <div className="categoryMinimalImageWrap">
-                          <Image
-                            src={optimizedImageUrl(category.image || "/bustaniya-campaign-hero-v4.png", CLOUDINARY_IMAGE_PRESETS.category)}
-                            alt={category.name}
-                            fill
-                            sizes="(max-width: 600px) 50vw, (max-width: 1000px) 25vw, 300px"
-                          />
-                          <span className="categoryCardOverlay">
-                            <span className="categoryCardBtn">Explore Collection <ArrowRight size={14} /></span>
-                          </span>
-                        </div>
-                        <h3 className="categoryMinimalTitle">
-                          <span>{category.name}</span>
-                          <ArrowRight size={14} className="categoryTitleArrow" />
-                        </h3>
-                      </a>
-                    ))}
-                  </div>
-                </section>
-              );
-            }
+            const isCatBand = !isLightCatBg && !["#f5f9ea", "#f8fbef"].includes(catBg.toLowerCase().trim());
 
             return (
-              <section key={section.id} className="categoryShowcase categoryShowcase--atelier scrollReveal" data-scroll-reveal style={{ "--section-bg": catBg, "--section-text": catTextColor, color: catTextColor }}>
-                <header className="categoryShowcaseIntro">
-                  <div>
-                    <p className="eyebrow">{section.eyebrow || defaults.eyebrow}</p>
-                    <h2 style={{ color: catTextColor }}>{sectionHeading}</h2>
-                  </div>
-                  <a className="categoryShowcaseAll" href="#products">
-                    View all pieces <ArrowRight size={15} aria-hidden="true" />
-                  </a>
-                </header>
-                <div className="categoryCards" aria-label="Shop by category">
-                  {cardsToRender.map((category, index) => (
-                    <a className={`categoryCard card${index + 1}`} href={`/uk/category/${category.slug}`} key={category.slug} style={category.image ? { backgroundImage: `url(${optimizedImageUrl(category.image, CLOUDINARY_IMAGE_PRESETS.category)})` } : undefined}>
-                      <div className="categoryCardContent">
-                        <small>Collection {String(index + 1).padStart(2, "0")}</small>
-                        <p>{category.description || "Curated essentials, made for everyday elegance."}</p>
-                        <h3>{category.name}</h3>
-                        <b>Explore collection <ArrowRight size={15} aria-hidden="true" /></b>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              </section>
+              <ShopByCategory
+                key={section.id}
+                categories={cardsToRender}
+                variant={currentStyle}
+                eyebrow={section.eyebrow || defaults.eyebrow || ""}
+                heading={sectionHeading}
+                subtitle={section.subtitle || ""}
+                viewAllHref="#products"
+                viewAllLabel="View all"
+                hrefFor={(category) => `/uk/category/${category.slug}`}
+                background={catBg}
+                textColor={catTextColor}
+                band={isCatBand}
+              />
             );
           }
 
