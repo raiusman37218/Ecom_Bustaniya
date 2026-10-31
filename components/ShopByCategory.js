@@ -41,10 +41,10 @@ function CategoryImage({ src, sizes }) {
  */
 export default function ShopByCategory({
   categories = [],
-  eyebrow = "FRESH DROPS EVERY WEEK",
-  heading = "Shop by collection",
+  eyebrow = "",
+  heading = "Shop by Category",
   subtitle = "",
-  viewAllHref = "#products",
+  viewAllHref = "",
   viewAllLabel = "View all",
   hrefFor = (category) => `/category/${category.slug}`,
   background,
@@ -64,8 +64,8 @@ export default function ShopByCategory({
       ? "(max-width: 768px) 50vw, (max-width: 1400px) 33vw, 480px"
       : "(max-width: 600px) 50vw, (max-width: 1200px) 25vw, 350px";
 
-  const displayEyebrow = eyebrow || "FRESH DROPS EVERY WEEK";
-  const displayHeading = heading || "Shop by collection";
+  const displayEyebrow = eyebrow || "";
+  const displayHeading = heading || "Shop by Category";
 
   return (
     <section

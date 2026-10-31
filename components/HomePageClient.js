@@ -598,8 +598,8 @@ export default function Home({
 
           if (section.type === "shop_by_category") {
             const currentStyle = section.style === "minimal" ? "minimal" : (section.style === "atelier" ? "atelier" : (storeSettings.categorySectionStyle === "minimal" ? "minimal" : "atelier"));
-            const sectionHeading = (!section.heading || section.heading === "Choose your mood" || section.heading === "Shop by Category" || section.heading === "Curated Collections") ? "Shop by collection" : section.heading;
-            const sectionEyebrow = (section.eyebrow && section.eyebrow !== "CURATED COLLECTIONS" && section.eyebrow !== "EXPLORE BY CATEGORY") ? section.eyebrow : "FRESH DROPS EVERY WEEK";
+            const sectionHeading = (!section.heading || section.heading === "Choose your mood" || section.heading === "Shop by collection" || section.heading === "Curated Collections") ? "Shop by Category" : section.heading;
+            const sectionEyebrow = (section.eyebrow && section.eyebrow !== "CURATED COLLECTIONS" && section.eyebrow !== "EXPLORE BY CATEGORY" && section.eyebrow !== "FRESH DROPS EVERY WEEK") ? section.eyebrow : "";
             const catBg = sectionColors.categories || "#ffffff";
             const isLightCatBg = !catBg || ["#ffffff", "#fffefb", "#fff", "#fcf8ef", "#f7f2e8"].includes(catBg.toLowerCase().trim());
             const catTextColor = isLightCatBg ? "#173d29" : (sectionTextColors.categories || "#ffffff");
@@ -625,7 +625,7 @@ export default function Home({
                 eyebrow={sectionEyebrow}
                 heading={sectionHeading}
                 subtitle={section.subtitle || ""}
-                viewAllHref="#products"
+                viewAllHref=""
                 viewAllLabel="View all"
                 hrefFor={(category) => `/category/${category.slug}`}
                 background={catBg}
