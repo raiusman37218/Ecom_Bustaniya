@@ -2138,52 +2138,75 @@
   gap: 12px;
   align-items: baseline;
   flex-wrap: wrap;
-  font-size: 22px;
-  font-weight: var(--bs-weight-heavy);
+  margin: 0 0 16px 0;
 }
-.bs-st .detailPriceMain,
-.bs-st .detailPriceAmount,
+.bs-st .detailPriceMain {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
 .bs-st .detailPriceCurrency {
-  font-size: inherit;
-  font-weight: inherit;
-  color: var(--bs-st-ink);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--bs-st-ink, #111111);
+}
+.bs-st .detailPriceAmount {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--bs-st-ink, #111111);
 }
 .bs-st .detailComparePrice {
-  font-size: 16px;
-  font-weight: var(--bs-weight-regular);
-  color: color-mix(in srgb, var(--bs-st-ink) 55%, transparent);
+  font-size: 18px;
+  font-weight: 500;
+  color: #9ca3af;
+  text-decoration: line-through;
 }
 .bs-st .detailDiscountPill {
-  border-radius: 0;
-  background: var(--bs-st-accent-100);
-  color: var(--bs-st-accent-800);
-  font-size: 11px;
-  font-weight: var(--bs-weight-semibold);
-  letter-spacing: 0.12em;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fee2e2;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 4px 8px;
+  padding: 4px 10px;
 }
 
 .bs-st .selectorHeading,
 .bs-st .selectorLabelGroup {
-  font-size: 11px;
-  font-weight: var(--bs-weight-semibold);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--bs-st-ink, #111111);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.bs-st .selectorLabelTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--bs-st-ink, #111111);
 }
 .bs-st .selectedOptionValue,
 .bs-st .selectedOptionHint {
-  font-weight: var(--bs-weight-regular);
-  letter-spacing: 0.04em;
-  text-transform: none;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #4b5563;
+  text-transform: capitalize;
 }
 .bs-st .productOptionSection {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   background: none;
   border: 0;
   padding: 0;
+  margin-top: 18px;
 }
 
 /* Colour swatches — luxury circular swatches with active selection ring */
@@ -2332,36 +2355,71 @@
 .bs-st .sizeGuidePillBtn:hover,
 .bs-st .sizeGuideModalButton:hover { color: var(--bs-st-accent-700); }
 
-.bs-st .purchaseRowMain,
 .bs-st .purchaseControls {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 10px;
   background: none;
   border: 0;
   padding: 0;
+  margin-top: 22px;
+  width: 100%;
+}
+.bs-st .purchaseRowMain {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
 }
 .bs-st .quantityControlGroup {
   display: flex;
   align-items: center;
-  border: 2px solid var(--bs-st-ink);
-  border-radius: 0;
-  background: transparent;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  flex-shrink: 0;
 }
-.bs-st .quantityControlGroup button {
-  width: 44px;
-  height: 48px;
-  background: none;
-  border: 0;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  color: var(--bs-st-ink);
+.bs-st .quantityControlGroup .productQuantity {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  min-width: 120px !important;
+  height: 52px !important;
+  padding: 0 4px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
 }
+.bs-st .quantityControlGroup button,
+.bs-st .quantityControlGroup .productQuantity button {
+  width: 36px !important;
+  height: 36px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer !important;
+  color: var(--bs-st-ink, #111111) !important;
+  transition: background 0.15s ease !important;
+}
+.bs-st .quantityControlGroup .productQuantity button:hover:not(:disabled) {
+  background: #f3f4f6 !important;
+  color: #000000 !important;
+}
+.bs-st .quantityControlGroup .productQuantity button:disabled {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+}
+.bs-st .quantityControlGroup .quantityValue,
 .bs-st .quantityValue {
-  min-width: 28px;
-  text-align: center;
-  font-weight: var(--bs-weight-semibold);
+  min-width: 30px !important;
+  text-align: center !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: var(--bs-st-ink, #111111) !important;
 }
 
 .bs-st .addBagButton,
@@ -2370,29 +2428,66 @@
 .bs-st .whatsAppOrderSubmit {
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 10px;
   flex: 1;
   min-width: 180px;
   min-height: 52px;
+  height: 52px;
   padding: 0 20px;
-  border: 0;
-  border-radius: 0;
-  font: inherit;
-  font-size: var(--bs-st-label-size);
-  font-weight: var(--bs-weight-heavy);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  border-radius: 14px;
+  font-family: var(--bs-font-sans, "Manrope", sans-serif);
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
   cursor: pointer;
-  transition: background var(--bs-duration-base) ease, gap var(--bs-duration-base) ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.bs-st .addBagButton { background: var(--bs-st-accent); color: var(--bs-st-paper); }
-.bs-st .addBagButton:hover { background: var(--bs-st-accent-600); gap: 14px; }
+.bs-st .addBagButton {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #000000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.bs-st .addBagButton:hover:not(:disabled) {
+  background: #1f2937;
+  border-color: #1f2937;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
+.bs-st .addBagButton:disabled {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
 .bs-st .buyNowButton,
-.bs-st .checkoutButton { background: var(--bs-st-ink); color: var(--bs-st-paper); }
-.bs-st .buyNowButton:hover,
-.bs-st .checkoutButton:hover { background: var(--bs-st-accent-600); gap: 14px; }
-.bs-st .buyNowButton.disabledBuy { opacity: 0.45; cursor: not-allowed; }
+.bs-st .checkoutButton {
+  background: #ffffff;
+  color: #111111;
+  border: 1.5px solid #111111;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.bs-st .buyNowButton:hover:not(.disabledBuy),
+.bs-st .checkoutButton:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #000000;
+  color: #000000;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+.bs-st .buyNowButton.disabledBuy {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  opacity: 1;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
 
 /* Accordions — rules, not cards. */
 .bs-st .productDetailsAccordion {
@@ -3972,50 +4067,56 @@
   min-width: 0;
 }
 .bs-st .productActions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: stretch;
+  display: flex;
+  width: 100%;
 }
 .bs-st .productActions .addBagButton {
   width: 100%;
   min-width: 0;
 }
-/* Wishlist matches the CTA height so the row reads as one bar. */
-.bs-st .productActions .wishButton {
-  width: 52px;
-  height: auto;
-  min-height: 52px;
-  align-self: stretch;
-}
 
-/* 2 — Colour swatches were the only round control on the page.
-   Everything else in this design is square with a 2px rule, so
-   the circles read as a leftover from the old theme. */
-.bs-st .colorSwatchesList button {
-  width: 44px;
-  height: 44px;
-  padding: 4px;
-  border-radius: 0 !important;
-  border: 2px solid color-mix(in srgb, var(--bs-st-ink) 28%, transparent) !important;
-  background: transparent;
-  transition: border-color var(--bs-duration-base) ease;
+/* 2 — Colour swatches: matching modern squircle cards with subtle active ring */
+.bs-st .colorSwatchesList button,
+.bs-st .colorSwatchBtn {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  padding: 3px !important;
+  border-radius: 12px !important;
+  border: 2px solid rgba(0, 0, 0, 0.12) !important;
+  background: #ffffff !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
-.bs-st .colorSwatchesList button:hover {
-  border-color: color-mix(in srgb, var(--bs-st-ink) 60%, transparent) !important;
+.bs-st .colorSwatchesList button:hover,
+.bs-st .colorSwatchBtn:hover {
+  border-color: rgba(0, 0, 0, 0.35) !important;
+  transform: translateY(-1px) !important;
 }
 .bs-st .colorSwatchesList button.selected,
 .bs-st .colorSwatchesList button[aria-checked="true"],
-.bs-st .colorSwatchesList button[aria-pressed="true"] {
-  border-color: var(--bs-st-ink) !important;
+.bs-st .colorSwatchesList button[aria-pressed="true"],
+.bs-st .colorSwatchBtn.selected {
+  border-color: #111111 !important;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08) !important;
 }
 .bs-st .colorSwatchFill {
-  width: 100%;
-  height: 100%;
-  border-radius: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 8px !important;
   border: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
-.bs-st .swatchCheckMark { border-radius: 0 !important; }
+.bs-st .swatchCheckMark {
+  border-radius: 6px !important;
+  color: #ffffff !important;
+}
 
 /* 3 — The purchase column carried position:sticky, but it holds
    the whole detail stack and runs ~1900px against a 950px
@@ -4070,69 +4171,93 @@
   line-height: 1.08 !important;
   letter-spacing: -0.01em !important;
   text-transform: none !important;
+  margin: 0 0 10px 0 !important;
 }
 
 /* Row 1: quantity + add-to-bag. Row 2: buy-now + wishlist.
-   Both rows span the column, which is what makes the block look
-   deliberate rather than ragged. */
+   Cohesive squircle design matching size buttons. */
 .bs-st .purchaseRowSecondary {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
   align-items: stretch;
+  width: 100%;
 }
-/* The design keeps these two side by side right down to 375px,
-   so they only stack on genuinely tiny screens. */
-@media (max-width: 340px) {
+@media (max-width: 360px) {
   .bs-st .purchaseRowSecondary { grid-template-columns: minmax(0, 1fr); }
-}
-@media (max-width: 480px) {
-  .bs-st .purchaseRowSecondary .wishButton {
-    min-width: 0;
-    padding: 0 12px;
-    letter-spacing: 0.1em;
-  }
 }
 .bs-st .purchaseRowSecondary > * { align-self: stretch; }
 .bs-st .purchaseRowSecondary .buyNowButton {
-  display: inline-flex;
-  align-items: center;
-  width: 100%;
-  min-width: 0;
-  height: auto;
-  min-height: 52px;
-  justify-content: space-between;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  padding: 0 20px !important;
+  border: 1.5px solid #111111 !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  color: #111111 !important;
+  font-family: var(--bs-font-sans, "Manrope", sans-serif) !important;
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
-/* Wishlist is a labelled button in the design, not a bare icon. */
+.bs-st .purchaseRowSecondary .buyNowButton:hover:not(.disabledBuy) {
+  background: #f9fafb !important;
+  border-color: #000000 !important;
+  color: #000000 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08) !important;
+}
+.bs-st .purchaseRowSecondary .buyNowButton.disabledBuy {
+  background: #f3f4f6 !important;
+  border-color: #e5e7eb !important;
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
 .bs-st .purchaseRowSecondary .wishButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: auto;
-  min-width: 150px;
-  height: auto;
-  min-height: 52px;
-  padding: 0 18px;
-  border: 2px solid var(--bs-st-ink);
-  border-radius: 0;
-  background: transparent;
-  color: var(--bs-st-ink);
-  font: inherit;
-  font-size: var(--bs-st-label-size);
-  font-weight: var(--bs-weight-heavy);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  cursor: pointer;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: auto !important;
+  min-width: 130px !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  padding: 0 18px !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  color: #111111 !important;
+  font-family: var(--bs-font-sans, "Manrope", sans-serif) !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+  transition: all 0.2s ease !important;
 }
 .bs-st .purchaseRowSecondary .wishButton:hover {
-  background: var(--bs-st-ink);
-  color: var(--bs-st-paper);
+  background: #f9fafb !important;
+  border-color: rgba(0, 0, 0, 0.3) !important;
+  color: #000000 !important;
 }
 
-/* Add-to-bag keeps its icon pinned to the far edge, as in the
-   design, instead of sitting next to the label. */
-.bs-st .productActions .addBagButton { justify-content: space-between; }
+.bs-st .productActions .addBagButton {
+  justify-content: center !important;
+}
 
 /* Trust block is a 2x2 grid of icon + label under hairlines,
    not a stacked list. */
@@ -4154,9 +4279,6 @@
   color: color-mix(in srgb, var(--bs-st-ink) 85%, transparent);
 }
 .bs-st .productTrustItem svg { flex: none; opacity: 0.8; }
-
-/* Colour swatches read at the design's size. */
-.bs-st .colorSwatchesList button { width: 52px; height: 52px; }
 
 /* =============================================================
    PRODUCT PAGE — REMOVE THE NESTED CONTAINER

@@ -728,7 +728,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               <div className="productOptionSection colorSelectorSection">
                 <div className="selectorHeading">
                   <div className="selectorLabelGroup">
-                    <b>Color:</b> <span className="selectedOptionValue">{hoveredColor || color || "Select a color"}</span>
+                    <span className="selectorLabelTitle">Color:</span> <span className="selectedOptionValue">{hoveredColor || color || "Select a color"}</span>
                   </div>
                 </div>
                 <div className="colorSwatchesList" role="radiogroup" aria-label="Product colors">
@@ -774,7 +774,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               <div className="productOptionSection bottomSelectorSection">
                 <div className="selectorHeading">
                   <div className="selectorLabelGroup">
-                    <b>Style / Bottom:</b> <span className="selectedOptionValue">{selectedBottom || "Select style"}</span>
+                    <span className="selectorLabelTitle">Style / Bottom:</span> <span className="selectedOptionValue">{selectedBottom || "Select style"}</span>
                   </div>
                 </div>
                 <div className="bottomOptionsList" role="radiogroup" aria-label="Style and bottom options">
@@ -805,11 +805,11 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             <div className="productOptionSection sizeSelectorSection">
               <div className="selectorHeading sizeSelectorHeading">
                 <div className="selectorLabelGroup">
-                  <span className="sizeLabelTitle">Size</span>
+                  <span className="selectorLabelTitle sizeLabelTitle">Size</span>
                   {size ? <span className="selectedOptionValue">({size})</span> : null}
                 </div>
                 <button type="button" className="sizeGuidePillBtn" onClick={() => setSizeChartOpen(true)}>
-                  <Ruler size={13} />
+                  <Ruler size={14} />
                   <span>Size Guide</span>
                 </button>
               </div>
@@ -842,9 +842,9 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               <div className="purchaseRowMain">
                 <div className="quantityControlGroup">
                   <div className="quantity productQuantity">
-                    <button aria-label="Decrease quantity" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={13} /></button>
+                    <button aria-label="Decrease quantity" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={15} /></button>
                     <span className="quantityValue">{quantity}</span>
-                    <button aria-label="Increase quantity" disabled={outOfStock || isVariantOutOfStock || quantity >= availableStock} onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}><Plus size={13} /></button>
+                    <button aria-label="Increase quantity" disabled={outOfStock || isVariantOutOfStock || quantity >= availableStock} onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}><Plus size={15} /></button>
                   </div>
                 </div>
 
