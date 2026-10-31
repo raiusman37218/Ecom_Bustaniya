@@ -435,7 +435,7 @@ export default function CheckoutPage() {
           customer,
           paymentMethod,
           checkoutAttemptId,
-          items: cart.map(({ id, articleNumber, article_number, sku, name, quantity, size, color }) => ({
+          items: cart.map(({ id, articleNumber, article_number, sku, name, quantity, size, color, bottom }) => ({
             id,
             articleNumber,
             article_number,
@@ -444,6 +444,7 @@ export default function CheckoutPage() {
             quantity,
             size,
             color,
+            bottom: bottom || null,
           })),
         }),
       });
@@ -1007,7 +1008,7 @@ export default function CheckoutPage() {
           <div className="shopifyCheckoutSummaryInner">
             <div className="shopifySummaryItemsList">
               {cart.map((item) => (
-                <div className="shopifySummaryItem" key={`${item.id}-${item.size || "cart"}`}>
+                <div className="shopifySummaryItem" key={`${item.id}-${item.size || "cart"}-${item.color || ""}-${item.bottom || ""}`}>
                   <div className="shopifySummaryThumbWrapper">
                     <img
                       src={item.image || "/bustaniya-logo-v2.png"}
@@ -1019,7 +1020,7 @@ export default function CheckoutPage() {
                   <div className="shopifySummaryItemDetails">
                     <h3 className="shopifySummaryItemTitle">{item.name}</h3>
                     <p className="shopifySummaryItemVariant">
-                      {[item.size && `${item.size}`, item.color].filter(Boolean).join(" / ")}
+                      {[item.size && `${item.size}`, item.color, item.bottom].filter(Boolean).join(" / ")}
                     </p>
                   </div>
                   <div className="shopifySummaryItemPrice">
@@ -1091,7 +1092,7 @@ function OrderConfirmation({ order, items }) {
     .map(
       (item) =>
         `• ${item.name}${item.size ? ` (Size: ${item.size})` : ""}${
-          item.color ? ` (Color: ${item.color})` : ""
+          item.color ? ` (Color: ${item.color})` : ""}${item.bottom ? ` (Style: ${item.bottom})` : ""}
         } x${item.quantity || 1}`
     )
     .join("\n");
@@ -1377,6 +1378,7 @@ function OrderConfirmation({ order, items }) {
                         <div className="orderItemMeta">
                           {item.size && <span className="orderItemMetaPill">Size: {item.size}</span>}
                           {item.color && <span className="orderItemMetaPill">{item.color}</span>}
+                          {item.bottom && <span className="orderItemMetaPill">Style: {item.bottom}</span>}
                         </div>
                       </div>
                       <span className="orderItemPrice">Rs. {lineTotal.toLocaleString()}</span>

@@ -132,6 +132,31 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const sizes = useMemo(() => Array.isArray(product.sizes) && product.sizes.length ? product.sizes : ["XS", "S", "M", "L", "XL"], [product.sizes]);
   const variants = useMemo(() => Array.isArray(product.variants) ? product.variants : [], [product.variants]);
   const colorImages = useMemo(() => (typeof product.colorImages === "object" && product.colorImages ? product.colorImages : {}), [product.colorImages]);
+  const bottomOptions = useMemo(() => {
+    if (Array.isArray(product.bottomOptions) && product.bottomOptions.length > 0) {
+      return product.bottomOptions;
+    }
+    const cat = String(product.category || "").toLowerCase();
+    if (cat.includes("kurti")) {
+      return [
+        { name: "Shirt Only", priceDelta: 0 },
+        { name: "With Plazo", priceDelta: 1500 },
+        { name: "With Shalwar", priceDelta: 1500 },
+        { name: "With Trouser", priceDelta: 1500 },
+      ];
+    }
+    return [];
+  }, [product.bottomOptions, product.category]);
+
+  const [selectedBottom, setSelectedBottom] = useState(() => (bottomOptions.length ? bottomOptions[0].name : ""));
+
+  useEffect(() => {
+    if (bottomOptions.length && (!selectedBottom || !bottomOptions.some((o) => o.name === selectedBottom))) {
+      setSelectedBottom(bottomOptions[0].name);
+    } else if (!bottomOptions.length && selectedBottom) {
+      setSelectedBottom("");
+    }
+  }, [bottomOptions, selectedBottom]);
 
   const [color, setColor] = useState(() => colors[0] || "");
   const [hoveredColor, setHoveredColor] = useState(null);
@@ -201,8 +226,12 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const categoryHref = `/category/${categoryToSlug(product.category || "")}`;
 
   const compareAtPrice = Number(product.compareAtPrice || product.compare_at_price || 0);
-  const discountPercent = compareAtPrice > Number(product.price || 0) && Number(product.price || 0) > 0
-    ? Math.round(((compareAtPrice - Number(product.price)) / compareAtPrice) * 100)
+  const activeBottomOption = useMemo(() => bottomOptions.find((o) => o.name === selectedBottom) || null, [bottomOptions, selectedBottom]);
+  const bottomPriceDelta = activeBottomOption?.priceDelta || 0;
+  const activePrice = Number(product.price || 0) + bottomPriceDelta;
+  const activeCompareAtPrice = compareAtPrice > 0 ? compareAtPrice + bottomPriceDelta : 0;
+  const discountPercent = activeCompareAtPrice > activePrice && activePrice > 0
+    ? Math.round(((activeCompareAtPrice - activePrice) / activeCompareAtPrice) * 100)
     : 0;
   const detailDescription = productDescription(product);
   const productDetails = getProductDetailsText(product, detailDescription);
@@ -210,7 +239,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
   const deliverySettings = storeSettings?.deliverySettings || DEFAULT_STORE_SETTINGS.deliverySettings || {};
   const estimatedDays = deliverySettings.estimatedDays || "8-9 delivery days";
   const freeThreshold = Number(deliverySettings.freeDeliveryThreshold || 5000);
-  const isFreeDelivery = Number(product.price || 0) >= freeThreshold;
+  const isFreeDelivery = activePrice >= freeThreshold;
   const deliveryFeeSummary = isFreeDelivery
     ? "Free Delivery"
     : (deliverySettings.deliveryFeeText || "Rs. 200 nationwide delivery");
@@ -237,13 +266,14 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
   const selectedOptionsText = [
     color ? `Color: ${color}` : "",
+    selectedBottom ? `Style: ${selectedBottom}` : "",
     size ? `Size: ${size}` : "",
   ].filter(Boolean).join(", ");
 
   const articleNumber = String(product.article_number || product.articleNumber || product.sku || product.id || "—").trim();
 
 
-  const whatsappMessage = `Hi Bustaniya! 🌸 I am interested in "${product.name}" (Rs. ${Number(product.price || 0).toLocaleString()})${selectedOptionsText ? ` [${selectedOptionsText}]` : ""}.\n\nProduct Link: ${productUrl}`;
+  const whatsappMessage = `Hi Bustaniya! 🌸 I am interested in "${product.name}" (Rs. ${Number(activePrice || 0).toLocaleString()})${selectedOptionsText ? ` [${selectedOptionsText}]` : ""}.\n\nProduct Link: ${productUrl}`;
 
   const whatsappHref = whatsappNumber
     ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`
@@ -254,7 +284,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     "",
     `Product: ${product.name}`,
     `Article no.: ${articleNumber}`,
-    `Price: Rs. ${Number(product.price || 0).toLocaleString()}`,
+    `Price: Rs. ${Number(activePrice || 0).toLocaleString()}`,
     `Quantity: ${quantity}`,
     selectedOptionsText ? `Selected options: ${selectedOptionsText}` : "",
     "",
@@ -427,7 +457,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
     if (outOfStock || isVariantOutOfStock) return;
     trackEvent("AddToCart", {
       customData: {
-        value: Number(product.price || 0) * quantity,
+        value: activePrice * quantity,
         contentName: product.name,
         contentIds: [String(product.article_number || product.articleNumber || product.id || "")],
         contents: [{ id: String(product.article_number || product.articleNumber || product.id || ""), quantity }],
@@ -435,20 +465,20 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
       },
     });
     setCart((current) => {
-      const existing = current.find((item) => item.id === product.id && item.size === size && (item.color || "") === (color || ""));
+      const existing = current.find((item) => item.id === product.id && item.size === size && (item.color || "") === (color || "") && (item.bottom || "") === (selectedBottom || ""));
       if (existing) {
-        return current.map((item) => item.id === product.id && item.size === size && (item.color || "") === (color || "") ? { ...item, quantity: Math.min(availableStock, item.quantity + quantity) } : item);
+        return current.map((item) => item.id === product.id && item.size === size && (item.color || "") === (color || "") && (item.bottom || "") === (selectedBottom || "") ? { ...item, quantity: Math.min(availableStock, item.quantity + quantity) } : item);
       }
-      return [...current, { ...product, size, color, quantity: Math.min(quantity, availableStock) }];
+      return [...current, { ...product, price: activePrice, compareAtPrice: activeCompareAtPrice, size, color, bottom: selectedBottom, quantity: Math.min(quantity, availableStock) }];
     });
     setAdded(true);
     if (openDrawer) setCartOpen(true);
     setTimeout(() => setAdded(false), 2200);
   }
 
-  function updateQuantity(id, itemSize, itemColor, change) {
+  function updateQuantity(id, itemSize, itemColor, itemBottom, change) {
     setCart((current) => current
-      .map((item) => item.id === id && item.size === itemSize && (item.color || "") === (itemColor || "") ? { ...item, quantity: Math.max(0, item.quantity + change) } : item)
+      .map((item) => item.id === id && item.size === itemSize && (item.color || "") === (itemColor || "") && (item.bottom || "") === (itemBottom || "") ? { ...item, quantity: Math.max(0, item.quantity + change) } : item)
       .filter((item) => item.quantity > 0));
   }
 
@@ -711,11 +741,11 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           <div className="detailPriceRow">
             <div className="detailPriceMain">
               <span className="detailPriceCurrency">Rs.</span>
-              <span className="detailPriceAmount">{product.price.toLocaleString()}</span>
+              <span className="detailPriceAmount">{activePrice.toLocaleString()}</span>
             </div>
             {discountPercent > 0 && (
               <div className="detailDiscountGroup">
-                <del className="detailComparePrice">Rs. {compareAtPrice.toLocaleString()}</del>
+                <del className="detailComparePrice">Rs. {activeCompareAtPrice.toLocaleString()}</del>
                 <span className="detailDiscountPill">{discountPercent}% OFF</span>
               </div>
             )}
@@ -767,6 +797,39 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                         {isSelected && <Check size={14} className="swatchCheckMark" />}
                         {!inStock && <span className="swatchSlash" />}
                       </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* WearAroha Style / Bottom Pairing Selector */}
+          {!!bottomOptions.length && (
+            <div className="productOptionSection bottomSelectorSection">
+              <div className="selectorHeading">
+                <div className="selectorLabelGroup">
+                  <b>Style / Bottom:</b> <span className="selectedOptionValue">{selectedBottom || "Select style"}</span>
+                </div>
+              </div>
+              <div className="bottomOptionsList" role="radiogroup" aria-label="Style and bottom options">
+                {bottomOptions.map((opt) => {
+                  const isSelected = selectedBottom === opt.name;
+                  return (
+                    <button
+                      key={opt.name}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      className={`bottomOptionBtn ${isSelected ? "selected" : ""}`}
+                      onClick={() => setSelectedBottom(opt.name)}
+                    >
+                      <span className="bottomOptionName">{opt.name}</span>
+                      {opt.priceDelta > 0 ? (
+                        <span className="bottomOptionDelta">+Rs. {Number(opt.priceDelta).toLocaleString()}</span>
+                      ) : (
+                        <span className="bottomOptionBase">Shirt only</span>
+                      )}
                     </button>
                   );
                 })}
@@ -1109,7 +1172,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             </div>
             <div className="mobileStickyBuyBar__info">
               <span className="mobileStickyBuyBar__title">{product.name}</span>
-              <span className="mobileStickyBuyBar__price">Rs. {Number(product.price || 0).toLocaleString()}</span>
+              <span className="mobileStickyBuyBar__price">Rs. {Number(activePrice || 0).toLocaleString()}</span>
             </div>
           </div>
           <button
@@ -1145,13 +1208,14 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
           const itemTotalSaving = unitSaving * item.quantity;
 
           return (
-            <div className="cartItem" key={`${item.id}-${item.size || "default"}-${item.color || "default"}`}>
+            <div className="cartItem" key={`${item.id}-${item.size || "default"}-${item.color || "default"}-${item.bottom || "default"}`}>
               <div style={{ backgroundImage: `url(${optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
               <section>
                 <h3>{item.name}</h3>
                 <div className="cartItemMeta">
                   {item.size && <small>Size: {item.size}</small>}
                   {item.color && <small className="cartItemColor">Color: {item.color}</small>}
+                  {item.bottom && <small className="cartItemBottom">Style: {item.bottom}</small>}
                 </div>
                 <div className="cartItemPriceLine">
                   <p className="cartItemPrice">Rs. {(item.price * item.quantity).toLocaleString()}</p>
@@ -1165,9 +1229,9 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                   </span>
                 )}
                 <span className="quantity">
-                  <button onClick={() => updateQuantity(item.id, item.size, item.color, -1)}><Minus size={14} /></button>
+                  <button onClick={() => updateQuantity(item.id, item.size, item.color, item.bottom, -1)}><Minus size={14} /></button>
                   {item.quantity}
-                  <button onClick={() => updateQuantity(item.id, item.size, item.color, 1)}><Plus size={14} /></button>
+                  <button onClick={() => updateQuantity(item.id, item.size, item.color, item.bottom, 1)}><Plus size={14} /></button>
                 </span>
               </section>
             </div>

@@ -67,6 +67,7 @@ async function ensureOrderItems(orderId, items) {
       line_total_pkr: unitPrice * quantity,
       size: item.size || null,
       color: item.color || null,
+      bottom: item.bottom || null,
       image_url: item.image || null,
     };
   });
@@ -236,6 +237,7 @@ async function createCheckoutOrderDirect({ customer, items, paymentAmounts, paym
       price: Number(item.price || 0),
       size: item.size || null,
       color: item.color || null,
+      bottom: item.bottom || null,
     })),
     notes: customer.notes?.trim() || null,
     internal_notes: customer.notes?.trim() || null,
@@ -298,6 +300,7 @@ function checkoutFingerprint({ phone, city, paymentMethod, items }) {
       item.quantity,
       item.size || "",
       item.color || "",
+      item.bottom || "",
     ].join(":"))
     .sort()
     .join("|");
@@ -406,6 +409,18 @@ export async function POST(request) {
         articleNumber: product.articleNumber || `BST-${String(product.id).padStart(4, "0")}`,
         size: requested.size || null,
         color: requested.color || null,
+        bottom: requested.bottom ? String(requested.bottom).trim() : null,
+        price: (() => {
+          const reqBottom = String(requested.bottom || "").trim();
+          if (reqBottom && Array.isArray(product.bottomOptions)) {
+            const matched = product.bottomOptions.find(
+              (opt) => opt.name && opt.name.toLowerCase() === reqBottom.toLowerCase()
+            );
+            if (matched) return Number(product.price || 0) + Number(matched.priceDelta || 0);
+          }
+          return Number(product.price || 0);
+        })(),
+        name: requested.bottom ? `${product.name} (${requested.bottom})` : product.name,
       };
     });
 

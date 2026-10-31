@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { formatCategorySelection, parseCategorySelection } from "../../../../data/store";
+import { DEFAULT_KURTI_BOTTOM_OPTIONS, formatCategorySelection, parseCategorySelection } from "../../../../data/store";
 import { authorizeAdminRequest } from "../../../../lib/adminAuth";
 import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabaseRest";
 import { invalidateCatalogCache } from "../../../../lib/catalog";
@@ -114,6 +114,7 @@ function formatProduct(product) {
     seoTitle: String(productMetadata.seoTitle || ""),
     seoDescription: String(productMetadata.seoDescription || ""),
     urlHandle: String(productMetadata.urlHandle || ""),
+    bottomOptions: Array.isArray(productMetadata.bottomOptions) ? productMetadata.bottomOptions : (categorySelection.category === "Kurtis" ? DEFAULT_KURTI_BOTTOM_OPTIONS : []),
   };
 }
 
@@ -195,6 +196,7 @@ function normalizeProductPayload(product) {
         tags: Array.isArray(product.tags) ? product.tags : metadata.tags || [],
         publishDate: String(product.publishDate || product.publish_date || metadata.publishDate || "").trim(),
         colorHexMap: parseJsonObject(product.colorHexMap || product.color_hex_map || metadata.colorHexMap || {}),
+        bottomOptions: Array.isArray(product.bottomOptions) ? product.bottomOptions : (Array.isArray(metadata.bottomOptions) ? metadata.bottomOptions : []),
       },
     },
   };
@@ -291,7 +293,7 @@ async function updateProductDirect(body) {
   if (product.cost_total_pkr !== undefined || product.costTotalPkr !== undefined) {
     updates.cost_total_pkr = normalizeNonNegativeNumber(product.cost_total_pkr ?? product.costTotalPkr, "Product cost");
   }
-  if (product.cost_breakdown !== undefined || product.costBreakdown !== undefined || product.deliveryInfo !== undefined || product.delivery_info !== undefined || product.deliveryText !== undefined) {
+  if (product.cost_breakdown !== undefined || product.costBreakdown !== undefined || product.deliveryInfo !== undefined || product.delivery_info !== undefined || product.deliveryText !== undefined || product.bottomOptions !== undefined || product.bottom_options !== undefined) {
     const incomingBreakdown = parseJsonObject(product.cost_breakdown ?? product.costBreakdown ?? {});
     const incomingMetadata = parseJsonObject(incomingBreakdown.metadata);
     updates.cost_breakdown = {
@@ -309,6 +311,7 @@ async function updateProductDirect(body) {
           ? { productType: String(product.productType || product.product_type || "").trim() }
           : {}),
         ...(product.tags !== undefined ? { tags: Array.isArray(product.tags) ? product.tags : [] } : {}),
+        ...(product.bottomOptions !== undefined || product.bottom_options !== undefined ? { bottomOptions: Array.isArray(product.bottomOptions ?? product.bottom_options) ? (product.bottomOptions ?? product.bottom_options) : [] } : {}),
         ...(product.colorHexMap !== undefined || product.color_hex_map !== undefined
           ? { colorHexMap: parseJsonObject(product.colorHexMap || product.color_hex_map || {}) }
           : {}),

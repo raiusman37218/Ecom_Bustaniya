@@ -58,10 +58,10 @@ export default function CartPage() {
   const freeDeliveryRemaining = Math.max(0, freeThreshold - subtotal);
   const freeDeliveryProgress = Math.min(100, Math.round((subtotal / freeThreshold) * 100));
 
-  function updateQuantity(id, itemSize, itemColor, change) {
+  function updateQuantity(id, itemSize, itemColor, itemBottom, change) {
     setCart((current) => current
       .map((item) => {
-        if (item.id === id && item.size === itemSize && (item.color || "") === (itemColor || "")) {
+        if (item.id === id && item.size === itemSize && (item.color || "") === (itemColor || "") && (item.bottom || "") === (itemBottom || "")) {
           return { ...item, quantity: Math.max(0, (item.quantity || 1) + change) };
         }
         return item;
@@ -69,8 +69,8 @@ export default function CartPage() {
       .filter((item) => item.quantity > 0));
   }
 
-  function removeItem(id, itemSize, itemColor) {
-    setCart((current) => current.filter((item) => !(item.id === id && item.size === itemSize && (item.color || "") === (itemColor || ""))));
+  function removeItem(id, itemSize, itemColor, itemBottom) {
+    setCart((current) => current.filter((item) => !(item.id === id && item.size === itemSize && (item.color || "") === (itemColor || "") && (item.bottom || "") === (itemBottom || ""))));
   }
 
   return (
@@ -133,7 +133,7 @@ export default function CartPage() {
                   const itemTotalSaving = unitSaving * (item.quantity || 1);
 
                   return (
-                    <div className="cartPageItemCard" key={`${item.id}-${item.size || "default"}-${item.color || "default"}`}>
+                    <div className="cartPageItemCard" key={`${item.id}-${item.size || "default"}-${item.color || "default"}-${item.bottom || "default"}`}>
                       <Link href={`/product/${item.id}`} className="cartPageItemThumb">
                         <img
                           src={optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)}
@@ -152,7 +152,7 @@ export default function CartPage() {
                           <button
                             type="button"
                             className="cartPageItemRemoveBtn"
-                            onClick={() => removeItem(item.id, item.size, item.color)}
+                            onClick={() => removeItem(item.id, item.size, item.color, item.bottom)}
                             aria-label={`Remove ${item.name}`}
                           >
                             <Trash2 size={16} />
@@ -162,6 +162,7 @@ export default function CartPage() {
                         <div className="cartItemMeta">
                           {item.size && <small>Size: {item.size}</small>}
                           {item.color && <small className="cartItemColor">Color: {item.color}</small>}
+                          {item.bottom && <small className="cartItemBottom">Style: {item.bottom}</small>}
                         </div>
 
                         <div className="cartPageItemBottom">
@@ -186,7 +187,7 @@ export default function CartPage() {
                           <div className="cartPageQuantityStepper">
                             <button
                               type="button"
-                              onClick={() => updateQuantity(item.id, item.size, item.color, -1)}
+                              onClick={() => updateQuantity(item.id, item.size, item.color, item.bottom, -1)}
                               aria-label="Decrease quantity"
                             >
                               <Minus size={14} />
@@ -194,7 +195,7 @@ export default function CartPage() {
                             <span>{item.quantity || 1}</span>
                             <button
                               type="button"
-                              onClick={() => updateQuantity(item.id, item.size, item.color, 1)}
+                              onClick={() => updateQuantity(item.id, item.size, item.color, item.bottom, 1)}
                               aria-label="Increase quantity"
                             >
                               <Plus size={14} />

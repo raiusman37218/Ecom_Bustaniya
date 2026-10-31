@@ -1247,13 +1247,14 @@ export default function Home({
             const itemTotalSaving = unitSaving * item.quantity;
 
             return (
-              <div className="cartItem" key={item.id}>
+              <div className="cartItem" key={`${item.id}-${item.size || "default"}-${item.color || "default"}-${item.bottom || "default"}`}>
                 <div style={{ backgroundImage: `url(${optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
                 <section>
                   <h3>{item.name}</h3>
                   <div className="cartItemMeta">
                     {item.size && <small>Size: {item.size}</small>}
                     {item.color && <small className="cartItemColor">Color: {item.color}</small>}
+                    {item.bottom && <small className="cartItemBottom">Style: {item.bottom}</small>}
                   </div>
                   <div className="cartItemPriceLine">
                     <p className="cartItemPrice">Rs. {(item.price * item.quantity).toLocaleString()}</p>

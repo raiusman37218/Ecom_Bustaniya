@@ -108,6 +108,36 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [size, setSize] = useState(product?.sizes?.[0] || "S");
   const [color, setColor] = useState(product?.colors?.[0] || "");
+  const bottomOptions = useMemo(() => {
+    if (Array.isArray(product?.bottomOptions) && product.bottomOptions.length > 0) {
+      return product.bottomOptions;
+    }
+    const cat = String(product?.category || "").toLowerCase();
+    if (cat.includes("kurti")) {
+      return [
+        { name: "Shirt Only", priceDelta: 0 },
+        { name: "With Plazo", priceDelta: 15 },
+        { name: "With Shalwar", priceDelta: 15 },
+        { name: "With Trouser", priceDelta: 15 },
+      ];
+    }
+    return [];
+  }, [product?.bottomOptions, product?.category]);
+
+  const [selectedBottom, setSelectedBottom] = useState(() => (bottomOptions.length ? bottomOptions[0].name : ""));
+
+  useEffect(() => {
+    if (bottomOptions.length && (!selectedBottom || !bottomOptions.some((o) => o.name === selectedBottom))) {
+      setSelectedBottom(bottomOptions[0].name);
+    } else if (!bottomOptions.length && selectedBottom) {
+      setSelectedBottom("");
+    }
+  }, [bottomOptions, selectedBottom]);
+
+  const activeBottomOption = useMemo(() => bottomOptions.find((o) => o.name === selectedBottom) || null, [bottomOptions, selectedBottom]);
+  const bottomPriceDelta = Number(activeBottomOption?.priceDelta || 0);
+  const activePrice = Number(product?.price || 0) + bottomPriceDelta;
+  const activeCompareAtPrice = Number(product?.compareAtPrice || 0) > 0 ? Number(product.compareAtPrice) + bottomPriceDelta : 0;
   const [quantity, setQuantity] = useState(1);
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -162,13 +192,14 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
 
   const selectedOptionsText = [
     color ? `Color: ${color}` : "",
+    selectedBottom ? `Style: ${selectedBottom}` : "",
     size ? `Size: ${size}` : "",
   ].filter(Boolean).join(", ");
 
   const articleNumber = String(product?.article_number || product?.articleNumber || product?.sku || product?.id || "—").trim();
 
   const whatsappNumber = REGIONS.uk.contact.whatsapp;
-  const whatsappMessage = `Hi Bustaniya UK! 🌸 I am interested in "${product?.name}" (${formatPrice(product?.price, "uk")})${selectedOptionsText ? ` [${selectedOptionsText}]` : ""}.\n\nProduct Link: ${productUrl}`;
+  const whatsappMessage = `Hi Bustaniya UK! 🌸 I am interested in "${product?.name}" (${formatPrice(activePrice, "uk")})${selectedOptionsText ? ` [${selectedOptionsText}]` : ""}.\n\nProduct Link: ${productUrl}`;
   const whatsappHref = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
 
   function addToCart(qty = quantity) {
@@ -176,23 +207,24 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
     const cartItem = {
       id: product.id,
       name: product.name,
-      price: Number(product.price || 0),
-      compareAtPrice: Number(product.compareAtPrice || product.compare_at_price || 0),
+      price: activePrice,
+      compareAtPrice: activeCompareAtPrice,
       image: images[0],
       category: product.category,
       articleNumber: articleNumber,
       sku: product.sku || articleNumber,
       size: size || "S",
       color: color || "",
+      bottom: selectedBottom || "",
       quantity: Math.max(1, qty),
       currency: "GBP",
     };
 
     setCart((current) => {
-      const existing = current.find((item) => item.id === product.id && item.size === cartItem.size && item.color === cartItem.color);
+      const existing = current.find((item) => item.id === product.id && item.size === cartItem.size && item.color === cartItem.color && (item.bottom || "") === (cartItem.bottom || ""));
       if (existing) {
         return current.map((item) =>
-          item.id === product.id && item.size === cartItem.size && item.color === cartItem.color
+          item.id === product.id && item.size === cartItem.size && item.color === cartItem.color && (item.bottom || "") === (cartItem.bottom || "")
             ? { ...item, quantity: item.quantity + cartItem.quantity }
             : item
         );
@@ -207,9 +239,9 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
     setCart((current) => current.map((item) => (item.id === id ? { ...item, quantity: item.quantity + change } : item)).filter((item) => item.quantity > 0));
   }
 
-  const saleDiff = Number(product?.compareAtPrice || 0) > Number(product?.price || 0) ? Number(product.compareAtPrice) - Number(product.price) : 0;
-  const salePercentValue = Number(product?.compareAtPrice || 0) > Number(product?.price || 0) && Number(product.compareAtPrice) > 0
-    ? Math.round((saleDiff / Number(product.compareAtPrice)) * 100)
+  const saleDiff = activeCompareAtPrice > activePrice ? activeCompareAtPrice - activePrice : 0;
+  const salePercentValue = activeCompareAtPrice > activePrice && activePrice > 0
+    ? Math.round((saleDiff / activeCompareAtPrice) * 100)
     : 0;
 
   return (
@@ -270,10 +302,10 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
             </div>
 
             <div className="detailPriceRow">
-              <span className="detailCurrentPrice">{formatPrice(product.price, "uk")}</span>
+              <span className="detailCurrentPrice">{formatPrice(activePrice, "uk")}</span>
               {saleDiff > 0 && (
                 <>
-                  <del className="detailComparePrice">{formatPrice(product.compareAtPrice, "uk")}</del>
+                  <del className="detailComparePrice">{formatPrice(activeCompareAtPrice, "uk")}</del>
                   <span className="detailSavingsPill">Save {formatPrice(saleDiff, "uk")}</span>
                 </>
               )}
@@ -298,6 +330,44 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
                       >
                         <span className="colorDot" style={{ backgroundColor: hex }} />
                         <span className="colorName">{col}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Style / Bottom Options (WearAroha Style) */}
+            {!!bottomOptions.length && (
+              <div className="optionBlock">
+                <label className="optionLabel">
+                  Style / Bottom: <b>{selectedBottom || "Select style"}</b>
+                </label>
+                <div className="bottomSelectorGrid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "8px" }}>
+                  {bottomOptions.map((opt) => {
+                    const isSelected = selectedBottom === opt.name;
+                    return (
+                      <button
+                        key={opt.name}
+                        type="button"
+                        className={`bottomOptionBtn ${isSelected ? "selected" : ""}`}
+                        onClick={() => setSelectedBottom(opt.name)}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "flex-start",
+                          padding: "8px 12px",
+                          borderRadius: "8px",
+                          border: isSelected ? "2px solid #111" : "1px solid #e5e7eb",
+                          background: isSelected ? "#f9fafb" : "#fff",
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        <span style={{ fontSize: "13px", fontWeight: isSelected ? 600 : 500, color: "#111" }}>{opt.name}</span>
+                        <span style={{ fontSize: "11px", color: isSelected ? "#059669" : "#6b7280", marginTop: "2px" }}>
+                          {opt.priceDelta > 0 ? `+${formatPrice(opt.priceDelta, "uk")}` : "Shirt only"}
+                        </span>
                       </button>
                     );
                   })}
@@ -354,7 +424,7 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
                   style={{ flex: 1 }}
                 >
                   <ShoppingBag size={18} />
-                  {outOfStock ? "Out of Stock" : `Add to Bag · ${formatPrice(product.price * quantity, "uk")}`}
+                  {outOfStock ? "Out of Stock" : `Add to Bag · ${formatPrice(activePrice * quantity, "uk")}`}
                 </button>
 
                 <button
@@ -479,13 +549,14 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
               const itemTotalSaving = unitSaving * item.quantity;
 
               return (
-                <div className="cartItem" key={item.id}>
+                <div className="cartItem" key={`${item.id}-${item.size || "default"}-${item.color || "default"}-${item.bottom || "default"}`}>
                   <div style={{ backgroundImage: `url(${optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
                   <section>
                     <h3>{item.name}</h3>
                     <div className="cartItemMeta">
                       {item.size && <small>Size: {item.size}</small>}
                       {item.color && <small className="cartItemColor">Color: {item.color}</small>}
+                      {item.bottom && <small className="cartItemBottom">Style: {item.bottom}</small>}
                     </div>
                     <div className="cartItemPriceLine">
                       <p className="cartItemPrice">{formatPrice(item.price * item.quantity, "uk")}</p>
