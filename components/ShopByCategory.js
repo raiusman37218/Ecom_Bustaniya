@@ -53,8 +53,16 @@ export default function ShopByCategory({
 }) {
   const headingId = useId();
   const items = (categories || []).filter((category) => category && category.slug && category.name);
+  const count = items.length;
 
-  if (!items.length) return null;
+  if (!count) return null;
+
+  const cardSizes =
+    count <= 2
+      ? "(max-width: 768px) 50vw, (max-width: 1400px) 50vw, 720px"
+      : count === 3
+      ? "(max-width: 768px) 50vw, (max-width: 1400px) 33vw, 480px"
+      : "(max-width: 600px) 50vw, (max-width: 1200px) 25vw, 350px";
 
   const displayEyebrow = eyebrow || "FRESH DROPS EVERY WEEK";
   const displayHeading = heading || "Shop by collection";
@@ -85,7 +93,12 @@ export default function ShopByCategory({
           )}
         </header>
 
-        <div className="bs-cat__grid" aria-label={displayHeading}>
+        <div
+          className={`bs-cat__grid bs-cat__grid--count-${count}`}
+          data-count={count}
+          style={{ "--cat-count": count }}
+          aria-label={displayHeading}
+        >
           {items.map((category) => (
             <Link
               className="bs-cat__card"
@@ -96,13 +109,13 @@ export default function ShopByCategory({
               <div className="bs-cat__media">
                 <CategoryImage
                   src={category.image}
-                  sizes="(max-width: 600px) 50vw, (max-width: 1200px) 25vw, 320px"
+                  sizes={cardSizes}
                 />
               </div>
               <div className="bs-cat__body">
                 <h3 className="bs-cat__name">
                   <span>{category.name}</span>
-                  <ArrowRight size={13} className="bs-cat__arrow" aria-hidden="true" />
+                  <ArrowRight size={count <= 2 ? 16 : 13} className="bs-cat__arrow" aria-hidden="true" />
                 </h3>
               </div>
             </Link>
