@@ -177,9 +177,12 @@
   line-height: 0;
 }
 .bs-st-header__brand img {
-  height: clamp(30px, 3.2vw, 44px);
+  height: clamp(38px, 4vw, 54px);
   width: auto;
-  transition: filter var(--bs-duration-slow) ease;
+  transition: height var(--bs-duration-slow) ease, filter var(--bs-duration-slow) ease;
+}
+.bs-st-header[data-stuck="true"] .bs-st-header__brand img {
+  height: 42px;
 }
 /* The logo is dark ink on transparent; over the hero it has to
    flip to solid white or it disappears into the photograph. */
@@ -631,7 +634,7 @@
   gap: 14px;
   grid-column: 1 / -1;
 }
-.bs-st-footer__brand img { height: 44px; width: auto; }
+.bs-st-footer__brand img { height: 50px; width: auto; }
 .bs-st-footer__brand p {
   margin: 0;
   font-size: 15px;
@@ -3485,7 +3488,7 @@
     height: 56px !important;
   }
   .bs-st-header__brand img {
-    height: 30px !important;
+    height: 38px !important;
   }
   .bs-st-iconbtn {
     width: 40px !important;

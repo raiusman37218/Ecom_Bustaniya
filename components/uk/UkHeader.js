@@ -119,7 +119,7 @@ export default function UkHeader({
         </div>
 
         <Link href="/uk" prefetch={true} className="headerBrandLogo" aria-label="Bustaniya UK Home">
-          <img src="/bustaniya-logo-v2.png" alt="Bustaniya" width={180} height={48} fetchPriority="high" />
+          <img src="/bustaniya-logo-v2.png" alt="Bustaniya" width={200} height={52} fetchPriority="high" />
         </Link>
 
         <div className="headerRightActions">
