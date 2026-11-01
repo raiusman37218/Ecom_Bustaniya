@@ -80,10 +80,24 @@ export default function SiteFooter({
       return;
     }
     if (typeof onSubscribe !== "function") {
-      // No capture endpoint wired up yet — say so instead of showing a
-      // success state for an email that was never stored anywhere.
-      setState({ done: false, err: "Newsletter sign-up isn’t live yet — message us on WhatsApp and we’ll add you." });
-      return;
+      try {
+        const res = await fetch("/api/newsletter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: value, source: "footer" }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setState({ done: false, err: data?.error || "Subscription failed. Please try again." });
+          return;
+        }
+        setState({ done: true, err: "" });
+        setEmail("");
+        return;
+      } catch {
+        setState({ done: false, err: "Something went wrong. Please try again." });
+        return;
+      }
     }
     try {
       await onSubscribe(value);
@@ -109,7 +123,7 @@ export default function SiteFooter({
 
               {state.done && (
                 <p className="bs-st-nl__done" role="status">
-                  <Check size={18} /> You’re on the list.
+                  <Check size={18} /> You’re on the list! Use code <strong>WELCOME10</strong> for 10% off.
                 </p>
               )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity, AlertCircle, Archive, ArrowDown, ArrowLeft, ArrowUp, BarChart3, Bell, Boxes, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleDollarSign,
   Clock, Copy, CreditCard, Edit, ExternalLink, Eye, FileText, Folder, FolderPlus, FolderTree, Globe, Grid, HelpCircle, Info, Landmark, Layers, LayoutDashboard, List, Loader2, LogOut, MapPin, Menu, MessageSquare,
@@ -11839,10 +11839,76 @@ function DashboardAnalytics({ orders, products, connected, period, setPeriod }) 
 }
 
 function CustomersPanel({ orders, onOpen }) {
+  const [activeTab, setActiveTab] = useState("customers");
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState("All");
   const [selectedId, setSelectedId] = useState("");
   const [edits, setEdits] = useState({});
+
+  // Subscribers state
+  const [subscribers, setSubscribers] = useState([]);
+  const [subscriberSearch, setSubscriberSearch] = useState("");
+  const [loadingSubscribers, setLoadingSubscribers] = useState(false);
+
+  const fetchSubscribers = useCallback(async () => {
+    try {
+      setLoadingSubscribers(true);
+      const res = await fetch("/api/admin/newsletter-subscribers");
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && Array.isArray(data.subscribers)) {
+        setSubscribers(data.subscribers);
+      }
+    } catch (err) {
+      console.error("Failed to fetch subscribers:", err);
+    } finally {
+      setLoadingSubscribers(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSubscribers();
+  }, [fetchSubscribers]);
+
+  async function deleteSubscriber(id, email) {
+    if (!window.confirm(`Are you sure you want to remove "${email}" from the newsletter list?`)) return;
+    try {
+      const res = await fetch(`/api/admin/newsletter-subscribers?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.ok) {
+        setSubscribers((prev) => prev.filter((s) => String(s.id) !== String(id)));
+      } else {
+        alert("Failed to delete subscriber.");
+      }
+    } catch {
+      alert("Failed to delete subscriber.");
+    }
+  }
+
+  function exportSubscribers() {
+    const csv = [
+      ["Email", "Discount Code", "Source", "Status", "Date Subscribed"],
+      ...subscribers.map((sub) => [
+        sub.email,
+        sub.discount_code || "WELCOME10",
+        sub.source || "homepage_newsletter",
+        sub.status || "active",
+        sub.created_at ? new Date(sub.created_at).toLocaleString() : "",
+      ]),
+    ].map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    link.download = `bustaniya-subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  const visibleSubscribers = useMemo(() => {
+    const q = subscriberSearch.toLowerCase().trim();
+    if (!q) return subscribers;
+    return subscribers.filter((sub) =>
+      [sub.email, sub.source, sub.discount_code, sub.status].join(" ").toLowerCase().includes(q)
+    );
+  }, [subscribers, subscriberSearch]);
+
   const customers = useMemo(() => buildCustomerProfiles(orders).map((customer) => ({ ...customer, ...(edits[customer.id] || {}) })), [edits, orders]);
   const segments = ["All", "VIP", "Repeat buyer", "New customer", "Instagram DM"];
   const visibleCustomers = customers.filter((customer) => {
@@ -11879,24 +11945,191 @@ function CustomersPanel({ orders, onOpen }) {
     URL.revokeObjectURL(link.href);
   }
 
-  return <><div className="adminTitle"><div><p>CUSTOMERS</p><h1>Customers</h1><span>Profiles, order history, total spent, segments, tags and notes.</span></div><button onClick={() => onOpen({ module: "Customers", feature: "Add customer", create: true })}><Plus /> Add customer</button></div>
-    <div className="miniMetricGrid productMetrics"><article><Users /><span><b>{customers.length}</b>Customers</span></article><article><Tags /><span><b>{customers.filter((c) => c.tags.includes("VIP")).length}</b>VIP</span></article><article><ShoppingBag /><span><b>{customers.reduce((sum, customer) => sum + customer.orders.length, 0)}</b>Orders</span></article><article><CircleDollarSign /><span><b>Rs. {customers.reduce((sum, customer) => sum + Number(customer.totalSpent || 0), 0).toLocaleString()}</b>Total spent</span></article></div>
-    <section className="adminCard managementCard">
-      <div className="catalogToolbar">
-        <div className="orderTabs">{segments.map((item) => <button key={item} className={segment === item ? "active" : ""} onClick={() => setSegment(item)}>{item}</button>)}</div>
-        <div className="catalogActions">
-          <div className="inlineSearch"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customers..." /></div>
-          <button onClick={exportCustomers}>Export CSV</button>
+  return (
+    <>
+      <div className="adminTitle">
+        <div>
+          <p>AUDIENCE & CUSTOMERS</p>
+          <h1>{activeTab === "subscribers" ? "Newsletter Subscribers" : "Customers"}</h1>
+          <span>
+            {activeTab === "subscribers"
+              ? "All emails collected from homepage and footer newsletter signups, with welcome discount codes and CSV export."
+              : "Profiles, order history, total spent, segments, tags and notes."}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          <div className="orderTabs" style={{ margin: 0 }}>
+            <button
+              type="button"
+              className={activeTab === "customers" ? "active" : ""}
+              onClick={() => setActiveTab("customers")}
+            >
+              Customer Profiles ({customers.length})
+            </button>
+            <button
+              type="button"
+              className={activeTab === "subscribers" ? "active" : ""}
+              onClick={() => setActiveTab("subscribers")}
+            >
+              Subscribers ({subscribers.length})
+            </button>
+          </div>
+          {activeTab === "customers" && (
+            <button onClick={() => onOpen({ module: "Customers", feature: "Add customer", create: true })}>
+              <Plus /> Add customer
+            </button>
+          )}
         </div>
       </div>
-      <div className="adminTableWrap"><table className="adminTable customerTable"><thead><tr><th>Customer</th><th>Contact</th><th>Orders</th><th>Total spent</th><th>Last order</th><th>Tags</th><th /></tr></thead><tbody>
-        {visibleCustomers.map((customer) => <tr key={customer.id}><td><b>{customer.name}</b><small className="trackingNumber"><br />{customer.city || "No city"}</small></td><td>{customer.phone || "-"}<small className="trackingNumber"><br />{customer.email || "No email"}</small></td><td>{customer.orders.length}</td><td><b>Rs. {Number(customer.totalSpent || 0).toLocaleString()}</b></td><td>{customer.lastOrder || "-"}</td><td><div className="tagList">{customer.tags.map((tag) => <span key={tag} className="statusBadge active">{tag}</span>)}</div></td><td><button className="editProductButton" onClick={() => setSelectedId(customer.id)}>Open</button></td></tr>)}
-      </tbody></table>
-        {!visibleCustomers.length && <EmptyState icon={Users} title="No customers found" description="No customer profiles match your search query or selected segment." />}
-      </div>
-    </section>
-    {selectedCustomer && <CustomerProfileDrawer customer={selectedCustomer} onClose={() => setSelectedId("")} onUpdate={updateCustomer} />}
-  </>;
+
+      {activeTab === "subscribers" ? (
+        <>
+          <div className="miniMetricGrid productMetrics">
+            <article>
+              <Users />
+              <span><b>{subscribers.length}</b>Total Subscribers</span>
+            </article>
+            <article>
+              <Sparkles />
+              <span><b>{subscribers.filter((s) => (s.status || "active") === "active").length}</b>Active</span>
+            </article>
+            <article>
+              <Tags />
+              <span><b>WELCOME10</b>Offer (10% Off)</span>
+            </article>
+            <article>
+              <Clock />
+              <span>
+                <b>
+                  {subscribers.filter((s) => s.created_at && new Date(s.created_at) > new Date(Date.now() - 7 * 86400000)).length}
+                </b>
+                New This Week
+              </span>
+            </article>
+          </div>
+
+          <section className="adminCard managementCard">
+            <div className="catalogToolbar">
+              <div className="catalogActions" style={{ width: "100%", justifyContent: "space-between" }}>
+                <div className="inlineSearch" style={{ maxWidth: "340px" }}>
+                  <Search />
+                  <input
+                    value={subscriberSearch}
+                    onChange={(event) => setSubscriberSearch(event.target.value)}
+                    placeholder="Search subscribers by email..."
+                  />
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button type="button" onClick={fetchSubscribers} title="Refresh list" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    <RefreshCw size={14} className={loadingSubscribers ? "spin" : ""} /> Refresh
+                  </button>
+                  <button type="button" onClick={exportSubscribers}>Export CSV</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="adminTableWrap">
+              <table className="adminTable customerTable">
+                <thead>
+                  <tr>
+                    <th>Email Address</th>
+                    <th>Welcome Code</th>
+                    <th>Source</th>
+                    <th>Subscribed Date</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleSubscribers.map((sub) => (
+                    <tr key={sub.id}>
+                      <td>
+                        <b>{sub.email}</b>
+                      </td>
+                      <td>
+                        <span className="statusBadge active">{sub.discount_code || "WELCOME10"}</span>
+                      </td>
+                      <td>
+                        {sub.source === "footer" ? "Site Footer" : "Homepage Newsletter"}
+                      </td>
+                      <td>
+                        {sub.created_at
+                          ? new Date(sub.created_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "-"}
+                      </td>
+                      <td>
+                        <span className="statusBadge delivered">{sub.status || "active"}</span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="deleteButton"
+                          style={{
+                            padding: "4px 10px",
+                            fontSize: "11px",
+                            color: "#e11d48",
+                            background: "rgba(225, 29, 72, 0.08)",
+                            border: "1px solid #fecdd3",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            fontWeight: 600,
+                          }}
+                          onClick={() => deleteSubscriber(sub.id, sub.email)}
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!visibleSubscribers.length && (
+                <EmptyState
+                  icon={Users}
+                  title="No subscribers found"
+                  description={
+                    subscribers.length === 0
+                      ? "When customers enter their email in the newsletter section on your storefront, their emails will appear here automatically."
+                      : "No subscribers match your search query."
+                  }
+                />
+              )}
+            </div>
+          </section>
+        </>
+      ) : (
+        <>
+          <div className="miniMetricGrid productMetrics">
+            <article><Users /><span><b>{customers.length}</b>Customers</span></article>
+            <article><Tags /><span><b>{customers.filter((c) => c.tags.includes("VIP")).length}</b>VIP</span></article>
+            <article><ShoppingBag /><span><b>{customers.reduce((sum, customer) => sum + customer.orders.length, 0)}</b>Orders</span></article>
+            <article><CircleDollarSign /><span><b>Rs. {customers.reduce((sum, customer) => sum + Number(customer.totalSpent || 0), 0).toLocaleString()}</b>Total spent</span></article>
+          </div>
+          <section className="adminCard managementCard">
+            <div className="catalogToolbar">
+              <div className="orderTabs">{segments.map((item) => <button key={item} className={segment === item ? "active" : ""} onClick={() => setSegment(item)}>{item}</button>)}</div>
+              <div className="catalogActions">
+                <div className="inlineSearch"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customers..." /></div>
+                <button onClick={exportCustomers}>Export CSV</button>
+              </div>
+            </div>
+            <div className="adminTableWrap"><table className="adminTable customerTable"><thead><tr><th>Customer</th><th>Contact</th><th>Orders</th><th>Total spent</th><th>Last order</th><th>Tags</th><th /></tr></thead><tbody>
+              {visibleCustomers.map((customer) => <tr key={customer.id}><td><b>{customer.name}</b><small className="trackingNumber"><br />{customer.city || "No city"}</small></td><td>{customer.phone || "-"}<small className="trackingNumber"><br />{customer.email || "No email"}</small></td><td>{customer.orders.length}</td><td><b>Rs. {Number(customer.totalSpent || 0).toLocaleString()}</b></td><td>{customer.lastOrder || "-"}</td><td><div className="tagList">{customer.tags.map((tag) => <span key={tag} className="statusBadge active">{tag}</span>)}</div></td><td><button className="editProductButton" onClick={() => setSelectedId(customer.id)}>Open</button></td></tr>)}
+            </tbody></table>
+              {!visibleCustomers.length && <EmptyState icon={Users} title="No customers found" description="No customer profiles match your search query or selected segment." />}
+            </div>
+          </section>
+          {selectedCustomer && <CustomerProfileDrawer customer={selectedCustomer} onClose={() => setSelectedId("")} onUpdate={updateCustomer} />}
+        </>
+      )}
+    </>
+  );
 }
 
 function CustomerProfileDrawer({ customer, onClose, onUpdate }) {

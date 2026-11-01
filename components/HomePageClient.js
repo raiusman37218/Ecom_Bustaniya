@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Heart, Instagram, Menu, MessageSquare, Minus, Play, Plus, Quote, Ruler, Scissors, ShoppingBag, Sparkles, Star, UserRound, X } from "lucide-react";
+import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Heart, Instagram, Menu, MessageSquare, Minus, Play, Plus, Quote, Ruler, Scissors, ShoppingBag, Sparkles, Star, UserRound, X } from "lucide-react";
 
 import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts, slugifyCategory } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../data/storeSettings";
@@ -155,11 +155,43 @@ export default function Home({
   const [expandedFaqId, setExpandedFaqId] = useState(null);
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterStatus, setNewsletterStatus] = useState("idle");
+  const [newsletterFeedback, setNewsletterFeedback] = useState("");
+  const [newsletterCode, setNewsletterCode] = useState("WELCOME10");
+  const [copiedCode, setCopiedCode] = useState(false);
 
-  function handleNewsletterSubmit(e) {
+  async function handleNewsletterSubmit(e) {
     e.preventDefault();
-    if (!newsletterEmail || !newsletterEmail.includes("@")) return;
-    setNewsletterStatus("success");
+    const cleanEmail = String(newsletterEmail || "").trim();
+    if (!cleanEmail || !cleanEmail.includes("@")) return;
+
+    setNewsletterStatus("loading");
+    setNewsletterFeedback("");
+
+    try {
+      const response = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail, source: "homepage_newsletter" }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || "Subscription failed. Please try again.");
+      }
+      setNewsletterCode(data?.discountCode || "WELCOME10");
+      setNewsletterFeedback(data?.message || "Welcome to the Bustaniya Circle!");
+      setNewsletterStatus("success");
+    } catch (err) {
+      setNewsletterFeedback(err?.message || "Failed to subscribe. Please try again.");
+      setNewsletterStatus("error");
+    }
+  }
+
+  function handleCopyCode() {
+    if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(newsletterCode);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2500);
+    }
   }
   const instagramRailRef = useRef(null);
   
@@ -716,10 +748,22 @@ export default function Home({
                   
                   {newsletterStatus === "success" ? (
                     <div className="newsletterSuccess" role="alert">
-                      <CheckCircle2 size={24} className="newsletterSuccessIcon" />
+                      <CheckCircle2 size={26} className="newsletterSuccessIcon" />
                       <div>
-                        <strong>Welcome to the Bustaniya Circle</strong>
-                        <p>Thank you for subscribing. Your welcome privilege code has been sent to your inbox.</p>
+                        <strong>{newsletterFeedback || "Welcome to the Bustaniya Circle"}</strong>
+                        <p>Your 10% welcome privilege code is ready. Use it at checkout:</p>
+                        <div className="newsletterCouponWrap">
+                          <span className="newsletterCouponCode">{newsletterCode}</span>
+                          <button
+                            type="button"
+                            className="newsletterCopyBtn"
+                            onClick={handleCopyCode}
+                            aria-label="Copy discount code"
+                          >
+                            {copiedCode ? <Check size={14} /> : <Copy size={14} />}
+                            <span>{copiedCode ? "Copied!" : "Copy Code"}</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -729,15 +773,19 @@ export default function Home({
                           type="email"
                           required
                           value={newsletterEmail}
+                          disabled={newsletterStatus === "loading"}
                           onChange={(e) => setNewsletterEmail(e.target.value)}
                           aria-label="Email address for the newsletter"
                           placeholder="Enter your email address"
                         />
-                        <button type="submit" aria-label="Subscribe to newsletter">
-                          <span>SUBSCRIBE</span>
+                        <button type="submit" disabled={newsletterStatus === "loading"} aria-label="Subscribe to newsletter">
+                          <span>{newsletterStatus === "loading" ? "SAVING..." : "SUBSCRIBE"}</span>
                           <ArrowRight size={15} />
                         </button>
                       </div>
+                      {newsletterStatus === "error" && (
+                        <p className="newsletterErrorMessage" role="alert">{newsletterFeedback}</p>
+                      )}
                       <span className="newsletterDisclaimer">
                         We value your privacy. Unsubscribe anytime with one click.
                       </span>
