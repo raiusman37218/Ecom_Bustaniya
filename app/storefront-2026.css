@@ -204,6 +204,35 @@
 }
 .bs-st-iconbtn:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
 .bs-st-iconbtn--last { margin-right: -10px; }
+
+.bs-st-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  min-width: 44px;
+  padding: 8px 12px 8px 8px;
+  border-radius: 999px;
+  transition: background var(--bs-duration-fast) ease, opacity var(--bs-duration-fast) ease;
+}
+
+@media (max-width: 999px) {
+  .bs-st-menu-btn {
+    padding: 0;
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+    margin-left: -10px;
+  }
+}
+
+.bs-st-menu-btn__text {
+  font-family: var(--bs-font-body);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1;
+}
 .bs-st-iconbtn__badge {
   position: absolute;
   top: 6px;

@@ -212,34 +212,19 @@ export default function SiteHeader({
         style={{ position: "sticky" }}
       >
         <div className="bs-st-header__bar">
-          {/* Left — desktop category nav, mobile menu trigger */}
+          {/* Left — 3-line hamburger menu drawer trigger */}
           <nav className="bs-st-header__nav" aria-label="Primary">
             <button
               type="button"
-              className="bs-st-iconbtn bs-st-mobonly"
-              style={{ marginLeft: "-10px" }}
+              className="bs-st-iconbtn bs-st-menu-btn"
               onClick={() => setMenuOpen(true)}
               aria-label="Open navigation menu"
               aria-expanded={menuOpen}
+              title="Menu"
             >
-              <Menu size={20} />
+              <Menu size={22} />
+              <span className="bs-st-menu-btn__text bs-st-deskonly">MENU</span>
             </button>
-
-            {navTree.map((item) => (
-              <Link
-                key={item.slug}
-                href={`/category/${item.slug}`}
-                prefetch={true}
-                className="bs-st-navlink bs-st-deskonly"
-                data-active={activeNav === item.slug ? "true" : "false"}
-                aria-haspopup={item.children.length > 0 ? "true" : undefined}
-                aria-expanded={item.children.length > 0 ? megaSlug === item.slug : undefined}
-                onMouseEnter={() => setMegaSlug(item.children.length > 0 ? item.slug : "")}
-                onFocus={() => setMegaSlug(item.children.length > 0 ? item.slug : "")}
-              >
-                {item.name.toUpperCase()}
-              </Link>
-            ))}
           </nav>
 
           {/* Centre — brand */}
@@ -249,16 +234,6 @@ export default function SiteHeader({
 
           {/* Right — secondary nav and actions */}
           <div className="bs-st-header__actions">
-            <Link
-              href="/search"
-              prefetch={true}
-              className="bs-st-navlink bs-st-navlink--sale bs-st-deskonly"
-              style={{ marginRight: 14 }}
-              onMouseEnter={() => setMegaSlug("")}
-            >
-              NEW IN
-            </Link>
-
             <button
               type="button"
               className="bs-st-iconbtn"
@@ -339,19 +314,19 @@ export default function SiteHeader({
         )}
       </header>
 
-      {/* Mobile drawer */}
+      {/* Navigation drawer */}
       <button
         type="button"
-        className="bs-st-scrim bs-st-mobonly"
+        className="bs-st-scrim"
         data-open={menuOpen ? "true" : "false"}
         onClick={closeMenu}
         aria-label="Close navigation menu"
         tabIndex={menuOpen ? 0 : -1}
       />
       <nav
-        className="bs-st-drawer bs-st-drawer--left bs-st-mobonly"
+        className="bs-st-drawer bs-st-drawer--left"
         data-open={menuOpen ? "true" : "false"}
-        aria-label="Mobile navigation menu"
+        aria-label="Navigation menu"
         aria-hidden={menuOpen ? "false" : "true"}
       >
         <div className="bs-st-drawer__head">
@@ -388,6 +363,10 @@ export default function SiteHeader({
         <div className="bs-st-menu__list">
           <Link href="/" prefetch={true} className="bs-st-menulink" onClick={closeMenu} tabIndex={menuOpen ? 0 : -1}>
             <span>Home</span>
+            <ArrowRight size={16} />
+          </Link>
+          <Link href="/search" prefetch={true} className="bs-st-menulink" onClick={closeMenu} tabIndex={menuOpen ? 0 : -1}>
+            <span style={{ color: "var(--bs-st-accent-700, #a02040)", fontWeight: 600 }}>New In</span>
             <ArrowRight size={16} />
           </Link>
 
