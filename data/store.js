@@ -69,6 +69,53 @@ export function formatCategorySelection({ category, subcategory = "", collection
   return [normalizedCategory, cleanSubcategory, cleanCollection].join(categoryMetaSeparator);
 }
 
+export function productBelongsToCategory(product, targetCategoryName) {
+  if (!product || !targetCategoryName) return false;
+  if (targetCategoryName === "All") return true;
+  const target = normalizeCategory(targetCategoryName).toLowerCase();
+  const primary = normalizeCategory(product.category || "").toLowerCase();
+  if (primary === target) return true;
+  const rawCategories = Array.isArray(product.categories)
+    ? product.categories
+    : (Array.isArray(product.cost_breakdown?.metadata?.categories) ? product.cost_breakdown.metadata.categories : []);
+  const extra = rawCategories.map((c) => normalizeCategory(c).toLowerCase());
+  return extra.includes(target);
+}
+
+export function getProductCategoryPrice(product, targetCategoryName) {
+  if (!product) return 0;
+  const basePrice = Number(product.price || 0);
+  if (!targetCategoryName || targetCategoryName === "All") return basePrice;
+  const target = normalizeCategory(targetCategoryName);
+  const categoryPrices = (product.categoryPrices && typeof product.categoryPrices === "object" ? product.categoryPrices : null)
+    || (product.cost_breakdown?.metadata?.categoryPrices && typeof product.cost_breakdown.metadata.categoryPrices === "object" ? product.cost_breakdown.metadata.categoryPrices : null);
+  if (categoryPrices) {
+    for (const [cat, overridePrice] of Object.entries(categoryPrices)) {
+      if (normalizeCategory(cat).toLowerCase() === target.toLowerCase() && Number(overridePrice) > 0) {
+        return Number(overridePrice);
+      }
+    }
+  }
+  return basePrice;
+}
+
+export function getProductCategoryComparePrice(product, targetCategoryName) {
+  if (!product) return 0;
+  const baseCompare = Number(product.compareAtPrice || product.compare_at_price || 0);
+  if (!targetCategoryName || targetCategoryName === "All") return baseCompare;
+  const target = normalizeCategory(targetCategoryName);
+  const categoryPrices = (product.categoryPrices && typeof product.categoryPrices === "object" ? product.categoryPrices : null)
+    || (product.cost_breakdown?.metadata?.categoryPrices && typeof product.cost_breakdown.metadata.categoryPrices === "object" ? product.cost_breakdown.metadata.categoryPrices : null);
+  if (categoryPrices) {
+    for (const [cat, overridePrice] of Object.entries(categoryPrices)) {
+      if (normalizeCategory(cat).toLowerCase() === target.toLowerCase() && Number(overridePrice) > 0) {
+        return baseCompare > Number(overridePrice) ? baseCompare : 0;
+      }
+    }
+  }
+  return baseCompare;
+}
+
 export const categoryDetails = {
   kurtis: {
     name: "Kurtis",

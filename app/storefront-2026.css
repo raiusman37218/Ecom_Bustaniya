@@ -820,13 +820,29 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 1;
+  opacity: var(--campaign-overlay, 1);
   background: linear-gradient(
     to top,
     color-mix(in srgb, var(--bs-st-ink) 78%, transparent) 0%,
     color-mix(in srgb, var(--bs-st-ink) 25%, transparent) 55%,
     color-mix(in srgb, var(--bs-st-ink) 40%, transparent) 100%
   );
+  transition: opacity 0.3s ease;
+}
+
+.bs-st .campaignHero .campaignHeroMediaLink {
+  display: block;
+  width: 100%;
+  height: 100%;
+  text-decoration: none;
+  cursor: pointer;
+}
+.bs-st .campaignHero .campaignHeroMediaLink picture,
+.bs-st .campaignHero .campaignHeroMediaLink img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .bs-st .campaignHero .campaignHeroInner {
@@ -840,6 +856,44 @@
   justify-content: flex-end;
   pointer-events: none;
 }
+
+/* Position and alignment control from Admin Dashboard settings */
+.bs-st .campaignHero.campaignHero--position-center .campaignHeroInner {
+  align-items: center;
+}
+.bs-st .campaignHero.campaignHero--position-right .campaignHeroInner {
+  align-items: flex-end;
+}
+.bs-st .campaignHero.campaignHero--align-center .campaignHeroCopy {
+  align-items: center;
+  text-align: center;
+}
+.bs-st .campaignHero.campaignHero--align-right .campaignHeroCopy {
+  align-items: flex-end;
+  text-align: right;
+}
+
+@media (max-width: 767px) {
+  .bs-st .campaignHero.campaignHero--mobile-position-top .campaignHeroInner {
+    justify-content: flex-start;
+    padding-top: clamp(60px, 12vh, 100px);
+  }
+  .bs-st .campaignHero.campaignHero--mobile-position-center .campaignHeroInner {
+    justify-content: center;
+  }
+  .bs-st .campaignHero.campaignHero--mobile-position-bottom .campaignHeroInner {
+    justify-content: flex-end;
+  }
+  .bs-st .campaignHero.campaignHero--mobile-align-center .campaignHeroCopy {
+    align-items: center;
+    text-align: center;
+  }
+  .bs-st .campaignHero.campaignHero--mobile-align-right .campaignHeroCopy {
+    align-items: flex-end;
+    text-align: right;
+  }
+}
+
 /* The legacy copy block is a narrow 34rem column with a 10ch headline
    clamp — both of which strangle the import's full-width headline, so
    the widths are released here rather than inherited. */
@@ -876,11 +930,11 @@
 
 .bs-st .campaignHero .campaignHeroCopy h1 {
   margin: 0;
-  max-width: none;
+  max-width: 22ch;
   font-family: var(--bs-font-display);
   font-weight: var(--bs-weight-semibold);
-  font-size: clamp(56px, 10.5vw, 168px);
-  line-height: 1.02;
+  font-size: clamp(38px, 6vw, 84px);
+  line-height: 1.08;
   letter-spacing: -0.01em;
   color: inherit;
   text-shadow: none;

@@ -33,6 +33,7 @@ export default async function SearchPage({ searchParams }) {
     ? allProducts.filter((product) => {
         const name = String(product.name || "").toLowerCase();
         const cat = String(product.category || "").toLowerCase();
+        const allCats = Array.isArray(product.categories) ? product.categories.join(" ").toLowerCase() : "";
         const subcat = String(product.subcategory || "").toLowerCase();
         const desc = String(product.description || "").toLowerCase();
         const fabric = String(product.fabricDetails || product.fabric_details || "").toLowerCase();
@@ -42,6 +43,7 @@ export default async function SearchPage({ searchParams }) {
         return (
           name.includes(q) ||
           cat.includes(q) ||
+          allCats.includes(q) ||
           subcat.includes(q) ||
           desc.includes(q) ||
           fabric.includes(q) ||

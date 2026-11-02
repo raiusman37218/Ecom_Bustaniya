@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { authorizeAdminSession, adminAuthErrorResponse } from "../../../../lib/adminAuth";
 import {
   getStoreSettings,
+  invalidateStoreSettingsCache,
   isStoreSettingsSetupError,
   updateStoreSettings,
 } from "../../../../lib/storeSettings";
@@ -74,13 +75,13 @@ function setupResponse(settings) {
 export async function GET(request) {
   try {
     await authorizeAdminSession(request, "settings");
-    return NextResponse.json({ settings: await getStoreSettings() });
+    return NextResponse.json({ settings: await getStoreSettings({ admin: true, fresh: true }) });
   } catch (error) {
     if (error?.status === 401 || error?.status === 403) {
       const authError = adminAuthErrorResponse(error);
       return NextResponse.json({ error: authError.error }, { status: authError.status });
     }
-    if (isStoreSettingsSetupError(error)) return setupResponse(await getStoreSettings());
+    if (isStoreSettingsSetupError(error)) return setupResponse(await getStoreSettings({ admin: true, fresh: true }));
     return NextResponse.json({ error: "Unable to load store settings." }, { status: 500 });
   }
 }
@@ -89,7 +90,7 @@ export async function PATCH(request) {
   try {
     await authorizeAdminSession(request, "settings");
     const body = await request.json();
-    const existing = await getStoreSettings({ includeFinance: true });
+    const existing = await getStoreSettings({ includeFinance: true, fresh: true });
     const nextSettings = {
       ...existing,
       ...(body.settings || {}),
@@ -98,11 +99,20 @@ export async function PATCH(request) {
     await validateHeroImages(nextSettings);
     await validateInstagramPosts(nextSettings);
     const settings = await updateStoreSettings(nextSettings);
+    invalidateStoreSettingsCache();
     try {
+      revalidateTag("store-settings");
       revalidatePath("/", "page");
-      revalidatePath("/uk", "page");
       revalidatePath("/", "layout");
+      revalidatePath("/uk", "page");
       revalidatePath("/admin", "page");
+      revalidatePath("/about", "page");
+      revalidatePath("/contact", "page");
+      revalidatePath("/faqs", "page");
+      revalidatePath("/shipping-policy", "page");
+      revalidatePath("/exchange-return-policy", "page");
+      revalidatePath("/terms-and-conditions", "page");
+      revalidatePath("/privacy-policy", "page");
     } catch {}
     return NextResponse.json({ success: true, settings });
   } catch (error) {
@@ -110,7 +120,7 @@ export async function PATCH(request) {
       const authError = adminAuthErrorResponse(error);
       return NextResponse.json({ error: authError.error }, { status: authError.status });
     }
-    if (isStoreSettingsSetupError(error)) return setupResponse(await getStoreSettings());
+    if (isStoreSettingsSetupError(error)) return setupResponse(await getStoreSettings({ admin: true, fresh: true }));
     return NextResponse.json({ error: error.message || "Unable to save store settings." }, { status: 500 });
   }
 }

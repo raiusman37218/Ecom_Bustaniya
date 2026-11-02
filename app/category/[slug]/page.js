@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import SiteHeader from "../../../components/SiteHeader";
 import SiteFooter from "../../../components/SiteFooter";
 import CategoryProductsGrid from "../../../components/CategoryProductsGrid";
-import { normalizeCategory } from "../../../data/store";
+import { normalizeCategory, productBelongsToCategory } from "../../../data/store";
 import { getCatalogCategories, subcategoryOptions } from "../../../lib/categories";
 import { getCatalogProducts } from "../../../lib/catalog";
 import { JsonLd, breadcrumbSchema, buildMetadata, collectionSchema } from "../../../lib/seo";
@@ -50,7 +50,7 @@ export default async function CategoryPage({ params }) {
   const subcategories = subcategoryOptions(categories, category.slug);
 
   const categoryProducts = products.filter(
-    (product) => normalizeCategory(product.category) === category.name
+    (product) => productBelongsToCategory(product, category.name)
   );
 
   return (

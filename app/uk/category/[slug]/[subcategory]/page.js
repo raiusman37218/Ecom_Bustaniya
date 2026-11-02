@@ -3,7 +3,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import UkHeader from "../../../../../components/uk/UkHeader";
 import UkFooter from "../../../../../components/uk/UkFooter";
-import { normalizeCategory } from "../../../../../data/store";
+import { normalizeCategory, productBelongsToCategory } from "../../../../../data/store";
 import { getCatalogCategories, subcategoryOptions } from "../../../../../lib/categories";
 import { getCatalogProducts } from "../../../../../lib/catalog";
 import { JsonLd, breadcrumbSchema, buildMetadata, collectionSchema } from "../../../../../lib/seo";
@@ -52,7 +52,7 @@ export default async function UkSubcategoryPage({ params }) {
 
   const [rawProducts, storeSettings] = await Promise.all([getCatalogProducts(), getStoreSettings()]);
   const rawItems = rawProducts.filter(
-    (product) => normalizeCategory(product.category) === parent.name && product.subcategory === subcategory
+    (product) => productBelongsToCategory(product, parent.name) && product.subcategory === subcategory
   );
   const items = convertProductsToRegion(rawItems, "uk");
   const coverImage = items[0]?.image || details.image;

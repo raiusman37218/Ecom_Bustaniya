@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Heart, Instagram, Menu, MessageSquare, Minus, Play, Plus, Ruler, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, UserRound, X } from "lucide-react";
 
-import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts, slugifyCategory } from "../../data/store";
+import { categories, categoryDetails, categoryToSlug, normalizeCategory, productBelongsToCategory, products as initialProducts, slugifyCategory } from "../../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../lib/images";
 import { convertProductsToRegion, formatPrice, REGIONS } from "../../lib/regions";
@@ -192,7 +192,7 @@ export default function UkHomePageClient({
 
   const visibleProducts = useMemo(() => (products || []).filter((product) => {
     if (!product) return false;
-    const categoryMatch = activeCategory === "All" || normalizeCategory(product.category) === activeCategory;
+    const categoryMatch = activeCategory === "All" || productBelongsToCategory(product, activeCategory);
     return categoryMatch;
   }), [activeCategory, products]);
 

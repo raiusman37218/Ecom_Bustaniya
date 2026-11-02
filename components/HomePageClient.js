@@ -6,7 +6,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Heart, Instagram, Menu, MessageSquare, Minus, Play, Plus, Quote, Ruler, Scissors, ShoppingBag, Sparkles, Star, UserRound, X } from "lucide-react";
 
-import { categories, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts, slugifyCategory } from "../data/store";
+import { categories, categoryDetails, categoryToSlug, getProductCategoryComparePrice, getProductCategoryPrice, normalizeCategory, productBelongsToCategory, products as initialProducts, slugifyCategory } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, getInstagramEmbedUrl } from "../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from "../lib/images";
 import { getColorHex } from "../data/variantOptions";
@@ -200,10 +200,9 @@ export default function Home({
     : [safeSettings.heroDesktopImage || DEFAULT_STORE_SETTINGS.heroDesktopImage];
   const heroDesktopImages = rawDesktop.map((img) => img || "/bustaniya-campaign-hero-v6.png");
 
-  const hasCustomMobile = Array.isArray(safeSettings.heroMobileImages) && safeSettings.heroMobileImages.length > 0 && safeSettings.heroMobileImages.some((img) => img && img !== DEFAULT_STORE_SETTINGS.heroMobileImage && img !== "/bustaniya-campaign-hero-mobile-v6.png" && img !== "/bustaniya-campaign-hero-v6.png");
-  const rawMobile = hasCustomMobile
-    ? safeSettings.heroMobileImages
-    : (safeSettings.heroMobileImage && safeSettings.heroMobileImage !== DEFAULT_STORE_SETTINGS.heroMobileImage && safeSettings.heroMobileImage !== "/bustaniya-campaign-hero-mobile-v6.png" ? [safeSettings.heroMobileImage] : heroDesktopImages);
+  const rawMobile = Array.isArray(safeSettings.heroMobileImages) && safeSettings.heroMobileImages.filter(Boolean).length > 0
+    ? safeSettings.heroMobileImages.filter(Boolean)
+    : (safeSettings.heroMobileImage ? [safeSettings.heroMobileImage] : heroDesktopImages);
   const heroMobileImages = rawMobile.map((img) => img || heroDesktopImages[0] || "/bustaniya-campaign-hero-v6.png");
 
   const heroSlideCount = Math.max(heroDesktopImages.length, heroMobileImages.length);
@@ -299,7 +298,7 @@ export default function Home({
 
   const visibleProducts = useMemo(() => (products || []).filter((product) => {
     if (!product) return false;
-    const categoryMatch = activeCategory === "All" || normalizeCategory(product.category) === activeCategory;
+    const categoryMatch = activeCategory === "All" || productBelongsToCategory(product, activeCategory);
     return categoryMatch;
   }).slice(0, 12), [activeCategory, products]);
 
@@ -342,9 +341,9 @@ export default function Home({
   }, [cart]);
 
 
-  function salePercent(product) {
-    const previous = Number(product.compareAtPrice || product.compare_at_price || 0);
-    const current = Number(product.price || 0);
+  function salePercent(product, targetCategory) {
+    const current = getProductCategoryPrice(product, targetCategory);
+    const previous = getProductCategoryComparePrice(product, targetCategory);
     return previous > current && current > 0 ? Math.round(((previous - current) / previous) * 100) : 0;
   }
 
@@ -459,7 +458,7 @@ export default function Home({
             const hasDesktopContent = Boolean(desktopHero.eyebrow || desktopHero.heading || desktopHero.supportingText || desktopHero.primaryButtonText || desktopHero.secondaryButtonText);
             const hasMobileContent = Boolean(mobileHero.eyebrow || mobileHero.heading || mobileHero.supportingText || mobileHero.primaryButtonText || mobileHero.secondaryButtonText);
             const hasAnyContent = hasDesktopContent || hasMobileContent;
-            const overlayIntensity = Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity || 0)));
+            const overlayIntensity = Math.min(80, Math.max(0, Number(storeSettings.heroOverlayIntensity ?? 34)));
 
             return (
               <section
@@ -467,7 +466,7 @@ export default function Home({
                 className={`campaignHero campaignHero--position-${desktopHero.position || "left"} campaignHero--align-${desktopHero.alignment || "left"} campaignHero--mobile-position-${mobileHero.position || "bottom"} campaignHero--mobile-align-${mobileHero.alignment || "left"} ${hasAnyContent ? "hasContent" : "mediaOnly"}`}
                 id="new"
                   style={{
-                    "--campaign-overlay": hasAnyContent ? (overlayIntensity / 100) : 0,
+                    "--campaign-overlay": overlayIntensity > 0 ? (overlayIntensity / 100) : 0,
                     "--campaign-overlay-color": "#102a1d",
                     "--campaign-text-color": sectionTextColors.heroOverlay || "#173d29"
                   }}
@@ -495,7 +494,7 @@ export default function Home({
                       />
                     )}
                   </div>
-                  {hasAnyContent && overlayIntensity > 0 && <div className="campaignHeroOverlay" />}
+                  {overlayIntensity > 0 && <div className="campaignHeroOverlay" />}
                   {hasAnyContent && (
                     <div className="campaignHeroInner">
                       <div className="campaignHeroCopy">
@@ -574,7 +573,7 @@ export default function Home({
                         )}
                         <Link className="productCardLink" href={`/product/${product.id}`} prefetch={true} aria-label={`View ${product.name}`} />
                         {product.badge && <span className="badge">{product.badge}</span>}
-                        {salePercent(product) > 0 && <span className="saleBadge">{salePercent(product)}% OFF</span>}
+                        {salePercent(product, activeCategory) > 0 && <span className="saleBadge">{salePercent(product, activeCategory)}% OFF</span>}
                         <button
                           type="button"
                           className={`productCardWishBtn ${isInWishlist(product.id) ? "isWishlisted" : ""}`}
@@ -596,9 +595,9 @@ export default function Home({
                       </div>
                       <div className="productInfo">
                         <div>
-                          <p>{product.category}</p>
+                          <p>{activeCategory !== "All" ? activeCategory : product.category}</p>
                           <h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>
-                          {Array.isArray(product.colors) && product.colors.length > 1 && (
+                          {Array.isArray(product.colors) && product.colors.length > 0 && (
                             <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
                               {product.colors.slice(0, 5).map((color) => {
                                 const hex = product.colorHexMap?.[color] || getColorHex(color);
@@ -618,7 +617,17 @@ export default function Home({
                             </div>
                           )}
                         </div>
-                        <div className="productPrice"><span>Rs. {product.price.toLocaleString()}</span>{salePercent(product) > 0 && <del>Rs. {Number(product.compareAtPrice || product.compare_at_price).toLocaleString()}</del>}</div>
+                        {(() => {
+                          const catPrice = getProductCategoryPrice(product, activeCategory);
+                          const catCompare = getProductCategoryComparePrice(product, activeCategory);
+                          const isSale = catCompare > catPrice && catPrice > 0;
+                          return (
+                            <div className="productPrice">
+                              <span>Rs. {catPrice.toLocaleString()}</span>
+                              {isSale && <del>Rs. {catCompare.toLocaleString()}</del>}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </article>
                   ))}
@@ -700,7 +709,7 @@ export default function Home({
                         <div>
                           <p>{product.category}</p>
                           <h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>
-                          {Array.isArray(product.colors) && product.colors.length > 1 && (
+                          {Array.isArray(product.colors) && product.colors.length > 0 && (
                             <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
                               {product.colors.slice(0, 5).map((color) => {
                                 const hex = product.colorHexMap?.[color] || getColorHex(color);
@@ -967,7 +976,7 @@ export default function Home({
                         <div>
                           <p>{product.category}</p>
                           <h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>
-                          {Array.isArray(product.colors) && product.colors.length > 1 && (
+                          {Array.isArray(product.colors) && product.colors.length > 0 && (
                             <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
                               {product.colors.slice(0, 5).map((color) => {
                                 const hex = product.colorHexMap?.[color] || getColorHex(color);

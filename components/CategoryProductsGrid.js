@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ChevronDown, SlidersHorizontal, ArrowUpDown, Heart } from "lucide-react";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from "../lib/images";
 import { getColorHex } from "../data/variantOptions";
+import { getProductCategoryComparePrice, getProductCategoryPrice } from "../data/store";
 import { useWishlist } from "../lib/wishlist";
 
 export default function CategoryProductsGrid({
@@ -20,9 +21,9 @@ export default function CategoryProductsGrid({
     const list = [...initialProducts];
     switch (sortBy) {
       case "price-asc":
-        return list.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+        return list.sort((a, b) => getProductCategoryPrice(a, categoryName) - getProductCategoryPrice(b, categoryName));
       case "price-desc":
-        return list.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
+        return list.sort((a, b) => getProductCategoryPrice(b, categoryName) - getProductCategoryPrice(a, categoryName));
       case "newest":
         return list.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
       case "name-asc":
@@ -72,11 +73,11 @@ export default function CategoryProductsGrid({
       {/* Products Grid */}
       <div className="productGrid">
         {sortedProducts.map((product, idx) => {
-          const price = Number(product.price || 0);
-          const compareAtPrice = Number(product.compareAtPrice || product.compare_at_price || 0);
+          const price = getProductCategoryPrice(product, categoryName);
+          const compareAtPrice = getProductCategoryComparePrice(product, categoryName);
           const onSale = compareAtPrice > price && price > 0;
           const salePercent = onSale ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0;
-          const displayCategory = product.category || categoryName;
+          const displayCategory = categoryName || product.category;
 
           return (
             <article
@@ -122,7 +123,7 @@ export default function CategoryProductsGrid({
                   <h3>
                     <Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link>
                   </h3>
-                  {Array.isArray(product.colors) && product.colors.length > 1 && (
+                  {Array.isArray(product.colors) && product.colors.length > 0 && (
                     <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
                       {product.colors.slice(0, 5).map((color) => {
                         const hex = product.colorHexMap?.[color] || getColorHex(color);

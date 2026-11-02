@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import SiteHeader from "../../../../components/SiteHeader";
 import SiteFooter from "../../../../components/SiteFooter";
 import CategoryProductsGrid from "../../../../components/CategoryProductsGrid";
-import { normalizeCategory } from "../../../../data/store";
+import { normalizeCategory, productBelongsToCategory } from "../../../../data/store";
 import { getCatalogCategories, subcategoryOptions } from "../../../../lib/categories";
 import { getCatalogProducts } from "../../../../lib/catalog";
 import { JsonLd, breadcrumbSchema, buildMetadata, collectionSchema } from "../../../../lib/seo";
@@ -53,7 +53,7 @@ export default async function SubcategoryPage({ params }) {
   const parent = categories.find((item) => item.slug === slug && !item.parentSlug);
   const details = subcategoryOptions(categories, slug).find((item) => item.slug === subcategory);
   if (!parent || !details) notFound();
-  const items = products.filter((product) => normalizeCategory(product.category) === parent.name && product.subcategory === subcategory);
+  const items = products.filter((product) => productBelongsToCategory(product, parent.name) && product.subcategory === subcategory);
   // The sibling row lets shoppers switch styles without going back up a level.
   const siblings = subcategoryOptions(categories, slug);
 

@@ -763,8 +763,8 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               )}
             </div>
 
-            {/* Color Selector (Shopify style: only shown if there are multiple colors) */}
-            {colors.length > 1 && (
+            {/* Color Selector */}
+            {colors.length > 0 && (
               <div className="productOptionSection colorSelectorSection">
                 <div className="selectorHeading">
                   <div className="selectorLabelGroup">
@@ -1148,7 +1148,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                 <div>
                   <p>{item.category}</p>
                   <h3><Link href={`/product/${item.id}`} prefetch={true}>{item.name}</Link></h3>
-                  {Array.isArray(item.colors) && item.colors.length > 1 && (
+                  {Array.isArray(item.colors) && item.colors.length > 0 && (
                     <div className="colorSwatches" aria-label={`${item.colors.length} available colours`}>
                       {item.colors.slice(0, 5).map((c) => {
                         const hex = item.colorHexMap?.[c] || getColorHex(c);
