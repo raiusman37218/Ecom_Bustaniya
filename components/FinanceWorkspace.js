@@ -94,7 +94,7 @@ function formatDate(value) {
 
 function StatementRow({ label, value, help, strong = false, sign = "" }) {
   return (
-    <div className={strong ? "shopifyStatementRow font-bold bg-[#fafcfa] rounded px-2" : "shopifyStatementRow"}>
+    <div className={`shopifyStatementRow ${strong ? "strongRow font-bold" : ""}`}>
       <div style={{ display: "flex", flexDirection: "column" }}>
         <span>{label}</span>
         {help ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e", marginTop: "2px", fontWeight: "normal" }}>{help}</small> : null}
@@ -785,7 +785,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               <Table head={["Product", "Units", "Revenue", "Profit", "Margin"]} empty="Is period mein koi delivered sale nahi.">
                 {products.slice(0, 8).map((row) => (
                   <tr key={row.productId || row.name}>
-                    <td><div style={{ display: "flex", flexDirection: "column" }}><b>{row.name}</b>{row.sku ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{row.sku}</small> : null}</div></td>
+                    <td style={{ minWidth: "160px", maxWidth: "260px" }}><div style={{ display: "flex", flexDirection: "column" }}><b>{row.name}</b>{row.sku ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{row.sku}</small> : null}</div></td>
                     <td>{row.units}</td>
                     <td>{money(row.revenuePkr)}</td>
                     <td className={row.profitPkr < 0 ? "expenseAmount font-bold" : "incomeAmount font-bold"}>{money(row.profitPkr)}</td>
@@ -984,7 +984,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
             }
           >
             {/* Ledger Filter Bar */}
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center", padding: "0 0 14px 0", borderBottom: "1px solid #edf2ee", marginBottom: "12px" }}>
+            <div className="shopifyCardFilterBar">
               <div style={{ position: "relative", flex: "1 1 220px", minWidth: "200px" }}>
                 <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#728578" }} />
                 <input
@@ -1056,20 +1056,20 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               {filteredTransactions.map((entry) => {
                 const account = accounts.find((row) => row.id === entry.account_id);
                 return (
-                  <tr key={entry.id} className={entry.voided ? "opacity-40 line-through bg-gray-50" : ""}>
+                  <tr key={entry.id} className={entry.voided ? "isVoided opacity-40 line-through bg-gray-50" : ""}>
                     <td style={{ whiteSpace: "nowrap" }}>{formatDate(entry.occurred_on)}</td>
                     <td>
                       <span className="shopifyStatusBadge" style={{ textTransform: "capitalize" }}>
                         {entry.entry_type.replaceAll("_", " ")}
                       </span>
                     </td>
-                    <td>
+                    <td style={{ minWidth: "220px", maxWidth: "380px" }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                         <b>{entry.title}</b>
-                        <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>
+                        <small style={{ display: "block", fontSize: "11px", color: "#667a6e", wordBreak: "break-word" }}>
                           {[entry.category, entry.counterparty, entry.reference ? `Ref: ${entry.reference}` : ""].filter(Boolean).join(" · ")}
                         </small>
-                        {entry.note ? <small style={{ display: "block", fontSize: "11px", color: "#85968b" }}>{entry.note}</small> : null}
+                        {entry.note ? <small style={{ display: "block", fontSize: "11px", color: "#85968b", wordBreak: "break-word" }}>{entry.note}</small> : null}
                       </div>
                     </td>
                     <td>{account?.name || <span className="expenseAmount font-semibold">Unassigned</span>}</td>
@@ -1175,7 +1175,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               </button>
             }
           >
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center", marginBottom: "12px" }}>
+            <div className="shopifyCardFilterBar">
               <div style={{ position: "relative", flex: "1 1 220px", maxWidth: "340px" }}>
                 <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#728578" }} />
                 <input
@@ -1186,7 +1186,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
                   style={{ width: "100%", padding: "7px 10px 7px 32px", border: "1.5px solid #d4ded6", borderRadius: "8px", fontSize: "13px" }}
                 />
               </div>
-              <div style={{ display: "flex", gap: "6px" }}>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                 {[
                   ["all", `All (${orders.length})`],
                   ["loss", `Loss Making (${orders.filter((o) => o.netProfitPkr < 0).length})`],
@@ -1209,7 +1209,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               {filteredOrders.slice(0, 80).map((row) => (
                 <tr key={row.id} className={row.netProfitPkr < 0 ? "bg-[#fef2f2]" : ""}>
                   <td><b>{row.orderNumber ? `#${row.orderNumber}` : String(row.id).slice(0, 8)}</b></td>
-                  <td><div style={{ display: "flex", flexDirection: "column" }}><b>{row.customer}</b>{row.city ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{row.city}</small> : null}</div></td>
+                  <td style={{ minWidth: "160px", maxWidth: "260px" }}><div style={{ display: "flex", flexDirection: "column" }}><b>{row.customer}</b>{row.city ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{row.city}</small> : null}</div></td>
                   <td>{formatDate(row.deliveredAt)}</td>
                   <td>{money(row.revenuePkr)}</td>
                   <td>{money(row.costPkr)}{row.costEstimated ? <small className="block text-xs text-amber-700">estimate</small> : null}</td>
@@ -1312,7 +1312,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               {postexReceiptRows.map((entry) => {
                 const account = accounts.find((a) => a.id === entry.account_id);
                 return (
-                  <tr key={entry.id} className={entry.voided ? "opacity-40 line-through bg-gray-50" : ""}>
+                  <tr key={entry.id} className={entry.voided ? "isVoided opacity-40 line-through bg-gray-50" : ""}>
                     <td>{formatDate(entry.occurred_on)}</td>
                     <td><b>{entry.reference || entry.title}</b></td>
                     <td>{account?.name || "Unassigned"}</td>
@@ -1396,7 +1396,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
             title="Customer advance receipts"
             subtitle="Verified advance NayaPay account mein cash ban jata hai. Unverified order ko yahan se 1-click mein verify & post kar sakte hain."
             right={
-              <div style={{ display: "flex", gap: "6px" }}>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                 {[
                   ["all", `All (${advances.rows.length})`],
                   ["needs_action", `Needs Action (${pendingAdvanceActions})`],
@@ -1418,7 +1418,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
             <Table head={["Customer", "Order", "City", "Advance", "COD Baqi", "Status", "Action"]} empty="Is filter/period mein koi advance nahi.">
               {filteredAdvances.map((row) => (
                 <tr key={row.id}>
-                  <td><div style={{ display: "flex", flexDirection: "column" }}><b>{row.customer}</b>{row.phone ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{row.phone}</small> : null}</div></td>
+                  <td style={{ minWidth: "160px", maxWidth: "260px" }}><div style={{ display: "flex", flexDirection: "column" }}><b>{row.customer}</b>{row.phone ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{row.phone}</small> : null}</div></td>
                   <td><b>{row.orderNumber ? `#${row.orderNumber}` : String(row.id).slice(0, 8)}</b></td>
                   <td>{row.city || "—"}</td>
                   <td className="incomeAmount font-bold">+ {money(row.advancePkr)}</td>
@@ -1485,7 +1485,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
                   const isOverdue = bill.due_date && bill.due_date < todayIso && Number(bill.remaining_pkr) > 0;
                   return (
                     <tr key={bill.id}>
-                      <td>
+                      <td style={{ minWidth: "160px", maxWidth: "260px" }}>
                         <div style={{ display: "flex", flexDirection: "column" }}>
                           <b>{bill.supplier}</b>
                           {bill.note ? <small style={{ fontSize: "11px", color: "#667a6e" }}>{bill.note}</small> : null}
@@ -1635,7 +1635,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
           </Card>
 
           <Card title="Downloads & Exports" subtitle="Download clean CSVs for Excel or print financial statements.">
-            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", padding: "10px 0" }}>
+            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", padding: "18px 20px" }}>
               <button type="button" className="shopifySecondaryButton" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }} onClick={() => downloadCsv("orders", orders, report)}>
                 <FileSpreadsheet size={15} /> Order Profit CSV
               </button>
@@ -1762,7 +1762,7 @@ function ExpenseModal({ accounts, defaultAccountId, defaultEntryType = "business
       <div className="shopifyFinanceModalCard">
         <div className="shopifyFinanceModalHead">
           <h3>
-            <span style={{ fontSize: "18px" }}>💸</span> {isWithdrawal ? "Record Owner / Personal Withdrawal" : "Record Business Expense"}
+            <WalletCards size={18} className="text-[#991b1b]" /> {isWithdrawal ? "Record Owner / Personal Withdrawal" : "Record Business Expense"}
           </h3>
           <button type="button" onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#667a6e" }}>
             <X size={18} />
@@ -1798,6 +1798,10 @@ function ExpenseModal({ accounts, defaultAccountId, defaultEntryType = "business
                 type="button"
                 onClick={() => setEntryType("business_expense")}
                 style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
                   padding: "7px 10px",
                   borderRadius: "6px",
                   border: "none",
@@ -1808,12 +1812,16 @@ function ExpenseModal({ accounts, defaultAccountId, defaultEntryType = "business
                   color: !isWithdrawal ? "#fff" : "#4b5d52",
                 }}
               >
-                💸 Business Expense
+                <WalletCards size={14} /> Business Expense
               </button>
               <button
                 type="button"
                 onClick={() => setEntryType("owner_withdrawal")}
                 style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
                   padding: "7px 10px",
                   borderRadius: "6px",
                   border: "none",
@@ -1824,7 +1832,7 @@ function ExpenseModal({ accounts, defaultAccountId, defaultEntryType = "business
                   color: isWithdrawal ? "#fff" : "#4b5d52",
                 }}
               >
-                👤 Owner Withdrawal
+                <CircleDollarSign size={14} /> Owner Withdrawal
               </button>
             </div>
 
@@ -1976,7 +1984,7 @@ function IncomeModal({ accounts, defaultAccountId, defaultEntryType = "other_inc
       <div className="shopifyFinanceModalCard">
         <div className="shopifyFinanceModalHead">
           <h3>
-            <span style={{ fontSize: "18px" }}>💰</span> Record Income / Bank Receipt
+            <CircleDollarSign size={18} className="text-[#166534]" /> Record Income / Bank Receipt
           </h3>
           <button type="button" onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#667a6e" }}>
             <X size={18} />
@@ -2017,9 +2025,9 @@ function IncomeModal({ accounts, defaultAccountId, defaultEntryType = "other_inc
             <div className="shopifyFinanceModalRow">
               <label>Receipt / Income Type
                 <select value={entryType} onChange={(e) => handleTypeChange(e.target.value)} required>
-                  <option value="postex_bank_receipt">🏦 PostEx Bank Payout Receipt</option>
-                  <option value="owner_investment">💼 Owner Funds Added (Capital)</option>
-                  <option value="other_income">💰 Other Business Income</option>
+                  <option value="postex_bank_receipt">PostEx Bank Payout Receipt</option>
+                  <option value="owner_investment">Owner Funds Added (Capital)</option>
+                  <option value="other_income">Other Business Income</option>
                 </select>
               </label>
 
@@ -2778,23 +2786,25 @@ function CampaignModal({ accounts, busy, onClose, onSubmit }) {
 function TrendChart({ rows }) {
   const max = Math.max(1, ...rows.map((row) => Math.max(row.revenuePkr, Math.abs(row.netProfitPkr))));
   return (
-    <div className="financeTrend">
-      {rows.map((row) => (
-        <div key={row.month} className="financeTrendMonth">
-          <div className="financeTrendBars">
-            <span className="financeTrendRevenue" style={{ height: `${(row.revenuePkr / max) * 100}%` }} title={`Revenue ${money(row.revenuePkr)}`} />
-            <span
-              className={row.netProfitPkr < 0 ? "financeTrendLoss" : "financeTrendProfit"}
-              style={{ height: `${(Math.abs(row.netProfitPkr) / max) * 100}%` }}
-              title={`Profit ${money(row.netProfitPkr)}`}
-            />
-          </div>
-          <small>{row.month.slice(5)}/{row.month.slice(2, 4)}</small>
-        </div>
-      ))}
+    <div style={{ padding: "16px 20px" }}>
       <div className="financeTrendLegend">
         <span><i className="financeTrendRevenue" /> Revenue</span>
         <span><i className="financeTrendProfit" /> Profit</span>
+      </div>
+      <div className="financeTrend">
+        {rows.map((row) => (
+          <div key={row.month} className="financeTrendMonth">
+            <div className="financeTrendBars">
+              <span className="financeTrendRevenue" style={{ height: `${(row.revenuePkr / max) * 100}%` }} title={`Revenue ${money(row.revenuePkr)}`} />
+              <span
+                className={row.netProfitPkr < 0 ? "financeTrendLoss" : "financeTrendProfit"}
+                style={{ height: `${(Math.abs(row.netProfitPkr) / max) * 100}%` }}
+                title={`Profit ${money(row.netProfitPkr)}`}
+              />
+            </div>
+            <small>{row.month.slice(5)}/{row.month.slice(2, 4)}</small>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -3006,7 +3016,7 @@ function AllocationForm({ settings, busy, onSave }) {
       }}
       style={{ display: "flex", flexDirection: "column", gap: "10px" }}
     >
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px" }}>
         <label style={{ fontSize: "12px", fontWeight: 650, color: "#122a1e" }}>
           Marketing %
           <input
@@ -3058,7 +3068,7 @@ function UnassignedFixer({ accounts, transactions, busy, onAssign }) {
       title="Unassigned Entries — 1-Click Account Link"
       subtitle="Ye entries kisi account se linked nahi hain. Account select kar ke 1 click mein assign kar dein."
     >
-      <div className="financeAssignBar" style={{ display: "flex", gap: "10px", alignItems: "flex-end", marginBottom: "14px", flexWrap: "wrap" }}>
+      <div className="financeAssignBar" style={{ display: "flex", gap: "10px", alignItems: "flex-end", marginBottom: "14px", flexWrap: "wrap", padding: "16px 20px 0" }}>
         <div style={{ minWidth: "240px" }}>
           <AccountSelect accounts={accounts} label="Assign to account" value={accountId} onChange={(event) => setAccountId(event.target.value)} />
         </div>

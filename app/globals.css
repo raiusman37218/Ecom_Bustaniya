@@ -34052,14 +34052,27 @@ html {
   flex-direction: column;
   gap: 20px;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
+.shopifyFinanceWorkspace *,
+.shopifyFinanceWorkspace *::before,
+.shopifyFinanceWorkspace *::after {
+  box-sizing: border-box;
+}
+
+/* Header & Quick Action Buttons */
 .shopifyFinanceHeader {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+.shopifyFinanceHeaderLeft {
+  flex: 1 1 320px;
+  min-width: 260px;
 }
 
 .shopifyFinanceHeaderLeft h1 {
@@ -34100,6 +34113,7 @@ html {
   border: 1.5px solid transparent;
   transition: all 0.15s ease;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .shopifyFinanceActionBtn.expense {
@@ -34111,6 +34125,7 @@ html {
 .shopifyFinanceActionBtn.expense:hover {
   background: #fee2e2;
   border-color: #f87171;
+  transform: translateY(-1px);
 }
 
 .shopifyFinanceActionBtn.income {
@@ -34122,6 +34137,7 @@ html {
 .shopifyFinanceActionBtn.income:hover {
   background: #dcfce7;
   border-color: #86efac;
+  transform: translateY(-1px);
 }
 
 .shopifyFinanceActionBtn.transfer {
@@ -34133,6 +34149,71 @@ html {
 .shopifyFinanceActionBtn.transfer:hover {
   background: #dbeafe;
   border-color: #93c5fd;
+  transform: translateY(-1px);
+}
+
+/* Primary & Secondary Action Buttons */
+.shopifyPrimaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 16px;
+  background: #173d29;
+  color: #ffffff;
+  border: 1.5px solid #173d29;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(23, 61, 41, 0.15);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.shopifyPrimaryButton:hover:not(:disabled) {
+  background: #122a1e;
+  border-color: #122a1e;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(23, 61, 41, 0.22);
+}
+
+.shopifyPrimaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.shopifySecondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: #ffffff;
+  color: #243d2f;
+  border: 1.5px solid #d4ded6;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.shopifySecondaryButton:hover:not(:disabled) {
+  background: #f4f7f5;
+  border-color: #173d29;
+  color: #173d29;
+}
+
+.shopifySecondaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* Toolbar & Section Tabs */
@@ -34154,6 +34235,8 @@ html {
   align-items: center;
   gap: 4px;
   overflow-x: auto;
+  scrollbar-width: thin;
+  max-width: 100%;
 }
 
 .shopifyFinanceTab {
@@ -34188,6 +34271,7 @@ html {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .shopifyFinancePeriodSelect {
@@ -34200,16 +34284,35 @@ html {
   background: #fafcfa;
   outline: none;
   cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
 }
 
 .shopifyFinancePeriodSelect:focus {
   border-color: #173d29;
 }
 
-/* 8 KPI Grid */
+/* Balanced 2-Column Responsive Grids for Shopify Workspace */
+.shopifyFinanceWorkspace .financeGrid,
+.shopifyFinanceWorkspace .financeGridWide {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 0;
+  align-items: stretch;
+}
+
+@media (max-width: 980px) {
+  .shopifyFinanceWorkspace .financeGrid,
+  .shopifyFinanceWorkspace .financeGridWide {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 8 Modern High-Impact KPI Cards */
 .shopifyFinanceKpiGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 14px;
 }
 
@@ -34222,12 +34325,14 @@ html {
   align-items: flex-start;
   gap: 14px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  min-width: 0;
 }
 
 .shopifyFinanceKpiCard:hover {
-  border-color: #c5d4c9;
+  border-color: #173d29;
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(23, 61, 41, 0.08);
 }
 
 .shopifyFinanceKpiIcon {
@@ -34241,67 +34346,39 @@ html {
   flex-shrink: 0;
 }
 
-.shopifyFinanceKpiIcon.cash {
-  background: #f0fdf4;
-  color: #166534;
-}
-
-.shopifyFinanceKpiIcon.sales {
-  background: #eff6ff;
-  color: #1e40af;
-}
-
-.shopifyFinanceKpiIcon.profit {
-  background: #fefce8;
-  color: #854d0e;
-}
-
-.shopifyFinanceKpiIcon.postex {
-  background: #faf5ff;
-  color: #6b21a8;
-}
-
-.shopifyFinanceKpiIcon.advance {
-  background: #ecfdf5;
-  color: #065f46;
-}
-
-.shopifyFinanceKpiIcon.units {
-  background: #f8fafc;
-  color: #334155;
-}
-
-.shopifyFinanceKpiIcon.returns {
-  background: #fef2f2;
-  color: #991b1b;
-}
-
-.shopifyFinanceKpiIcon.payable {
-  background: #fff7ed;
-  color: #9a3412;
-}
+.shopifyFinanceKpiIcon.cash { background: #f0fdf4; color: #166534; }
+.shopifyFinanceKpiIcon.sales { background: #eff6ff; color: #1e40af; }
+.shopifyFinanceKpiIcon.profit { background: #fefce8; color: #854d0e; }
+.shopifyFinanceKpiIcon.postex { background: #faf5ff; color: #6b21a8; }
+.shopifyFinanceKpiIcon.advance { background: #ecfdf5; color: #065f46; }
+.shopifyFinanceKpiIcon.units { background: #f8fafc; color: #334155; }
+.shopifyFinanceKpiIcon.returns { background: #fef2f2; color: #991b1b; }
+.shopifyFinanceKpiIcon.payable { background: #fff7ed; color: #9a3412; }
 
 .shopifyFinanceKpiInfo {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1;
 }
 
 .shopifyFinanceKpiLabel {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 750;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #728578;
 }
 
 .shopifyFinanceKpiValue {
-  font-size: 22px;
+  font-size: clamp(19px, 2.2vw, 23px);
   font-weight: 800;
   color: #122a1e;
   letter-spacing: -0.01em;
-  line-height: 1.2;
+  line-height: 1.25;
+  word-break: break-word;
+  font-variant-numeric: tabular-nums;
 }
 
 .shopifyFinanceKpiValue.negative {
@@ -34310,9 +34387,10 @@ html {
 
 .shopifyFinanceKpiHelp {
   font-size: 11.5px;
-  color: #798a7f;
+  color: #64746b;
   margin-top: 2px;
-  line-height: 1.35;
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 /* Account Cards Grid in Cash & Accounts */
@@ -34326,24 +34404,27 @@ html {
   background: #ffffff;
   border: 1.5px solid #e2e8e5;
   border-radius: 12px;
-  padding: 18px;
+  padding: 16px 18px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
 }
 
 .shopifyAccountCardHead {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 8px;
 }
 
 .shopifyAccountCardHead b {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 750;
   color: #122a1e;
+  word-break: break-word;
 }
 
 .shopifyAccountCardHead span {
@@ -34356,6 +34437,308 @@ html {
   font-weight: 800;
   color: #122a1e;
   letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.shopifyAccountQuickBtn {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid #d4ded6;
+  background: #fafcfa;
+  color: #2b4535;
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.shopifyAccountQuickBtn:hover {
+  background: #edf5ee;
+  border-color: #173d29;
+  color: #173d29;
+}
+
+/* Section Cards & Headers in Finance */
+.shopifyFinanceWorkspace .shopifySectionCard {
+  background: #ffffff;
+  border: 1.5px solid #e2e8e5;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.shopifyFinanceWorkspace .shopifySectionHeader {
+  padding: 14px 20px;
+  border-bottom: 1px solid #edf2ee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #fafcfa;
+}
+
+.shopifyFinanceWorkspace .shopifySectionHeader > div:first-child {
+  min-width: 220px;
+  flex: 1 1 auto;
+}
+
+.shopifyFinanceWorkspace .shopifySectionHeader h3 {
+  font-size: 15px;
+  font-weight: 750;
+  color: #122a1e;
+  margin: 0;
+}
+
+.shopifyFinanceWorkspace .shopifySectionHeader p {
+  font-size: 12px;
+  color: #55675c;
+  margin: 2px 0 0 0;
+  line-height: 1.4;
+}
+
+.shopifyFinanceWorkspace .shopifySectionCard > .financeStatement,
+.shopifyFinanceWorkspace .shopifySectionCard > form,
+.shopifyFinanceWorkspace .shopifySectionCard > .shopifySectionBody,
+.shopifyFinanceWorkspace .shopifySectionCard > .shopifyCardBody {
+  padding: 18px 20px;
+}
+
+/* Card Filter Bar */
+.shopifyFinanceWorkspace .shopifyCardFilterBar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid #edf2ee;
+  background: #ffffff;
+}
+
+/* Financial Statement Cards (Money In / Money Out) */
+.shopifyFinanceWorkspace .financeStatement {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.shopifyFinanceWorkspace .shopifyStatementRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f2;
+  border-radius: 6px;
+  gap: 14px;
+}
+
+.shopifyFinanceWorkspace .shopifyStatementRow.strongRow {
+  background: #f8faf9;
+  font-weight: 750;
+  border-top: 1.5px solid #173d29;
+  border-bottom: none;
+  margin-top: 6px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.shopifyFinanceWorkspace .shopifyStatementRow:last-child {
+  border-bottom: none;
+}
+
+.shopifyStatementLabel {
+  font-size: 13px;
+  color: #2b4133;
+  display: flex;
+  flex-direction: column;
+}
+
+.shopifyStatementHelp {
+  font-size: 11.5px;
+  color: #6d7f73;
+  margin-top: 2px;
+  line-height: 1.35;
+}
+
+.shopifyStatementValue {
+  font-size: 14.5px;
+  font-weight: 750;
+  color: #122a1e;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.shopifyStatementValue.in { color: #166534; }
+.shopifyStatementValue.out { color: #b91c1c; }
+
+/* Finance Tables & Wrapping Rules */
+.shopifyFinanceWorkspace .adminTableWrap {
+  overflow-x: auto;
+  position: relative;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.shopifyFinanceWorkspace .adminTable {
+  width: 100%;
+  min-width: 600px;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: normal;
+}
+
+.shopifyFinanceWorkspace .adminTable th {
+  padding: 11px 16px;
+  background: #f8faf9;
+  color: #55675c;
+  font-size: 11.5px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid #e5ebe7;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.shopifyFinanceWorkspace .adminTable td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #edf2ee;
+  color: #122a1e;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.shopifyFinanceWorkspace .adminTable tr:last-child td {
+  border-bottom: none;
+}
+
+.shopifyFinanceWorkspace .adminTable tr:hover td {
+  background: #f9fbf9;
+}
+
+.shopifyFinanceWorkspace .adminTable td.incomeAmount,
+.shopifyFinanceWorkspace .adminTable td.expenseAmount {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.shopifyFinanceWorkspace .adminTable tr.isVoided td,
+.shopifyFinanceWorkspace .adminTable tr.opacity-40 td {
+  opacity: 0.45;
+  text-decoration: line-through;
+  background: #fafafa !important;
+}
+
+.shopifyFinanceWorkspace .emptyFinanceCell {
+  padding: 32px 16px !important;
+  text-align: center;
+  color: #667a6e;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Status Badges */
+.shopifyStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: #f1f5f2;
+  color: #2d4737;
+  border: 1px solid #dce5df;
+}
+
+.shopifyStatusBadge.active,
+.shopifyStatusBadge.delivered,
+.shopifyStatusBadge.verified {
+  background: #e6f4ea;
+  color: #137333;
+  border-color: #bbf7d0;
+}
+
+.shopifyStatusBadge.pending,
+.shopifyStatusBadge.needs_action,
+.shopifyStatusBadge.warning {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.shopifyStatusBadge.cancelled,
+.shopifyStatusBadge.voided,
+.shopifyStatusBadge.overdue,
+.shopifyStatusBadge.danger {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.shopifyStatusBadge.draft {
+  background: #eef1ef;
+  color: #58675d;
+  border-color: #d8deda;
+}
+
+/* Form Controls in Shopify Finance Workspace (Both Modals and On-Page Cards) */
+.shopifyFinanceWorkspace label,
+.shopifyFinanceModalCard label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #122a1e;
+}
+
+.shopifyFinanceWorkspace input,
+.shopifyFinanceWorkspace select,
+.shopifyFinanceWorkspace textarea,
+.shopifyFinanceModalCard input,
+.shopifyFinanceModalCard select,
+.shopifyFinanceModalCard textarea {
+  width: 100%;
+  padding: 8.5px 12px;
+  border: 1.5px solid #d4ded6;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #122a1e;
+  background: #ffffff;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.shopifyFinanceWorkspace input:focus,
+.shopifyFinanceWorkspace select:focus,
+.shopifyFinanceWorkspace textarea:focus,
+.shopifyFinanceModalCard input:focus,
+.shopifyFinanceModalCard select:focus,
+.shopifyFinanceModalCard textarea:focus {
+  border-color: #173d29;
+  box-shadow: 0 0 0 3px rgba(23, 61, 41, 0.1);
+}
+
+.shopifyFinanceModalRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .shopifyFinanceModalRow {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Quick Action Modals */
@@ -34388,7 +34771,6 @@ html {
     opacity: 0;
     transform: scale(0.96) translateY(8px);
   }
-
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -34432,49 +34814,6 @@ html {
   gap: 10px;
 }
 
-.shopifyFinanceModalCard label {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 12.5px;
-  font-weight: 650;
-  color: #122a1e;
-}
-
-.shopifyFinanceModalCard input,
-.shopifyFinanceModalCard select,
-.shopifyFinanceModalCard textarea {
-  width: 100%;
-  padding: 9px 12px;
-  border: 1.5px solid #d4ded6;
-  border-radius: 8px;
-  font-size: 13.5px;
-  color: #122a1e;
-  background: #ffffff;
-  outline: none;
-  font-family: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.shopifyFinanceModalCard input:focus,
-.shopifyFinanceModalCard select:focus,
-.shopifyFinanceModalCard textarea:focus {
-  border-color: #173d29;
-  box-shadow: 0 0 0 3px rgba(23, 61, 41, 0.1);
-}
-
-.shopifyFinanceModalRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-@media (max-width: 540px) {
-  .shopifyFinanceModalRow {
-    grid-template-columns: 1fr;
-  }
-}
-
 .shopifyModalCancelBtn {
   padding: 8px 16px;
   border-radius: 8px;
@@ -34485,6 +34824,7 @@ html {
   font-weight: 650;
   cursor: pointer;
   transition: all 0.15s ease;
+  font-family: inherit;
 }
 
 .shopifyModalCancelBtn:hover {
@@ -34506,6 +34846,7 @@ html {
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(23, 61, 41, 0.25);
   transition: all 0.15s ease;
+  font-family: inherit;
 }
 
 .shopifyModalSubmitBtn:hover:not(:disabled) {
@@ -34518,83 +34859,103 @@ html {
   cursor: not-allowed;
 }
 
-.shopifyAccountQuickBtn {
-  padding: 5px 10px;
-  border-radius: 6px;
-  border: 1px solid #d4ded6;
-  background: #fafcfa;
-  color: #2b4535;
-  font-size: 11.5px;
-  font-weight: 650;
-  cursor: pointer;
-  transition: all 0.15s ease;
+/* Trend Chart Component Styles */
+.shopifyFinanceWorkspace .financeTrendLegend {
+  position: static;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #52675b;
+}
+
+.shopifyFinanceWorkspace .financeTrendLegend span {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
-.shopifyAccountQuickBtn:hover {
-  background: #edf5ee;
-  border-color: #173d29;
-  color: #173d29;
+.shopifyFinanceWorkspace .financeTrendLegend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
 }
 
-/* Financial Statement Cards (Money In / Money Out) */
-.shopifyStatementCard {
-  background: #ffffff;
-  border: 1.5px solid #e2e8e5;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+.shopifyFinanceWorkspace .financeTrendLegend i.financeTrendRevenue {
+  background: #173d29;
 }
 
-.shopifyStatementRow {
+.shopifyFinanceWorkspace .financeTrendLegend i.financeTrendProfit {
+  background: #2563eb;
+}
+
+.shopifyFinanceWorkspace .financeTrend {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid #f1f5f2;
+  align-items: flex-end;
+  gap: 8px;
+  height: 180px;
+  padding: 0 4px 6px;
+  overflow-x: auto;
+  position: relative;
+  scrollbar-width: thin;
 }
 
-.shopifyStatementRow.totalRow {
-  border-bottom: none;
-  border-top: 2px solid #173d29;
-  margin-top: 8px;
-  padding-top: 14px;
-}
-
-.shopifyStatementRow.totalRow b {
-  font-size: 16px;
-  font-weight: 800;
-  color: #122a1e;
-}
-
-.shopifyStatementLabel {
-  font-size: 13.5px;
-  color: #2b4133;
+.shopifyFinanceWorkspace .financeTrendMonth {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  min-width: 44px;
+  flex: 1;
 }
 
-.shopifyStatementHelp {
-  font-size: 11.5px;
-  color: #798c80;
-  margin-top: 2px;
+.shopifyFinanceWorkspace .financeTrendBars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 100%;
+  width: 100%;
+  justify-content: center;
 }
 
-.shopifyStatementValue {
-  font-size: 14.5px;
-  font-weight: 750;
-  color: #122a1e;
+.shopifyFinanceWorkspace .financeTrendBars span {
+  width: 12px;
+  border-radius: 3px 3px 0 0;
+  min-height: 3px;
+  transition: height 0.2s ease;
 }
 
-.shopifyStatementValue.in {
-  color: #166534;
+.shopifyFinanceWorkspace .financeTrendBars span.financeTrendRevenue {
+  background: #173d29;
 }
 
-.shopifyStatementValue.out {
-  color: #b91c1c;
+.shopifyFinanceWorkspace .financeTrendBars span.financeTrendProfit {
+  background: #2563eb;
 }
+
+.shopifyFinanceWorkspace .financeTrendBars span.financeTrendLoss {
+  background: #b91c1c;
+}
+
+.shopifyFinanceWorkspace .financeTrendMonth small {
+  color: #6b7d72;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* Missing Utility Classes */
+.font-bold { font-weight: 700 !important; }
+.font-semibold { font-weight: 600 !important; }
+.text-xs { font-size: 11px !important; }
+.text-gray-500 { color: #6b7280 !important; }
+.text-amber-700 { color: #b45309 !important; }
+.text-orange-700 { color: #c2410c !important; }
+.block { display: block !important; }
 
 @media (max-width: 900px) {
   .shopifyFinanceHeader {
