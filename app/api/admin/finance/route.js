@@ -6,6 +6,8 @@ import {
   insertFinanceTransactions,
   voidFinanceTransaction,
   getFinanceTransaction,
+  updateFinanceTransaction,
+  updateFinanceAccount,
   insertSupplierBill,
   updateSupplierBillStatus,
   insertMarketingCampaign,
@@ -14,7 +16,7 @@ import {
   listSupplierBills,
   isMissingTableError,
 } from "../../../../lib/financeStore";
-import { backfillDeliveredOrderCogs, backfillVerifiedAdvances } from "../../../../lib/financeOrders";
+import { backfillDeliveredOrderCogs, backfillVerifiedAdvances, recordVerifiedAdvance } from "../../../../lib/financeOrders";
 import { supabaseAdminRequest } from "../../../../lib/supabaseRest";
 
 const SETUP_HINT = "Run scripts/supabase-finance.sql and scripts/supabase-finance-phase2.sql in Supabase, then reload.";
@@ -156,7 +158,7 @@ export async function POST(request) {
         const transaction = await getFinanceTransaction(body.transactionId);
         if (!transaction) return NextResponse.json({ error: "Entry nahi mili." }, { status: 404 });
         if (transaction.voided) return NextResponse.json({ error: "Ye entry pehle hi void hai." }, { status: 422 });
-        if (body.confirmation !== `VOID ${transaction.id}`) {
+        if (body.confirmation !== `VOID ${transaction.id}` && body.confirmation !== "VOID") {
           return NextResponse.json({ error: "Void confirmation match nahi hui." }, { status: 422 });
         }
         if (transaction.production_batch_id) {
@@ -173,6 +175,144 @@ export async function POST(request) {
           await refreshSupplierBillStatus(transaction.supplier_bill_id).catch(() => {});
         }
         return NextResponse.json({ success: true, voided: targets.length });
+      }
+
+      case "edit_transaction": {
+        const transaction = await getFinanceTransaction(body.transactionId);
+        if (!transaction) return NextResponse.json({ error: "Entry nahi mili." }, { status: 404 });
+        if (transaction.voided) return NextResponse.json({ error: "Voided entry edit nahi ho sakti." }, { status: 422 });
+        const patch = body.patch || {};
+        if (patch.accountId) {
+          if (!(await findActiveFinanceAccount(patch.accountId))) {
+            return NextResponse.json({ error: "Selected finance account valid ya active nahi hai." }, { status: 422 });
+          }
+        }
+        if (patch.amountPkr !== undefined && !(Number(patch.amountPkr) > 0)) {
+          return NextResponse.json({ error: "Amount 0 se zyada hona chahiye." }, { status: 422 });
+        }
+        const updated = await updateFinanceTransaction(transaction.id, patch);
+        if (transaction.transfer_group_id && (patch.amountPkr !== undefined || patch.occurredOn !== undefined || patch.reference !== undefined || patch.note !== undefined)) {
+          const siblings = await supabaseAdminRequest(
+            `finance_transactions?select=id&transfer_group_id=eq.${encodeURIComponent(transaction.transfer_group_id)}&voided=is.false`
+          ).catch(() => []);
+          for (const sibling of siblings || []) {
+            if (String(sibling.id) === String(transaction.id)) continue;
+            await updateFinanceTransaction(sibling.id, {
+              ...(patch.amountPkr !== undefined ? { amountPkr: patch.amountPkr } : {}),
+              ...(patch.occurredOn !== undefined ? { occurredOn: patch.occurredOn } : {}),
+              ...(patch.reference !== undefined ? { reference: patch.reference } : {}),
+              ...(patch.note !== undefined ? { note: patch.note } : {}),
+            });
+          }
+        }
+        if (transaction.supplier_bill_id) {
+          await refreshSupplierBillStatus(transaction.supplier_bill_id).catch(() => {});
+        }
+        return NextResponse.json({ success: true, transaction: updated });
+      }
+
+      case "adjust_account_balance": {
+        if (user.role !== "Owner") {
+          return NextResponse.json({ error: "Sirf Owner account balance adjust kar sakta hai." }, { status: 403 });
+        }
+        const account = await findActiveFinanceAccount(body.accountId);
+        if (!account) {
+          return NextResponse.json({ error: "Account valid ya active nahi hai." }, { status: 422 });
+        }
+        const mode = body.mode || "reconcile";
+        if (mode === "opening") {
+          const openingBalancePkr = Number(body.openingBalancePkr ?? 0);
+          if (!Number.isFinite(openingBalancePkr)) {
+            return NextResponse.json({ error: "Opening balance sahi number hona chahiye." }, { status: 422 });
+          }
+          const updatedAccount = await updateFinanceAccount(account.id, {
+            openingBalancePkr,
+            ...(body.holder !== undefined ? { holder: body.holder } : {}),
+            ...(body.note !== undefined ? { note: body.note } : {}),
+          });
+          return NextResponse.json({ success: true, account: updatedAccount });
+        }
+
+        // Reconcile mode: create an auditable cash_reset entry so current balance matches targetBalancePkr
+        const targetBalance = Math.round(Number(body.targetBalancePkr ?? 0) * 100) / 100;
+        if (!Number.isFinite(targetBalance)) {
+          return NextResponse.json({ error: "Target balance sahi number hona chahiye." }, { status: 422 });
+        }
+        const activeRows = await supabaseAdminRequest(
+          `finance_transactions?select=amount_pkr,cash_direction&account_id=eq.${encodeURIComponent(account.id)}&voided=is.false`
+        );
+        const movementsSum = (activeRows || []).reduce(
+          (sum, row) => sum + (row.cash_direction === "in" ? 1 : -1) * Number(row.amount_pkr || 0),
+          0
+        );
+        const currentBalance = Math.round((Number(account.opening_balance_pkr || 0) + movementsSum) * 100) / 100;
+        const diff = Math.round((targetBalance - currentBalance) * 100) / 100;
+        if (Math.abs(diff) < 0.01) {
+          return NextResponse.json({ success: true, adjusted: false, message: "Balance pehle hi match karta hai." });
+        }
+        const [adjustment] = await insertFinanceTransactions([{
+          accountId: account.id,
+          entryType: "cash_reset",
+          cashDirection: diff > 0 ? "in" : "out",
+          title: body.title || `Balance reconciled to Rs. ${targetBalance.toLocaleString()}`,
+          category: "Balance adjustment",
+          amountPkr: Math.abs(diff),
+          occurredOn: body.occurredOn || new Date().toISOString().slice(0, 10),
+          reference: body.reference || "RECONCILE",
+          note: body.note || `Previous calculated balance was Rs. ${currentBalance.toLocaleString()}`,
+          source: "manual",
+          createdBy: actorName,
+        }]);
+        return NextResponse.json({ success: true, adjusted: true, transaction: adjustment });
+      }
+
+      case "verify_order_advance": {
+        const orderId = String(body.orderId || "").trim();
+        if (!orderId) return NextResponse.json({ error: "Order ID zaroori hai." }, { status: 422 });
+        const rows = await supabaseAdminRequest(`orders?select=*&id=eq.${encodeURIComponent(orderId)}&limit=1`);
+        const order = rows?.[0];
+        if (!order) return NextResponse.json({ error: "Order nahi mila." }, { status: 404 });
+        const updatedOrderRows = await supabaseAdminRequest(`orders?id=eq.${encodeURIComponent(orderId)}`, {
+          method: "PATCH",
+          body: {
+            payment_status: "Payment Verified",
+            payment_proof_status: "Payment Verified",
+            advance_verified_at: order.advance_verified_at || new Date().toISOString(),
+          },
+          prefer: "return=representation",
+        }).catch(() => [
+          {
+            ...order,
+            payment_status: "Payment Verified",
+            payment_proof_status: "Payment Verified",
+          },
+        ]);
+        const verifiedOrder = updatedOrderRows?.[0] || {
+          ...order,
+          payment_status: "Payment Verified",
+          payment_proof_status: "Payment Verified",
+        };
+        const advanceResult = await recordVerifiedAdvance(verifiedOrder, {
+          actor: user,
+          accountId: body.accountId || undefined,
+        });
+        return NextResponse.json({ success: true, advanceResult });
+      }
+
+      case "void_supplier_bill": {
+        if (user.role !== "Owner") {
+          return NextResponse.json({ error: "Sirf Owner supplier bill void kar sakta hai." }, { status: 403 });
+        }
+        const billId = String(body.billId || "").trim();
+        if (!billId) return NextResponse.json({ error: "Supplier bill select karein." }, { status: 422 });
+        const linkedPayments = await supabaseAdminRequest(
+          `finance_transactions?select=id&supplier_bill_id=eq.${encodeURIComponent(billId)}&voided=is.false`
+        ).catch(() => []);
+        for (const payment of linkedPayments || []) {
+          await voidFinanceTransaction(payment.id, { voidedBy: actorName });
+        }
+        const updatedBill = await updateSupplierBillStatus(billId, "voided");
+        return NextResponse.json({ success: true, bill: updatedBill, voidedPayments: (linkedPayments || []).length });
       }
 
       case "add_supplier_bill": {
@@ -241,9 +381,27 @@ export async function POST(request) {
       }
 
       case "add_campaign": {
-        const campaign = await insertMarketingCampaign(body.campaign || {});
+        const campaignInput = body.campaign || {};
+        const campaign = await insertMarketingCampaign(campaignInput);
         if (!campaign) return NextResponse.json({ error: "Campaign ka naam zaroori hai." }, { status: 422 });
-        return NextResponse.json({ success: true, campaign });
+        let expenseTransaction = null;
+        if (campaignInput.recordExpense && Number(campaign.spend_pkr || 0) > 0 && campaignInput.accountId) {
+          if (await findActiveFinanceAccount(campaignInput.accountId)) {
+            [expenseTransaction] = await insertFinanceTransactions([{
+              accountId: campaignInput.accountId,
+              entryType: "business_expense",
+              title: `Marketing campaign: ${campaign.name}`,
+              category: "Marketing / Meta Ads",
+              amountPkr: Number(campaign.spend_pkr),
+              occurredOn: campaign.occurred_on,
+              counterparty: campaign.platform || "Meta Ads",
+              note: campaign.note || "",
+              source: "manual",
+              createdBy: actorName,
+            }]);
+          }
+        }
+        return NextResponse.json({ success: true, campaign, expenseTransaction });
       }
 
       case "save_settings": {

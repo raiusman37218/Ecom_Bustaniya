@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowLeftRight, CheckCircle2, ChevronRight, CircleDollarSign,
-  Download, FileSpreadsheet, Landmark, Loader2, Package, Plus, ReceiptText,
-  RefreshCw, ShoppingBag, TrendingUp, WalletCards, X,
+  AlertTriangle, ArrowLeftRight, CheckCircle2, CircleDollarSign,
+  Download, Edit3, FileSpreadsheet, Filter, Landmark, Loader2, Package,
+  Plus, ReceiptText, RefreshCw, Search, Settings2, ShoppingBag, SlidersHorizontal,
+  Trash2, TrendingUp, WalletCards, X,
 } from "lucide-react";
 
 const PERIODS = [
@@ -20,8 +21,21 @@ const TABS = [
   ["overview", "Overview"],
   ["cash", "Cash & Accounts"],
   ["pnl", "Profit & Loss"],
-  ["payments", "Courier & Advances"],
-  ["reports", "Reports & Analytics"],
+  ["payments", "Courier, Advances & Bills"],
+  ["reports", "Reports & Marketing"],
+];
+
+const EXPENSE_CATEGORIES = [
+  "Fabric / stock",
+  "Tailoring / stitching",
+  "Lace / embellishment",
+  "Packaging",
+  "Marketing / Meta Ads",
+  "Courier / delivery",
+  "Rent & utilities",
+  "Salaries & labour",
+  "Operations",
+  "Other",
 ];
 
 function money(value) {
@@ -113,7 +127,7 @@ function Table({ head, children, empty, colSpan }) {
   return (
     <div className="adminTableWrap">
       <table className="adminTable financeTable">
-        <thead><tr>{head.map((label) => <th key={label}>{label}</th>)}</tr></thead>
+        <thead><tr>{head.map((label, idx) => <th key={label || idx}>{label}</th>)}</tr></thead>
         <tbody>
           {isEmpty ? <tr><td colSpan={colSpan || head.length} className="emptyFinanceCell">{empty}</td></tr> : rows}
         </tbody>
@@ -132,12 +146,33 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
   const [trend, setTrend] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [postexSyncing, setPostexSyncing] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   // Modals state
-  const [activeModal, setActiveModal] = useState(null); // "expense" | "income" | "transfer" | null
+  const [activeModal, setActiveModal] = useState(null);
+  // "expense" | "income" | "transfer" | "supplier_bill" | "campaign" | "adjust_balance" | "edit_tx" | "void_tx" | null
   const [modalDefaultAccount, setModalDefaultAccount] = useState("");
+  const [modalDefaultIncomeType, setModalDefaultIncomeType] = useState("other_income");
+  const [modalDefaultExpenseType, setModalDefaultExpenseType] = useState("business_expense");
+  const [selectedAccountForBalance, setSelectedAccountForBalance] = useState(null);
+  const [selectedTxForEdit, setSelectedTxForEdit] = useState(null);
+  const [selectedTxForVoid, setSelectedTxForVoid] = useState(null);
+
+  // Cash Ledger filters
+  const [ledgerSearch, setLedgerSearch] = useState("");
+  const [ledgerAccountFilter, setLedgerAccountFilter] = useState("all");
+  const [ledgerTypeFilter, setLedgerTypeFilter] = useState("all");
+  const [showVoidedLedger, setShowVoidedLedger] = useState(false);
+
+  // Profit & Loss order filter
+  const [orderProfitFilter, setOrderProfitFilter] = useState("all"); // "all" | "loss" | "estimated"
+  const [orderProfitSearch, setOrderProfitSearch] = useState("");
+
+  // Advances & Supplier Bill filters
+  const [advanceFilter, setAdvanceFilter] = useState("all"); // "all" | "needs_action" | "posted"
+  const [billFilter, setBillFilter] = useState("open"); // "open" | "overdue" | "paid" | "all"
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ period });
@@ -192,14 +227,42 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Ye action pura nahi ho saka.");
       if (successMessage) setNotice(typeof successMessage === "function" ? successMessage(result) : successMessage);
-      await load();
+      await load({ withTrend: tab === "reports" });
       setActiveModal(null);
+      setSelectedTxForEdit(null);
+      setSelectedTxForVoid(null);
+      setSelectedAccountForBalance(null);
       return result;
     } catch (actionError) {
       setError(actionError.message);
       return null;
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function syncPostexNow() {
+    setPostexSyncing(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/postex-settlements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync" }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "PostEx sync pura nahi ho saka.");
+      setNotice(
+        result.failed?.length
+          ? `PostEx Sync: ${result.synced || 0} orders synced (${result.failed.length} skipped).`
+          : `PostEx Sync complete: ${result.synced || 0} orders refreshed.`
+      );
+      await load();
+    } catch (syncError) {
+      setError(syncError.message);
+    } finally {
+      setPostexSyncing(false);
     }
   }
 
@@ -237,6 +300,78 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
   if (!report) return null;
 
   const { cash, sales, pnl, postex, advances, suppliers, marketing, inventory, accounts, alerts, products, categories, orders, settings } = report;
+  const sortedAccounts = sortFinanceAccounts(accounts);
+  const alfalahAccount = sortedAccounts.find((a) => a.slug === "alfalah_owner") || sortedAccounts[0];
+  const nayapayAccount = sortedAccounts.find((a) => a.slug === "nayapay_amina") || sortedAccounts[0];
+
+  // Filtered Cash Ledger rows
+  const filteredTransactions = report.transactions.filter((entry) => {
+    if (!showVoidedLedger && entry.voided) return false;
+    if (ledgerAccountFilter === "unassigned") {
+      if (entry.account_id) return false;
+    } else if (ledgerAccountFilter !== "all") {
+      if (String(entry.account_id) !== String(ledgerAccountFilter)) return false;
+    }
+    if (ledgerTypeFilter === "in") {
+      if (entry.cash_direction !== "in") return false;
+    } else if (ledgerTypeFilter === "out") {
+      if (entry.cash_direction !== "out") return false;
+    } else if (ledgerTypeFilter === "transfer") {
+      if (entry.entry_type !== "transfer_in" && entry.entry_type !== "transfer_out") return false;
+    } else if (ledgerTypeFilter !== "all") {
+      if (entry.entry_type !== ledgerTypeFilter) return false;
+    }
+    if (ledgerSearch.trim()) {
+      const q = ledgerSearch.trim().toLowerCase();
+      const hay = `${entry.title || ""} ${entry.counterparty || ""} ${entry.category || ""} ${entry.reference || ""} ${entry.note || ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const filteredInSum = filteredTransactions
+    .filter((t) => !t.voided && t.cash_direction === "in")
+    .reduce((sum, t) => sum + Number(t.amount_pkr || 0), 0);
+  const filteredOutSum = filteredTransactions
+    .filter((t) => !t.voided && t.cash_direction === "out")
+    .reduce((sum, t) => sum + Number(t.amount_pkr || 0), 0);
+
+  // Filtered Order Profit rows
+  const filteredOrders = orders.filter((row) => {
+    if (orderProfitFilter === "loss" && !(row.netProfitPkr < 0)) return false;
+    if (orderProfitFilter === "estimated" && !row.costEstimated) return false;
+    if (orderProfitSearch.trim()) {
+      const q = orderProfitSearch.trim().toLowerCase();
+      const hay = `${row.orderNumber || ""} ${row.customer || ""} ${row.city || ""} ${row.trackingNumber || ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // Filtered Advance rows
+  const filteredAdvances = advances.rows.filter((row) => {
+    if (advanceFilter === "needs_action") return !row.verified || !row.cashPosted;
+    if (advanceFilter === "posted") return row.verified && row.cashPosted;
+    return true;
+  });
+
+  // Filtered Supplier Bills
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const activeSupplierBills = (suppliers.bills || []).filter((b) => b.status !== "voided");
+  const filteredBills = activeSupplierBills.filter((bill) => {
+    const remaining = Number(bill.remaining_pkr || 0);
+    if (billFilter === "open") return bill.status !== "paid" && remaining > 0;
+    if (billFilter === "overdue") return bill.status !== "paid" && remaining > 0 && bill.due_date && bill.due_date < todayIso;
+    if (billFilter === "paid") return bill.status === "paid" || remaining <= 0;
+    return true;
+  });
+
+  // PostEx Bank Receipts from transactions
+  const postexReceiptRows = report.transactions.filter((t) => t.entry_type === "postex_bank_receipt");
+
+  // Pending Action Count for Quick Action Strip
+  const pendingAdvanceActions = advances.rows.filter((r) => !r.verified || !r.cashPosted).length;
+  const unassignedCount = report.transactions.filter((t) => !t.account_id && !t.voided).length;
 
   return (
     <div className="shopifyFinanceWorkspace">
@@ -249,30 +384,49 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               Finances
             </h1>
             <p>
-              Live Multi-Account Cashbook, Real-time P&amp;L, PostEx Courier Receivables &amp; Supplier Payables.
+              Easy Multi-Account Cashbook, Real-time P&amp;L, PostEx Payouts, Customer Advances &amp; Supplier Bills.
             </p>
           </div>
           <div className="shopifyFinanceHeaderActions">
             <button
               type="button"
               className="shopifyFinanceActionBtn expense"
-              onClick={() => { setModalDefaultAccount(""); setActiveModal("expense"); }}
+              onClick={() => {
+                setModalDefaultAccount("");
+                setModalDefaultExpenseType("business_expense");
+                setActiveModal("expense");
+              }}
             >
-              <Plus size={15} /> Record Expense
+              <Plus size={15} /> Expense / Withdrawal
             </button>
             <button
               type="button"
               className="shopifyFinanceActionBtn income"
-              onClick={() => { setModalDefaultAccount(""); setActiveModal("income"); }}
+              onClick={() => {
+                setModalDefaultAccount("");
+                setModalDefaultIncomeType("other_income");
+                setActiveModal("income");
+              }}
             >
-              <Plus size={15} /> Add Income
+              <Plus size={15} /> Add Income / Receipt
             </button>
             <button
               type="button"
               className="shopifyFinanceActionBtn transfer"
-              onClick={() => { setModalDefaultAccount(""); setActiveModal("transfer"); }}
+              onClick={() => {
+                setModalDefaultAccount("");
+                setActiveModal("transfer");
+              }}
             >
               <ArrowLeftRight size={15} /> Transfer Funds
+            </button>
+            <button
+              type="button"
+              className="shopifySecondaryButton"
+              onClick={() => setActiveModal("supplier_bill")}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px" }}
+            >
+              <Plus size={14} /> Supplier Bill
             </button>
             <button
               type="button"
@@ -349,14 +503,22 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
 
       {/* Notification and Error Messages */}
       {error && (
-        <div className="adminErrorBanner financeErrorBanner" style={{ borderRadius: "10px", margin: 0 }}>
-          {error}
+        <div className="adminErrorBanner financeErrorBanner" style={{ borderRadius: "10px", margin: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>{error}</span>
+          <button type="button" onClick={() => setError("")} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit" }}>
+            <X size={16} />
+          </button>
         </div>
       )}
       {notice && (
-        <div style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", padding: "12px 18px", borderRadius: "10px", display: "flex", alignItems: "center", gap: "10px", color: "#166534" }}>
-          <CheckCircle2 size={18} />
-          <span style={{ fontSize: "13.5px", fontWeight: "650" }}>{notice}</span>
+        <div style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", padding: "12px 18px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", color: "#166534" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <CheckCircle2 size={18} />
+            <span style={{ fontSize: "13.5px", fontWeight: "650" }}>{notice}</span>
+          </div>
+          <button type="button" onClick={() => setNotice("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#166534" }}>
+            <X size={16} />
+          </button>
         </div>
       )}
 
@@ -377,9 +539,77 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
           ========================================================================= */}
       {tab === "overview" && (
         <>
-          {/* 8 Modern High-Impact KPI Cards */}
+          {/* Smart Quick-Fix Action Center if anything needs 1-click attention */}
+          {(pnl.estimatedCogsOrderCount > 0 || advances.notInCashCount > 0 || unassignedCount > 0 || suppliers.overdue.length > 0 || postex.receivablePkr > 0) && (
+            <div className="shopifySectionCard" style={{ padding: "14px 18px", background: "#fafcfa", border: "1.5px solid #d4ded6" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <SlidersHorizontal size={16} className="text-[#173d29]" />
+                  <b style={{ fontSize: "13.5px", color: "#122a1e" }}>Easy Finance Shortcuts — 1-Click Actions:</b>
+                </div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {(pnl.estimatedCogsOrderCount > 0 || advances.notInCashCount > 0) && (
+                    <button
+                      type="button"
+                      className="shopifyAccountQuickBtn"
+                      style={{ background: "#fffbeb", borderColor: "#fde68a", color: "#92400e", fontWeight: 700 }}
+                      disabled={busy}
+                      onClick={() => post(
+                        { action: "backfill" },
+                        (res) => `Synced: ${res.cogs?.snapshotted || 0} order costs locked, ${res.advances?.recorded || 0} advances posted to NayaPay.`
+                      )}
+                    >
+                      <RefreshCw size={12} /> Sync &amp; Lock ({pnl.estimatedCogsOrderCount + advances.notInCashCount} pending)
+                    </button>
+                  )}
+                  {postex.receivablePkr > 0 && (
+                    <button
+                      type="button"
+                      className="shopifyAccountQuickBtn"
+                      style={{ background: "#f0fdf4", borderColor: "#bbf7d0", color: "#166534", fontWeight: 700 }}
+                      onClick={() => {
+                        setModalDefaultAccount(alfalahAccount?.id || "");
+                        setModalDefaultIncomeType("postex_bank_receipt");
+                        setActiveModal("income");
+                      }}
+                    >
+                      <Plus size={12} /> Record PostEx Receipt ({money(postex.receivablePkr)} due)
+                    </button>
+                  )}
+                  {unassignedCount > 0 && (
+                    <button
+                      type="button"
+                      className="shopifyAccountQuickBtn"
+                      style={{ background: "#eff6ff", borderColor: "#bfdbfe", color: "#1e40af", fontWeight: 700 }}
+                      onClick={() => {
+                        setLedgerAccountFilter("unassigned");
+                        setTab("cash");
+                      }}
+                    >
+                      Assign {unassignedCount} Unassigned Entries →
+                    </button>
+                  )}
+                  {suppliers.overdue.length > 0 && (
+                    <button
+                      type="button"
+                      className="shopifyAccountQuickBtn"
+                      style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", fontWeight: 700 }}
+                      onClick={() => {
+                        setBillFilter("overdue");
+                        setTab("payments");
+                      }}
+                    >
+                      Pay {suppliers.overdue.length} Overdue Bill{suppliers.overdue.length === 1 ? "" : "s"} →
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 8 Modern High-Impact KPI Cards (Interactive) */}
           <div className="shopifyFinanceKpiGrid">
-            <div className="shopifyFinanceKpiCard">
+            <div className="shopifyFinanceKpiCard" style={{ cursor: "pointer" }} onClick={() => setTab("cash")} title="Click to manage accounts & cash ledger">
               <div className="shopifyFinanceKpiIcon cash"><WalletCards size={20} /></div>
               <div className="shopifyFinanceKpiInfo">
                 <span className="shopifyFinanceKpiLabel">Available Cash</span>
@@ -388,7 +618,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               </div>
             </div>
 
-            <div className="shopifyFinanceKpiCard">
+            <div className="shopifyFinanceKpiCard" style={{ cursor: "pointer" }} onClick={() => setTab("pnl")} title="Click to view Profit & Loss">
               <div className="shopifyFinanceKpiIcon sales"><ShoppingBag size={20} /></div>
               <div className="shopifyFinanceKpiInfo">
                 <span className="shopifyFinanceKpiLabel">Sales (Delivered)</span>
@@ -397,7 +627,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               </div>
             </div>
 
-            <div className="shopifyFinanceKpiCard">
+            <div className="shopifyFinanceKpiCard" style={{ cursor: "pointer" }} onClick={() => setTab("pnl")} title="Click to view Profit & Loss">
               <div className="shopifyFinanceKpiIcon profit"><TrendingUp size={20} /></div>
               <div className="shopifyFinanceKpiInfo">
                 <span className="shopifyFinanceKpiLabel">Net Profit</span>
@@ -406,7 +636,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               </div>
             </div>
 
-            <div className="shopifyFinanceKpiCard">
+            <div className="shopifyFinanceKpiCard" style={{ cursor: "pointer" }} onClick={() => setTab("payments")} title="Click to manage PostEx settlements">
               <div className="shopifyFinanceKpiIcon postex"><Landmark size={20} /></div>
               <div className="shopifyFinanceKpiInfo">
                 <span className="shopifyFinanceKpiLabel">PostEx Receivable</span>
@@ -415,12 +645,12 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               </div>
             </div>
 
-            <div className="shopifyFinanceKpiCard">
+            <div className="shopifyFinanceKpiCard" style={{ cursor: "pointer" }} onClick={() => setTab("payments")} title="Click to view Customer Advances">
               <div className="shopifyFinanceKpiIcon advance"><CircleDollarSign size={20} /></div>
               <div className="shopifyFinanceKpiInfo">
                 <span className="shopifyFinanceKpiLabel">Advance Received</span>
                 <span className="shopifyFinanceKpiValue">{money(advances.cashPostedPkr || 0)}</span>
-                <span className="shopifyFinanceKpiHelp">{money(advances.verifiedPkr)} verified ({money(advances.notInCashPkr || 0)} unposted)</span>
+                <span className="shopifyFinanceKpiHelp">{money(advances.verifiedPkr)} verified ({pendingAdvanceActions ? `${pendingAdvanceActions} action needed` : "all posted"})</span>
               </div>
             </div>
 
@@ -438,11 +668,11 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               <div className="shopifyFinanceKpiInfo">
                 <span className="shopifyFinanceKpiLabel">Returned Orders</span>
                 <span className={`shopifyFinanceKpiValue ${sales.returnedOrders ? "negative" : ""}`}>{sales.returnedOrders}</span>
-                <span className="shopifyFinanceKpiHelp">{percent(sales.returnRatePercent)} return rate</span>
+                <span className="shopifyFinanceKpiHelp">{percent(sales.returnRatePercent)} return rate ({money(pnl.returnLossPkr)} loss)</span>
               </div>
             </div>
 
-            <div className="shopifyFinanceKpiCard">
+            <div className="shopifyFinanceKpiCard" style={{ cursor: "pointer" }} onClick={() => setTab("payments")} title="Click to manage Supplier Payables">
               <div className="shopifyFinanceKpiIcon payable"><Landmark size={20} /></div>
               <div className="shopifyFinanceKpiInfo">
                 <span className="shopifyFinanceKpiLabel">Supplier Payable</span>
@@ -456,40 +686,55 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
           <div className="shopifySectionCard" style={{ padding: "18px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "8px" }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "750", color: "#122a1e" }}>Operating Accounts &amp; Cash Balances</h3>
-                <p style={{ margin: "2px 0 0", fontSize: "12.5px", color: "#667a6e" }}>Daily real-time liquid balance per account</p>
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "750", color: "#122a1e" }}>Operating Accounts &amp; Wallets</h3>
+                <p style={{ margin: "2px 0 0", fontSize: "12.5px", color: "#667a6e" }}>Har account ka live balance — direct kharcha, transfer ya balance reconcile karein.</p>
               </div>
               <button
                 type="button"
                 className="shopifySecondaryButton"
                 style={{ fontSize: "12px", padding: "6px 12px" }}
-                onClick={() => setTab("cash")}
+                onClick={() => { setLedgerAccountFilter("all"); setTab("cash"); }}
               >
-                View Full Cash Ledger →
+                Open Full Cashbook →
               </button>
             </div>
             <div className="shopifyAccountsGrid">
-              {sortFinanceAccounts(accounts).map((acc) => (
+              {sortedAccounts.map((acc) => (
                 <div key={acc.id} className="shopifyAccountCard">
                   <div className="shopifyAccountCardHead">
                     <div>
                       <b>{acc.name}</b>
-                      <div style={{ fontSize: "11px", color: "#667a6e" }}>{acc.holder || (acc.kind === "cash" ? "Physical Cash" : "Digital Account")}</div>
+                      <div style={{ fontSize: "11px", color: "#667a6e" }}>
+                        {acc.holder || (acc.kind === "cash" ? "Physical Cash" : "Digital Account")}
+                        {acc.openingBalancePkr ? ` · Opening: ${money(acc.openingBalancePkr)}` : ""}
+                      </div>
                     </div>
-                    <span style={{ fontSize: "11px", fontWeight: "600", padding: "2px 8px", borderRadius: "4px", background: "#f0fdf4", color: "#166534" }}>
-                      {acc.movementCount} movements
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setLedgerAccountFilter(acc.id); setTab("cash"); }}
+                      style={{ fontSize: "11px", fontWeight: "600", padding: "2px 8px", borderRadius: "4px", background: "#f0fdf4", color: "#166534", border: "none", cursor: "pointer" }}
+                      title="Filter cash ledger by this account"
+                    >
+                      {acc.movementCount} entries →
+                    </button>
                   </div>
                   <div className="shopifyAccountBalance">
                     {money(acc.balancePkr)}
                   </div>
-                  <div style={{ display: "flex", gap: "8px", borderTop: "1px solid #f1f5f2", paddingTop: "10px" }}>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", borderTop: "1px solid #f1f5f2", paddingTop: "10px" }}>
                     <button
                       type="button"
                       className="shopifyAccountQuickBtn"
-                      onClick={() => { setModalDefaultAccount(acc.id); setActiveModal("expense"); }}
+                      onClick={() => { setModalDefaultAccount(acc.id); setModalDefaultExpenseType("business_expense"); setActiveModal("expense"); }}
                     >
                       <Plus size={12} /> Expense
+                    </button>
+                    <button
+                      type="button"
+                      className="shopifyAccountQuickBtn"
+                      onClick={() => { setModalDefaultAccount(acc.id); setModalDefaultIncomeType("other_income"); setActiveModal("income"); }}
+                    >
+                      <Plus size={12} /> Income
                     </button>
                     <button
                       type="button"
@@ -497,6 +742,14 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
                       onClick={() => { setModalDefaultAccount(acc.id); setActiveModal("transfer"); }}
                     >
                       <ArrowLeftRight size={12} /> Transfer
+                    </button>
+                    <button
+                      type="button"
+                      className="shopifyAccountQuickBtn"
+                      onClick={() => { setSelectedAccountForBalance(acc); setActiveModal("adjust_balance"); }}
+                      title="Match actual bank/wallet balance or set opening balance"
+                    >
+                      <Settings2 size={12} /> Balance
                     </button>
                   </div>
                 </div>
@@ -529,7 +782,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
           {/* Products & Categories Breakdown */}
           <section className="financeGrid financeGridWide">
             <Card title="Best & worst products" subtitle="Delivered units par profit — cost sale ke waqt wali use hoti hai.">
-              <Table head={["Product", "Units", "Revenue", "Profit", "Margin"]} empty="Is period mein koi delivered sale nahi." >
+              <Table head={["Product", "Units", "Revenue", "Profit", "Margin"]} empty="Is period mein koi delivered sale nahi.">
                 {products.slice(0, 8).map((row) => (
                   <tr key={row.productId || row.name}>
                     <td><div style={{ display: "flex", flexDirection: "column" }}><b>{row.name}</b>{row.sku ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{row.sku}</small> : null}</div></td>
@@ -570,7 +823,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               <div className="financeStatement">
                 <StatementRow label="Available cash" value={money(cash.availableCashPkr)} />
                 <StatementRow label="PostEx receivable" value={money(postex.receivablePkr)} sign="+" />
-                <StatementRow label="Supplier bills due" value={money(suppliers.dueIn30DaysPkr)} sign="-" />
+                <StatementRow label="Supplier bills due (30 days)" value={money(suppliers.dueIn30DaysPkr)} sign="-" />
                 <StatementRow label="Expected closing cash" value={money(cash.expectedClosingCashPkr)} strong />
               </div>
             </Card>
@@ -605,15 +858,25 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "10px" }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "750", color: "#122a1e" }}>Active Operating Accounts</h3>
-                <p style={{ margin: "2px 0 0", fontSize: "12.5px", color: "#667a6e" }}>Total liquid funds: <b>{money(cash.availableCashPkr)}</b></p>
+                <p style={{ margin: "2px 0 0", fontSize: "12.5px", color: "#667a6e" }}>
+                  Total liquid funds: <b>{money(cash.availableCashPkr)}</b>
+                  {cash.unassignedBalancePkr !== 0 ? ` (includes ${money(cash.unassignedBalancePkr)} unassigned)` : ""}
+                </p>
               </div>
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 <button
                   type="button"
                   className="shopifyFinanceActionBtn expense"
-                  onClick={() => { setModalDefaultAccount(""); setActiveModal("expense"); }}
+                  onClick={() => { setModalDefaultAccount(""); setModalDefaultExpenseType("business_expense"); setActiveModal("expense"); }}
                 >
-                  <Plus size={14} /> Add Expense
+                  <Plus size={14} /> Add Expense / Withdrawal
+                </button>
+                <button
+                  type="button"
+                  className="shopifyFinanceActionBtn income"
+                  onClick={() => { setModalDefaultAccount(""); setModalDefaultIncomeType("other_income"); setActiveModal("income"); }}
+                >
+                  <Plus size={14} /> Add Income
                 </button>
                 <button
                   type="button"
@@ -625,94 +888,229 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               </div>
             </div>
             <div className="shopifyAccountsGrid">
-              {sortFinanceAccounts(accounts).map((acc) => (
-                <div key={acc.id} className="shopifyAccountCard">
-                  <div className="shopifyAccountCardHead">
-                    <div>
-                      <b>{acc.name}</b>
-                      <div style={{ fontSize: "11px", color: "#667a6e" }}>{acc.holder || (acc.kind === "cash" ? "Cash" : "Bank")}</div>
+              {sortedAccounts.map((acc) => {
+                const isSelectedFilter = String(ledgerAccountFilter) === String(acc.id);
+                return (
+                  <div
+                    key={acc.id}
+                    className="shopifyAccountCard"
+                    style={isSelectedFilter ? { borderColor: "#173d29", background: "#f8fbf9" } : undefined}
+                  >
+                    <div className="shopifyAccountCardHead">
+                      <div>
+                        <b>{acc.name}</b>
+                        <div style={{ fontSize: "11px", color: "#667a6e" }}>
+                          {acc.holder || (acc.kind === "cash" ? "Cash" : "Bank")}
+                          {acc.openingBalancePkr ? ` · Opening: ${money(acc.openingBalancePkr)}` : ""}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setLedgerAccountFilter(isSelectedFilter ? "all" : acc.id)}
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: "600",
+                          padding: "2px 8px",
+                          borderRadius: "4px",
+                          background: isSelectedFilter ? "#173d29" : "#f0fdf4",
+                          color: isSelectedFilter ? "#fff" : "#166534",
+                          border: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {isSelectedFilter ? "Filtered ✓" : `${acc.movementCount} entries`}
+                      </button>
                     </div>
-                    <span style={{ fontSize: "11px", fontWeight: "600", padding: "2px 8px", borderRadius: "4px", background: "#f0fdf4", color: "#166534" }}>
-                      {acc.movementCount} entries
-                    </span>
+                    <div className="shopifyAccountBalance">
+                      {money(acc.balancePkr)}
+                    </div>
+                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", borderTop: "1px solid #f1f5f2", paddingTop: "10px" }}>
+                      <button
+                        type="button"
+                        className="shopifyAccountQuickBtn"
+                        onClick={() => { setModalDefaultAccount(acc.id); setModalDefaultExpenseType("business_expense"); setActiveModal("expense"); }}
+                      >
+                        <Plus size={12} /> Expense
+                      </button>
+                      <button
+                        type="button"
+                        className="shopifyAccountQuickBtn"
+                        onClick={() => { setModalDefaultAccount(acc.id); setModalDefaultIncomeType("other_income"); setActiveModal("income"); }}
+                      >
+                        <Plus size={12} /> Income
+                      </button>
+                      <button
+                        type="button"
+                        className="shopifyAccountQuickBtn"
+                        onClick={() => { setModalDefaultAccount(acc.id); setActiveModal("transfer"); }}
+                      >
+                        <ArrowLeftRight size={12} /> Transfer
+                      </button>
+                      <button
+                        type="button"
+                        className="shopifyAccountQuickBtn"
+                        onClick={() => { setSelectedAccountForBalance(acc); setActiveModal("adjust_balance"); }}
+                      >
+                        <Settings2 size={12} /> Balance
+                      </button>
+                    </div>
                   </div>
-                  <div className="shopifyAccountBalance">
-                    {money(acc.balancePkr)}
-                  </div>
-                  <div style={{ display: "flex", gap: "8px", borderTop: "1px solid #f1f5f2", paddingTop: "10px" }}>
-                    <button
-                      type="button"
-                      className="shopifyAccountQuickBtn"
-                      onClick={() => { setModalDefaultAccount(acc.id); setActiveModal("expense"); }}
-                    >
-                      <Plus size={12} /> Expense
-                    </button>
-                    <button
-                      type="button"
-                      className="shopifyAccountQuickBtn"
-                      onClick={() => { setModalDefaultAccount(acc.id); setActiveModal("income"); }}
-                    >
-                      <Plus size={12} /> Income
-                    </button>
-                    <button
-                      type="button"
-                      className="shopifyAccountQuickBtn"
-                      onClick={() => { setModalDefaultAccount(acc.id); setActiveModal("transfer"); }}
-                    >
-                      <ArrowLeftRight size={12} /> Transfer
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
+          {unassignedCount > 0 && (
+            <UnassignedFixer
+              accounts={accounts}
+              transactions={report.transactions.filter((entry) => !entry.account_id && !entry.voided)}
+              busy={busy}
+              onAssign={(transactionIds, accountId) => post({ action: "assign_account", transactionIds, accountId }, "Selected entries ko account assign ho gaya.")}
+            />
+          )}
+
           <Card
-            title="Cash ledger"
-            subtitle={`${report.transactions.length} movements is period mein. Voided entries ka cash par koi asar nahi hota.`}
+            title="Cash Ledger"
+            subtitle={`Showing ${filteredTransactions.length} of ${report.transactions.length} entries · In: ${money(filteredInSum)} · Out: ${money(filteredOutSum)}`}
             right={
               <button
                 type="button"
                 className="shopifySecondaryButton"
                 style={{ fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "6px" }}
-                onClick={() => downloadCsv("transactions", report.transactions, report)}
+                onClick={() => downloadCsv("transactions", filteredTransactions, report)}
               >
-                <Download size={13} /> Export Ledger CSV
+                <Download size={13} /> Export CSV
               </button>
             }
           >
-            <Table head={["Date", "Type", "Detail", "Account", "Amount", "Action"]} empty="Is period mein koi cash movement nahi.">
-              {report.transactions.map((entry) => {
+            {/* Ledger Filter Bar */}
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center", padding: "0 0 14px 0", borderBottom: "1px solid #edf2ee", marginBottom: "12px" }}>
+              <div style={{ position: "relative", flex: "1 1 220px", minWidth: "200px" }}>
+                <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#728578" }} />
+                <input
+                  type="text"
+                  placeholder="Search title, vendor, reference, category..."
+                  value={ledgerSearch}
+                  onChange={(e) => setLedgerSearch(e.target.value)}
+                  style={{ width: "100%", padding: "7px 10px 7px 32px", border: "1.5px solid #d4ded6", borderRadius: "8px", fontSize: "13px" }}
+                />
+              </div>
+
+              <select
+                className="shopifyFinancePeriodSelect"
+                value={ledgerAccountFilter}
+                onChange={(e) => setLedgerAccountFilter(e.target.value)}
+                aria-label="Filter ledger by account"
+              >
+                <option value="all">All Accounts</option>
+                {sortedAccounts.map((acc) => (
+                  <option key={acc.id} value={acc.id}>{acc.name}</option>
+                ))}
+                <option value="unassigned">Unassigned Only ({unassignedCount})</option>
+              </select>
+
+              <select
+                className="shopifyFinancePeriodSelect"
+                value={ledgerTypeFilter}
+                onChange={(e) => setLedgerTypeFilter(e.target.value)}
+                aria-label="Filter ledger by entry type"
+              >
+                <option value="all">All Entry Types</option>
+                <option value="in">Money In (+)</option>
+                <option value="out">Money Out (-)</option>
+                <option value="business_expense">Business Expenses</option>
+                <option value="supplier_payment">Supplier Payments</option>
+                <option value="postex_bank_receipt">PostEx Bank Receipts</option>
+                <option value="customer_advance">Customer Advances</option>
+                <option value="owner_withdrawal">Owner Withdrawals</option>
+                <option value="owner_investment">Owner Capital Added</option>
+                <option value="transfer">Account Transfers</option>
+                <option value="cash_reset">Balance Adjustments</option>
+              </select>
+
+              <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12.5px", color: "#4b5d52", cursor: "pointer", userSelect: "none" }}>
+                <input
+                  type="checkbox"
+                  checked={showVoidedLedger}
+                  onChange={(e) => setShowVoidedLedger(e.target.checked)}
+                />
+                Show voided
+              </label>
+
+              {(ledgerSearch || ledgerAccountFilter !== "all" || ledgerTypeFilter !== "all") && (
+                <button
+                  type="button"
+                  className="shopifyAccountQuickBtn"
+                  onClick={() => {
+                    setLedgerSearch("");
+                    setLedgerAccountFilter("all");
+                    setLedgerTypeFilter("all");
+                  }}
+                >
+                  Reset Filters
+                </button>
+              )}
+            </div>
+
+            <Table head={["Date", "Type", "Detail & Category", "Account", "Amount", "Actions"]} empty="Is filter/period mein koi cash movement nahi.">
+              {filteredTransactions.map((entry) => {
                 const account = accounts.find((row) => row.id === entry.account_id);
                 return (
                   <tr key={entry.id} className={entry.voided ? "opacity-40 line-through bg-gray-50" : ""}>
-                    <td>{formatDate(entry.occurred_on)}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>{formatDate(entry.occurred_on)}</td>
                     <td>
                       <span className="shopifyStatusBadge" style={{ textTransform: "capitalize" }}>
                         {entry.entry_type.replaceAll("_", " ")}
                       </span>
                     </td>
                     <td>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                         <b>{entry.title}</b>
-                        {entry.counterparty ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{entry.counterparty}</small> : null}
+                        <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>
+                          {[entry.category, entry.counterparty, entry.reference ? `Ref: ${entry.reference}` : ""].filter(Boolean).join(" · ")}
+                        </small>
+                        {entry.note ? <small style={{ display: "block", fontSize: "11px", color: "#85968b" }}>{entry.note}</small> : null}
                       </div>
                     </td>
-                    <td>{account?.name || <span className="expenseAmount">Unassigned</span>}</td>
-                    <td className={entry.cash_direction === "in" ? "incomeAmount font-bold" : "expenseAmount font-bold"}>
+                    <td>{account?.name || <span className="expenseAmount font-semibold">Unassigned</span>}</td>
+                    <td style={{ whiteSpace: "nowrap" }} className={entry.cash_direction === "in" ? "incomeAmount font-bold" : "expenseAmount font-bold"}>
                       {entry.cash_direction === "in" ? "+" : "-"} {money(entry.amount_pkr)}
                     </td>
                     <td>
                       {entry.voided ? (
                         <small className="text-xs text-gray-500 font-semibold">Voided</small>
                       ) : entry.production_batch_id ? (
-                        <small className="text-xs text-gray-500">Batch entry</small>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                          <button
+                            type="button"
+                            className="shopifyAccountQuickBtn"
+                            onClick={() => { setSelectedTxForEdit(entry); setActiveModal("edit_tx"); }}
+                            title="Change account or note"
+                          >
+                            <Edit3 size={12} /> Edit
+                          </button>
+                          <small className="text-xs text-gray-500">Batch entry</small>
+                        </div>
                       ) : (
-                        <VoidButton
-                          entry={entry}
-                          busy={busy}
-                          onVoid={(confirmation) => post({ action: "void_transaction", transactionId: entry.id, confirmation }, "Entry void ho gayi.")}
-                        />
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                          <button
+                            type="button"
+                            className="shopifyAccountQuickBtn"
+                            onClick={() => { setSelectedTxForEdit(entry); setActiveModal("edit_tx"); }}
+                            disabled={busy}
+                          >
+                            <Edit3 size={12} /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="removeProductButton"
+                            style={{ padding: "4px 8px", fontSize: "11.5px" }}
+                            disabled={busy}
+                            onClick={() => { setSelectedTxForVoid(entry); setActiveModal("void_tx"); }}
+                          >
+                            Void
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -720,15 +1118,6 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               })}
             </Table>
           </Card>
-
-          {cash.unassignedBalancePkr !== 0 && (
-            <UnassignedFixer
-              accounts={accounts}
-              transactions={report.transactions.filter((entry) => !entry.account_id && !entry.voided)}
-              busy={busy}
-              onAssign={(transactionIds, accountId) => post({ action: "assign_account", transactionIds, accountId }, "Account assign ho gaya.")}
-            />
-          )}
         </>
       )}
 
@@ -756,34 +1145,68 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               </div>
             </Card>
 
-            <Card title="Break-even Analysis" subtitle="Har delivered order kitna contribute karta hai aur fixed costs cover karne ke orders.">
+            <Card title="Break-even & Cost Settings" subtitle="Har delivered order kitna contribute karta hai aur fixed costs cover karne ke orders.">
               <div className="financeStatement">
                 <StatementRow label="Contribution per order" value={money(pnl.contributionPerOrderPkr)} help="Sale − cost − courier − GST/tax" />
                 <StatementRow label="Monthly fixed costs" value={money(settings.monthlyFixedCostsPkr)} help="Rent, salaries, utilities" />
                 <StatementRow label="Break-even orders needed" value={pnl.breakEvenOrders || "—"} strong />
               </div>
               <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid #edf2ee" }}>
-                <FixedCostForm value={settings.monthlyFixedCostsPkr} busy={busy} onSave={(monthly) => post({ action: "save_settings", settings: { monthly_fixed_costs_pkr: monthly } }, "Fixed costs save ho gaye.")} />
+                <PnlSettingsForm
+                  settings={settings}
+                  busy={busy}
+                  onSave={(patch) => post({ action: "save_settings", settings: patch }, "Finance cost & alert settings save ho gaye.")}
+                />
               </div>
             </Card>
           </section>
 
           <Card
             title="Order-wise profit"
-            subtitle="Har delivered order par asal net profit. Loss wale orders light red hain."
+            subtitle={`Showing ${filteredOrders.length} of ${orders.length} delivered orders. Loss wale orders light red hain.`}
             right={
               <button
                 type="button"
                 className="shopifySecondaryButton"
                 style={{ fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "6px" }}
-                onClick={() => downloadCsv("orders", orders, report)}
+                onClick={() => downloadCsv("orders", filteredOrders, report)}
               >
                 <Download size={13} /> Export Order Profit CSV
               </button>
             }
           >
-            <Table head={["Order", "Customer", "Delivered", "Sale", "Cost", "Courier+Tax", "Net Profit"]} empty="Is period mein koi delivered order nahi.">
-              {orders.slice(0, 60).map((row) => (
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center", marginBottom: "12px" }}>
+              <div style={{ position: "relative", flex: "1 1 220px", maxWidth: "340px" }}>
+                <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#728578" }} />
+                <input
+                  type="text"
+                  placeholder="Search order #, customer, city..."
+                  value={orderProfitSearch}
+                  onChange={(e) => setOrderProfitSearch(e.target.value)}
+                  style={{ width: "100%", padding: "7px 10px 7px 32px", border: "1.5px solid #d4ded6", borderRadius: "8px", fontSize: "13px" }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: "6px" }}>
+                {[
+                  ["all", `All (${orders.length})`],
+                  ["loss", `Loss Making (${orders.filter((o) => o.netProfitPkr < 0).length})`],
+                  ["estimated", `Estimated Cost (${orders.filter((o) => o.costEstimated).length})`],
+                ].map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    className="shopifyAccountQuickBtn"
+                    style={orderProfitFilter === val ? { background: "#173d29", color: "#fff", borderColor: "#173d29" } : undefined}
+                    onClick={() => setOrderProfitFilter(val)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Table head={["Order", "Customer", "Delivered", "Sale", "Cost", "Courier+Tax", "Net Profit", "Margin"]} empty="Is filter/period mein koi delivered order nahi.">
+              {filteredOrders.slice(0, 80).map((row) => (
                 <tr key={row.id} className={row.netProfitPkr < 0 ? "bg-[#fef2f2]" : ""}>
                   <td><b>{row.orderNumber ? `#${row.orderNumber}` : String(row.id).slice(0, 8)}</b></td>
                   <td><div style={{ display: "flex", flexDirection: "column" }}><b>{row.customer}</b>{row.city ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{row.city}</small> : null}</div></td>
@@ -794,6 +1217,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
                   <td className={row.netProfitPkr < 0 ? "expenseAmount font-bold" : "incomeAmount font-bold"}>
                     {money(row.netProfitPkr)}
                   </td>
+                  <td><span className="shopifyStatusBadge">{percent(row.marginPercent)}</span></td>
                 </tr>
               ))}
             </Table>
@@ -802,7 +1226,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
       )}
 
       {/* =========================================================================
-          TAB 4: COURIER & ADVANCES (Payments)
+          TAB 4: COURIER, ADVANCES & SUPPLIER BILLS
           ========================================================================= */}
       {tab === "payments" && (
         <>
@@ -837,21 +1261,107 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
             <div className="shopifyFinanceKpiCard">
               <div className="shopifyFinanceKpiIcon advance"><CircleDollarSign size={20} /></div>
               <div className="shopifyFinanceKpiInfo">
-                <span className="shopifyFinanceKpiLabel">Advance Verified</span>
-                <span className="shopifyFinanceKpiValue">{money(advances.verifiedPkr)}</span>
-                <span className="shopifyFinanceKpiHelp">{money(advances.pendingPkr)} pending verification</span>
+                <span className="shopifyFinanceKpiLabel">In Amina NayaPay</span>
+                <span className="shopifyFinanceKpiValue">{money(advances.cashPostedPkr || 0)}</span>
+                <span className="shopifyFinanceKpiHelp">{advances.notInCashPkr ? `${money(advances.notInCashPkr)} posting pending` : "All verified advances posted"}</span>
               </div>
             </div>
 
             <div className="shopifyFinanceKpiCard">
-              <div className="shopifyFinanceKpiIcon units"><WalletCards size={20} /></div>
+              <div className="shopifyFinanceKpiIcon returns"><Landmark size={20} /></div>
               <div className="shopifyFinanceKpiInfo">
-                <span className="shopifyFinanceKpiLabel">In Amina NayaPay</span>
-                <span className="shopifyFinanceKpiValue">{money(advances.cashPostedPkr || 0)}</span>
-                <span className="shopifyFinanceKpiHelp">{advances.notInCashPkr ? `${money(advances.notInCashPkr)} posting pending` : "All advances posted"}</span>
+                <span className="shopifyFinanceKpiLabel">Supplier Payable Due</span>
+                <span className={`shopifyFinanceKpiValue ${suppliers.payablePkr > 0 ? "text-orange-700" : ""}`}>{money(suppliers.payablePkr)}</span>
+                <span className="shopifyFinanceKpiHelp">{suppliers.overdue.length ? `${suppliers.overdue.length} overdue` : "All on schedule"}</span>
               </div>
             </div>
           </div>
+
+          {/* PostEx Settlement Actions & Bank Payout History */}
+          <Card
+            title="PostEx Courier Settlements & Bank Payouts"
+            subtitle="Step 1: Sync PostEx status. Step 2: Jab PostEx ki payment aapke bank mein aaye, 'Record PostEx Bank Receipt' click karein."
+            right={
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="shopifySecondaryButton"
+                  style={{ fontSize: "12.5px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  onClick={syncPostexNow}
+                  disabled={postexSyncing}
+                >
+                  <RefreshCw size={14} className={postexSyncing ? "animate-spin" : ""} />
+                  {postexSyncing ? "Syncing PostEx..." : "Sync PostEx Status"}
+                </button>
+                <button
+                  type="button"
+                  className="shopifyPrimaryButton"
+                  style={{ fontSize: "12.5px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  onClick={() => {
+                    setModalDefaultAccount(alfalahAccount?.id || "");
+                    setModalDefaultIncomeType("postex_bank_receipt");
+                    setActiveModal("income");
+                  }}
+                >
+                  <Plus size={14} /> Record PostEx Bank Receipt
+                </button>
+              </div>
+            }
+          >
+            <Table head={["Date", "CPR / Bank Reference", "Account", "Amount Received", "Note", "Actions"]} empty="Is period mein koi PostEx bank receipt record nahi hui.">
+              {postexReceiptRows.map((entry) => {
+                const account = accounts.find((a) => a.id === entry.account_id);
+                return (
+                  <tr key={entry.id} className={entry.voided ? "opacity-40 line-through bg-gray-50" : ""}>
+                    <td>{formatDate(entry.occurred_on)}</td>
+                    <td><b>{entry.reference || entry.title}</b></td>
+                    <td>{account?.name || "Unassigned"}</td>
+                    <td className="incomeAmount font-bold">+ {money(entry.amount_pkr)}</td>
+                    <td>{entry.note || "—"}</td>
+                    <td>
+                      {entry.voided ? (
+                        <small className="text-xs text-gray-500">Voided</small>
+                      ) : (
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          <button
+                            type="button"
+                            className="shopifyAccountQuickBtn"
+                            onClick={() => { setSelectedTxForEdit(entry); setActiveModal("edit_tx"); }}
+                          >
+                            <Edit3 size={12} /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="removeProductButton"
+                            style={{ padding: "4px 8px", fontSize: "11.5px" }}
+                            onClick={() => { setSelectedTxForVoid(entry); setActiveModal("void_tx"); }}
+                          >
+                            Void
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </Table>
+          </Card>
+
+          {postex.stuckReceivables.length > 0 && (
+            <Card title="PostEx ke paas phansa paisa" subtitle={`${settings.receivableStuckAlertDays}+ din se deliver ho chuke orders jin ka settlement abhi nahi hua.`}>
+              <Table head={["Order", "Customer", "Delivered", "Amount", "Waiting Days"]} empty="Sab clear hai.">
+                {postex.stuckReceivables.slice(0, 30).map((row) => (
+                  <tr key={row.id}>
+                    <td><b>{row.orderNumber ? `#${row.orderNumber}` : String(row.id).slice(0, 8)}</b></td>
+                    <td>{row.customer}</td>
+                    <td>{formatDate(row.deliveredAt)}</td>
+                    <td><b>{money(row.amountPkr)}</b></td>
+                    <td className="expenseAmount font-bold">{row.daysWaiting} days</td>
+                  </tr>
+                ))}
+              </Table>
+            </Card>
+          )}
 
           {/* 1-Click Backfill Banner */}
           <div className="shopifySectionCard" style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", background: advances.notInCashCount || pnl.estimatedCogsOrderCount ? "#fffbeb" : "#f0fdf4", borderColor: advances.notInCashCount || pnl.estimatedCogsOrderCount ? "#fde68a" : "#bbf7d0" }}>
@@ -882,12 +1392,34 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
             </button>
           </div>
 
-          <Card title="Customer advance receipts" subtitle="Verified advance NayaPay account mein cash ban jata hai. Unverified sirf pending dikhta hai.">
-            <Table head={["Customer", "Order", "City", "Advance", "COD Baqi", "Status"]} empty="Is period mein koi advance nahi.">
-              {advances.rows.map((row) => (
+          <Card
+            title="Customer advance receipts"
+            subtitle="Verified advance NayaPay account mein cash ban jata hai. Unverified order ko yahan se 1-click mein verify & post kar sakte hain."
+            right={
+              <div style={{ display: "flex", gap: "6px" }}>
+                {[
+                  ["all", `All (${advances.rows.length})`],
+                  ["needs_action", `Needs Action (${pendingAdvanceActions})`],
+                  ["posted", `Posted (${advances.rows.length - pendingAdvanceActions})`],
+                ].map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    className="shopifyAccountQuickBtn"
+                    style={advanceFilter === val ? { background: "#173d29", color: "#fff", borderColor: "#173d29" } : undefined}
+                    onClick={() => setAdvanceFilter(val)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            }
+          >
+            <Table head={["Customer", "Order", "City", "Advance", "COD Baqi", "Status", "Action"]} empty="Is filter/period mein koi advance nahi.">
+              {filteredAdvances.map((row) => (
                 <tr key={row.id}>
                   <td><div style={{ display: "flex", flexDirection: "column" }}><b>{row.customer}</b>{row.phone ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{row.phone}</small> : null}</div></td>
-                  <td>{row.orderNumber ? `#${row.orderNumber}` : String(row.id).slice(0, 8)}</td>
+                  <td><b>{row.orderNumber ? `#${row.orderNumber}` : String(row.id).slice(0, 8)}</b></td>
                   <td>{row.city || "—"}</td>
                   <td className="incomeAmount font-bold">+ {money(row.advancePkr)}</td>
                   <td>{row.codRemainingPkr === 0 ? "Rs. 0 (Prepaid)" : money(row.codRemainingPkr)}</td>
@@ -896,53 +1428,106 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
                       {row.verified ? (row.cashPosted ? "Verified · Amina NayaPay" : "Verified · Posting pending") : row.paymentStatus}
                     </span>
                   </td>
+                  <td>
+                    {(!row.verified || !row.cashPosted) ? (
+                      <button
+                        type="button"
+                        className="shopifyPrimaryButton"
+                        style={{ padding: "4px 10px", fontSize: "11.5px" }}
+                        disabled={busy}
+                        onClick={() => post(
+                          { action: "verify_order_advance", orderId: row.id, accountId: nayapayAccount?.id },
+                          `Order ${row.orderNumber ? `#${row.orderNumber}` : ""} advance verified & posted to NayaPay!`
+                        )}
+                      >
+                        {row.verified ? "Post to NayaPay" : "Verify & Post"}
+                      </button>
+                    ) : (
+                      <small className="text-xs text-[#166534] font-semibold">Posted ✓</small>
+                    )}
+                  </td>
                 </tr>
               ))}
             </Table>
           </Card>
 
-          {postex.stuckReceivables.length > 0 && (
-            <Card title="PostEx ke paas phansa paisa" subtitle={`${settings.receivableStuckAlertDays}+ din se deliver ho chuke orders jin ka settlement abhi nahi hua.`}>
-              <Table head={["Order", "Customer", "Delivered", "Amount", "Waiting Days"]} empty="Sab clear hai.">
-                {postex.stuckReceivables.slice(0, 30).map((row) => (
-                  <tr key={row.id}>
-                    <td><b>{row.orderNumber ? `#${row.orderNumber}` : String(row.id).slice(0, 8)}</b></td>
-                    <td>{row.customer}</td>
-                    <td>{formatDate(row.deliveredAt)}</td>
-                    <td><b>{money(row.amountPkr)}</b></td>
-                    <td className="expenseAmount font-bold">{row.daysWaiting} days</td>
-                  </tr>
-                ))}
-              </Table>
-            </Card>
-          )}
-
           {/* Supplier Payables Grid */}
           <section className="financeGrid financeGridWide">
-            <Card title="Supplier payables" subtitle="Paid amount har payment se khud update hoti hai." right={<b style={{ fontSize: "14px", color: "#9a3412" }}>{money(suppliers.payablePkr)} Total Due</b>}>
-              <Table head={["Supplier", "Ref", "Due Date", "Total", "Paid", "Remaining", "Action"]} empty="Koi supplier bill nahi.">
-                {suppliers.bills.map((bill) => (
-                  <tr key={bill.id}>
-                    <td><b>{bill.supplier}</b></td>
-                    <td>{bill.reference || "—"}</td>
-                    <td className={bill.due_date && bill.due_date < new Date().toISOString().slice(0, 10) && Number(bill.remaining_pkr) > 0 ? "expenseAmount font-bold" : ""}>
-                      {bill.due_date || "—"}
-                    </td>
-                    <td>{money(bill.total_pkr)}</td>
-                    <td>{money(bill.paid_pkr)}</td>
-                    <td><b>{money(bill.remaining_pkr)}</b></td>
-                    <td>
-                      {Number(bill.remaining_pkr) > 0 && (
-                        <PayBillButton
-                          bill={bill}
-                          accounts={accounts}
-                          busy={busy}
-                          onPay={(amountPkr, accountId) => post({ action: "pay_supplier_bill", billId: bill.id, amountPkr, accountId }, "Payment record ho gayi.")}
-                        />
-                      )}
-                    </td>
-                  </tr>
-                ))}
+            <Card
+              title="Supplier payables"
+              subtitle="Paid amount har payment se khud update hoti hai."
+              right={
+                <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                  <b style={{ fontSize: "14px", color: "#9a3412" }}>{money(suppliers.payablePkr)} Total Due</b>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    {[
+                      ["open", "Open"],
+                      ["overdue", `Overdue (${suppliers.overdue.length})`],
+                      ["paid", "Paid"],
+                      ["all", "All"],
+                    ].map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        className="shopifyAccountQuickBtn"
+                        style={billFilter === val ? { background: "#173d29", color: "#fff", borderColor: "#173d29" } : undefined}
+                        onClick={() => setBillFilter(val)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              }
+            >
+              <Table head={["Supplier", "Ref", "Due Date", "Total", "Paid", "Remaining", "Action"]} empty="Is filter mein koi supplier bill nahi.">
+                {filteredBills.map((bill) => {
+                  const isOverdue = bill.due_date && bill.due_date < todayIso && Number(bill.remaining_pkr) > 0;
+                  return (
+                    <tr key={bill.id}>
+                      <td>
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <b>{bill.supplier}</b>
+                          {bill.note ? <small style={{ fontSize: "11px", color: "#667a6e" }}>{bill.note}</small> : null}
+                        </div>
+                      </td>
+                      <td>{bill.reference || "—"}</td>
+                      <td className={isOverdue ? "expenseAmount font-bold" : ""}>
+                        {bill.due_date || "—"}
+                        {isOverdue ? <small className="block text-xs">Overdue</small> : null}
+                      </td>
+                      <td>{money(bill.total_pkr)}</td>
+                      <td>{money(bill.paid_pkr)}</td>
+                      <td><b>{money(bill.remaining_pkr)}</b></td>
+                      <td>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+                          {Number(bill.remaining_pkr) > 0 && (
+                            <PayBillButton
+                              bill={bill}
+                              accounts={accounts}
+                              busy={busy}
+                              onPay={(amountPkr, accountId) => post({ action: "pay_supplier_bill", billId: bill.id, amountPkr, accountId }, "Supplier payment record ho gayi.")}
+                            />
+                          )}
+                          <button
+                            type="button"
+                            className="removeProductButton"
+                            style={{ padding: "4px 8px", fontSize: "11px" }}
+                            disabled={busy}
+                            onClick={() => {
+                              if (window.confirm(`Void supplier bill from "${bill.supplier}" (${money(bill.total_pkr)})? Linked payments will also be reversed.`)) {
+                                post({ action: "void_supplier_bill", billId: bill.id }, "Supplier bill void ho gaya.");
+                              }
+                            }}
+                            title="Void this supplier bill"
+                          >
+                            Void
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </Table>
             </Card>
 
@@ -952,7 +1537,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
       )}
 
       {/* =========================================================================
-          TAB 5: REPORTS & ANALYTICS
+          TAB 5: REPORTS & MARKETING
           ========================================================================= */}
       {tab === "reports" && (
         <>
@@ -977,21 +1562,55 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
           </section>
 
           <section className="financeGrid financeGridWide">
-            <Card title="Marketing ROI" subtitle="Sirf woh sales jo campaign se attribute ki hain.">
-              <div className="financeStatement">
+            <Card
+              title="Marketing ROI & Ad Campaigns"
+              subtitle="Meta Ads / Instagram campaigns ka spend aur attributed sales track karein."
+              right={
+                <button
+                  type="button"
+                  className="shopifyPrimaryButton"
+                  style={{ fontSize: "12px", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  onClick={() => setActiveModal("campaign")}
+                >
+                  <Plus size={14} /> Log Campaign
+                </button>
+              }
+            >
+              <div className="financeStatement" style={{ marginBottom: "14px" }}>
                 <StatementRow label="Meta Ads / Campaign spend" value={money(marketing.spendPkr)} />
                 <StatementRow label="Attributed sales" value={money(marketing.attributedSalesPkr)} />
                 <StatementRow label="Return on Ad Spend (ROAS)" value={marketing.roas ? `${marketing.roas}x` : "—"} help="Rs. 1 spend par kitni sales" />
                 <StatementRow label="Customer Acquisition Cost (CAC)" value={marketing.cacPkr ? money(marketing.cacPkr) : "—"} strong />
               </div>
+              {marketing.campaigns?.length > 0 && (
+                <Table head={["Date", "Campaign", "Platform", "Spend", "Sales", "ROAS"]} empty="">
+                  {marketing.campaigns.slice(0, 10).map((c) => (
+                    <tr key={c.id}>
+                      <td>{formatDate(c.occurred_on)}</td>
+                      <td><b>{c.name}</b></td>
+                      <td>{c.platform}</td>
+                      <td>{money(c.spend_pkr)}</td>
+                      <td>{money(c.attributed_sales_pkr)}</td>
+                      <td><span className="shopifyStatusBadge active">{Number(c.spend_pkr) > 0 ? `${(Number(c.attributed_sales_pkr || 0) / Number(c.spend_pkr)).toFixed(2)}x` : "—"}</span></td>
+                    </tr>
+                  ))}
+                </Table>
+              )}
             </Card>
 
-            <Card title="Profit allocation plan" subtitle="Sirf target plan hai — cash move nahi hota.">
+            <Card title="Profit allocation planner" subtitle="Net profit ko Marketing, Owner drawing aur New Stock mein divide karne ka target plan.">
               <div className="financeStatement">
                 <StatementRow label="Allocatable net profit" value={money(pnl.allocation.allocatablePkr)} />
                 <StatementRow label={`Marketing budget (${percent(settings.marketingPercent)})`} value={money(pnl.allocation.marketingPkr)} />
                 <StatementRow label={`Owner drawing (${percent(settings.ownerPercent)})`} value={money(pnl.allocation.ownerPkr)} />
                 <StatementRow label={`Stock reserve (${percent(settings.stockPercent)})`} value={money(pnl.allocation.stockPkr)} strong />
+              </div>
+              <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1px solid #edf2ee" }}>
+                <AllocationForm
+                  settings={settings}
+                  busy={busy}
+                  onSave={(patch) => post({ action: "save_settings", settings: patch }, "Profit allocation percentages save ho gaye.")}
+                />
               </div>
             </Card>
           </section>
@@ -1001,13 +1620,17 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
           </Card>
 
           <Card title="Expense breakdown by category" subtitle="Is period mein paisa kin cheezon par kharch hua.">
-            <Table head={["Category", "Amount"]} empty="Koi expense nahi.">
-              {cash.expenseByCategory.map((row) => (
-                <tr key={row.category}>
-                  <td><b>{row.category}</b></td>
-                  <td className="expenseAmount font-bold">{money(row.amountPkr)}</td>
-                </tr>
-              ))}
+            <Table head={["Category", "Amount", "Share of Spend"]} empty="Koi expense nahi.">
+              {cash.expenseByCategory.map((row) => {
+                const share = cash.outPkr > 0 ? Math.round((row.amountPkr / cash.outPkr) * 100) : 0;
+                return (
+                  <tr key={row.category}>
+                    <td><b>{row.category}</b></td>
+                    <td className="expenseAmount font-bold">{money(row.amountPkr)}</td>
+                    <td><span className="shopifyStatusBadge">{share}%</span></td>
+                  </tr>
+                );
+              })}
             </Table>
           </Card>
 
@@ -1037,9 +1660,10 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
         <ExpenseModal
           accounts={accounts}
           defaultAccountId={modalDefaultAccount}
+          defaultEntryType={modalDefaultExpenseType}
           busy={busy}
           onClose={() => setActiveModal(null)}
-          onSubmit={(entry) => post({ action: "add_transaction", entry }, "Expense recorded successfully!")}
+          onSubmit={(entry) => post({ action: "add_transaction", entry }, entry.entryType === "owner_withdrawal" ? "Owner withdrawal recorded!" : "Expense recorded successfully!")}
         />
       )}
 
@@ -1047,9 +1671,11 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
         <IncomeModal
           accounts={accounts}
           defaultAccountId={modalDefaultAccount}
+          defaultEntryType={modalDefaultIncomeType}
+          postexReceivablePkr={postex.receivablePkr}
           busy={busy}
           onClose={() => setActiveModal(null)}
-          onSubmit={(entry) => post({ action: "add_transaction", entry }, "Income recorded successfully!")}
+          onSubmit={(entry) => post({ action: "add_transaction", entry }, "Income / receipt recorded successfully!")}
         />
       )}
 
@@ -1062,6 +1688,52 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
           onSubmit={(body) => post({ action: "transfer", ...body }, "Funds transferred successfully!")}
         />
       )}
+
+      {activeModal === "supplier_bill" && (
+        <SupplierBillModal
+          accounts={accounts}
+          busy={busy}
+          onClose={() => setActiveModal(null)}
+          onSubmit={(bill) => post({ action: "add_supplier_bill", bill }, "Supplier bill saved!")}
+        />
+      )}
+
+      {activeModal === "campaign" && (
+        <CampaignModal
+          accounts={accounts}
+          busy={busy}
+          onClose={() => setActiveModal(null)}
+          onSubmit={(campaign) => post({ action: "add_campaign", campaign }, "Marketing campaign saved!")}
+        />
+      )}
+
+      {activeModal === "adjust_balance" && selectedAccountForBalance && (
+        <AdjustBalanceModal
+          account={selectedAccountForBalance}
+          busy={busy}
+          onClose={() => { setActiveModal(null); setSelectedAccountForBalance(null); }}
+          onSubmit={(payload) => post({ action: "adjust_account_balance", ...payload }, "Account balance updated!")}
+        />
+      )}
+
+      {activeModal === "edit_tx" && selectedTxForEdit && (
+        <EditTransactionModal
+          entry={selectedTxForEdit}
+          accounts={accounts}
+          busy={busy}
+          onClose={() => { setActiveModal(null); setSelectedTxForEdit(null); }}
+          onSubmit={(patch) => post({ action: "edit_transaction", transactionId: selectedTxForEdit.id, patch }, "Entry updated successfully!")}
+        />
+      )}
+
+      {activeModal === "void_tx" && selectedTxForVoid && (
+        <VoidConfirmModal
+          entry={selectedTxForVoid}
+          busy={busy}
+          onClose={() => { setActiveModal(null); setSelectedTxForVoid(null); }}
+          onConfirm={() => post({ action: "void_transaction", transactionId: selectedTxForVoid.id, confirmation: "VOID" }, "Entry void ho gayi aur balance adjust ho gaya.")}
+        />
+      )}
     </div>
   );
 }
@@ -1070,23 +1742,27 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
 // Quick Action Modals
 // ---------------------------------------------------------------------------
 
-function ExpenseModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
+function ExpenseModal({ accounts, defaultAccountId, defaultEntryType = "business_expense", busy, onClose, onSubmit }) {
+  const sorted = sortFinanceAccounts(accounts);
+  const [entryType, setEntryType] = useState(defaultEntryType);
   const [category, setCategory] = useState("Fabric / stock");
   const [otherCategory, setOtherCategory] = useState("");
   const [amount, setAmount] = useState("");
-  const [accountId, setAccountId] = useState(defaultAccountId || accounts[0]?.id || "");
+  const [accountId, setAccountId] = useState(defaultAccountId || sorted[0]?.id || "");
   const [title, setTitle] = useState("");
   const [counterparty, setCounterparty] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
 
+  const isWithdrawal = entryType === "owner_withdrawal";
+
   return (
     <div className="shopifyFinanceModalOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="shopifyFinanceModalCard">
         <div className="shopifyFinanceModalHead">
           <h3>
-            <span style={{ fontSize: "18px" }}>💸</span> Record Business Expense
+            <span style={{ fontSize: "18px" }}>💸</span> {isWithdrawal ? "Record Owner / Personal Withdrawal" : "Record Business Expense"}
           </h3>
           <button type="button" onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#667a6e" }}>
             <X size={18} />
@@ -1097,13 +1773,16 @@ function ExpenseModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
           onSubmit={async (e) => {
             e.preventDefault();
             const numAmount = Number(amount || 0);
-            if (!(numAmount > 0) || !accountId || !title) return;
-            const finalCategory = category === "Other" && otherCategory ? otherCategory : category;
+            if (!(numAmount > 0) || !accountId) return;
+            const finalCategory = isWithdrawal
+              ? "Owner withdrawal"
+              : (category === "Other" && otherCategory ? otherCategory : category);
+            const finalTitle = title.trim() || (isWithdrawal ? "Owner personal withdrawal" : finalCategory);
             await onSubmit({
-              entryType: "business_expense",
+              entryType,
               accountId,
               category: finalCategory,
-              title,
+              title: finalTitle,
               counterparty,
               amountPkr: numAmount,
               occurredOn: date,
@@ -1113,36 +1792,84 @@ function ExpenseModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
           }}
         >
           <div className="shopifyFinanceModalBody">
-            <div className="shopifyFinanceModalRow">
-              <label>Category
-                <select value={category} onChange={(e) => setCategory(e.target.value)} required>
-                  <option>Fabric / stock</option>
-                  <option>Tailoring / stitching</option>
-                  <option>Lace / embellishment</option>
-                  <option>Packaging</option>
-                  <option>Marketing / Meta Ads</option>
-                  <option>Courier / delivery</option>
-                  <option>Rent &amp; utilities</option>
-                  <option>Salaries &amp; labour</option>
-                  <option>Operations</option>
-                  <option>Other</option>
-                </select>
-              </label>
+            {/* Mode Toggle: Business Expense vs Owner Withdrawal */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", background: "#f4f7f5", padding: "4px", borderRadius: "8px" }}>
+              <button
+                type="button"
+                onClick={() => setEntryType("business_expense")}
+                style={{
+                  padding: "7px 10px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "12.5px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  background: !isWithdrawal ? "#173d29" : "transparent",
+                  color: !isWithdrawal ? "#fff" : "#4b5d52",
+                }}
+              >
+                💸 Business Expense
+              </button>
+              <button
+                type="button"
+                onClick={() => setEntryType("owner_withdrawal")}
+                style={{
+                  padding: "7px 10px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "12.5px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  background: isWithdrawal ? "#173d29" : "transparent",
+                  color: isWithdrawal ? "#fff" : "#4b5d52",
+                }}
+              >
+                👤 Owner Withdrawal
+              </button>
+            </div>
 
+            {!isWithdrawal && (
+              <div>
+                <span style={{ fontSize: "11.5px", fontWeight: 650, color: "#55675c", display: "block", marginBottom: "6px" }}>Quick Category Select:</span>
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                  {EXPENSE_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      className="shopifyAccountQuickBtn"
+                      style={category === cat ? { background: "#173d29", color: "#fff", borderColor: "#173d29" } : undefined}
+                      onClick={() => setCategory(cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="shopifyFinanceModalRow">
               <label>Amount (PKR)
                 <input
                   type="number"
                   min="0.01"
                   step="0.01"
                   required
+                  autoFocus
                   placeholder="e.g. 2500"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                 />
               </label>
+
+              <label>Paid From Account
+                <select value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
+                  <option value="">Select Account</option>
+                  <AccountOptions accounts={accounts} />
+                </select>
+              </label>
             </div>
 
-            {category === "Other" && (
+            {!isWithdrawal && category === "Other" && (
               <label>Custom Category Name
                 <input
                   type="text"
@@ -1154,28 +1881,21 @@ function ExpenseModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
               </label>
             )}
 
-            <label>Paid From Account
-              <select value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
-                <option value="">Select Account</option>
-                <AccountOptions accounts={accounts} />
-              </select>
-            </label>
-
             <label>What was it for? (Description)
               <input
                 type="text"
-                required
-                placeholder="e.g. Farshi shalwar stitching 15 suits, Meta Ad receipt #482"
+                required={!isWithdrawal}
+                placeholder={isWithdrawal ? "e.g. Personal / family drawing" : "e.g. Farshi shalwar stitching 15 suits, Meta Ad receipt #482"}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
             </label>
 
             <div className="shopifyFinanceModalRow">
-              <label>Paid To (Tailor / Vendor)
+              <label>{isWithdrawal ? "Withdrawn By" : "Paid To (Tailor / Vendor)"}
                 <input
                   type="text"
-                  placeholder="e.g. Master Amina, Cloth House"
+                  placeholder={isWithdrawal ? "e.g. Owner" : "e.g. Master Amina, Cloth House"}
                   value={counterparty}
                   onChange={(e) => setCounterparty(e.target.value)}
                 />
@@ -1192,7 +1912,7 @@ function ExpenseModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
             </div>
 
             <div className="shopifyFinanceModalRow">
-              <label>Receipt / Reference
+              <label>Receipt / Reference (Optional)
                 <input
                   type="text"
                   placeholder="Invoice #, Bank ref"
@@ -1216,9 +1936,9 @@ function ExpenseModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
             <button type="button" className="shopifyModalCancelBtn" onClick={onClose} disabled={busy}>
               Cancel
             </button>
-            <button type="submit" className="shopifyModalSubmitBtn" disabled={busy || !(Number(amount) > 0) || !accountId || !title}>
+            <button type="submit" className="shopifyModalSubmitBtn" disabled={busy || !(Number(amount) > 0) || !accountId}>
               {busy ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-              {busy ? "Recording..." : "Record Expense"}
+              {busy ? "Recording..." : isWithdrawal ? "Record Withdrawal" : "Record Expense"}
             </button>
           </div>
         </form>
@@ -1227,22 +1947,36 @@ function ExpenseModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
   );
 }
 
-function IncomeModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
-  const [entryType, setEntryType] = useState("other_income");
-  const [amount, setAmount] = useState("");
-  const [accountId, setAccountId] = useState(defaultAccountId || accounts[0]?.id || "");
-  const [title, setTitle] = useState("");
-  const [counterparty, setCounterparty] = useState("");
+function IncomeModal({ accounts, defaultAccountId, defaultEntryType = "other_income", postexReceivablePkr = 0, busy, onClose, onSubmit }) {
+  const sorted = sortFinanceAccounts(accounts);
+  const alfalah = sorted.find((a) => a.slug === "alfalah_owner") || sorted[0];
+  const [entryType, setEntryType] = useState(defaultEntryType);
+  const [amount, setAmount] = useState(defaultEntryType === "postex_bank_receipt" && postexReceivablePkr > 0 ? String(Math.round(postexReceivablePkr)) : "");
+  const [accountId, setAccountId] = useState(
+    defaultAccountId || (defaultEntryType === "postex_bank_receipt" ? alfalah?.id : sorted[0]?.id) || ""
+  );
+  const [title, setTitle] = useState(defaultEntryType === "postex_bank_receipt" ? "PostEx bank payout receipt" : "");
+  const [counterparty, setCounterparty] = useState(defaultEntryType === "postex_bank_receipt" ? "PostEx COD Payout" : "");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
+
+  function handleTypeChange(nextType) {
+    setEntryType(nextType);
+    if (nextType === "postex_bank_receipt") {
+      if (alfalah) setAccountId(alfalah.id);
+      if (!title) setTitle("PostEx bank payout receipt");
+      setCounterparty("PostEx COD Payout");
+      if (!amount && postexReceivablePkr > 0) setAmount(String(Math.round(postexReceivablePkr)));
+    }
+  }
 
   return (
     <div className="shopifyFinanceModalOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="shopifyFinanceModalCard">
         <div className="shopifyFinanceModalHead">
           <h3>
-            <span style={{ fontSize: "18px" }}>💰</span> Record Business Income
+            <span style={{ fontSize: "18px" }}>💰</span> Record Income / Bank Receipt
           </h3>
           <button type="button" onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#667a6e" }}>
             <X size={18} />
@@ -1253,12 +1987,24 @@ function IncomeModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
           onSubmit={async (e) => {
             e.preventDefault();
             const numAmount = Number(amount || 0);
-            if (!(numAmount > 0) || !accountId || !title) return;
+            if (!(numAmount > 0) || !accountId) return;
+            const finalTitle = title.trim() || (
+              entryType === "postex_bank_receipt"
+                ? `PostEx bank receipt${reference ? `: ${reference}` : ""}`
+                : entryType === "owner_investment"
+                  ? "Owner funds added"
+                  : "Business income"
+            );
             await onSubmit({
               entryType,
               accountId,
-              category: entryType === "owner_investment" ? "Owner capital" : "Business income",
-              title,
+              category:
+                entryType === "owner_investment"
+                  ? "Owner capital"
+                  : entryType === "postex_bank_receipt"
+                    ? "PostEx payout"
+                    : "Business income",
+              title: finalTitle,
               counterparty,
               amountPkr: numAmount,
               occurredOn: date,
@@ -1269,26 +2015,33 @@ function IncomeModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
         >
           <div className="shopifyFinanceModalBody">
             <div className="shopifyFinanceModalRow">
-              <label>Income Type
-                <select value={entryType} onChange={(e) => setEntryType(e.target.value)} required>
-                  <option value="other_income">Other Business Income</option>
-                  <option value="owner_investment">Owner Funds Added (Capital)</option>
-                  <option value="postex_bank_receipt">PostEx Bank Payout Receipt</option>
+              <label>Receipt / Income Type
+                <select value={entryType} onChange={(e) => handleTypeChange(e.target.value)} required>
+                  <option value="postex_bank_receipt">🏦 PostEx Bank Payout Receipt</option>
+                  <option value="owner_investment">💼 Owner Funds Added (Capital)</option>
+                  <option value="other_income">💰 Other Business Income</option>
                 </select>
               </label>
 
-              <label>Amount (PKR)
+              <label>Amount Received (PKR)
                 <input
                   type="number"
                   min="0.01"
                   step="0.01"
                   required
-                  placeholder="e.g. 10000"
+                  autoFocus
+                  placeholder="e.g. 18500"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                 />
               </label>
             </div>
+
+            {entryType === "postex_bank_receipt" && (
+              <div style={{ padding: "10px 12px", borderRadius: "8px", background: "#f0fdf4", border: "1px solid #bbf7d0", fontSize: "12px", color: "#166534" }}>
+                <b>PostEx Receivable: {money(postexReceivablePkr)}</b> — Jab PostEx ki payment aapke bank mein aaye, uska CPR / Bank Reference neeche likhein taake Available Cash barh jaye aur PostEx Receivable kam ho jaye.
+              </div>
+            )}
 
             <label>Received In Account
               <select value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
@@ -1297,23 +2050,14 @@ function IncomeModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
               </select>
             </label>
 
-            <label>Description (Title)
-              <input
-                type="text"
-                required
-                placeholder="e.g. Studio exhibition cash sale, Owner working capital"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-            </label>
-
             <div className="shopifyFinanceModalRow">
-              <label>Received From (Source)
+              <label>{entryType === "postex_bank_receipt" ? "CPR Number / Bank Ref *" : "Reference (Optional)"}
                 <input
                   type="text"
-                  placeholder="e.g. Walk-in customer, PostEx COD payout"
-                  value={counterparty}
-                  onChange={(e) => setCounterparty(e.target.value)}
+                  required={entryType === "postex_bank_receipt"}
+                  placeholder={entryType === "postex_bank_receipt" ? "e.g. CPR-2026-W42 or Bank Ref" : "Deposit slip, Bank transfer id"}
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
                 />
               </label>
 
@@ -1327,12 +2071,32 @@ function IncomeModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
               </label>
             </div>
 
-            <label>Reference (Optional)
+            <div className="shopifyFinanceModalRow">
+              <label>Description (Title)
+                <input
+                  type="text"
+                  placeholder="e.g. PostEx payout, Exhibition sale"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </label>
+
+              <label>Received From (Source)
+                <input
+                  type="text"
+                  placeholder="e.g. PostEx, Walk-in customer"
+                  value={counterparty}
+                  onChange={(e) => setCounterparty(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <label>Extra Note (Optional)
               <input
                 type="text"
-                placeholder="Deposit slip, Bank transfer id"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
+                placeholder="Any extra note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
               />
             </label>
           </div>
@@ -1341,9 +2105,9 @@ function IncomeModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
             <button type="button" className="shopifyModalCancelBtn" onClick={onClose} disabled={busy}>
               Cancel
             </button>
-            <button type="submit" className="shopifyModalSubmitBtn" disabled={busy || !(Number(amount) > 0) || !accountId || !title}>
+            <button type="submit" className="shopifyModalSubmitBtn" disabled={busy || !(Number(amount) > 0) || !accountId}>
               {busy ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-              {busy ? "Recording..." : "Record Income"}
+              {busy ? "Recording..." : "Save Receipt"}
             </button>
           </div>
         </form>
@@ -1353,12 +2117,17 @@ function IncomeModal({ accounts, defaultAccountId, busy, onClose, onSubmit }) {
 }
 
 function TransferModal({ accounts, defaultFromAccountId, busy, onClose, onSubmit }) {
-  const [fromAccountId, setFromAccountId] = useState(defaultFromAccountId || accounts[0]?.id || "");
-  const [toAccountId, setToAccountId] = useState(accounts.find((a) => a.id !== defaultFromAccountId)?.id || "");
+  const sorted = sortFinanceAccounts(accounts);
+  const [fromAccountId, setFromAccountId] = useState(defaultFromAccountId || sorted[0]?.id || "");
+  const [toAccountId, setToAccountId] = useState(sorted.find((a) => a.id !== (defaultFromAccountId || sorted[0]?.id))?.id || "");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
   const [title, setTitle] = useState("Account transfer");
+
+  const fromAcc = sorted.find((a) => String(a.id) === String(fromAccountId));
+  const toAcc = sorted.find((a) => String(a.id) === String(toAccountId));
+  const numAmount = Number(amount || 0);
 
   return (
     <div className="shopifyFinanceModalOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -1375,7 +2144,6 @@ function TransferModal({ accounts, defaultFromAccountId, busy, onClose, onSubmit
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            const numAmount = Number(amount || 0);
             if (!(numAmount > 0) || !fromAccountId || !toAccountId || fromAccountId === toAccountId) return;
             await onSubmit({
               fromAccountId,
@@ -1389,7 +2157,7 @@ function TransferModal({ accounts, defaultFromAccountId, busy, onClose, onSubmit
         >
           <div className="shopifyFinanceModalBody">
             <p style={{ margin: 0, fontSize: "12.5px", color: "#55675c", lineHeight: 1.4 }}>
-              PostEx wallet se Bank Alfalah, ya Bank se Cash in Hand — paisa sirf account badalta hai, total available cash waisa hi rehta hai.
+              NayaPay ya Bank Alfalah se Cash in Hand — paisa sirf account badalta hai, total business cash aur P&amp;L par koi farq nahi parta.
             </p>
 
             <div className="shopifyFinanceModalRow">
@@ -1408,6 +2176,13 @@ function TransferModal({ accounts, defaultFromAccountId, busy, onClose, onSubmit
               </label>
             </div>
 
+            {fromAcc && toAcc && fromAccountId !== toAccountId && numAmount > 0 && (
+              <div style={{ padding: "10px 12px", borderRadius: "8px", background: "#eff6ff", border: "1px solid #bfdbfe", fontSize: "12px", color: "#1e3a8a", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                <span><b>{fromAcc.name}:</b> {money(fromAcc.balancePkr)} → <b>{money(fromAcc.balancePkr - numAmount)}</b></span>
+                <span><b>{toAcc.name}:</b> {money(toAcc.balancePkr)} → <b>{money(toAcc.balancePkr + numAmount)}</b></span>
+              </div>
+            )}
+
             {fromAccountId && toAccountId && fromAccountId === toAccountId && (
               <div style={{ color: "#b91c1c", fontSize: "12px", fontWeight: "600" }}>
                 Transfer From aur Transfer To dono alag accounts hone chahiyen.
@@ -1421,6 +2196,7 @@ function TransferModal({ accounts, defaultFromAccountId, busy, onClose, onSubmit
                   min="0.01"
                   step="0.01"
                   required
+                  autoFocus
                   placeholder="e.g. 50000"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -1441,7 +2217,7 @@ function TransferModal({ accounts, defaultFromAccountId, busy, onClose, onSubmit
               <label>Reference
                 <input
                   type="text"
-                  placeholder="Bank transaction ID / Cheque #"
+                  placeholder="Bank transaction ID / ATM withdrawal"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
                 />
@@ -1464,10 +2240,529 @@ function TransferModal({ accounts, defaultFromAccountId, busy, onClose, onSubmit
             <button
               type="submit"
               className="shopifyModalSubmitBtn"
-              disabled={busy || !(Number(amount) > 0) || !fromAccountId || !toAccountId || fromAccountId === toAccountId}
+              disabled={busy || !(numAmount > 0) || !fromAccountId || !toAccountId || fromAccountId === toAccountId}
             >
               {busy ? <Loader2 size={15} className="animate-spin" /> : <ArrowLeftRight size={15} />}
               {busy ? "Transferring..." : "Complete Transfer"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AdjustBalanceModal({ account, busy, onClose, onSubmit }) {
+  const [mode, setMode] = useState("reconcile"); // "reconcile" | "opening"
+  const [targetBalance, setTargetBalance] = useState(String(Math.round(Number(account.balancePkr || 0))));
+  const [openingBalance, setOpeningBalance] = useState(String(Math.round(Number(account.openingBalancePkr || 0))));
+  const [holder, setHolder] = useState(account.holder || "");
+  const [note, setNote] = useState("");
+
+  const diff = Math.round((Number(targetBalance || 0) - Number(account.balancePkr || 0)) * 100) / 100;
+
+  return (
+    <div className="shopifyFinanceModalOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="shopifyFinanceModalCard">
+        <div className="shopifyFinanceModalHead">
+          <h3>
+            <Settings2 size={18} className="text-[#173d29]" /> Adjust Balance — {account.name}
+          </h3>
+          <button type="button" onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#667a6e" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (mode === "reconcile") {
+              await onSubmit({
+                accountId: account.id,
+                mode: "reconcile",
+                targetBalancePkr: Number(targetBalance || 0),
+                note: note || `Reconciled ${account.name} to actual balance`,
+              });
+            } else {
+              await onSubmit({
+                accountId: account.id,
+                mode: "opening",
+                openingBalancePkr: Number(openingBalance || 0),
+                holder,
+                note: note || account.note,
+              });
+            }
+          }}
+        >
+          <div className="shopifyFinanceModalBody">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", background: "#f4f7f5", padding: "4px", borderRadius: "8px" }}>
+              <button
+                type="button"
+                onClick={() => setMode("reconcile")}
+                style={{
+                  padding: "7px 10px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "12.5px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  background: mode === "reconcile" ? "#173d29" : "transparent",
+                  color: mode === "reconcile" ? "#fff" : "#4b5d52",
+                }}
+              >
+                Match Actual Balance Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("opening")}
+                style={{
+                  padding: "7px 10px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "12.5px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  background: mode === "opening" ? "#173d29" : "transparent",
+                  color: mode === "opening" ? "#fff" : "#4b5d52",
+                }}
+              >
+                Set Opening Balance
+              </button>
+            </div>
+
+            {mode === "reconcile" ? (
+              <>
+                <p style={{ margin: 0, fontSize: "12.5px", color: "#55675c" }}>
+                  Apne bank ya wallet app mein is waqt jo asal balance hai woh enter karein. System farq ({diff >= 0 ? `+${money(diff)}` : money(diff)}) ki adjustment entry khud bana dega.
+                </p>
+                <div className="shopifyFinanceModalRow">
+                  <label>System Balance Right Now
+                    <input type="text" readOnly value={money(account.balancePkr)} style={{ background: "#f8faf9" }} />
+                  </label>
+                  <label>Actual Real Balance Today (PKR)
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      autoFocus
+                      value={targetBalance}
+                      onChange={(e) => setTargetBalance(e.target.value)}
+                    />
+                  </label>
+                </div>
+                <label>Reason / Note (Optional)
+                  <input
+                    type="text"
+                    placeholder="e.g. Matched with Bank Alfalah app balance"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                  />
+                </label>
+              </>
+            ) : (
+              <>
+                <p style={{ margin: 0, fontSize: "12.5px", color: "#55675c" }}>
+                  Is account ka starting (opening) balance set karein jiske upar saari entries plus/minus hoti hain.
+                </p>
+                <div className="shopifyFinanceModalRow">
+                  <label>Opening Balance (PKR)
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={openingBalance}
+                      onChange={(e) => setOpeningBalance(e.target.value)}
+                    />
+                  </label>
+                  <label>Account Holder Name
+                    <input
+                      type="text"
+                      value={holder}
+                      onChange={(e) => setHolder(e.target.value)}
+                      placeholder="e.g. Amina, Owner"
+                    />
+                  </label>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="shopifyFinanceModalFoot">
+            <button type="button" className="shopifyModalCancelBtn" onClick={onClose} disabled={busy}>
+              Cancel
+            </button>
+            <button type="submit" className="shopifyModalSubmitBtn" disabled={busy}>
+              {busy ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+              {busy ? "Saving..." : "Update Balance"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditTransactionModal({ entry, accounts, busy, onClose, onSubmit }) {
+  const [accountId, setAccountId] = useState(entry.account_id || "");
+  const [title, setTitle] = useState(entry.title || "");
+  const [category, setCategory] = useState(entry.category || "Other");
+  const [amountPkr, setAmountPkr] = useState(String(entry.amount_pkr || ""));
+  const [occurredOn, setOccurredOn] = useState(String(entry.occurred_on || "").slice(0, 10));
+  const [counterparty, setCounterparty] = useState(entry.counterparty || "");
+  const [reference, setReference] = useState(entry.reference || "");
+  const [note, setNote] = useState(entry.note || "");
+
+  return (
+    <div className="shopifyFinanceModalOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="shopifyFinanceModalCard">
+        <div className="shopifyFinanceModalHead">
+          <h3>
+            <Edit3 size={18} className="text-[#173d29]" /> Edit Finance Entry
+          </h3>
+          <button type="button" onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#667a6e" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            await onSubmit({
+              accountId: accountId || null,
+              title,
+              category,
+              amountPkr: Number(amountPkr || 0),
+              occurredOn,
+              counterparty,
+              reference,
+              note,
+            });
+          }}
+        >
+          <div className="shopifyFinanceModalBody">
+            <div className="shopifyFinanceModalRow">
+              <label>Account
+                <select value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
+                  <option value="">Select Account</option>
+                  <AccountOptions accounts={accounts} />
+                </select>
+              </label>
+              <label>Amount (PKR)
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  required
+                  value={amountPkr}
+                  onChange={(e) => setAmountPkr(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <div className="shopifyFinanceModalRow">
+              <label>Category
+                <input
+                  type="text"
+                  required
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                />
+              </label>
+              <label>Date
+                <input
+                  type="date"
+                  required
+                  value={occurredOn}
+                  onChange={(e) => setOccurredOn(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <label>Title / Description
+              <input
+                type="text"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </label>
+
+            <div className="shopifyFinanceModalRow">
+              <label>Counterparty / Vendor
+                <input
+                  type="text"
+                  value={counterparty}
+                  onChange={(e) => setCounterparty(e.target.value)}
+                />
+              </label>
+              <label>Reference
+                <input
+                  type="text"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <label>Note
+              <input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className="shopifyFinanceModalFoot">
+            <button type="button" className="shopifyModalCancelBtn" onClick={onClose} disabled={busy}>
+              Cancel
+            </button>
+            <button type="submit" className="shopifyModalSubmitBtn" disabled={busy || !accountId || !(Number(amountPkr) > 0)}>
+              {busy ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+              {busy ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function VoidConfirmModal({ entry, busy, onClose, onConfirm }) {
+  return (
+    <div className="shopifyFinanceModalOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="shopifyFinanceModalCard" style={{ maxWidth: "440px" }}>
+        <div className="shopifyFinanceModalHead">
+          <h3 style={{ color: "#991b1b" }}>
+            <AlertTriangle size={18} /> Void Finance Entry?
+          </h3>
+          <button type="button" onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#667a6e" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="shopifyFinanceModalBody">
+          <p style={{ margin: 0, fontSize: "13px", color: "#4b5d52", lineHeight: 1.5 }}>
+            Kya aap waqai is entry ko <b>Void</b> karna chahte hain? Void karne se iska cash effect reverse ho jayega aur audit ke liye record strike-through rahega.
+          </p>
+          <div style={{ padding: "12px", borderRadius: "8px", background: "#fef2f2", border: "1px solid #fecaca", fontSize: "13px" }}>
+            <div><b>{entry.title}</b></div>
+            <div style={{ color: "#991b1b", fontWeight: 700, marginTop: "4px" }}>
+              {entry.cash_direction === "in" ? "+" : "-"} {money(entry.amount_pkr)} · {formatDate(entry.occurred_on)}
+            </div>
+          </div>
+        </div>
+
+        <div className="shopifyFinanceModalFoot">
+          <button type="button" className="shopifyModalCancelBtn" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="shopifyModalSubmitBtn"
+            style={{ background: "#b91c1c" }}
+            disabled={busy}
+            onClick={onConfirm}
+          >
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+            {busy ? "Voiding..." : "Yes, Void Entry"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SupplierBillModal({ accounts, busy, onClose, onSubmit }) {
+  const sorted = sortFinanceAccounts(accounts);
+  const [paidAmount, setPaidAmount] = useState("0");
+  const [accountId, setAccountId] = useState(sorted[0]?.id || "");
+
+  return (
+    <div className="shopifyFinanceModalOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="shopifyFinanceModalCard">
+        <div className="shopifyFinanceModalHead">
+          <h3>
+            <Landmark size={18} className="text-[#9a3412]" /> Add Supplier Bill / Payable
+          </h3>
+          <button type="button" onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#667a6e" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            await onSubmit({
+              supplier: data.get("supplier"),
+              reference: data.get("reference"),
+              totalPkr: Number(data.get("total") || 0),
+              paid: Number(data.get("paid") || 0),
+              billDate: data.get("date"),
+              dueDate: data.get("dueDate"),
+              note: data.get("note"),
+              accountId: Number(data.get("paid") || 0) > 0 ? accountId : null,
+            });
+          }}
+        >
+          <div className="shopifyFinanceModalBody">
+            <div className="shopifyFinanceModalRow">
+              <label>Supplier / Vendor Name
+                <input name="supplier" required autoFocus placeholder="e.g. Master Amina, Farhan Fabric" />
+              </label>
+              <label>Bill Reference / WhatsApp Ref
+                <input name="reference" placeholder="e.g. Inv #849" />
+              </label>
+            </div>
+
+            <div className="shopifyFinanceModalRow">
+              <label>Total Bill (PKR)
+                <input name="total" type="number" min="1" required placeholder="0" />
+              </label>
+              <label>Already Paid Now (PKR)
+                <input name="paid" type="number" min="0" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} />
+              </label>
+            </div>
+
+            {Number(paidAmount) > 0 && (
+              <label>Paid From Account
+                <select value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
+                  <option value="">Select Account</option>
+                  <AccountOptions accounts={accounts} />
+                </select>
+              </label>
+            )}
+
+            <div className="shopifyFinanceModalRow">
+              <label>Bill Date
+                <input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+              </label>
+              <label>Due Date
+                <input name="dueDate" type="date" />
+              </label>
+            </div>
+
+            <label>Bill Note
+              <input name="note" placeholder="Fabric details, quantity etc." />
+            </label>
+          </div>
+
+          <div className="shopifyFinanceModalFoot">
+            <button type="button" className="shopifyModalCancelBtn" onClick={onClose} disabled={busy}>
+              Cancel
+            </button>
+            <button type="submit" className="shopifyModalSubmitBtn" disabled={busy}>
+              {busy ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+              {busy ? "Saving..." : "Save Supplier Bill"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function CampaignModal({ accounts, busy, onClose, onSubmit }) {
+  const sorted = sortFinanceAccounts(accounts);
+  const [recordExpense, setRecordExpense] = useState(true);
+  const [accountId, setAccountId] = useState(sorted[0]?.id || "");
+
+  return (
+    <div className="shopifyFinanceModalOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="shopifyFinanceModalCard">
+        <div className="shopifyFinanceModalHead">
+          <h3>
+            <TrendingUp size={18} className="text-[#173d29]" /> Log Marketing Campaign / Ad Spend
+          </h3>
+          <button type="button" onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#667a6e" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const data = new FormData(e.currentTarget);
+            await onSubmit({
+              name: data.get("name"),
+              platform: data.get("platform"),
+              spendPkr: Number(data.get("spend") || 0),
+              salesPkr: Number(data.get("sales") || 0),
+              customers: Number(data.get("customers") || 0),
+              occurredOn: data.get("date"),
+              note: data.get("note"),
+              recordExpense,
+              accountId: recordExpense ? accountId : null,
+            });
+          }}
+        >
+          <div className="shopifyFinanceModalBody">
+            <div className="shopifyFinanceModalRow">
+              <label>Campaign Name
+                <input name="name" required autoFocus placeholder="e.g. Summer Lawn Meta Ads" />
+              </label>
+              <label>Platform
+                <select name="platform" defaultValue="Meta Ads">
+                  <option>Meta Ads</option>
+                  <option>Instagram</option>
+                  <option>TikTok</option>
+                  <option>Google Ads</option>
+                  <option>Influencer / PR</option>
+                  <option>Other</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="shopifyFinanceModalRow">
+              <label>Ad Spend (PKR)
+                <input name="spend" type="number" min="0" required placeholder="e.g. 15000" />
+              </label>
+              <label>Attributed Sales (PKR)
+                <input name="sales" type="number" min="0" defaultValue="0" placeholder="e.g. 65000" />
+              </label>
+            </div>
+
+            <div className="shopifyFinanceModalRow">
+              <label>New Customers Acquired
+                <input name="customers" type="number" min="0" defaultValue="0" />
+              </label>
+              <label>Date
+                <input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+              </label>
+            </div>
+
+            <label style={{ flexDirection: "row", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={recordExpense}
+                onChange={(e) => setRecordExpense(e.target.checked)}
+                style={{ width: "auto" }}
+              />
+              <span>Also deduct this Ad Spend from Cash Ledger automatically</span>
+            </label>
+
+            {recordExpense && (
+              <label>Paid From Account
+                <select value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
+                  <option value="">Select Account</option>
+                  <AccountOptions accounts={accounts} />
+                </select>
+              </label>
+            )}
+
+            <label>Note (Optional)
+              <input name="note" placeholder="Target audience, ROAS note..." />
+            </label>
+          </div>
+
+          <div className="shopifyFinanceModalFoot">
+            <button type="button" className="shopifyModalCancelBtn" onClick={onClose} disabled={busy}>
+              Cancel
+            </button>
+            <button type="submit" className="shopifyModalSubmitBtn" disabled={busy}>
+              {busy ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+              {busy ? "Saving..." : "Save Campaign"}
             </button>
           </div>
         </form>
@@ -1505,39 +2800,19 @@ function TrendChart({ rows }) {
   );
 }
 
-function VoidButton({ entry, busy, onVoid }) {
-  return (
-    <button
-      type="button"
-      className="removeProductButton"
-      disabled={busy}
-      aria-busy={busy}
-      onClick={() => {
-        const expectedConfirmation = `VOID ${entry.id}`;
-        const confirmation = window.prompt(
-          `Ye entry void karne ke liye OK press karein.\nConfirmation: ${expectedConfirmation}`,
-          expectedConfirmation
-        );
-        if (confirmation) onVoid(confirmation.trim());
-      }}
-    >
-      {busy ? "Voiding..." : "Void"}
-    </button>
-  );
-}
-
 function PayBillButton({ bill, accounts, busy, onPay }) {
+  const sorted = sortFinanceAccounts(accounts);
   const remaining = Number(bill.remaining_pkr || 0);
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(String(remaining));
-  const [accountId, setAccountId] = useState("");
+  const [accountId, setAccountId] = useState(sorted[0]?.id || "");
 
   useEffect(() => {
     if (!open) {
       setAmount(String(remaining));
-      setAccountId("");
+      setAccountId(sorted[0]?.id || "");
     }
-  }, [open, remaining]);
+  }, [open, remaining]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (open) {
     return (
@@ -1557,7 +2832,7 @@ function PayBillButton({ bill, accounts, busy, onPay }) {
           <AccountOptions accounts={accounts} />
         </select>
         <div style={{ display: "flex", gap: "6px" }}>
-          <button type="submit" disabled={busy || !accountId || !(Number(amount) > 0) || Number(amount) > remaining} aria-busy={busy}>{busy ? "..." : "Save"}</button>
+          <button type="submit" disabled={busy || !accountId || !(Number(amount) > 0) || Number(amount) > remaining} aria-busy={busy}>{busy ? "..." : "Confirm Pay"}</button>
           <button type="button" className="editProductButton" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
         </div>
       </form>
@@ -1579,7 +2854,9 @@ function PayBillButton({ bill, accounts, busy, onPay }) {
 }
 
 function SupplierBillForm({ accounts, busy, onSubmit }) {
+  const sorted = sortFinanceAccounts(accounts);
   const [paidAmount, setPaidAmount] = useState("0");
+  const [defaultAcc] = useState(sorted[0]?.id || "");
 
   return (
     <form
@@ -1636,7 +2913,7 @@ function SupplierBillForm({ accounts, busy, onSubmit }) {
       </div>
 
       <div className="shopifyFinanceModalRow">
-        <AccountSelect accounts={accounts} name="accountId" required={Number(paidAmount) > 0} label="Paid From Account (If already paid)" />
+        <AccountSelect accounts={accounts} name="accountId" defaultValue={defaultAcc} required={Number(paidAmount) > 0} label="Paid From Account (If already paid)" />
         <label>Bill Note
           <input name="note" placeholder="Fabric details, quantity etc." />
         </label>
@@ -1657,44 +2934,132 @@ function SupplierBillForm({ accounts, busy, onSubmit }) {
   );
 }
 
-function FixedCostForm({ value, busy, onSave }) {
-  const [amount, setAmount] = useState(value);
-  useEffect(() => { setAmount(value); }, [value]);
+function PnlSettingsForm({ settings, busy, onSave }) {
+  const [monthlyFixed, setMonthlyFixed] = useState(settings.monthlyFixedCostsPkr || 0);
+  const [lowCash, setLowCash] = useState(settings.lowCashThresholdPkr || 0);
+
+  useEffect(() => {
+    setMonthlyFixed(settings.monthlyFixedCostsPkr || 0);
+    setLowCash(settings.lowCashThresholdPkr || 0);
+  }, [settings.monthlyFixedCostsPkr, settings.lowCashThresholdPkr]);
+
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: "10px" }}>
-      <label style={{ flex: 1, margin: 0, fontSize: "12.5px", fontWeight: "650", color: "#122a1e" }}>
-        Monthly Fixed Operating Costs (Rent, Salaries, Electricity, Internet)
-        <input
-          type="number"
-          min="0"
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          style={{ width: "100%", marginTop: "4px", padding: "8px 12px", border: "1.5px solid #d4ded6", borderRadius: "8px", fontSize: "13px" }}
-        />
-      </label>
-      <button
-        type="button"
-        className="shopifyPrimaryButton"
-        disabled={busy}
-        onClick={() => onSave(Number(amount || 0))}
-        style={{ padding: "8px 16px", height: "38px" }}
-      >
-        {busy ? "Saving..." : "Save"}
-      </button>
-    </div>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave({
+          monthly_fixed_costs_pkr: Math.max(0, Number(monthlyFixed || 0)),
+          low_cash_threshold_pkr: Math.max(0, Number(lowCash || 0)),
+        });
+      }}
+      style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+    >
+      <div className="shopifyFinanceModalRow">
+        <label style={{ margin: 0, fontSize: "12px", fontWeight: "650", color: "#122a1e" }}>
+          Monthly Fixed Costs (Rent, Salaries)
+          <input
+            type="number"
+            min="0"
+            value={monthlyFixed}
+            onChange={(e) => setMonthlyFixed(e.target.value)}
+            style={{ width: "100%", marginTop: "4px", padding: "7px 10px", border: "1.5px solid #d4ded6", borderRadius: "8px", fontSize: "13px" }}
+          />
+        </label>
+        <label style={{ margin: 0, fontSize: "12px", fontWeight: "650", color: "#122a1e" }}>
+          Low Cash Alert Threshold (PKR)
+          <input
+            type="number"
+            min="0"
+            value={lowCash}
+            onChange={(e) => setLowCash(e.target.value)}
+            style={{ width: "100%", marginTop: "4px", padding: "7px 10px", border: "1.5px solid #d4ded6", borderRadius: "8px", fontSize: "13px" }}
+          />
+        </label>
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button type="submit" className="shopifyPrimaryButton" disabled={busy} style={{ padding: "6px 14px", fontSize: "12.5px" }}>
+          {busy ? "Saving..." : "Save Settings"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function AllocationForm({ settings, busy, onSave }) {
+  const [marketingPct, setMarketingPct] = useState(settings.marketingPercent ?? 25);
+  const [ownerPct, setOwnerPct] = useState(settings.ownerPercent ?? 30);
+
+  useEffect(() => {
+    setMarketingPct(settings.marketingPercent ?? 25);
+    setOwnerPct(settings.ownerPercent ?? 30);
+  }, [settings.marketingPercent, settings.ownerPercent]);
+
+  const stockPct = Math.max(0, 100 - Number(marketingPct || 0) - Number(ownerPct || 0));
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const m = Math.min(100, Math.max(0, Number(marketingPct || 0)));
+        const o = Math.min(100 - m, Math.max(0, Number(ownerPct || 0)));
+        onSave({ marketing_percent: m, owner_percent: o });
+      }}
+      style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+        <label style={{ fontSize: "12px", fontWeight: 650, color: "#122a1e" }}>
+          Marketing %
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={marketingPct}
+            onChange={(e) => setMarketingPct(e.target.value)}
+            style={{ width: "100%", marginTop: "4px", padding: "6px 8px", border: "1.5px solid #d4ded6", borderRadius: "8px", fontSize: "13px" }}
+          />
+        </label>
+        <label style={{ fontSize: "12px", fontWeight: 650, color: "#122a1e" }}>
+          Owner %
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={ownerPct}
+            onChange={(e) => setOwnerPct(e.target.value)}
+            style={{ width: "100%", marginTop: "4px", padding: "6px 8px", border: "1.5px solid #d4ded6", borderRadius: "8px", fontSize: "13px" }}
+          />
+        </label>
+        <label style={{ fontSize: "12px", fontWeight: 650, color: "#667a6e" }}>
+          Stock Reserve %
+          <input
+            type="text"
+            readOnly
+            value={`${stockPct}%`}
+            style={{ width: "100%", marginTop: "4px", padding: "6px 8px", border: "1.5px solid #e2e8e5", borderRadius: "8px", fontSize: "13px", background: "#f8faf9" }}
+          />
+        </label>
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button type="submit" className="shopifyPrimaryButton" disabled={busy} style={{ padding: "6px 14px", fontSize: "12.5px" }}>
+          {busy ? "Saving..." : "Update Allocation Plan"}
+        </button>
+      </div>
+    </form>
   );
 }
 
 function UnassignedFixer({ accounts, transactions, busy, onAssign }) {
-  const [selected, setSelected] = useState([]);
-  const [accountId, setAccountId] = useState("");
+  const sorted = sortFinanceAccounts(accounts);
+  const [selected, setSelected] = useState(() => transactions.map((t) => t.id));
+  const [accountId, setAccountId] = useState(sorted[0]?.id || "");
+
   return (
     <Card
-      title="Purani entries ka account set karein"
-      subtitle="Ye entries purane system se aayi hain jahan account track nahi hota tha. Total cash sahi hai — sirf account-wise breakdown adhoora hai."
+      title="Unassigned Entries — 1-Click Account Link"
+      subtitle="Ye entries kisi account se linked nahi hain. Account select kar ke 1 click mein assign kar dein."
     >
       <div className="financeAssignBar" style={{ display: "flex", gap: "10px", alignItems: "flex-end", marginBottom: "14px", flexWrap: "wrap" }}>
-        <div style={{ minWidth: "220px" }}>
+        <div style={{ minWidth: "240px" }}>
           <AccountSelect accounts={accounts} label="Assign to account" value={accountId} onChange={(event) => setAccountId(event.target.value)} />
         </div>
         <button
@@ -1704,10 +3069,14 @@ function UnassignedFixer({ accounts, transactions, busy, onAssign }) {
           aria-busy={busy}
           onClick={() => onAssign(selected, accountId).then?.(() => setSelected([]))}
         >
-          {busy ? "Assigning..." : selected.length ? `${selected.length} entries assign karein` : "Entries select karein"}
+          {busy ? "Assigning..." : selected.length ? `Assign ${selected.length} Entries Now` : "Select entries"}
         </button>
-        <button type="button" className="shopifySecondaryButton" onClick={() => setSelected(transactions.map((entry) => entry.id))}>
-          Select All
+        <button
+          type="button"
+          className="shopifySecondaryButton"
+          onClick={() => setSelected(selected.length === transactions.length ? [] : transactions.map((entry) => entry.id))}
+        >
+          {selected.length === transactions.length ? "Deselect All" : "Select All"}
         </button>
       </div>
       <Table head={["", "Date", "Detail", "Amount"]} empty="Sab entries assign ho chuki hain.">
@@ -1721,7 +3090,7 @@ function UnassignedFixer({ accounts, transactions, busy, onAssign }) {
               />
             </td>
             <td>{formatDate(entry.occurred_on)}</td>
-            <td><b>{entry.title}</b></td>
+            <td><b>{entry.title}</b> <small style={{ color: "#667a6e" }}>({entry.category})</small></td>
             <td className={entry.cash_direction === "in" ? "incomeAmount font-bold" : "expenseAmount font-bold"}>
               {entry.cash_direction === "in" ? "+" : "-"} {money(entry.amount_pkr)}
             </td>

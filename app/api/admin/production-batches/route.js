@@ -4,8 +4,27 @@ import { authorizeAdminSession, adminAuthErrorResponse } from "../../../../lib/a
 import { getStoreSettings, updateStoreSettings } from "../../../../lib/storeSettings";
 import { revalidatePath } from "next/cache";
 import { invalidateCatalogCache } from "../../../../lib/catalog";
-import { insertFinanceTransactions } from "../../../../lib/financeStore";
+import { insertFinanceTransactions, listFinanceAccounts } from "../../../../lib/financeStore";
 import { supabaseAdminRequest } from "../../../../lib/supabaseRest";
+
+async function resolveBatchAccountId(requestedAccountId) {
+  try {
+    const accounts = (await listFinanceAccounts()) || [];
+    const active = accounts.filter((a) => a && a.is_active !== false);
+    if (requestedAccountId) {
+      const match = active.find((a) => String(a.id) === String(requestedAccountId) || a.slug === requestedAccountId);
+      if (match) return match.id;
+    }
+    return (
+      active.find((a) => a.slug === "cash_in_hand")?.id ||
+      active.find((a) => a.slug === "alfalah_owner")?.id ||
+      active[0]?.id ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
 
 function revalidateBatchCatalogPaths(productIds = []) {
   invalidateCatalogCache();
@@ -181,8 +200,10 @@ export async function POST(request) {
       const transactions = [{ id: `batch-cost-${entryId}`, type: "business_expense", title: `Production batch ${batch.id}: ${COST_LABEL_BY_KEY[costKey]}`, category: CASH_CATEGORY_BY_COST_KEY[costKey], amount, date: entry.date, counterparty: entry.counterparty, reference: entry.reference, note: entry.note, productionBatchId: batch.id, costEntryId: entryId }, ...(settings.financeTransactions || [])];
       const batches = (settings.productionBatches || []).map((item) => item.id === batch.id ? nextBatch : item);
       const saved = await updateStoreSettings({ ...settings, productionBatches: batches, financeTransactions: transactions });
+      const batchAccountId = await resolveBatchAccountId(body.accountId);
       await insertFinanceTransactions([{
         legacyId: `batch-cost-${entryId}`,
+        accountId: batchAccountId,
         entryType: "business_expense",
         title: `Production batch ${batch.id}: ${COST_LABEL_BY_KEY[costKey]}`,
         category: CASH_CATEGORY_BY_COST_KEY[costKey],
@@ -270,9 +291,11 @@ export async function POST(request) {
     const settings = await getStoreSettings({ includeFinance: true });
     const transactions = costEntries.map((entry) => ({ id: `batch-cost-${batch.id}-${entry.id}`, type: "business_expense", title: `Production batch ${batch.id}: ${COST_LABEL_BY_KEY[entry.costKey]}`, category: CASH_CATEGORY_BY_COST_KEY[entry.costKey], amount: entry.amount, date: entry.date, note: batch.note || entry.note, productionBatchId: batch.id, costEntryId: entry.id })).concat(settings.financeTransactions || []);
     const saved = await updateStoreSettings({ ...settings, productionBatches: [batch, ...(settings.productionBatches || [])], financeTransactions: transactions });
+    const batchAccountId = await resolveBatchAccountId(body.accountId);
     await insertFinanceTransactions(
       costEntries.map((entry) => ({
         legacyId: `batch-cost-${batch.id}-${entry.id}`,
+        accountId: batchAccountId,
         entryType: "business_expense",
         title: `Production batch ${batch.id}: ${COST_LABEL_BY_KEY[entry.costKey]}`,
         category: CASH_CATEGORY_BY_COST_KEY[entry.costKey],

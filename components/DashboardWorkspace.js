@@ -121,6 +121,20 @@ export default function DashboardWorkspace({
       return;
     }
     try {
+      const reportRes = await fetch("/api/admin/finance?period=all", { cache: "no-store" });
+      if (reportRes.ok) {
+        const reportData = await reportRes.json();
+        if (reportData?.report) {
+          setFinanceSnapshot({
+            authoritativeReport: reportData.report,
+            transactions: reportData.report.transactions || [],
+            supplierBills: reportData.report.suppliers?.bills || [],
+            postex: reportData.report.postex || { summary: {} },
+          });
+          setFinanceStatus("ready");
+          return;
+        }
+      }
       const res = await fetch("/api/admin/finance-transactions", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
@@ -274,6 +288,15 @@ export default function DashboardWorkspace({
 
   // Financial calculations
   const { availableCash, postexReceivable, netProfit } = useMemo(() => {
+    if (financeSnapshot.authoritativeReport) {
+      const rep = financeSnapshot.authoritativeReport;
+      return {
+        availableCash: Number(rep.cash?.availableCashPkr || 0),
+        postexReceivable: Number(rep.postex?.receivablePkr || 0),
+        netProfit: Number(rep.pnl?.netProfitPkr || 0),
+      };
+    }
+
     const allDelivered = orders.filter(isDelivered);
     const totalDeliveredRevenue = allDelivered.reduce((s, o) => s + Number(o.total || 0), 0);
     const activeTx = (financeSnapshot.transactions || []).filter((t) => t.voided !== true);
@@ -323,9 +346,9 @@ export default function DashboardWorkspace({
     const profit = totalDeliveredRevenue - totalCogs - courierDeductions - bizExpense;
 
     return {
-      availableCash: cash > 0 ? cash : 83600, // graceful fallback if DB unpopulated
-      postexReceivable: receivable > 0 ? receivable : 6348,
-      netProfit: profit > 0 ? profit : 278,
+      availableCash: cash,
+      postexReceivable: receivable,
+      netProfit: profit,
     };
   }, [orders, products, financeSnapshot]);
 
@@ -362,9 +385,16 @@ export default function DashboardWorkspace({
   ).length;
   const returnsCount = fulfilmentCounts["Returned"] || 0;
   const todayStr = (now || new Date()).toISOString().slice(0, 10);
-  const overdueBillsCount = (financeSnapshot.supplierBills || []).filter(
-    (b) => b.status !== "paid" && b.dueDate && b.dueDate < todayStr && Number(b.total || 0) > Number(b.paid || 0)
-  ).length;
+  const overdueBillsCount = financeSnapshot.authoritativeReport
+    ? Number(financeSnapshot.authoritativeReport.suppliers?.overdue?.length || 0)
+    : (financeSnapshot.supplierBills || []).filter(
+        (b) =>
+          b.status !== "paid" &&
+          b.status !== "voided" &&
+          (b.due_date || b.dueDate) &&
+          (b.due_date || b.dueDate) < todayStr &&
+          Number(b.remaining_pkr ?? (Number(b.total || 0) - Number(b.paid || 0))) > 0
+      ).length;
 
   // Top products in scoped period
   const topProducts = useMemo(() => {
