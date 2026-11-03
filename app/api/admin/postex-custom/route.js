@@ -583,6 +583,11 @@ export async function POST(request) {
 
     await recordShipmentState({ orderId: completedOrder?.id, courier: courierBooked ? courier : null, trackingNumber, rawStatus: courierStatus, serviceType: amountPayableOnDeliveryPkr > 0 ? "COD" : "prepaid", manual: !courierBooked });
 
+    try {
+      const { invalidateCatalogCache } = await import("../../../../lib/catalog");
+      invalidateCatalogCache();
+    } catch {}
+
     // Courier status is persisted above. Do not call the legacy RPC here: it
     // required a browser-supplied access key, which is no longer accepted.
 

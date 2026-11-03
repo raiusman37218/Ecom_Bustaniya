@@ -98,7 +98,7 @@ function StructuredProductDetails({ value }) {
   );
 }
 
-export default function UkProductDetails({ product: rawProduct, related: rawRelated = [], storeSettings = DEFAULT_STORE_SETTINGS }) {
+export default function UkProductDetails({ product: rawProduct, related: rawRelated = [], storeSettings = DEFAULT_STORE_SETTINGS, categories = [] }) {
   const product = useMemo(() => convertProductToRegion(rawProduct, "uk"), [rawProduct]);
   const related = useMemo(() => convertProductsToRegion(rawRelated, "uk"), [rawRelated]);
 
@@ -236,7 +236,7 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
 
   return (
     <div className="productDetailPageLayout">
-      <UkHeader storeSettings={storeSettings} cartCount={cartCount} onOpenCart={() => setCartOpen(true)} />
+      <UkHeader storeSettings={storeSettings} categories={categories} cartCount={cartCount} onOpenCart={() => setCartOpen(true)} />
 
       <main className="productDetailContainer">
         <div className="productDetailBreadcrumb">
@@ -595,7 +595,7 @@ export default function UkProductDetails({ product: rawProduct, related: rawRela
         )}
       </aside>
 
-      <UkFooter storeSettings={storeSettings} />
+      <UkFooter storeSettings={storeSettings} categories={categories} />
 
       <SizeChartModal isOpen={sizeChartOpen} onClose={() => setSizeChartOpen(false)} chartData={product?.sizeChart || storeSettings?.sizeChartSettings} />
     </div>

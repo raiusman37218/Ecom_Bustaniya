@@ -7,7 +7,17 @@ function revalidateCatalogPaths(productId) {
       revalidatePath(`/product/${productId}`);
       revalidatePath(`/uk/product/${productId}`);
     }
+    revalidatePath("/", "layout");
+    revalidatePath("/", "page");
+    revalidatePath("/uk", "layout");
+    revalidatePath("/uk", "page");
+    revalidatePath("/search", "page");
     revalidatePath("/product/[id]", "page");
+    revalidatePath("/uk/product/[id]", "page");
+    revalidatePath("/category/[slug]", "page");
+    revalidatePath("/category/[slug]/[subcategory]", "page");
+    revalidatePath("/uk/category/[slug]", "page");
+    revalidatePath("/uk/category/[slug]/[subcategory]", "page");
     revalidatePath("/uk/product/[id]", "page");
     revalidatePath("/category/[slug]", "page");
     revalidatePath("/", "page");
@@ -611,6 +621,7 @@ export async function PATCH(request) {
         result = await adjustInventoryDirect(body);
       }
       invalidateCatalogCache();
+      revalidateCatalogPaths(body.productId);
       return NextResponse.json({ success: true, result });
     }
     await authorizeAdminRequest(request, "products");

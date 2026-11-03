@@ -13,6 +13,7 @@ export default function CartPage() {
   const [cart, setCart] = useState([]);
   const [cartReady, setCartReady] = useState(false);
   const [storeSettings, setStoreSettings] = useState(DEFAULT_STORE_SETTINGS);
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     try {
@@ -21,10 +22,19 @@ export default function CartPage() {
     } catch {}
     setCartReady(true);
 
-    fetch("/api/store-settings")
+    fetch("/api/store-settings", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (data && typeof data === "object") setStoreSettings(data);
+        if (data && typeof data === "object") {
+          setStoreSettings((prev) => ({ ...prev, ...data }));
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/catalog", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data?.categories)) setCategories(data.categories);
       })
       .catch(() => {});
   }, []);
@@ -75,7 +85,7 @@ export default function CartPage() {
 
   return (
     <>
-      <SiteHeader storeSettings={storeSettings} cartCount={cartCount} />
+      <SiteHeader storeSettings={storeSettings} categories={categories} cartCount={cartCount} />
 
       <main className="bs-st cartPageLayout">
         <div className="cartPageContainer">

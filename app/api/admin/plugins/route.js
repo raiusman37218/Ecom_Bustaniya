@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { authorizeAdminSession, adminAuthErrorResponse } from "../../../../lib/adminAuth";
+import { invalidateStoreSettingsCache } from "../../../../lib/storeSettings";
 import {
   getAllPlugins,
   updatePluginConfig,
@@ -7,7 +9,19 @@ import {
   deleteCustomPlugin,
   triggerPluginHook,
   getPluginLogs,
+  invalidatePluginsCache,
 } from "../../../../lib/plugins/engine.js";
+
+function revalidateStorefrontPlugins() {
+  invalidatePluginsCache();
+  invalidateStoreSettingsCache();
+  try {
+    revalidateTag("store-settings");
+    revalidatePath("/", "layout");
+    revalidatePath("/", "page");
+    revalidatePath("/uk", "layout");
+  } catch {}
+}
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -48,6 +62,7 @@ export async function POST(request) {
     if (action === "toggle") {
       const { pluginId, enabled } = body;
       await updatePluginConfig(pluginId, { enabled });
+      revalidateStorefrontPlugins();
       const plugins = await getAllPlugins();
       return NextResponse.json(
         { ok: true, message: `Plugin ${enabled ? "enabled" : "disabled"}`, plugins },
@@ -58,6 +73,7 @@ export async function POST(request) {
     if (action === "updateSettings") {
       const { pluginId, settings, enabled } = body;
       await updatePluginConfig(pluginId, { settings, enabled });
+      revalidateStorefrontPlugins();
       const plugins = await getAllPlugins();
       return NextResponse.json(
         { ok: true, message: "Settings saved successfully", plugins },
@@ -68,6 +84,7 @@ export async function POST(request) {
     if (action === "create") {
       const { pluginData } = body;
       const created = await createCustomPlugin(pluginData);
+      revalidateStorefrontPlugins();
       const plugins = await getAllPlugins();
       return NextResponse.json(
         { ok: true, message: "Custom plugin created successfully", plugin: created, plugins },
@@ -78,6 +95,7 @@ export async function POST(request) {
     if (action === "delete") {
       const { pluginId } = body;
       await deleteCustomPlugin(pluginId);
+      revalidateStorefrontPlugins();
       const plugins = await getAllPlugins();
       return NextResponse.json(
         { ok: true, message: "Custom plugin deleted", plugins },

@@ -2,7 +2,34 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { authorizeAdminSession, adminAuthErrorResponse } from "../../../../lib/adminAuth";
 import { getStoreSettings, updateStoreSettings } from "../../../../lib/storeSettings";
+import { revalidatePath } from "next/cache";
+import { invalidateCatalogCache } from "../../../../lib/catalog";
+import { insertFinanceTransactions } from "../../../../lib/financeStore";
 import { supabaseAdminRequest } from "../../../../lib/supabaseRest";
+
+function revalidateBatchCatalogPaths(productIds = []) {
+  invalidateCatalogCache();
+  try {
+    for (const pid of productIds) {
+      if (pid) {
+        revalidatePath(`/product/${pid}`);
+        revalidatePath(`/uk/product/${pid}`);
+      }
+    }
+    revalidatePath("/", "layout");
+    revalidatePath("/", "page");
+    revalidatePath("/uk", "layout");
+    revalidatePath("/uk", "page");
+    revalidatePath("/search", "page");
+    revalidatePath("/product/[id]", "page");
+    revalidatePath("/uk/product/[id]", "page");
+    revalidatePath("/category/[slug]", "page");
+    revalidatePath("/category/[slug]/[subcategory]", "page");
+    revalidatePath("/uk/category/[slug]", "page");
+    revalidatePath("/uk/category/[slug]/[subcategory]", "page");
+    revalidatePath("/admin", "page");
+  } catch {}
+}
 
 const COST_KEYS = ["fabric", "stitching", "stitchingMaterial", "packaging", "travel", "other"];
 
@@ -154,6 +181,21 @@ export async function POST(request) {
       const transactions = [{ id: `batch-cost-${entryId}`, type: "business_expense", title: `Production batch ${batch.id}: ${COST_LABEL_BY_KEY[costKey]}`, category: CASH_CATEGORY_BY_COST_KEY[costKey], amount, date: entry.date, counterparty: entry.counterparty, reference: entry.reference, note: entry.note, productionBatchId: batch.id, costEntryId: entryId }, ...(settings.financeTransactions || [])];
       const batches = (settings.productionBatches || []).map((item) => item.id === batch.id ? nextBatch : item);
       const saved = await updateStoreSettings({ ...settings, productionBatches: batches, financeTransactions: transactions });
+      await insertFinanceTransactions([{
+        legacyId: `batch-cost-${entryId}`,
+        entryType: "business_expense",
+        title: `Production batch ${batch.id}: ${COST_LABEL_BY_KEY[costKey]}`,
+        category: CASH_CATEGORY_BY_COST_KEY[costKey],
+        amountPkr: amount,
+        occurredOn: entry.date,
+        counterparty: entry.counterparty,
+        reference: entry.reference,
+        note: entry.note,
+        source: "production_batch",
+        productionBatchId: batch.id,
+        createdBy: user?.email || user?.name || "Admin",
+      }]).catch(() => {});
+      revalidateBatchCatalogPaths(nextItems.map((i) => i.productId));
       return NextResponse.json({ success: true, batch: nextBatch, batches: saved.productionBatches || [] });
     }
     if (body.action === "void") {
@@ -189,6 +231,12 @@ export async function POST(request) {
         voidedBy: { id: user.id, name: user.name, email: user.email },
       } : item);
       const transactions = (settings.financeTransactions || []).filter((item) => item.productionBatchId !== batch.id && !String(item.title || "").startsWith(`Production batch ${batch.id}:`));
+      await supabaseAdminRequest(`finance_transactions?production_batch_id=eq.${encodeURIComponent(batch.id)}`, {
+        method: "PATCH",
+        prefer: "return=minimal",
+        body: { voided: true, voided_at: new Date().toISOString(), voided_by: String(user?.email || user?.name || "Owner").slice(0, 120) },
+      }).catch(() => {});
+      revalidateBatchCatalogPaths(batchItems.map((i) => i.productId));
       const saved = await updateStoreSettings({ ...settings, productionBatches: batches, financeTransactions: transactions });
       return NextResponse.json({ success: true, batches: saved.productionBatches || [] });
     }
@@ -222,6 +270,21 @@ export async function POST(request) {
     const settings = await getStoreSettings({ includeFinance: true });
     const transactions = costEntries.map((entry) => ({ id: `batch-cost-${batch.id}-${entry.id}`, type: "business_expense", title: `Production batch ${batch.id}: ${COST_LABEL_BY_KEY[entry.costKey]}`, category: CASH_CATEGORY_BY_COST_KEY[entry.costKey], amount: entry.amount, date: entry.date, note: batch.note || entry.note, productionBatchId: batch.id, costEntryId: entry.id })).concat(settings.financeTransactions || []);
     const saved = await updateStoreSettings({ ...settings, productionBatches: [batch, ...(settings.productionBatches || [])], financeTransactions: transactions });
+    await insertFinanceTransactions(
+      costEntries.map((entry) => ({
+        legacyId: `batch-cost-${batch.id}-${entry.id}`,
+        entryType: "business_expense",
+        title: `Production batch ${batch.id}: ${COST_LABEL_BY_KEY[entry.costKey]}`,
+        category: CASH_CATEGORY_BY_COST_KEY[entry.costKey],
+        amountPkr: entry.amount,
+        occurredOn: entry.date,
+        note: batch.note || entry.note,
+        source: "production_batch",
+        productionBatchId: batch.id,
+        createdBy: user?.email || user?.name || "Admin",
+      }))
+    ).catch(() => {});
+    revalidateBatchCatalogPaths(savedItems.map((i) => i.productId));
     return NextResponse.json({ success: true, batch, batches: saved.productionBatches || [] });
   } catch (error) {
     return NextResponse.json({ error: error.message || "Unable to save production batch." }, { status: 500 });

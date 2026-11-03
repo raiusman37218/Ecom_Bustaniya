@@ -161,19 +161,34 @@ export default function SiteHeader({
   const navTree = useMemo(() => {
     const all = (categories || []).filter(Boolean);
     const tops = all
-      .filter((category) => !category.parentSlug && category.showInHeader !== false)
-      .map((category) => ({ name: category.name, slug: category.slug, image: category.image }));
+      .filter(
+        (category) =>
+          !category.parentSlug &&
+          category.showInHeader !== false &&
+          category.status !== "Archived" &&
+          category.status !== "Draft"
+      )
+      .map((category) => ({
+        name: category.name,
+        slug: category.slug,
+        image: category.image,
+        sortOrder: Number(category.sortOrder ?? 100),
+      }));
 
-    const base = tops.length > 0 ? tops : DEFAULT_NAV_CATEGORIES;
-    const hasSuits = base.some((c) => c.slug === "3-piece-suits" || c.name.toLowerCase().includes("3 piece"));
-    const withSuits = hasSuits ? base : [...base, { name: "3 Piece Suits", slug: "3-piece-suits" }];
+    const base = tops.length > 0 ? tops : DEFAULT_NAV_CATEGORIES.map((c, idx) => ({ ...c, sortOrder: idx * 10 }));
 
-    return [...withSuits]
-      .sort((a, b) => navOrder(a.slug) - navOrder(b.slug))
+    return [...base]
+      .sort((a, b) => (a.sortOrder ?? 100) - (b.sortOrder ?? 100) || navOrder(a.slug) - navOrder(b.slug))
       .map((parent) => ({
         ...parent,
         children: all
-          .filter((category) => category.parentSlug === parent.slug && category.showInHeader !== false)
+          .filter(
+            (category) =>
+              category.parentSlug === parent.slug &&
+              category.showInHeader !== false &&
+              category.status !== "Archived" &&
+              category.status !== "Draft"
+          )
           .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
           .map((child) => ({
             name: child.name,
@@ -472,7 +487,14 @@ export default function SiteHeader({
           </Link>
           <a
             className="bs-st-menufoot-item bs-st-menufoot-item--whatsapp"
-            href="https://wa.me/923053530008"
+            href={`https://wa.me/${(() => {
+              const raw = String(
+                storeSettings?.paymentSettings?.whatsappNumber ||
+                storeSettings?.whatsappNumber ||
+                "923053530008"
+              ).replace(/\D/g, "");
+              return raw.startsWith("0") ? `92${raw.slice(1)}` : (raw || "923053530008");
+            })()}`}
             target="_blank"
             rel="noopener noreferrer"
             tabIndex={menuOpen ? 0 : -1}
@@ -482,12 +504,12 @@ export default function SiteHeader({
           </a>
           <a
             className="bs-st-menufoot-item"
-            href="https://www.instagram.com/bustaniya_/"
+            href={`https://www.instagram.com/${String(storeSettings?.instagramHandle || "@bustaniya_").replace(/^@/, "")}/`}
             target="_blank"
             rel="noopener noreferrer"
             tabIndex={menuOpen ? 0 : -1}
           >
-            <span>Follow @bustaniya_ on Instagram</span>
+            <span>Follow {storeSettings?.instagramHandle || "@bustaniya_"} on Instagram</span>
             <ArrowRight size={14} />
           </a>
         </div>

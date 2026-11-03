@@ -7,18 +7,8 @@ import { JsonLd, breadcrumbSchema, buildMetadata, productDescription, productSch
 import { getStoreSettings } from "../../../lib/storeSettings";
 import { optimizedImageUrl, CLOUDINARY_IMAGE_PRESETS } from "../../../lib/images";
 
-export const revalidate = 60;
-
-export async function generateStaticParams() {
-  try {
-    const products = await getCatalogProducts();
-    return (products || []).map((product) => ({
-      id: String(product.id),
-    }));
-  } catch {
-    return [];
-  }
-}
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function legacyArticleNumber(id) {
   const numericId = Number(id);

@@ -239,6 +239,7 @@ export default function CheckoutPage() {
   const [paymentSettings, setPaymentSettings] = useState(DEFAULT_STORE_SETTINGS.paymentSettings);
   // Carries freeDeliveryThreshold, which decides whether the fee applies at all.
   const [deliverySettings, setDeliverySettings] = useState(DEFAULT_STORE_SETTINGS.deliverySettings);
+  const [checkoutSettings, setCheckoutSettings] = useState(DEFAULT_STORE_SETTINGS.checkoutSettings || {});
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -289,6 +290,7 @@ export default function CheckoutPage() {
         const nextPaymentSettings = result.paymentSettings || DEFAULT_STORE_SETTINGS.paymentSettings;
         setPaymentSettings(nextPaymentSettings);
         setDeliverySettings(result.deliverySettings || DEFAULT_STORE_SETTINGS.deliverySettings);
+        if (result.checkoutSettings) setCheckoutSettings(result.checkoutSettings);
         setPaymentMethod((current) => {
           const configuredDefault = normalizePaymentMethod(result.checkoutSettings?.defaultPayment);
           if (nextPaymentSettings.codEnabled === false && nextPaymentSettings.manualTransferEnabled !== false)
@@ -964,6 +966,11 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {checkoutSettings?.checkoutNote && (
+                <div style={{ margin: "16px 0 0", padding: "12px 14px", borderRadius: "6px", background: "#f4f8f5", border: "1px solid #d5e5d9", color: "#173d29", fontSize: "12.5px", lineHeight: 1.5 }}>
+                  {checkoutSettings.checkoutNote}
+                </div>
+              )}
               {/* COMPLETE ORDER BUTTON */}
               <div className="shopifySubmitWrapper">
                 <button

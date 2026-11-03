@@ -2,23 +2,14 @@ import { notFound } from "next/navigation";
 import { normalizeCategory } from "../../../../data/store";
 import UkProductDetails from "../../../../components/uk/UkProductDetails";
 import { getCatalogProducts } from "../../../../lib/catalog";
+import { getCatalogCategories } from "../../../../lib/categories";
 import { JsonLd, breadcrumbSchema, buildMetadata, productDescription, siteConfig } from "../../../../lib/seo";
 import { getStoreSettings } from "../../../../lib/storeSettings";
 import { convertProductToRegion, convertProductsToRegion } from "../../../../lib/regions";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../../../lib/images";
 
-export const revalidate = 60;
-
-export async function generateStaticParams() {
-  try {
-    const products = await getCatalogProducts();
-    return (products || []).map((product) => ({
-      id: String(product.id),
-    }));
-  } catch {
-    return [];
-  }
-}
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function legacyArticleNumber(id) {
   const numericId = Number(id);
@@ -51,9 +42,10 @@ export async function generateMetadata({ params }) {
 
 export default async function UkProductPage({ params }) {
   const { id } = await params;
-  const [rawProducts, storeSettings] = await Promise.all([
+  const [rawProducts, storeSettings, categories] = await Promise.all([
     getCatalogProducts(),
     getStoreSettings(),
+    getCatalogCategories(),
   ]);
   const rawProduct = findProduct(rawProducts, id);
   if (!rawProduct) notFound();
@@ -105,7 +97,7 @@ export default async function UkProductPage({ params }) {
           sku: product.sku || product.articleNumber,
         }}
       />
-      <UkProductDetails product={product} related={related} storeSettings={storeSettings} />
+      <UkProductDetails product={product} related={related} storeSettings={storeSettings} categories={categories} />
     </>
   );
 }

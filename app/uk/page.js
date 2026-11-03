@@ -6,7 +6,8 @@ import { getStoreSettings } from "../../lib/storeSettings";
 import { REGIONS } from "../../lib/regions";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../lib/images";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export const metadata = buildMetadata({
   title: REGIONS.uk.seo.defaultTitle,

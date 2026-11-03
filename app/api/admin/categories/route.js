@@ -5,6 +5,31 @@ import { authorizeAdminRequest } from "../../../../lib/adminAuth";
 import { supabaseAdminRequest } from "../../../../lib/supabaseRest";
 import { slugifyCategory } from "../../../../data/store";
 
+function revalidateCategoryPaths(slug, parentSlug) {
+  invalidateCategoriesCache();
+  try {
+    revalidatePath("/", "layout");
+    revalidatePath("/", "page");
+    revalidatePath("/uk", "layout");
+    revalidatePath("/uk", "page");
+    revalidatePath("/search", "page");
+    revalidatePath("/category/[slug]", "page");
+    revalidatePath("/category/[slug]/[subcategory]", "page");
+    revalidatePath("/uk/category/[slug]", "page");
+    revalidatePath("/uk/category/[slug]/[subcategory]", "page");
+    if (slug && !parentSlug) {
+      revalidatePath(`/category/${slug}`);
+      revalidatePath(`/uk/category/${slug}`);
+    } else if (slug && parentSlug) {
+      revalidatePath(`/category/${parentSlug}`);
+      revalidatePath(`/category/${parentSlug}/${slug}`);
+      revalidatePath(`/uk/category/${parentSlug}`);
+      revalidatePath(`/uk/category/${parentSlug}/${slug}`);
+    }
+    revalidatePath("/admin", "page");
+  } catch {}
+}
+
 function errorResponse(error) {
   const unauthorized = error.status === 401 || error.status === 403;
   const validation = error.status === 400 || error.status === 422;
@@ -84,13 +109,7 @@ export async function PUT(request) {
         prefer: "resolution=merge-duplicates,return=representation",
         body: record,
       });
-      invalidateCategoriesCache();
-      try {
-        revalidatePath("/", "page");
-        revalidatePath("/uk", "page");
-        revalidatePath("/category/[slug]", "page");
-        revalidatePath("/admin", "page");
-      } catch {}
+      revalidateCategoryPaths(record.slug, record.parent_slug);
       return NextResponse.json({ success: true, category: normalizeCategoryRecord(created?.[0]) });
     } catch (error) {
       if (!tableMissing(error)) throw error;
@@ -116,19 +135,14 @@ export async function PATCH(request) {
         prefer: "return=representation",
         body: record,
       });
-      invalidateCategoriesCache();
-      try {
-        revalidatePath("/", "page");
-        revalidatePath("/uk", "page");
-        revalidatePath("/category/[slug]", "page");
-        revalidatePath("/admin", "page");
-      } catch {}
+      revalidateCategoryPaths(record.slug, record.parent_slug);
       if (!updated?.length) {
         const upserted = await supabaseAdminRequest("catalog_categories?on_conflict=slug&select=*", {
           method: "POST",
           prefer: "resolution=merge-duplicates,return=representation",
           body: record,
         });
+        revalidateCategoryPaths(record.slug, record.parent_slug);
         return NextResponse.json({ success: true, category: normalizeCategoryRecord(upserted?.[0]) });
       }
       return NextResponse.json({ success: true, category: normalizeCategoryRecord(updated?.[0]) });
@@ -151,17 +165,11 @@ export async function DELETE(request) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(categoryId));
     const filter = isUuid ? `id=eq.${encodeURIComponent(categoryId)}` : `slug=eq.${encodeURIComponent(categoryId)}`;
     try {
-      invalidateCategoriesCache();
-      try {
-        revalidatePath("/", "page");
-        revalidatePath("/uk", "page");
-        revalidatePath("/category/[slug]", "page");
-        revalidatePath("/admin", "page");
-      } catch {}
       if (permanent) {
         await supabaseAdminRequest(`catalog_categories?${filter}`, {
           method: "DELETE",
         });
+        revalidateCategoryPaths();
         return NextResponse.json({ success: true, deleted: true });
       }
       await supabaseAdminRequest(`catalog_categories?${filter}`, {
@@ -169,6 +177,7 @@ export async function DELETE(request) {
         prefer: "return=minimal",
         body: { status: "Archived" },
       });
+      revalidateCategoryPaths();
       return NextResponse.json({ success: true, archived: true });
     } catch (error) {
       if (!tableMissing(error)) throw error;

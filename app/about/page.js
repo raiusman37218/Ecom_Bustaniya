@@ -2,6 +2,9 @@ import { buildMetadata } from "../../lib/seo";
 import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
 import { getStoreSettings } from "../../lib/storeSettings";
+import { getCatalogCategories } from "../../lib/categories";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = buildMetadata({
   title: "About Bustaniya",
@@ -11,11 +14,14 @@ export const metadata = buildMetadata({
 });
 
 export default async function AboutPage() {
-  const storeSettings = await getStoreSettings();
+  const [storeSettings, categories] = await Promise.all([
+    getStoreSettings(),
+    getCatalogCategories(),
+  ]);
 
   return (
     <div className="siteLayout">
-      <SiteHeader storeSettings={storeSettings} activeNav="about" />
+      <SiteHeader storeSettings={storeSettings} categories={categories} activeNav="about" />
       <main className="bs-st infoPage">
         <section className="infoHero">
           <p className="eyebrow">ABOUT BUSTANIYA</p>
@@ -41,7 +47,7 @@ export default async function AboutPage() {
           </p>
         </section>
       </main>
-      <SiteFooter storeSettings={storeSettings} />
+      <SiteFooter storeSettings={storeSettings} categories={categories} />
     </div>
   );
 }

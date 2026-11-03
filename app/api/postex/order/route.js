@@ -643,6 +643,10 @@ export async function POST(request) {
     });
     keepDuplicateGuard = true;
     reservedOrder = null;
+    try {
+      const { invalidateCatalogCache } = await import("../../../../lib/catalog");
+      invalidateCatalogCache();
+    } catch {}
     return NextResponse.json(responseBody);
   } catch (error) {
     if (reservedOrder) {

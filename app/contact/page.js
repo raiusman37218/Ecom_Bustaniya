@@ -2,6 +2,9 @@ import { buildMetadata, siteConfig } from "../../lib/seo";
 import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
 import { getStoreSettings } from "../../lib/storeSettings";
+import { getCatalogCategories } from "../../lib/categories";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = buildMetadata({
   title: "Contact Bustaniya",
@@ -11,11 +14,14 @@ export const metadata = buildMetadata({
 });
 
 export default async function ContactPage() {
-  const storeSettings = await getStoreSettings();
+  const [storeSettings, categories] = await Promise.all([
+    getStoreSettings(),
+    getCatalogCategories(),
+  ]);
 
   return (
     <div className="siteLayout">
-      <SiteHeader storeSettings={storeSettings} activeNav="contact" />
+      <SiteHeader storeSettings={storeSettings} categories={categories} activeNav="contact" />
       <main className="bs-st infoPage">
         <section className="infoHero">
           <p className="eyebrow">CONTACT</p>
@@ -38,7 +44,7 @@ export default async function ContactPage() {
           <p lang="ur" dir="rtl">آرڈر، سائز یا ڈیلیوری سے متعلق سوال کے لیے اپنا آرڈر ریفرنس ساتھ بھیجیں۔</p>
         </section>
       </main>
-      <SiteFooter storeSettings={storeSettings} />
+      <SiteFooter storeSettings={storeSettings} categories={categories} />
     </div>
   );
 }

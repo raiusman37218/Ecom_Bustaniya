@@ -1551,6 +1551,11 @@ export default function AdminDashboard() {
         }))
         : [];
 
+      const existingBreakdown = editingProduct?.costBreakdown || editingProduct?.cost_breakdown || {};
+      const existingMeta = existingBreakdown?.metadata || {};
+      const existingCostTotal = Number(editingProduct?.costTotalPkr ?? editingProduct?.cost_total_pkr ?? 0);
+      const keepDetailedBreakdown = Boolean(editingProduct && Math.abs(costVal - existingCostTotal) < 0.01 && Object.keys(existingBreakdown).length > 0);
+
       const productPayload = {
         name,
         description: form.get("description") || "",
@@ -1563,7 +1568,7 @@ export default function AdminDashboard() {
         price: priceVal,
         compare_at_price: compareVal,
         bottomOptions: finalBottomOptions,
-            enableBottomOptions: Boolean(enableBottomOptions && finalBottomOptions.length > 0),
+        enableBottomOptions: Boolean(enableBottomOptions && finalBottomOptions.length > 0),
         sku: skuVal,
         sizes: selectedSizes,
         colors: selectedColors,
@@ -1581,33 +1586,35 @@ export default function AdminDashboard() {
         colorImages: colorImagesMap,
         tags: tagsList,
         status: statusVal,
-        publishDate: new Date().toISOString().split("T")[0],
+        publishDate: editingProduct?.publishDate || existingMeta.publishDate || new Date().toISOString().split("T")[0],
         images: mediaImages.length
           ? mediaImages
           : ["/bustaniya-campaign-hero-v4.webp"],
-        delivery_fee_mode: "inherit",
-        delivery_fee_pkr: null,
-        deliveryInfo: "",
+        delivery_fee_mode: editingProduct?.deliveryFeeMode || editingProduct?.delivery_fee_mode || "inherit",
+        delivery_fee_pkr: editingProduct?.deliveryFee ?? editingProduct?.delivery_fee_pkr ?? null,
+        deliveryInfo: editingProduct?.deliveryInfo || existingMeta.deliveryInfo || "",
         instagramVideoUrl: instagramUrl,
         cost_total_pkr: costVal,
         cost_breakdown: {
-          fabric: costVal,
-          stitching: 0,
-          embellishment: 0,
-          packaging: 0,
-          delivery: 0,
-          other: 0,
+          ...(keepDetailedBreakdown ? existingBreakdown : {}),
+          fabric: keepDetailedBreakdown ? Number(existingBreakdown.fabric ?? costVal) : costVal,
+          stitching: keepDetailedBreakdown ? Number(existingBreakdown.stitching || 0) : 0,
+          embellishment: keepDetailedBreakdown ? Number(existingBreakdown.embellishment || 0) : 0,
+          packaging: keepDetailedBreakdown ? Number(existingBreakdown.packaging || 0) : 0,
+          delivery: keepDetailedBreakdown ? Number(existingBreakdown.delivery || 0) : 0,
+          other: keepDetailedBreakdown ? Number(existingBreakdown.other || 0) : 0,
           metadata: {
-            fabricDetails: "",
-            careInstructions: "",
-            deliveryInfo: "",
+            ...existingMeta,
+            fabricDetails: editingProduct?.fabricDetails || existingMeta.fabricDetails || "",
+            careInstructions: editingProduct?.careInstructions || existingMeta.careInstructions || "",
+            deliveryInfo: editingProduct?.deliveryInfo || existingMeta.deliveryInfo || "",
             instagramVideoUrl: instagramUrl,
-            vendor: "Bustaniya",
-            barcode: "",
-            weight: "",
-            weightUnit: "kg",
-            countryOfOrigin: "Pakistan",
-            hsTariffCode: "",
+            vendor: existingMeta.vendor || "Bustaniya",
+            barcode: existingMeta.barcode || "",
+            weight: existingMeta.weight || "",
+            weightUnit: existingMeta.weightUnit || "kg",
+            countryOfOrigin: existingMeta.countryOfOrigin || "Pakistan",
+            hsTariffCode: existingMeta.hsTariffCode || "",
             seoTitle: seoTitle || name,
             seoDescription: String(form.get("seoDescription") || "").trim(),
             urlHandle: String(form.get("urlHandle") || "").trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
@@ -1619,7 +1626,7 @@ export default function AdminDashboard() {
             categories: allCategories,
             categoryPrices: cleanCategoryPrices,
             tags: tagsList,
-            publishDate: new Date().toISOString().split("T")[0],
+            publishDate: editingProduct?.publishDate || existingMeta.publishDate || new Date().toISOString().split("T")[0],
             colorImages: colorImagesMap,
             variants: selectedSizes.flatMap((size) => selectedColors.map((color) => ({
               size,
@@ -2107,7 +2114,7 @@ export default function AdminDashboard() {
             />
           )}
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} onNavigateToEvents={() => navigateAdminSection("Events")} />}
-          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
+          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} onRefreshCatalog={loadAdminData} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Courier Ops" && <CourierOperationsPanel />}
@@ -8750,7 +8757,7 @@ function ProductionBatchModal({ isOpen, onClose, onSubmit, products, saving }) {
   );
 }
 
-function InventoryPanel({ products, movements, orders, connected, currentAdminUser, onAdjust, onCreateCustomInventory, onCreateProductionBatch, onOpenOrder, initialView }) {
+function InventoryPanel({ products, movements, orders, connected, currentAdminUser, onAdjust, onCreateCustomInventory, onCreateProductionBatch, onRefreshCatalog, onOpenOrder, initialView }) {
   const emptyProductionCosts = () => ({ fabric: 0, stitching: 0, stitchingMaterial: 0, packaging: 0, travel: 0, other: 0 });
   const inventoryMoney = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
   const newProductionItem = () => ({ key: `batch-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, productId: "", quantity: "", newProductName: "", newProductPrice: "", newProductCategory: "Kurtis", newProductImage: "", directCostBreakdown: emptyProductionCosts() });
@@ -8861,6 +8868,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       setProductionBatches(result.batches || []);
       setVoidBatch(null);
       setVoidConfirmation("");
+      if (typeof onRefreshCatalog === "function") await onRefreshCatalog();
       window.alert("Production batch voided. Its Finance production expense has been removed.");
     } catch (error) {
       window.alert(error.message || "Unable to void production batch.");
@@ -8882,6 +8890,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       if (!response.ok) throw new Error(result.error || "Unable to add production cost.");
       setProductionBatches(result.batches || []);
       setBatchCostBatch(null);
+      if (typeof onRefreshCatalog === "function") await onRefreshCatalog();
     } catch (error) {
       window.alert(error.message || "Unable to add production cost.");
     } finally {
@@ -9421,5 +9430,6480 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
     const product = products.find((candidate) => String(candidate.id) === entry.productId);
     return {
       id: product?.id || `custom-${index + 1}`,
-      productId: produ
-... [truncated for diff preview]
+      productId: product?.id || "",
+      product_id: product?.id || "",
+      name: product?.name || entry.customName || "Custom item",
+      sku: product?.articleNumber || product?.article_number || product?.sku || "CUSTOM-ORDER",
+      articleNumber: product?.articleNumber || product?.article_number || "",
+      quantity: Math.max(1, Number(entry.quantity) || 1),
+      price: Number(product?.price ?? entry.unitPrice ?? 0),
+      size: entry.size || "",
+      color: entry.color || "",
+    };
+  });
+  const productSubtotal = preparedItems.reduce((sum, item) => sum + item.quantity * item.price, 0);
+  const deliveryFee = paymentOption === "full_advance" ? 0 : 250;
+  const orderTotal = productSubtotal + deliveryFee;
+  const amountPayableInAdvance = Math.min(orderTotal, Math.max(0, Number(advanceAmount) || 0));
+  const amountPayableOnDelivery = Math.max(0, orderTotal - amountPayableInAdvance);
+  const updateItem = (key, changes) => setDraftItems((items) => items.map((item) => item.key === key ? { ...item, ...changes } : item));
+
+  useEffect(() => {
+    const nextAdvance = paymentOption === "full_advance" ? orderTotal : paymentOption === "cod_delivery_advance" ? deliveryFee : 0;
+    setAdvanceAmount(nextAdvance);
+    setPaymentStatus(paymentOption === "cod" ? "Awaiting Payment" : "Payment Verified");
+  }, [paymentOption, orderTotal, deliveryFee]);
+
+  useEffect(() => {
+    let active = true;
+    setCitiesLoading(true);
+    fetch("/api/postex/cities")
+      .then((response) => response.json().then((result) => ({ ok: response.ok, result })))
+      .then(({ ok, result }) => {
+        if (!active) return;
+        if (!ok) throw new Error(result.error || "Unable to load PostEx cities.");
+        setPostexCities(result.cities || []);
+        setCitiesError("");
+      })
+      .catch((error) => {
+        if (!active) return;
+        setCitiesError(error.message);
+      })
+      .finally(() => {
+        if (active) setCitiesLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  return (
+    <>
+      <div className="adminOverlay" onClick={onClose} />
+      <form className="orderDialog" onSubmit={onCreate} style={{ maxWidth: "720px", width: "95%" }}>
+        <DialogHead title="Create Custom Order" onClose={onClose} />
+
+        <div className="formRow">
+          <label>
+            Customer Full Name
+            <input name="customer" required placeholder="e.g. Ayesha Khan" />
+          </label>
+          <label>
+            Phone Number
+            <input name="phone" required placeholder="03XXXXXXXXX" />
+          </label>
+        </div>
+
+        <div className="formRow">
+          <label>
+            PostEx City
+            <input
+              name="city"
+              required
+              list="postex-city-options"
+              placeholder={citiesLoading ? "Loading PostEx cities..." : "Type city name (e.g. Lahore)"}
+              autoComplete="off"
+            />
+            {postexCities.length > 0 && (
+              <datalist id="postex-city-options">
+                {postexCities.map((city) => <option key={city} value={city} />)}
+              </datalist>
+            )}
+            {citiesError && <small className="trackingNumber">{citiesError}</small>}
+          </label>
+          <label>
+            Order Source
+            <select name="source">
+              <option value="Instagram DM">Instagram DM</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Phone call">Phone call</option>
+              <option value="Walk-in">Walk-in</option>
+              <option value="Manual">Manual</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="formRow">
+          <label>
+            Payment Option
+            <select name="paymentOption" value={paymentOption} onChange={(event) => setPaymentOption(event.target.value)}>
+              <option value="cod">Cash on Delivery (COD) — no advance</option>
+              <option value="cod_delivery_advance">COD — delivery advance received</option>
+              <option value="full_advance">Full Advance — free delivery</option>
+            </select>
+          </label>
+          <label>
+            Payment Status
+            <select name="paymentStatus" value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
+              <option>COD Pending</option>
+              <option>Advance Pending</option>
+              <option>Proof Submitted</option>
+              <option>Payment Verified</option>
+              <option>Paid</option>
+              <option>Payment Rejected</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="formRow">
+          <label>
+            Advance Amount Received (PKR)
+            <input
+              name="advancePaid"
+              type="number"
+              min="0"
+              max={orderTotal}
+              step="0.01"
+              value={amountPayableInAdvance}
+              onChange={(event) => setAdvanceAmount(event.target.value)}
+              readOnly={paymentOption !== "cod_delivery_advance"}
+            />
+          </label>
+          <label>
+            Delivery Charges (PKR)
+            <input name="deliveryCharges" type="number" min="0" step="0.01" value={deliveryFee} readOnly />
+          </label>
+        </div>
+
+        <div className="formRow">
+          <label>
+            Delivery Method
+            <select name="deliveryMethod" defaultValue="PostEx later">
+              <option value="PostEx later">PostEx later (Unbooked)</option>
+              <option value="PostEx">PostEx (Book courier dispatch now)</option>
+              <option value="Rider / same city">Rider / same city</option>
+              <option value="Customer pickup">Customer pickup</option>
+              <option value="Staff delivery">Staff delivery</option>
+              <option value="Manual courier">Manual courier</option>
+            </select>
+          </label>
+          <label>
+            Order Status
+            <select name="status" defaultValue="Unbooked">
+              {newOrderInitialStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <label>
+          Full Shipping Address
+          <textarea name="address" rows="2" required placeholder="House/Flat number, Street, Area, Landmark, City" />
+        </label>
+
+        <div className="inventoryListHead" style={{ marginTop: "12px" }}>
+          <div>
+            <h3>Order Items &amp; Products</h3>
+            <span>Add catalog products or custom items</span>
+          </div>
+          <button type="button" onClick={() => setDraftItems((items) => [...items, makeItem()])}>+ Add another item</button>
+        </div>
+
+        {draftItems.map((entry, index) => {
+          const selectedProduct = products.find((product) => String(product.id) === entry.productId);
+          const rawSizes = selectedProduct?.sizes || selectedProduct?.size;
+          const parsedSizes = Array.isArray(rawSizes) ? rawSizes : typeof rawSizes === "string" ? (() => { try { return JSON.parse(rawSizes); } catch { return [rawSizes]; } })() : [];
+          const sizes = parsedSizes.length ? [...parsedSizes, "Custom"] : ["XS", "S", "M", "L", "XL", "XXL", "Free Size", "Custom"];
+          const rawColors = selectedProduct?.colors || selectedProduct?.color;
+          const parsedColors = Array.isArray(rawColors) ? rawColors : typeof rawColors === "string" ? (() => { try { return JSON.parse(rawColors); } catch { return [rawColors]; } })() : [];
+          const colors = parsedColors.length ? [...parsedColors, "Custom"] : ["Default", "Custom"];
+          const isCustomSize = entry.size === "Custom" || (entry.size && !sizes.filter((s) => s !== "Custom").includes(entry.size));
+
+          return (
+            <div className="adminCard" key={entry.key} style={{ padding: "14px", marginBottom: "10px", background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+              <div className="inventoryListHead">
+                <b>Item {index + 1}</b>
+                {draftItems.length > 1 && (
+                  <button type="button" onClick={() => setDraftItems((items) => items.filter((item) => item.key !== entry.key))} style={{ color: "#ef4444" }}>
+                    Remove
+                  </button>
+                )}
+              </div>
+              <label>
+                Product
+                <select value={entry.productId} onChange={(event) => updateItem(entry.key, { productId: event.target.value, size: "", color: "" })}>
+                  {products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} - Rs. {Number(product.price || 0).toLocaleString()}
+                    </option>
+                  ))}
+                  <option value="__custom__">✏️ Custom / Other Suit Name</option>
+                </select>
+              </label>
+              {selectedProduct ? (
+                <div className="formRow">
+                  <label>
+                    Size
+                    <select
+                      value={sizes.includes(entry.size) ? entry.size : (entry.size ? "Custom" : "")}
+                      onChange={(event) => updateItem(entry.key, { size: event.target.value })}
+                    >
+                      <option value="">Select Size</option>
+                      {sizes.map((size) => <option key={size} value={size}>{size}</option>)}
+                    </select>
+                    {isCustomSize && (
+                      <input
+                        type="text"
+                        value={entry.size === "Custom" ? "" : entry.size}
+                        onChange={(event) => updateItem(entry.key, { size: event.target.value })}
+                        placeholder="Type custom size (e.g. 38, M)"
+                        style={{ marginTop: "4px" }}
+                      />
+                    )}
+                  </label>
+                  <label>
+                    Color
+                    <select value={entry.color} onChange={(event) => updateItem(entry.key, { color: event.target.value })}>
+                      <option value="">Select Color</option>
+                      {colors.map((color) => <option key={color} value={color}>{color}</option>)}
+                    </select>
+                    {entry.color === "Custom" && (
+                      <input
+                        type="text"
+                        onChange={(event) => updateItem(entry.key, { color: event.target.value })}
+                        placeholder="Type color name..."
+                        style={{ marginTop: "4px" }}
+                      />
+                    )}
+                  </label>
+                </div>
+              ) : (
+                <div className="formRow">
+                  <label>
+                    Custom Item Name
+                    <input required value={entry.customName} onChange={(event) => updateItem(entry.key, { customName: event.target.value })} placeholder="e.g. Lawn Embroidered 3-Piece" />
+                  </label>
+                  <label>
+                    Variant / Size / Color
+                    <input value={entry.size} onChange={(event) => updateItem(entry.key, { size: event.target.value })} placeholder="e.g. Medium / Maroon" />
+                  </label>
+                </div>
+              )}
+              <div className="formRow">
+                <label>
+                  Quantity
+                  <input type="number" min="1" max="50" value={entry.quantity} onChange={(event) => updateItem(entry.key, { quantity: event.target.value })} />
+                </label>
+                <label>
+                  Unit Price (PKR)
+                  <input
+                    type="number"
+                    min="0"
+                    value={selectedProduct ? Number(selectedProduct.price || 0) : entry.unitPrice}
+                    onChange={(event) => updateItem(entry.key, { unitPrice: event.target.value })}
+                    readOnly={!!selectedProduct}
+                  />
+                </label>
+              </div>
+            </div>
+          );
+        })}
+
+        <input type="hidden" name="itemsJson" value={JSON.stringify(preparedItems)} />
+
+        <div className="adminCard" style={{ padding: "14px", marginBottom: "12px", background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+          <div className="formRow" style={{ marginBottom: "6px" }}>
+            <span>Products Subtotal: <b>Rs. {productSubtotal.toLocaleString()}</b></span>
+            <span>Delivery: <b>{deliveryFee ? `Rs. ${deliveryFee.toLocaleString()}` : "Free"}</b></span>
+          </div>
+          <div className="formRow" style={{ marginBottom: "6px" }}>
+            <span style={{ color: "#15803d" }}>Advance Received: <b>Rs. {amountPayableInAdvance.toLocaleString()}</b></span>
+            <span style={{ color: amountPayableOnDelivery === 0 ? "#15803d" : "#1e40af" }}>
+              Pay on Delivery (COD): <b>Rs. {amountPayableOnDelivery.toLocaleString()}</b>
+            </span>
+          </div>
+          <div style={{ fontSize: "15px", fontWeight: 700, color: "#166534", borderTop: "1px solid #dcfce7", paddingTop: "6px" }}>
+            Total Order Value: Rs. {orderTotal.toLocaleString()}
+          </div>
+        </div>
+
+        <div className="adminCard" style={{ padding: "14px", marginBottom: "12px", background: "#fefce8", border: "1px solid #fde047" }}>
+          <label style={{ margin: 0 }}>
+            <b style={{ color: "#854d0e" }}>📝 Internal Notes &amp; Special Instructions</b>
+            <textarea
+              name="notes"
+              rows="3"
+              placeholder="Enter Instagram DM link, customer phone verification note, rider instructions, custom sizing remarks..."
+              style={{ background: "#fff", border: "1px solid #facc15", marginTop: "6px" }}
+            />
+            <small style={{ color: "#a16207", display: "block", marginTop: "4px" }}>
+              These internal notes will be saved and permanently shown on the order details card and list.
+            </small>
+          </label>
+        </div>
+
+        <button
+          className="dialogSave"
+          disabled={saving}
+          aria-busy={saving}
+          style={{
+            width: "100%",
+            padding: "12px",
+            fontSize: "14px",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            cursor: saving ? "not-allowed" : "pointer"
+          }}
+        >
+          {saving ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              <span>Saving &amp; Creating Order...</span>
+            </>
+          ) : (
+            "Create Custom Order"
+          )}
+        </button>
+      </form>
+    </>
+  );
+}
+
+function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, canRecordRefund, onNavigateToEvents, onDelete }) {
+  const [drawerTab, setDrawerTab] = useState("order"); // "order" | "logistics" | "notes"
+  const [isEditingItems, setIsEditingItems] = useState(false);
+  const [tracking, setTracking] = useState(order.tracking || "");
+  const [orderStage, setOrderStage] = useState(order.postexStatus || order.status || "Un-Assigned By Me");
+  const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || "COD pending");
+  const [paymentReference, setPaymentReference] = useState(order.paymentReference || order.raw?.payment_reference || "");
+  const [advancePaidAmount, setAdvancePaidAmount] = useState(Number(order.amountPayableInAdvance || 0));
+  const [fulfillmentStatus, setFulfillmentStatus] = useState(order.fulfillmentStatus || "Unfulfilled");
+  const [deliveryMethod, setDeliveryMethod] = useState(order.deliveryMethod || (order.tracking ? "PostEx" : "Rider / same city"));
+  const [risk, setRisk] = useState(order.risk || "Standard COD");
+  const [tags, setTags] = useState((order.tags || []).join(", "));
+  const [notes, setNotes] = useState(order.notes || order.internalNotes || "");
+  const [returnStatus, setReturnStatus] = useState(order.operation?.returnStatus || "No return");
+  const [returnReason, setReturnReason] = useState(order.operation?.returnReason || "");
+  const [returnResolution, setReturnResolution] = useState(order.operation?.returnResolution || "");
+  const [refundAmount, setRefundAmount] = useState(order.operation?.refundAmount || 0);
+  const [refundMethod, setRefundMethod] = useState(order.operation?.refundMethod || "");
+  const [saving, setSaving] = useState(false);
+  const [bookingPostex, setBookingPostex] = useState(false);
+  const [checkingPostex, setCheckingPostex] = useState(false);
+  const [resyncingCapi, setResyncingCapi] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
+  const [copiedTracking, setCopiedTracking] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
+  const [copiedOrderNumber, setCopiedOrderNumber] = useState(false);
+  const [orderItems, setOrderItems] = useState(() => normalizeOrderItems(order));
+  const items = orderItems;
+  const returnStatusOptions = returnWorkflowTransitions[order.operation?.returnStatus || "No return"] || [returnStatus];
+  const restoringReturnedStock = order.operation?.returnStatus !== "Return received" && returnStatus === "Return received";
+
+  useEffect(() => {
+    setTracking(order.tracking || "");
+    const initialStage = order.status || order.postexStatus || "Unbooked";
+    setOrderStage(initialStage);
+    setOrderItems(normalizeOrderItems(order));
+  }, [order.id, order.rawId, order.order_number, order.tracking, order.status, order.postexStatus, JSON.stringify(order.items), JSON.stringify(order.order_items)]);
+
+  function updateItemField(index, field, value) {
+    setOrderItems((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      if (field === "name") copy[index].title = value;
+      if (field === "title") copy[index].name = value;
+      return copy;
+    });
+  }
+
+  function handleSelectProduct(index, productName) {
+    const foundProduct = catalogProducts.find((p) => p.name === productName);
+    if (foundProduct) {
+      const parsedSizes = Array.isArray(foundProduct.size) ? foundProduct.size : typeof foundProduct.size === "string" ? (() => { try { return JSON.parse(foundProduct.size); } catch { return [foundProduct.size]; } })() : [];
+      const parsedColors = Array.isArray(foundProduct.color) ? foundProduct.color : typeof foundProduct.color === "string" ? (() => { try { return JSON.parse(foundProduct.color); } catch { return [foundProduct.color]; } })() : [];
+
+      setOrderItems((prev) => {
+        const copy = [...prev];
+        copy[index] = {
+          ...copy[index],
+          name: foundProduct.name,
+          title: foundProduct.name,
+          sku: foundProduct.article_number || foundProduct.stock_id || copy[index].sku || "",
+          price: Number(foundProduct.price || copy[index].price || 0),
+          imageUrl: foundProduct.img || foundProduct.images?.[0] || copy[index].imageUrl || "",
+          size: parsedSizes[0] || copy[index].size || "M",
+          color: parsedColors[0] || copy[index].color || "",
+          productId: foundProduct.id || null,
+          product_id: foundProduct.id || null,
+        };
+        return copy;
+      });
+    } else if (productName === "__custom__") {
+      setOrderItems((prev) => {
+        const copy = [...prev];
+        const existingName = copy[index].name || copy[index].title || "";
+        const customTitle = existingName && existingName !== "Custom Product" && !catalogProducts.some((p) => p.name === existingName) ? existingName : "Custom Product";
+        copy[index] = {
+          ...copy[index],
+          name: customTitle,
+          title: customTitle,
+          productId: null,
+          product_id: null,
+        };
+        return copy;
+      });
+    }
+  }
+
+  function handleAddProductItem() {
+    const defaultProduct = catalogProducts[0];
+    const newItem = {
+      id: `manual-${Date.now()}`,
+      name: defaultProduct ? defaultProduct.name : "Custom Product",
+      title: defaultProduct ? defaultProduct.name : "Custom Product",
+      sku: defaultProduct ? (defaultProduct.article_number || defaultProduct.stock_id || "") : "",
+      price: defaultProduct ? Number(defaultProduct.price || 0) : 3000,
+      quantity: 1,
+      size: "M",
+      color: "",
+      imageUrl: defaultProduct?.img || defaultProduct?.images?.[0] || "",
+      productId: defaultProduct?.id || null,
+    };
+    setOrderItems((prev) => [...prev, newItem]);
+    setIsEditingItems(true);
+  }
+
+  function handleRemoveProductItem(index) {
+    if (orderItems.length <= 1) {
+      alert("An order must have at least one product.");
+      return;
+    }
+    setOrderItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  const rawPhoneDigits = String(order.phone || "").replace(/\D/g, "");
+  const waPhone = rawPhoneDigits.startsWith("0") ? `92${rawPhoneDigits.slice(1)}` : rawPhoneDigits.startsWith("92") ? rawPhoneDigits : `92${rawPhoneDigits}`;
+
+  async function resyncOrderMetaPurchase() {
+    if (resyncingCapi || saving) return;
+    setResyncingCapi(true);
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      const orderRef = order.order_number || String(order.id).replace(/^#/, "");
+      const response = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "sync_order_purchase",
+          orderId: orderRef,
+          orderData: order,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || result.capiResult?.error || "Meta CAPI dispatch was not accepted.");
+      }
+      setSaveMessage(`✅ Meta Purchase event dispatched successfully for order ${orderRef}!`);
+    } catch (err) {
+      setSaveError(`Meta CAPI error: ${err.message}`);
+    } finally {
+      setResyncingCapi(false);
+    }
+  }
+
+  function changes(overrides = {}) {
+    return {
+      tracking,
+      status: orderStage,
+      postexStatus: orderStage,
+      paymentStatus,
+      paymentReference,
+      amountPayableInAdvance: Number(advancePaidAmount || 0),
+      confirmationStatus: order.confirmationStatus,
+      fulfillmentStatus,
+      deliveryMethod,
+      risk,
+      tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+      notes,
+      items: orderItems,
+      operation: {
+        returnStatus,
+        returnReason,
+        returnResolution,
+        refundAmount: Number(refundAmount || 0),
+        refundMethod,
+      },
+      ...overrides,
+    };
+  }
+
+  async function saveChanges(overrides = {}) {
+    setSaving(true);
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      const payload = changes(overrides);
+      const saved = await onUpdate(order, payload);
+      if (saved) {
+        if (saved.items) {
+          setOrderItems(normalizeOrderItems({ ...order, items: saved.items, order_items: saved.items }));
+        }
+        if (saved?.inventoryRestore?.restored) {
+          setSaveMessage(`Order saved. ${saved.inventoryRestore.restoredItems} item(s) restored to stock.`);
+        } else if (saved?.operationPersistence === "unavailable" || saved?.operationPersistence === "failed") {
+          setSaveMessage(saved.operationError || "Core details saved, but return/refund workflow was not saved.");
+        } else {
+          setSaveMessage("✅ Order changes saved successfully!");
+        }
+      }
+      return saved;
+    } catch (error) {
+      setSaveError(error.message || "Order changes could not be saved.");
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function bookWithPostex() {
+    if (bookingPostex || saving) return;
+    setBookingPostex(true);
+    setSaving(true);
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      const response = await fetch("/api/admin/postex-custom", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderId: order.rawId || String(order.id).replace(/^#/, ""),
+          orderRef: order.order_number || String(order.id).replace(/^#/, ""),
+          total: savedMoney.total,
+          paymentOption: savedMoney.isFullyAdvanced ? "full_advance" : savedMoney.hasAdvance ? "cod_delivery_advance" : "cod",
+          deliveryCharges: savedMoney.delivery,
+          advancePaid: savedMoney.advance,
+          paymentStatus,
+          bookPostex: true,
+          deliveryMethod: "PostEx",
+          source: order.source,
+          notes,
+          customer: {
+            name: order.customer,
+            phone: order.phone,
+            address: order.address,
+            city: order.city,
+          },
+          items,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to book PostEx order.");
+      const trackingNumber = result.trackingNumber || result.tracking;
+      setTracking(trackingNumber);
+      setOrderStage(result.courierStatus || "booked");
+      setFulfillmentStatus("Booked with PostEx");
+      setDeliveryMethod("PostEx");
+      await saveChanges({
+        tracking: trackingNumber,
+        status: result.courierStatus || "booked",
+        postexStatus: result.courierStatus || "booked",
+        fulfillmentStatus: "Booked with PostEx"
+      });
+      setSaveMessage(`✅ Successfully booked with PostEx! Tracking: ${trackingNumber}`);
+    } catch (error) {
+      setSaveError(error.message || "Unable to create PostEx booking.");
+    } finally {
+      setBookingPostex(false);
+      setSaving(false);
+    }
+  }
+
+  function copyTrackingToClipboard() {
+    if (!tracking) return;
+    navigator.clipboard?.writeText(tracking);
+    setCopiedTracking(true);
+    setTimeout(() => setCopiedTracking(false), 2000);
+  }
+
+  function copyAddressToClipboard() {
+    const fullAddr = [
+      order.customer,
+      order.phone,
+      order.address || order.city,
+      order.city ? `City: ${order.city}` : ""
+    ].filter(Boolean).join("\n");
+    if (!fullAddr) return;
+    navigator.clipboard?.writeText(fullAddr);
+    setCopiedAddress(true);
+    setTimeout(() => setCopiedAddress(false), 2000);
+  }
+
+  function copyOrderNumberToClipboard() {
+    const num = order.order_number || String(order.id).replace(/^#/, "");
+    if (!num) return;
+    navigator.clipboard?.writeText(num);
+    setCopiedOrderNumber(true);
+    setTimeout(() => setCopiedOrderNumber(false), 2000);
+  }
+
+  async function checkLivePostexStatus() {
+    if (!tracking || tracking.startsWith("MANUAL-")) return;
+    setCheckingPostex(true);
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      const res = await fetch("/api/admin/orders/sync-postex", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.rawId || order.raw?.id || order.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not check PostEx status");
+      if (data.rawStatus) {
+        setOrderStage(data.rawStatus);
+        setSaveMessage(`✅ Live PostEx status: ${data.rawStatus}`);
+        await onUpdate(order, { postexStatus: data.rawStatus, status: data.rawStatus });
+      }
+    } catch (err) {
+      setSaveError(err.message || "Failed to check live PostEx status");
+    } finally {
+      setCheckingPostex(false);
+    }
+  }
+
+  async function unbookOrder() {
+    if (!window.confirm(`Are you sure you want to mark order ${order.id} status as Unbooked?`)) return;
+    setOrderStage("Unbooked");
+    setFulfillmentStatus("Unfulfilled");
+    await saveChanges({
+      status: "Unbooked",
+      postexStatus: "Unbooked",
+      orderStage: "Unbooked",
+      fulfillmentStatus: "Unfulfilled",
+    });
+  }
+
+  function escapePrintText(value = "") {
+    return String(value || "").replace(/[&<>"]/g, (char) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "\"": "&quot;",
+    }[char]));
+  }
+
+  function printDocument({ title, subtitle, compact = false }) {
+    const total = preview.total;
+    const rows = items.map((item) => {
+      const quantity = Number(item.quantity || 0);
+      const unitPrice = Number(item.price || 0);
+      const lineTotal = quantity * unitPrice;
+      return `<tr>
+        <td><b>${escapePrintText(item.name || item.title)}</b><small>${escapePrintText([item.sku, item.size, item.color].filter(Boolean).join(" / "))}</small></td>
+        <td>${quantity}</td>
+        ${compact ? "" : `<td>Rs. ${unitPrice.toLocaleString()}</td><td>Rs. ${lineTotal.toLocaleString()}</td>`}
+      </tr>`;
+    }).join("");
+    const slip = window.open("", "_blank", "width=760,height=900");
+    if (!slip) return;
+    slip.document.write(`<!doctype html><html><head><title>${escapePrintText(title)} ${escapePrintText(order.id)}</title><style>
+      body{font-family:Arial,sans-serif;margin:0;color:#173d29;background:#fff}
+      main{padding:32px}
+      header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #173d29;padding-bottom:18px;margin-bottom:22px}
+      h1{margin:0;font-size:28px;letter-spacing:.02em}
+      p{margin:4px 0;color:#59675d;line-height:1.45}
+      .box{border:1px solid #dfe7df;border-radius:10px;padding:16px;margin:14px 0}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+      table{width:100%;border-collapse:collapse;margin-top:18px}
+      th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#59675d;border-bottom:1px solid #dfe7df;padding:10px}
+      td{border-bottom:1px solid #eef2ee;padding:12px 10px;vertical-align:top}
+      td small{display:block;color:#6b766e;margin-top:4px}
+      .total{margin-left:auto;max-width:320px}
+      .total div{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eef2ee}
+      .total b{font-size:18px}
+      @media print{button{display:none} main{padding:20px}}
+    </style></head><body><main>
+      <header><div><h1>Bustaniya</h1><p>${escapePrintText(subtitle)}</p></div><div><p><b>Order</b> ${escapePrintText(order.id)}</p><p><b>Date</b> ${escapePrintText(order.date || "")}</p><p><b>Status</b> ${escapePrintText(orderStage)}</p></div></header>
+      <section class="grid">
+        <div class="box"><b>Customer</b><p>${escapePrintText(order.customer)}</p><p>${escapePrintText(order.phone || "No phone saved")}</p></div>
+        <div class="box"><b>Delivery</b><p>${escapePrintText(order.address || order.city || "No address saved")}</p><p>${escapePrintText(deliveryMethod)}${tracking ? ` — ${escapePrintText(tracking)}` : ""}</p></div>
+      </section>
+      <table><thead><tr><th>Item</th><th>Qty</th>${compact ? "" : "<th>Unit price</th><th>Total</th>"}</tr></thead><tbody>${rows}</tbody></table>
+      ${compact ? `<div class="box"><b>Packing note</b><p>${escapePrintText(notes || "Check product, size, colour and packaging before dispatch.")}</p></div>` : `<section class="total"><div><span>Items</span><span>${items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)}</span></div><div><span>Payment</span><span>${escapePrintText(paymentStatus)}</span></div><div><b>Total</b><b>Rs. ${total.toLocaleString()}</b></div></section>`}
+    </main><script>window.onload=()=>{window.print();}</script></body></html>`);
+    slip.document.close();
+  }
+
+  function printInvoice() {
+    printDocument({
+      title: "Invoice",
+      subtitle: "Customer invoice / order receipt",
+      compact: false,
+    });
+  }
+
+  function printPackingSlip() {
+    printDocument({
+      title: "Packing Slip",
+      subtitle: "Warehouse packing slip — prices hidden",
+      compact: true,
+    });
+  }
+
+  const savedMoney = orderMoney(order);
+  const preview = orderMoney(order, { items: orderItems, advance: Number(advancePaidAmount || 0) });
+  const calculatedItemsTotal = preview.subtotal;
+  const deliveryChargeVal = preview.delivery;
+  const calculatedOrderTotal = preview.total;
+  const currentAdvance = preview.advance;
+  const currentCod = preview.cod;
+  const unsavedTotalChange = Math.abs(preview.total - savedMoney.total) >= 1 || Math.abs(preview.advance - savedMoney.advance) >= 1;
+
+  const rawStatusLower = String(orderStage || "").toLowerCase();
+  const isDelivered = rawStatusLower.includes("deliver") && !rawStatusLower.includes("out for delivery");
+  const isReturned = rawStatusLower.includes("return");
+  const isCancelled = rawStatusLower.includes("cancel") || rawStatusLower.includes("void");
+  const isOutForDelivery = rawStatusLower.includes("out for delivery") || rawStatusLower.includes("attempt");
+  const isInTransit = rawStatusLower.includes("transit") || rawStatusLower.includes("warehouse") || rawStatusLower.includes("transfer") || rawStatusLower.includes("rider");
+  const isBooked = Boolean(tracking && !tracking.startsWith("MANUAL-")) || rawStatusLower.includes("book");
+  const isPacking = fulfillmentStatus === "Packing" || rawStatusLower.includes("pack");
+  const isConfirmed = order.confirmationStatus === "Confirmed" || paymentStatus === "Payment Verified" || paymentStatus === "Paid";
+
+  const advNum = Number(advancePaidAmount || 0);
+  const isPaymentPaidOrVerified = paymentStatus === "Payment Verified" || paymentStatus === "Paid";
+  const isPaymentProofSubmitted = paymentStatus === "Proof Submitted" || paymentStatus === "Advance Pending";
+  const isPaymentRejected = paymentStatus === "Payment Rejected";
+  const isCodOrder = advNum === 0 && (paymentStatus === "COD pending" || !isPaymentPaidOrVerified);
+  const isPendingVerification = (advNum > 0 || isPaymentProofSubmitted) && !isPaymentPaidOrVerified && !isPaymentRejected;
+
+  let currentStepIndex = 0;
+  if (isDelivered) currentStepIndex = 4;
+  else if (isOutForDelivery || isInTransit) currentStepIndex = 3;
+  else if (isBooked) currentStepIndex = 2;
+  else if (isPacking || isConfirmed) currentStepIndex = 1;
+  else currentStepIndex = 0;
+
+  const waOrderRef = order.order_number || order.id || "";
+  const waItemsText = (orderItems || []).map((it) => `${it.name || it.title || "Suit"}${it.size ? ` (${it.size})` : ""}`).join(", ");
+  const waPrefilledText = encodeURIComponent(
+    `Assalam-o-Alaikum ${order.customer || ""},\nYeh message Bustaniya ki taraf se aap ke order #${waOrderRef} ke hawalay se hai.\n\n📦 Items: ${waItemsText}\n💰 Total Amount: Rs. ${calculatedOrderTotal.toLocaleString()}\n📍 Delivery City: ${order.city || "Pakistan"}\n🏠 Address: ${order.address || ""}\n\nKindly confirm if your details are correct so we can dispatch your parcel.\nShukriya!\nBustaniya Store`
+  );
+  const waLink = `https://wa.me/${waPhone}?text=${waPrefilledText}`;
+
+  const stepperSteps = [
+    { label: "1. Verification", sub: "کسٹمر تصدیق", icon: "💬" },
+    { label: "2. Packing", sub: "سوٹ تیاری", icon: "👗" },
+    { label: "3. Booked", sub: "PostEx CN", icon: "🏷️" },
+    { label: "4. Dispatched", sub: "کوریئر روانہ", icon: "🚚" },
+    { label: "5. Delivered", sub: "کیش وصولی", icon: "✅" },
+  ];
+
+  const customerInitials = String(order.customer || "GC")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0].toUpperCase())
+    .join("") || "C";
+
+  let nextStepInfo = {
+    step: "Step 1: Contact & Verify (کسٹمر تصدیق)",
+    actionUrdu: "کسٹمر سے واٹس ایپ پر رابطہ کر کے ایڈریس اور سوٹ کا سائز کنفرم کریں",
+    actionEng: "Contact customer on WhatsApp to confirm delivery address and suit size",
+    badge: "Verification Needed",
+    bg: "#fffbeb",
+    border: "#fde68a",
+    text: "#92400e",
+    ctaText: "💬 WhatsApp Customer",
+    ctaType: "link",
+    ctaHref: waLink,
+    icon: "💬"
+  };
+
+  if (isDelivered) {
+    nextStepInfo = {
+      step: "Completed (مکمل شدہ)",
+      actionUrdu: `آرڈر کامیابی سے ڈیلیور ہو گیا اور کیش (Rs. ${currentCod.toLocaleString()}) وصول ہو گیا`,
+      actionEng: `Parcel delivered and COD cash (Rs. ${currentCod.toLocaleString()}) collected`,
+      badge: "Delivered",
+      bg: "#f0fdf4",
+      border: "#bbf7d0",
+      text: "#166534",
+      ctaText: "📄 View Invoice",
+      ctaType: "invoice",
+      icon: "✅"
+    };
+  } else if (isReturned) {
+    nextStepInfo = {
+      step: "Returned (واپسی)",
+      actionUrdu: "پارسل واپس آ گیا ہے۔ کسٹمر سے رابطہ کریں یا اسٹاک ریٹرن چیک کریں",
+      actionEng: "Parcel returned to merchant. Check stock restoration & customer notes",
+      badge: "Returned",
+      bg: "#fef2f2",
+      border: "#fecaca",
+      text: "#991b1b",
+      ctaText: "📝 Open Notes & Returns",
+      ctaType: "tab_notes",
+      icon: "↩️"
+    };
+  } else if (isCancelled) {
+    nextStepInfo = {
+      step: "Cancelled (منسوخ)",
+      actionUrdu: "یہ آرڈر کینسل ہو چکا ہے",
+      actionEng: "Order is marked as cancelled",
+      badge: "Cancelled",
+      bg: "#f8fafc",
+      border: "#cbd5e1",
+      text: "#475569",
+      icon: "❌"
+    };
+  } else if (isOutForDelivery) {
+    nextStepInfo = {
+      step: "Step 4: Out For Delivery (ڈلیوری روانہ)",
+      actionUrdu: `رائڈر ڈلیوری کے لیے نکل چکا ہے۔ کوریئر سے کیش (Rs. ${currentCod.toLocaleString()}) وصولی متوقع ہے`,
+      actionEng: `Rider dispatched for delivery. Cash due: Rs. ${currentCod.toLocaleString()}`,
+      badge: "Out for Delivery",
+      bg: "#faf5ff",
+      border: "#e9d5ff",
+      text: "#6b21a8",
+      ctaText: "🔄 Check Live Status",
+      ctaType: "check_status",
+      icon: "🛵"
+    };
+  } else if (isInTransit) {
+    nextStepInfo = {
+      step: "Step 4: In Transit (راستے میں)",
+      actionUrdu: `پارسل کوریئر کے ہب / راستے میں ہے۔ لائیو سٹیٹس ریفریش کر کے چیک کریں`,
+      actionEng: `Shipment is in transit at courier hub. Live tracking active`,
+      badge: "In Transit",
+      bg: "#eff6ff",
+      border: "#bfdbfe",
+      text: "#1e40af",
+      ctaText: "🔄 Check Live Status",
+      ctaType: "check_status",
+      icon: "🚚"
+    };
+  } else if (isBooked) {
+    nextStepInfo = {
+      step: "Step 3: Ready for Handover (ہینڈ اوور کے لیے تیار)",
+      actionUrdu: `PostEx بکنگ مکمل ہے (CN: ${tracking})۔ سلپ پرنٹ کر کے رائڈر کو پارسل ہینڈ اوور کریں`,
+      actionEng: `Booked with PostEx (CN: ${tracking}). Print slip and handover to rider`,
+      badge: "Booked with Courier",
+      bg: "#f0fdf4",
+      border: "#bbf7d0",
+      text: "#166534",
+      ctaText: "📦 Print Packing Slip",
+      ctaType: "packing_slip",
+      icon: "🏷️"
+    };
+  } else if (isConfirmed || isPacking) {
+    nextStepInfo = {
+      step: "Step 3: Courier Booking (کوریئر بکنگ)",
+      actionUrdu: "پیمنٹ اور تیاری مکمل ہے! نیچے '⚡ Book PostEx Courier' بٹن دبائیں",
+      actionEng: "Verified & ready! Click '⚡ Book PostEx Courier' to generate shipping CN",
+      badge: "Ready for Courier",
+      bg: "#f0fdf4",
+      border: "#86efac",
+      text: "#166534",
+      ctaText: "⚡ Book PostEx Courier",
+      ctaType: "book_postex",
+      icon: "⚡"
+    };
+  }
+
+  return (
+    <div
+      className="shopifyOrderModalOverlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !saving) onClose();
+      }}
+    >
+      <div className="shopifyOrderModalContainer">
+        {/* Shopify Sticky Top Bar */}
+        <header className="shopifyOrderTopBar">
+          <div className="shopifyOrderTopLeft">
+            <button
+              type="button"
+              className="shopifyBackBtn"
+              onClick={onClose}
+              title="Back to orders list"
+              aria-label="Back to orders"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div className="shopifyOrderTopInfo">
+              <div className="shopifyOrderTopTitleRow">
+                <h2 className="shopifyOrderTopTitle">Order {order.id}</h2>
+                <button
+                  type="button"
+                  className="shopifyOrderCopyBtn"
+                  onClick={copyOrderNumberToClipboard}
+                  title="Copy order number"
+                >
+                  <Copy size={11} />
+                  <span>{copiedOrderNumber ? "Copied" : "Copy"}</span>
+                </button>
+                {/* Payment pill */}
+                {paymentStatus.toLowerCase().includes("paid") || paymentStatus.toLowerCase().includes("verified") ? (
+                  <span className="shopifyPill paid"><span className="pillDot" /> Paid</span>
+                ) : Number(advancePaidAmount || 0) > 0 ? (
+                  <span className="shopifyPill partially_paid"><span className="pillDot" /> Adv Paid</span>
+                ) : (
+                  <span className="shopifyPill pending"><span className="pillDot" /> {paymentStatus}</span>
+                )}
+                {/* Fulfillment pill */}
+                {isDelivered ? (
+                  <span className="shopifyPill delivered"><span className="pillDot" /> Delivered</span>
+                ) : isBooked ? (
+                  <span className="shopifyPill in_transit"><span className="pillDot" /> In transit</span>
+                ) : (
+                  <span className="shopifyPill unfulfilled"><span className="pillDot" /> Unfulfilled</span>
+                )}
+              </div>
+              <div className="shopifyOrderTopSub" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", fontSize: "12px" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <Calendar size={12} color="#6b7280" /> {order.date}
+                </span>
+                <span style={{ color: "#d1d5db" }}>•</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <User size={12} color="#6b7280" /> {order.customer || "Guest Customer"}
+                </span>
+                <span style={{ color: "#d1d5db" }}>•</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <MapPin size={12} color="#6b7280" /> {order.city || "Pakistan"}
+                </span>
+                <span style={{ color: "#d1d5db" }}>•</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#f3f4f6", padding: "1px 7px", borderRadius: "4px", fontSize: "11px", fontWeight: 600, color: "#374151" }}>
+                  {orderSourceBadge(order.source).label}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="shopifyOrderTopRight">
+            {/* Print Document Group */}
+            <div className="shopifyButtonGroup">
+              <button
+                type="button"
+                onClick={printInvoice}
+                title="Print Customer Invoice Receipt"
+              >
+                <Printer size={13} />
+                <span>Invoice</span>
+              </button>
+              <button
+                type="button"
+                onClick={printPackingSlip}
+                title="Print Warehouse Packing Slip"
+              >
+                <Package size={13} />
+                <span>Packing slip</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => generateBulkOrdersPdf({ orders: [order], type: "stitching" })}
+                title="Print Workshop Stitching Slip"
+              >
+                <Scissors size={13} />
+                <span>Stitching slip</span>
+              </button>
+            </div>
+
+            {onDelete && (
+              <button
+                type="button"
+                className="shopifyBtnTertiaryDanger"
+                onClick={() => onDelete(order)}
+                title="Delete this order permanently"
+              >
+                <Trash2 size={13} />
+                <span>Delete</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="shopifyBtnPrimary"
+              onClick={() => saveChanges()}
+              disabled={saving}
+              style={{ padding: "8px 18px", fontSize: "13px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "6px" }}
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Check size={14} />
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              className="shopifyBackBtn"
+              onClick={onClose}
+              title="Close"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </header>
+
+        {/* Alerts & Messages */}
+        <div style={{ maxWidth: "1140px", width: "100%", margin: "16px auto 0", padding: "0 20px" }}>
+          {saveError && (
+            <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", color: "#991b1b", padding: "10px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: 600, marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>⚠️</span> {saveError}
+            </div>
+          )}
+          {saveMessage && (
+            <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", color: "#166534", padding: "10px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: 600, marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>✅</span> {saveMessage}
+            </div>
+          )}
+          {unsavedTotalChange && (
+            <div style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", color: "#1e40af", padding: "10px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: 600, marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>ℹ️</span> Edits pending: Subtotal or advance modified. Press <b>Save Changes</b> in the top bar to persist.
+            </div>
+          )}
+          {savedMoney.codMismatch && (
+            <div style={{ background: "#fffbeb", border: "1.5px solid #fcd34d", color: "#92400e", padding: "10px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: 600, marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>⚠️</span> PostEx booking COD mismatch: PostEx is set to collect Rs. {savedMoney.bookedCod?.toLocaleString()}. Due amount is Rs. {savedMoney.cod?.toLocaleString()}.
+            </div>
+          )}
+        </div>
+
+        {/* 2-Column Shopify Grid */}
+        <div className="shopifyOrderGrid">
+          {/* LEFT MAIN COLUMN (65%) */}
+          <div className="shopifyOrderMainCol">
+            {/* 1. FULFILLMENT & ITEMS CARD */}
+            <div className="shopifySectionCard">
+              <div className="shopifySectionHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Package size={17} color="#4b5563" />
+                  <h3 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#111827" }}>
+                    {isDelivered ? "Fulfilled" : isBooked ? "Ready for Courier Handover" : "Unfulfilled"} ({orderItems.length})
+                  </h3>
+                  <span style={{ fontSize: "12px", color: "#6b7280" }}>• Bustaniya Warehouse</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <button
+                    type="button"
+                    className="shopifyRowBtn"
+                    onClick={() => setIsEditingItems((prev) => !prev)}
+                    style={{ padding: "5px 12px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "5px" }}
+                  >
+                    <Scissors size={12} />
+                    <span>{isEditingItems ? "Done Editing" : "Edit items"}</span>
+                  </button>
+                  {isEditingItems && (
+                    <button
+                      type="button"
+                      className="shopifyRowBtn"
+                      onClick={handleAddProductItem}
+                      style={{ padding: "5px 12px", fontSize: "12px", background: "#f0fdf4", color: "#166534", borderColor: "#86efac", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <Plus size={12} />
+                      <span>Add Item</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="shopifySectionBody">
+                {/* Clean, Professional Fulfillment Status Banner */}
+                <div className={`shopifyFulfillmentAlert ${isDelivered ? "delivered" : isBooked ? "booked" : "unfulfilled"}`}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    {isDelivered ? (
+                      <CheckCircle2 size={16} color="#15803d" />
+                    ) : isBooked ? (
+                      <Truck size={16} color="#166534" />
+                    ) : (
+                      <Package size={16} color="#854d0e" />
+                    )}
+                    <b style={{ fontSize: "13.5px" }}>
+                      {isDelivered ? "Fulfilled & Delivered" : isBooked ? "Ready for Rider Handover" : isPacking ? "In Packing & Stitching" : "Unfulfilled (Ready for Courier Booking)"}
+                    </b>
+                    <span style={{ fontSize: "12.5px", color: isDelivered ? "#15803d" : isBooked ? "#166534" : "#854d0e" }}>
+                      {isDelivered
+                        ? `· Delivery complete. Total Rs. ${currentCod.toLocaleString()} collected`
+                        : isBooked
+                          ? `· Booked with PostEx (CN: ${tracking}). Ready for courier dispatch.`
+                          : `· Create courier booking to generate PostEx tracking consignment.`}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    {!tracking ? (
+                      <button
+                        type="button"
+                        className="shopifyBtnPrimary"
+                        onClick={bookWithPostex}
+                        disabled={saving || bookingPostex}
+                        style={{ padding: "6px 14px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                      >
+                        <Truck size={13} />
+                        <span>{bookingPostex ? "Booking..." : "Book PostEx Courier"}</span>
+                      </button>
+                    ) : (
+                      <>
+                        <a
+                          href={`https://postex.pk/tracking?cn=${tracking}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shopifyTrackingLink"
+                          style={{ margin: 0, padding: "5px 10px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                        >
+                          <ExternalLink size={12} />
+                          <span>Track Shipment</span>
+                        </a>
+                        <button
+                          type="button"
+                          className="shopifyBtnSecondary"
+                          onClick={printPackingSlip}
+                          style={{ padding: "5px 12px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                        >
+                          <FileText size={12} />
+                          <span>Packing Slip</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Items View List */}
+                {!isEditingItems ? (
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {orderItems.map((item, index) => {
+                      const qty = Number(item.quantity || 1);
+                      const price = Number(item.price || 0);
+                      const lineTotal = qty * price;
+                      const rawSize = String(item.size || "").trim();
+                      const isCustomSize = !rawSize || rawSize.toLowerCase().includes("custom") || isCustomItemSize(rawSize);
+
+                      // Image resolver
+                      let imgSource = item.imageUrl || item.image_url || "";
+                      if (!imgSource && catalogProducts.length > 0) {
+                        const match = catalogProducts.find((p) => p.name === (item.name || item.title) || p.id === item.productId);
+                        if (match) imgSource = match.img || match.images?.[0] || "";
+                      }
+
+                      return (
+                        <div key={item.id || index} className="shopifyItemRow">
+                          <div className="shopifyItemRowLeft">
+                            {imgSource ? (
+                              <img src={imgSource} alt={item.name} className="shopifyItemThumb" />
+                            ) : (
+                              <div className="shopifyItemThumb"><ShoppingBag size={20} color="#9ca3af" /></div>
+                            )}
+                            <div className="shopifyItemDetails">
+                              <span className="itemTitle">{item.name || item.title || "Suit"}</span>
+                              <div className="itemVariant">
+                                {isCustomSize ? (
+                                  <span className="shopifyCustomBadge">
+                                    <Scissors size={10} />
+                                    <span>Custom: {item.size || "Measurements"}</span>
+                                  </span>
+                                ) : (
+                                  <span className="shopifySizeBadge">
+                                    Size: {item.size || "Standard"}
+                                  </span>
+                                )}
+                                {item.color && (
+                                  <span className="shopifyColorBadge">
+                                    Color: {item.color}
+                                  </span>
+                                )}
+                                {item.sku && (
+                                  <span style={{ fontSize: "11px", color: "#6b7280" }}>
+                                    SKU: {item.sku}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="shopifyItemRowRight">
+                            <span className="priceTotal">Rs. {lineTotal.toLocaleString()}</span>
+                            <span className="priceCalculation">
+                              {qty} × Rs. {price.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Editable Mode */
+                  <div className="shopifyTableWrap">
+                    <table className="shopifyOrderTable">
+                      <thead>
+                        <tr>
+                          <th>Suit / Product</th>
+                          <th style={{ width: "130px" }}>Size</th>
+                          <th style={{ width: "100px" }}>Color</th>
+                          <th style={{ width: "60px" }}>Qty</th>
+                          <th style={{ width: "100px" }}>Price</th>
+                          <th>Total</th>
+                          <th style={{ width: "36px" }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orderItems.map((item, index) => {
+                          const standardSizes = ["XS", "S", "M", "L", "XL", "XXL", "Free Size"];
+                          const isCustom = item.size && !standardSizes.includes(item.size);
+
+                          return (
+                            <tr key={item.id || index}>
+                              <td>
+                                <select
+                                  value={catalogProducts.some((p) => p.name === (item.name || item.title)) ? (item.name || item.title) : "__custom__"}
+                                  onChange={(e) => handleSelectProduct(index, e.target.value)}
+                                  style={{ padding: "6px 8px", fontSize: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", width: "100%" }}
+                                >
+                                  <optgroup label="Store Catalog Products">
+                                    {catalogProducts.map((p) => (
+                                      <option key={p.id || p.name} value={p.name}>
+                                        {p.name} (Rs. {Number(p.price || 0).toLocaleString()})
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                  <option value="__custom__">✏️ Custom Suit Name</option>
+                                </select>
+                                {(!catalogProducts.some((p) => p.name === (item.name || item.title)) || item.name === "Custom Product") && (
+                                  <input
+                                    type="text"
+                                    value={item.name || item.title || ""}
+                                    onChange={(e) => updateItemField(index, "name", e.target.value)}
+                                    placeholder="Enter suit name..."
+                                    style={{ padding: "5px 8px", fontSize: "12px", borderRadius: "5px", border: "1px solid #173d29", marginTop: "4px", width: "100%" }}
+                                  />
+                                )}
+                              </td>
+                              <td>
+                                <select
+                                  value={standardSizes.includes(item.size) ? item.size : "Custom"}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    updateItemField(index, "size", val === "Custom" ? (item.size || "Custom") : val);
+                                  }}
+                                  style={{ padding: "5px", fontSize: "11.5px", borderRadius: "5px", width: "100%" }}
+                                >
+                                  {standardSizes.map((s) => <option key={s} value={s}>{s}</option>)}
+                                  <option value="Custom">Custom...</option>
+                                </select>
+                                {(isCustom || item.size === "Custom") && (
+                                  <input
+                                    type="text"
+                                    value={item.size || ""}
+                                    onChange={(e) => updateItemField(index, "size", e.target.value)}
+                                    placeholder="Custom size..."
+                                    style={{ padding: "4px", fontSize: "11px", marginTop: "3px", width: "100%" }}
+                                  />
+                                )}
+                              </td>
+                              <td>
+                                <input
+                                  type="text"
+                                  value={item.color || ""}
+                                  onChange={(e) => updateItemField(index, "color", e.target.value)}
+                                  placeholder="Color"
+                                  style={{ padding: "5px", fontSize: "11.5px", width: "100%" }}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity || 1}
+                                  onChange={(e) => updateItemField(index, "quantity", Math.max(1, Number(e.target.value) || 1))}
+                                  style={{ width: "50px", padding: "5px", fontSize: "11.5px", textAlign: "center" }}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={item.price || 0}
+                                  onChange={(e) => updateItemField(index, "price", Math.max(0, Number(e.target.value) || 0))}
+                                  style={{ width: "90px", padding: "5px", fontSize: "11.5px" }}
+                                />
+                              </td>
+                              <td style={{ fontSize: "12px", fontWeight: 750 }}>
+                                Rs. {(Number(item.price || 0) * Number(item.quantity || 1)).toLocaleString()}
+                              </td>
+                              <td>
+                                {orderItems.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveProductItem(index)}
+                                    style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "14px" }}
+                                    title="Remove item"
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 2. PAYMENT & ADVANCE SUMMARY CARD */}
+            <div className="shopifySectionCard">
+              <div className="shopifySectionHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <CreditCard size={17} color="#4b5563" />
+                  <h3 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#111827" }}>
+                    Payment &amp; Financial Accounting
+                  </h3>
+                </div>
+                {paymentStatus.toLowerCase().includes("paid") || paymentStatus.toLowerCase().includes("verified") ? (
+                  <span className="shopifyPill paid"><span className="pillDot" /> Paid</span>
+                ) : Number(advancePaidAmount || 0) > 0 ? (
+                  <span className="shopifyPill partially_paid"><span className="pillDot" /> Adv Paid</span>
+                ) : (
+                  <span className="shopifyPill pending"><span className="pillDot" /> {paymentStatus}</span>
+                )}
+              </div>
+
+              <div className="shopifySectionBody">
+                {/* Net Cash to Collect Box */}
+                <div className={`shopifyCodDueCard ${currentCod === 0 ? "prepaid" : "cod"}`}>
+                  <div>
+                    <div className="shopifyCodLabel">
+                      {currentCod === 0 ? "Payment Status" : "Cash on Delivery (COD Due)"}
+                    </div>
+                    <div className="shopifyCodValue">
+                      {currentCod === 0 ? "Rs. 0 (Fully Paid)" : `Rs. ${currentCod.toLocaleString()}`}
+                    </div>
+                  </div>
+                  <span className={`shopifyCodBadge ${currentCod === 0 ? "prepaid" : ""}`}>
+                    {currentCod === 0 ? "Paid in full" : "Collect from customer"}
+                  </span>
+                </div>
+
+                {/* Financial Breakdown Table */}
+                <div className="shopifyFinancialBreakdown">
+                  <div className="shopifyFinancialRow">
+                    <span>Items subtotal ({orderItems.length} items)</span>
+                    <b>Rs. {calculatedItemsTotal.toLocaleString()}</b>
+                  </div>
+                  <div className="shopifyFinancialRow">
+                    <span>Shipping / Delivery charges</span>
+                    <b>Rs. {deliveryChargeVal.toLocaleString()}</b>
+                  </div>
+                  {Number(advancePaidAmount || 0) > 0 && (
+                    <div className="shopifyFinancialRow">
+                      <span>Advance payment received</span>
+                      <b style={{ color: "#15803d" }}>
+                        − Rs. {Number(advancePaidAmount || 0).toLocaleString()}
+                      </b>
+                    </div>
+                  )}
+                  <div className="shopifyFinancialRow total">
+                    <span>Total Order Value</span>
+                    <b>Rs. {calculatedOrderTotal.toLocaleString()}</b>
+                  </div>
+                </div>
+
+                {/* 1-Click Accounting Shortcuts via Modern Segmented Control */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      Payment Terms &amp; Settlement
+                    </span>
+                    <span style={{ fontSize: "11.5px", color: "#6b7280" }}>
+                      {advancePaidAmount == calculatedOrderTotal && calculatedOrderTotal > 0 ? "100% Prepaid Settlement" : advancePaidAmount == (deliveryChargeVal || 250) ? "Delivery Advance Collected" : "Standard Cash on Delivery"}
+                    </span>
+                  </div>
+                  <div className="shopifySegmentedGroup">
+                    <button
+                      type="button"
+                      className={`shopifySegmentBtn ${advancePaidAmount == calculatedOrderTotal && calculatedOrderTotal > 0 ? "active" : ""}`}
+                      onClick={() => { setAdvancePaidAmount(calculatedOrderTotal); setPaymentStatus("Payment Verified"); }}
+                    >
+                      <CheckCircle2 size={13} />
+                      <span>100% Prepaid</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`shopifySegmentBtn advance ${advancePaidAmount == (deliveryChargeVal || 250) ? "active" : ""}`}
+                      onClick={() => { setAdvancePaidAmount(deliveryChargeVal || 250); setPaymentStatus("Payment Verified"); }}
+                    >
+                      <ReceiptText size={13} />
+                      <span>Delivery Advance (Rs. {(deliveryChargeVal || 250).toLocaleString()})</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`shopifySegmentBtn fullCod ${advancePaidAmount == 0 ? "active" : ""}`}
+                      onClick={() => { setAdvancePaidAmount(0); setPaymentStatus("COD pending"); }}
+                    >
+                      <Clock size={13} />
+                      <span>Full COD</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Payment Form Fields */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", borderTop: "1px solid #edf1ee", paddingTop: "14px" }}>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Advance Received (PKR)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={calculatedOrderTotal}
+                      value={advancePaidAmount}
+                      onChange={(event) => setAdvancePaidAmount(event.target.value)}
+                      placeholder="0"
+                      style={{ padding: "8px 10px", fontSize: "13px", borderRadius: "6px", border: "1px solid #d5dfd6" }}
+                    />
+                  </label>
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Transaction TID / Ref</span>
+                    <input
+                      value={paymentReference}
+                      onChange={(event) => setPaymentReference(event.target.value)}
+                      placeholder="NayaPay, Bank, JazzCash TID..."
+                      style={{ padding: "8px 10px", fontSize: "13px", borderRadius: "6px", border: "1px solid #d5dfd6" }}
+                    />
+                  </label>
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Payment Status</span>
+                    <select
+                      value={paymentStatus}
+                      onChange={(event) => setPaymentStatus(event.target.value)}
+                      style={{ padding: "8px 10px", fontSize: "13px", borderRadius: "6px", border: "1px solid #d5dfd6" }}
+                    >
+                      <option>COD pending</option>
+                      <option>Advance Pending</option>
+                      <option>Proof Submitted</option>
+                      <option>Payment Verified</option>
+                      <option>Paid</option>
+                      <option>Payment Rejected</option>
+                      <option>Refunded</option>
+                    </select>
+                  </label>
+                </div>
+
+                {/* Dynamic Context-Aware Payment & Fulfillment Action Area */}
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #edf1ee", paddingTop: "14px" }}>
+                  {/* Status Note on the Left */}
+                  <div style={{ fontSize: "12.5px" }}>
+                    {isCodOrder ? (
+                      <span style={{ color: "#4b5563", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <Clock size={14} color="#6b7280" />
+                        <span><b>Cash on Delivery:</b> No advance payment required. Full Rs. {currentCod.toLocaleString()} to be collected by rider.</span>
+                      </span>
+                    ) : isPaymentPaidOrVerified ? (
+                      <span style={{ color: "#166534", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+                        <CheckCircle2 size={15} color="#16a34a" />
+                        <span>Payment Verified: Rs. {Number(advancePaidAmount || calculatedOrderTotal).toLocaleString()} received {paymentReference ? `(TID: ${paymentReference})` : ""}</span>
+                      </span>
+                    ) : isPaymentRejected ? (
+                      <span style={{ color: "#991b1b", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+                        <AlertCircle size={15} color="#dc2626" />
+                        <span>Payment proof rejected. Awaiting revised payment or COD conversion.</span>
+                      </span>
+                    ) : (
+                      <span style={{ color: "#b45309", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+                        <AlertCircle size={15} color="#d97706" />
+                        <span>Advance payment of Rs. {advNum.toLocaleString()} received — verify transaction to approve.</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Contextual Action Buttons on the Right */}
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    {/* CASE 1: Customer sent advance / proof that needs verification */}
+                    {isPendingVerification && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPaymentStatus("Payment Verified");
+                            setFulfillmentStatus("Packing");
+                            saveChanges({
+                              paymentStatus: "Payment Verified",
+                              paymentReference,
+                              amountPayableInAdvance: Number(advancePaidAmount || 0),
+                              fulfillmentStatus: "Packing",
+                              confirmationStatus: "Confirmed",
+                              status: "Packing",
+                              orderStage: "Packing",
+                            });
+                          }}
+                          disabled={saving}
+                          className="shopifyBtnPrimary"
+                          style={{ fontSize: "12px", padding: "7px 16px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                        >
+                          <Check size={14} />
+                          <span>Verify Rs. {advNum.toLocaleString()} &amp; Move to Packing</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPaymentStatus("Payment Rejected");
+                            saveChanges({ paymentStatus: "Payment Rejected", paymentReference, confirmationStatus: "Confirmed" });
+                          }}
+                          disabled={saving}
+                          className="shopifyRowBtn danger"
+                          style={{ fontSize: "12px", padding: "7px 14px", display: "inline-flex", alignItems: "center", gap: "5px" }}
+                        >
+                          <X size={13} />
+                          <span>Reject Proof</span>
+                        </button>
+                      </>
+                    )}
+
+                    {/* CASE 2: COD Order - not yet moved to packing */}
+                    {isCodOrder && fulfillmentStatus === "Unfulfilled" && !isBooked && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFulfillmentStatus("Packing");
+                          setOrderStage("Packing");
+                          saveChanges({
+                            fulfillmentStatus: "Packing",
+                            confirmationStatus: "Confirmed",
+                            status: "Packing",
+                            orderStage: "Packing",
+                          });
+                        }}
+                        disabled={saving}
+                        className="shopifyBtnPrimary"
+                        style={{ fontSize: "12px", padding: "7px 16px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                      >
+                        <Package size={14} />
+                        <span>Confirm Order &amp; Move to Packing</span>
+                      </button>
+                    )}
+
+                    {/* CASE 3: Payment is ALREADY Verified, but order is still Unfulfilled */}
+                    {isPaymentPaidOrVerified && fulfillmentStatus === "Unfulfilled" && !isBooked && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFulfillmentStatus("Packing");
+                          setOrderStage("Packing");
+                          saveChanges({
+                            fulfillmentStatus: "Packing",
+                            confirmationStatus: "Confirmed",
+                            status: "Packing",
+                            orderStage: "Packing",
+                          });
+                        }}
+                        disabled={saving}
+                        className="shopifyBtnPrimary"
+                        style={{ fontSize: "12px", padding: "7px 16px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                      >
+                        <Package size={14} />
+                        <span>Move to Packing</span>
+                      </button>
+                    )}
+
+                    {/* CASE 4: Payment was Rejected - option to convert to Full COD */}
+                    {isPaymentRejected && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdvancePaidAmount(0);
+                          setPaymentStatus("COD pending");
+                          saveChanges({
+                            amountPayableInAdvance: 0,
+                            paymentStatus: "COD pending",
+                          });
+                        }}
+                        disabled={saving}
+                        className="shopifyBtnSecondary"
+                        style={{ fontSize: "12px", padding: "7px 14px", display: "inline-flex", alignItems: "center", gap: "5px" }}
+                      >
+                        <Clock size={13} />
+                        <span>Switch to Cash on Delivery</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. ACTIVITY TIMELINE & INTERNAL NOTES CARD */}
+            <div className="shopifySectionCard">
+              <div className="shopifySectionHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <FileText size={17} color="#4b5563" />
+                  <h3 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#111827" }}>
+                    Notes &amp; Activity Timeline
+                  </h3>
+                </div>
+              </div>
+
+              <div className="shopifySectionBody">
+                <div>
+                  <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#374151" }}>Private Notes / Workshop Stitching Instructions:</span>
+                  <textarea
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    rows="3"
+                    placeholder="Add stitching notes, custom instructions, or delivery notes here..."
+                    style={{ width: "100%", padding: "10px", fontSize: "13px", borderRadius: "8px", border: "1px solid #d5ded6", marginTop: "6px" }}
+                  />
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
+                    <button
+                      type="button"
+                      className="shopifyBtnSecondary"
+                      onClick={() => saveChanges({ notes })}
+                      disabled={saving}
+                      style={{ fontSize: "12px", padding: "6px 14px", display: "inline-flex", alignItems: "center", gap: "5px" }}
+                    >
+                      <Save size={13} />
+                      <span>Save Note</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Collapsible Returns Workflow */}
+                <details style={{ background: "#f8faf8", border: "1px solid #dce4dd", borderRadius: "8px", padding: "12px 16px" }}>
+                  <summary style={{ fontSize: "13px", fontWeight: 700, color: "#243b2e", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <RefreshCw size={13} />
+                      <span>Returns &amp; Exchanges Workflow {returnStatus !== "No return" ? `(${returnStatus})` : ""}</span>
+                    </span>
+                    <span style={{ fontSize: "11px", color: "#6a7c70" }}>Expand ▼</span>
+                  </summary>
+                  <div style={{ marginTop: "12px", borderTop: "1px solid #e2ece4", paddingTop: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Return Status</span>
+                        <select value={returnStatus} onChange={(event) => setReturnStatus(event.target.value)} style={{ padding: "6px", fontSize: "12px" }}>
+                          {returnStatusOptions.map((status) => <option key={status}>{status}</option>)}
+                        </select>
+                      </label>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Return Reason</span>
+                        <input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Size issue, defect..." style={{ padding: "6px", fontSize: "12px" }} />
+                      </label>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Resolution Notes</span>
+                        <input value={returnResolution} onChange={(event) => setReturnResolution(event.target.value)} placeholder="Replacement dispatched..." style={{ padding: "6px", fontSize: "12px" }} />
+                      </label>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Refund Amount (PKR)</span>
+                        <input type="number" min="0" max={calculatedOrderTotal} value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} disabled={!canRecordRefund} style={{ padding: "6px", fontSize: "12px" }} />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      className="shopifyBtnPrimary"
+                      onClick={() => saveChanges()}
+                      disabled={saving}
+                      style={{ fontSize: "12px", padding: "6px 14px", alignSelf: "flex-end" }}
+                    >
+                      Save Return Status
+                    </button>
+                  </div>
+                </details>
+
+                {/* Order Activity Timeline */}
+                <div style={{ borderTop: "1px solid #edf1ee", paddingTop: "14px" }}>
+                  <span style={{ fontSize: "13px", fontWeight: 750, color: "#122a1e", marginBottom: "10px", display: "block" }}>Order Timeline</span>
+                  <div className="shopifyTimeline">
+                    <div className="shopifyTimelineItem">
+                      <div className="shopifyTimelineDot" />
+                      <span className="shopifyTimelineText">Order Placed</span>
+                      <span className="shopifyTimelineTime">{order.date}</span>
+                    </div>
+                    {order.tracking && (
+                      <div className="shopifyTimelineItem">
+                        <div className="shopifyTimelineDot" />
+                        <span className="shopifyTimelineText">PostEx Tracking Assigned: {order.tracking}</span>
+                        <span className="shopifyTimelineTime">Live Courier Consignment</span>
+                      </div>
+                    )}
+                    {(order.operationEvents || []).map((event, index) => (
+                      <div key={`${event.created_at || "event"}-${index}`} className="shopifyTimelineItem">
+                        <div className="shopifyTimelineDot" />
+                        <span className="shopifyTimelineText">
+                          {event.event_type === "order_operation_updated" ? "Return / refund workflow updated" : formatOrderStatus(event.event_type)}
+                        </span>
+                        <span className="shopifyTimelineTime">
+                          {event.created_at ? new Date(event.created_at).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Just now"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT SIDEBAR COLUMN (35%) */}
+          <div className="shopifyOrderSideCol">
+            {/* 1. CUSTOMER PROFILE CARD */}
+            <div className="shopifySectionCard">
+              <div className="shopifySectionHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <User size={17} color="#4b5563" />
+                  <h3 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#111827" }}>Customer</h3>
+                </div>
+                <span className="shopifyCityPill" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <MapPin size={11} /> {order.city || "Pakistan"}
+                </span>
+              </div>
+
+              <div className="shopifySectionBody">
+                <div className="shopifyCustomerProfile">
+                  <div className="shopifyCustomerAvatar">{customerInitials}</div>
+                  <div>
+                    <div className="shopifyCustomerNameLarge">{order.customer || "Guest Customer"}</div>
+                    <div style={{ fontSize: "12px", color: "#6a7c70" }}>Customer since {order.date}</div>
+                  </div>
+                </div>
+
+                {/* Contact Actions */}
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {rawPhoneDigits && (
+                    <a
+                      href={waLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shopifyWaBtn"
+                      style={{ padding: "8px 14px", fontSize: "12.5px", fontWeight: 700, flex: 1, justifyContent: "center", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                      title="Open WhatsApp with pre-filled confirmation message"
+                    >
+                      <MessageSquare size={14} />
+                      <span>WhatsApp Customer</span>
+                    </a>
+                  )}
+                  {rawPhoneDigits && (
+                    <a
+                      href={`tel:${order.phone}`}
+                      className="shopifyBtnSecondary"
+                      style={{ padding: "8px 14px", fontSize: "12.5px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                    >
+                      <Phone size={13} />
+                      <span>{order.phone}</span>
+                    </a>
+                  )}
+                </div>
+
+                {/* Shipping Address */}
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#63756a", textTransform: "uppercase" }}>Delivery Address</span>
+                    <button
+                      type="button"
+                      className="shopifyOrderCopyBtn"
+                      onClick={copyAddressToClipboard}
+                    >
+                      <Copy size={11} />
+                      <span>{copiedAddress ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+                  <div className="shopifyAddressBlock">
+                    <div>{order.address || order.city || "No street address provided"}</div>
+                    {order.city && (
+                      <div style={{ fontSize: "12px", color: "#55675c" }}>City: <b style={{ color: "#173d29" }}>{order.city}</b></div>
+                    )}
+                    {order.email && (
+                      <div style={{ fontSize: "12px", color: "#6a7c70" }}>✉️ {order.email}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. LOGISTICS & POSTEX DISPATCH CARD */}
+            <div className="shopifySectionCard">
+              <div className="shopifySectionHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Truck size={17} color="#4b5563" />
+                  <h3 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#111827" }}>Logistics &amp; Fulfillment</h3>
+                </div>
+                <span className={`shopifyPill ${tracking ? "in_transit" : "unfulfilled"}`}>
+                  <span className="pillDot" /> {tracking ? "Booked" : "Unbooked"}
+                </span>
+              </div>
+
+              <div className="shopifySectionBody">
+                <div>
+                  <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#63756a", textTransform: "uppercase" }}>Tracking Number</span>
+                  {!tracking ? (
+                    <div style={{ marginTop: "6px" }}>
+                      <div style={{ fontSize: "13px", color: "#b45309", fontWeight: 600 }}>
+                        Consignment unbooked with courier
+                      </div>
+                      <button
+                        type="button"
+                        className="shopifyBtnPrimary"
+                        onClick={bookWithPostex}
+                        disabled={saving || bookingPostex}
+                        style={{ marginTop: "8px", width: "100%", justifyContent: "center", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                      >
+                        <Truck size={14} />
+                        <span>{bookingPostex ? "Booking with PostEx..." : "Book PostEx Courier (1-Click)"}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <code style={{ fontSize: "14px", fontWeight: 800, color: "#166534", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "4px 8px", borderRadius: "5px", flex: 1 }}>
+                          {tracking}
+                        </code>
+                        <button
+                          type="button"
+                          className="shopifyOrderCopyBtn"
+                          onClick={copyTrackingToClipboard}
+                        >
+                          <Copy size={11} />
+                          <span>{copiedTracking ? "Copied" : "Copy"}</span>
+                        </button>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <a
+                          href={`https://postex.pk/tracking?cn=${tracking}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shopifyTrackingLink"
+                          style={{ margin: 0, flex: 1, justifyContent: "center", padding: "6px", display: "inline-flex", alignItems: "center", gap: "5px" }}
+                        >
+                          <ExternalLink size={12} />
+                          <span>Open PostEx.pk</span>
+                        </a>
+                        <button
+                          type="button"
+                          className="shopifyRowBtn"
+                          onClick={checkLivePostexStatus}
+                          disabled={saving || checkingPostex}
+                          style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
+                        >
+                          <RefreshCw size={12} className={checkingPostex ? "animate-spin" : ""} />
+                          <span>Status</span>
+                        </button>
+                      </div>
+
+                      {!orderStage.toLowerCase().includes("deliver") && (
+                        <button
+                          type="button"
+                          onClick={unbookOrder}
+                          disabled={saving || checkingPostex}
+                          className="shopifyRowBtn danger"
+                          style={{ fontSize: "11.5px", justifyContent: "center", marginTop: "4px", display: "inline-flex", alignItems: "center", gap: "5px" }}
+                        >
+                          <ArrowLeft size={12} />
+                          <span>Mark as Unbooked (Return to Warehouse)</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Clean Status & Delivery Selectors */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", borderTop: "1px solid #edf1ee", paddingTop: "12px" }}>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Fulfillment &amp; Courier Stage</span>
+                    <select
+                      value={orderStage}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setOrderStage(val);
+                        const isUnbook = val.toLowerCase().includes("unbook");
+                        const isDeliv = val.toLowerCase().includes("deliver");
+                        const isCancel = val.toLowerCase().includes("cancel");
+                        const isReturn = val.toLowerCase().includes("return");
+                        const newFulfillment = isDeliv ? "Delivered" : isCancel ? "Cancelled" : isReturn ? "Returned" : isUnbook ? "Unfulfilled" : "Booked with PostEx";
+                        setFulfillmentStatus(newFulfillment);
+                        saveChanges({
+                          postexStatus: val,
+                          status: val,
+                          orderStage: val,
+                          fulfillmentStatus: newFulfillment
+                        });
+                      }}
+                      style={{ padding: "7px 10px", fontSize: "12.5px", borderRadius: "6px", border: "1px solid #d5ded6" }}
+                    >
+                      <option value="Unbooked">Unfulfilled (Unbooked)</option>
+                      <option value="Packing">Packing &amp; Stitching</option>
+                      <option value="Booked">Booked with PostEx</option>
+                      <option value="In Transit">In Transit (Courier Hub)</option>
+                      <option value="Out For Delivery">Out For Delivery</option>
+                      <option value="Delivered">Delivered (Completed)</option>
+                      <option value="Returned">Returned</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  </label>
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Delivery Method</span>
+                    <select
+                      value={deliveryMethod}
+                      onChange={(e) => {
+                        setDeliveryMethod(e.target.value);
+                        saveChanges({ deliveryMethod: e.target.value });
+                      }}
+                      style={{ padding: "7px 10px", fontSize: "12.5px", borderRadius: "6px", border: "1px solid #d5ded6" }}
+                    >
+                      <option>PostEx</option>
+                      <option>Rider / same city</option>
+                      <option>Customer pickup</option>
+                      <option>Staff delivery</option>
+                      <option>Manual courier</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. CHANNEL & TAGS CARD */}
+            <div className="shopifySectionCard">
+              <div className="shopifySectionHeader">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Tags size={17} color="#4b5563" />
+                  <h3 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#111827" }}>Channel &amp; Tags</h3>
+                </div>
+              </div>
+
+              <div className="shopifySectionBody">
+                <div>
+                  <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#63756a", textTransform: "uppercase" }}>Order Channel</span>
+                  <div style={{ marginTop: "4px" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: "#f1f5f2", border: "1px solid #d4ded6", padding: "4px 10px", borderRadius: "6px", fontSize: "12.5px", fontWeight: 600, color: "#173d29" }}>
+                      {orderSourceBadge(order.source).label}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#63756a", textTransform: "uppercase" }}>Order Tags</span>
+                  <input
+                    value={tags}
+                    onChange={(event) => setTags(event.target.value)}
+                    placeholder="e.g. VIP, Urgent, Stitching"
+                    style={{ width: "100%", padding: "7px 10px", fontSize: "12.5px", borderRadius: "6px", border: "1px solid #d5ded6", marginTop: "4px" }}
+                  />
+                  <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "6px" }}>
+                    {tags.split(",").map((t) => t.trim()).filter(Boolean).map((tag) => (
+                      <span key={tag} style={{ background: "#edf4ef", border: "1px solid #c8d9cc", color: "#173d29", padding: "2px 7px", borderRadius: "4px", fontSize: "11px", fontWeight: 600 }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Meta Pixel & Events Log Link */}
+                <div style={{ borderTop: "1px solid #edf1ee", paddingTop: "10px", fontSize: "12px", color: "#6a7c70" }}>
+                  <div>Shared Event ID: <code style={{ color: "#173d29" }}>{order.order_number || String(order.id).replace(/^#/, "")}</code></div>
+                  <div style={{ marginTop: "6px", display: "flex", gap: "6px" }}>
+                    {onNavigateToEvents && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigateToEvents(order.order_number || order.id)}
+                        className="shopifyRowBtn"
+                        style={{ fontSize: "11px", padding: "4px 8px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                      >
+                        <ExternalLink size={11} />
+                        <span>Events Log</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={resyncOrderMetaPurchase}
+                      disabled={resyncingCapi || saving}
+                      className="shopifyRowBtn"
+                      style={{ fontSize: "11px", padding: "4px 8px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <RefreshCw size={11} className={resyncingCapi ? "animate-spin" : ""} />
+                      <span>Sync Meta</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const ORDER_SOURCE_BADGES = [
+  { match: "instagram", label: "Instagram DM", icon: "📸", tone: "pink" },
+  { match: "whatsapp", label: "WhatsApp", icon: "💬", tone: "green" },
+  { match: "walk-in", label: "Walk-in", icon: "🏬", tone: "amber" },
+  { match: "manual", label: "Manual", icon: "🏬", tone: "amber" },
+  { match: "phone", label: "Phone call", icon: "📞", tone: "violet" },
+  { match: "facebook", label: "Facebook", icon: "🔵", tone: "blue" },
+];
+
+function orderSourceBadge(source = "") {
+  const value = String(source || "").toLowerCase();
+  return ORDER_SOURCE_BADGES.find((badge) => value.includes(badge.match))
+    || { label: "Storefront", icon: "🌐", tone: "slate" };
+}
+
+const STANDARD_ITEM_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "FREE SIZE", "STD", "STANDARD"];
+
+function isCustomItemSize(size = "") {
+  const value = String(size || "").trim().toUpperCase();
+  return !value || !STANDARD_ITEM_SIZES.includes(value);
+}
+
+function whatsappNumber(phone = "") {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("92")) return digits;
+  if (digits.startsWith("0")) return `92${digits.slice(1)}`;
+  return `92${digits}`;
+}
+
+function WhatsAppIcon({ size = 13, className = "" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} style={{ display: "inline-block", verticalAlign: "middle" }}>
+      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+    </svg>
+  );
+}
+
+function OrderTable({
+  rows,
+  products = [],
+  onSelect,
+  density = "comfortable",
+  selectedOrderIds = [],
+  onToggleSelectOrder,
+  onToggleSelectAll,
+  onPrintStitchingOrder,
+  onPrintSingleOrder,
+  onDeleteOrder,
+}) {
+  const [expandedId, setExpandedId] = useState(null);
+  const selectable = Boolean(onToggleSelectOrder);
+  const columnCount = selectable ? 8 : 7;
+
+  return (
+    <div className={`shopifyTableWrap ${density === "compact" ? "compactTable" : ""}`}>
+      <table className="shopifyOrderTable">
+        <thead>
+          <tr>
+            {selectable && (
+              <th style={{ width: "38px", textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  aria-label="Select all orders"
+                  checked={rows.length > 0 && rows.every((row) => selectedOrderIds.includes(row.id))}
+                  onChange={onToggleSelectAll}
+                  style={{ accentColor: "#173d29", width: "16px", height: "16px", cursor: "pointer" }}
+                />
+              </th>
+            )}
+            <th>Order</th>
+            <th>Customer</th>
+            <th>Items</th>
+            <th>Payment</th>
+            <th>Fulfillment</th>
+            <th>Total</th>
+            <th style={{ textAlign: "right" }}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((order) => {
+            const orderItems = normalizeOrderItems(order);
+            const money = orderMoney(order);
+            const isSelected = selectedOrderIds.includes(order.id);
+            const isExpanded = expandedId === order.id;
+            const waPhone = whatsappNumber(order.phone);
+            const note = order.notes || order.internalNotes || "";
+            const source = orderSourceBadge(order.source);
+            const statusLabel = order.postexStatus || order.status || "Unbooked";
+
+            // Determine image thumbnail from items or catalog products
+            const firstItem = orderItems[0] || {};
+            let thumbUrl = firstItem.imageUrl || firstItem.image_url || "";
+            if (!thumbUrl && products.length > 0) {
+              const matchedCatalog = products.find((p) => p.name === (firstItem.name || firstItem.title) || p.id === firstItem.productId);
+              if (matchedCatalog) thumbUrl = matchedCatalog.img || matchedCatalog.images?.[0] || "";
+            }
+
+            // Payment pill classes
+            const isPaid = money.isFullyAdvanced || String(order.paymentStatus || "").toLowerCase().includes("paid") || String(order.paymentStatus || "").toLowerCase().includes("verified");
+            const isAdvance = !isPaid && (money.hasAdvance || Number(order.amountPayableInAdvance || 0) > 0);
+
+            // Fulfillment status pill classes
+            const rawStatusLower = String(statusLabel || "").toLowerCase();
+            const isDelivered = rawStatusLower.includes("deliver");
+            const isReturned = rawStatusLower.includes("return");
+            const isOutForDelivery = rawStatusLower.includes("out for delivery") || rawStatusLower.includes("attempt");
+            const isBooked = Boolean(order.tracking && !String(order.tracking).startsWith("MANUAL-")) || rawStatusLower.includes("book") || rawStatusLower.includes("transit") || rawStatusLower.includes("warehouse");
+
+            const rowClass = [
+              "shopifyOrderRow",
+              isSelected ? "isSelected" : "",
+            ].filter(Boolean).join(" ");
+
+            return (
+              <Fragment key={order.id}>
+                <tr className={rowClass} onClick={() => onSelect && onSelect(order)}>
+                  {selectable && (
+                    <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select order ${order.id}`}
+                        checked={isSelected}
+                        onChange={() => onToggleSelectOrder(order.id)}
+                        style={{ accentColor: "#173d29", width: "16px", height: "16px", cursor: "pointer" }}
+                      />
+                    </td>
+                  )}
+
+                  {/* 1. Order ID & Date */}
+                  <td>
+                    <button
+                      type="button"
+                      className="shopifyOrderNumLink"
+                      onClick={(e) => { e.stopPropagation(); onSelect && onSelect(order); }}
+                    >
+                      {order.id}
+                    </button>
+                    <div className="shopifyOrderDate">{order.date}</div>
+                    {source.label !== "Storefront" && (
+                      <span className={`shopifySourceTag shopifySource_${source.tone}`}>
+                        {source.icon} {source.label}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* 2. Customer & Phone */}
+                  <td>
+                    <div className="shopifyCustomerCell">
+                      <span className="shopifyCustomerName">{order.customer || "Guest Customer"}</span>
+                      <div className="shopifyCustomerMeta">
+                        {order.city && (
+                          <span className="shopifyCityPill">
+                            <MapPin size={10} />
+                            <span>{order.city}</span>
+                          </span>
+                        )}
+                        {waPhone && (
+                          <a
+                            className="shopifyWaBtn"
+                            href={`https://wa.me/${waPhone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title={`Chat with ${order.customer} on WhatsApp`}
+                          >
+                            <WhatsAppIcon size={12} />
+                            <span>WhatsApp</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* 3. Items Summary */}
+                  <td>
+                    {orderItems.length > 0 ? (
+                      <div className="shopifyItemSummaryCell">
+                        {thumbUrl ? (
+                          <img src={thumbUrl} alt={firstItem.name} className="shopifyItemThumbSmall" />
+                        ) : (
+                          <div className="shopifyItemThumbSmall fallback">
+                            <ShoppingBag size={16} />
+                          </div>
+                        )}
+                        <div className="shopifyItemInfo">
+                          <span className="shopifyItemTitle" title={firstItem.name || firstItem.title}>
+                            {firstItem.name || firstItem.title}
+                            {Number(firstItem.quantity || 1) > 1 && ` × ${firstItem.quantity}`}
+                          </span>
+                          <div className="shopifyItemMetaChips">
+                            {firstItem.size && (
+                              <span className={isCustomItemSize(firstItem.size) ? "shopifyCustomSizeTag" : "shopifySizeTag"}>
+                                {isCustomItemSize(firstItem.size) ? "Custom" : firstItem.size}
+                              </span>
+                            )}
+                            {orderItems.length > 1 && (
+                              <span className="shopifyMoreItemsTag">
+                                +{orderItems.length - 1} more
+                              </span>
+                            )}
+                            {note && (
+                              <span className="shopifyNoteChip" title={`Note: ${note}`}>
+                                <FileText size={10} />
+                                <span>Note</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <span style={{ color: "#8c9c91" }}>No items</span>
+                    )}
+                  </td>
+
+                  {/* 4. Payment Status */}
+                  <td>
+                    {isPaid ? (
+                      <span className="shopifyPill paid">
+                        <span className="pillDot" /> Paid
+                      </span>
+                    ) : isAdvance ? (
+                      <span className="shopifyPill partially_paid" title={`Advance Rs. ${money.advance.toLocaleString()} received`}>
+                        <span className="pillDot" /> Partially paid
+                      </span>
+                    ) : (
+                      <span className="shopifyPill pending">
+                        <span className="pillDot" /> Pending
+                      </span>
+                    )}
+                  </td>
+
+                  {/* 5. Fulfillment / Courier */}
+                  <td>
+                    {isDelivered ? (
+                      <span className="shopifyPill delivered">
+                        <span className="pillDot" /> Fulfilled
+                      </span>
+                    ) : isReturned ? (
+                      <span className="shopifyPill returned">
+                        <span className="pillDot" /> Returned
+                      </span>
+                    ) : isOutForDelivery ? (
+                      <span className="shopifyPill out_for_delivery">
+                        <span className="pillDot" /> Out for delivery
+                      </span>
+                    ) : isBooked ? (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "2px" }}>
+                        <span className="shopifyPill in_transit">
+                          <span className="pillDot" /> In transit
+                        </span>
+                        {order.tracking && (
+                          <a
+                            href={`https://postex.pk/tracking?cn=${order.tracking}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shopifyTrackingLink"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Open live tracking on PostEx.pk"
+                          >
+                            <Truck size={11} />
+                            <span>{order.tracking}</span>
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="shopifyPill unfulfilled">
+                        <span className="pillDot" /> Unfulfilled
+                      </span>
+                    )}
+                  </td>
+
+                  {/* 6. Total PKR */}
+                  <td>
+                    <div className="shopifyTotalCell">
+                      <span className="shopifyTotalValue">Rs. {money.total.toLocaleString()}</span>
+                      <span className="shopifyTotalSub">
+                        {money.isFullyAdvanced
+                          ? "100% Prepaid"
+                          : money.hasAdvance
+                            ? `COD: Rs. ${money.cod.toLocaleString()}`
+                            : `COD: Rs. ${money.cod.toLocaleString()}`}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* 7. Actions */}
+                  <td style={{ textAlign: "right" }} onClick={(e) => e.stopPropagation()}>
+                    <div className="shopifyRowActions" style={{ justifyContent: "flex-end" }}>
+                      {onSelect && (
+                        <button
+                          type="button"
+                          className="shopifyRowBtn primary"
+                          onClick={() => onSelect(order)}
+                          title="Open full order details"
+                        >
+                          <Eye size={12} />
+                          <span>View</span>
+                        </button>
+                      )}
+                      {onPrintStitchingOrder && (
+                        <button
+                          type="button"
+                          className="shopifyRowBtn"
+                          onClick={() => onPrintStitchingOrder(order)}
+                          title="Print tailor stitching slip"
+                        >
+                          <Scissors size={12} />
+                          <span>Slip</span>
+                        </button>
+                      )}
+                      {onPrintSingleOrder && (
+                        <button
+                          type="button"
+                          className="shopifyRowBtn iconOnly"
+                          onClick={() => onPrintSingleOrder(order)}
+                          title="Print customer invoice"
+                        >
+                          <Printer size={13} />
+                        </button>
+                      )}
+                      {onDeleteOrder && (
+                        <button
+                          type="button"
+                          className="shopifyRowBtn iconOnly danger"
+                          onClick={() => onDeleteOrder(order)}
+                          title="Delete order permanently"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="shopifyRowBtn iconOnly expandToggle"
+                        onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                        aria-expanded={isExpanded}
+                        title={isExpanded ? "Collapse inline preview" : "Expand inline summary"}
+                      >
+                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                {/* Inline Quick Expanded Drawer */}
+                {isExpanded && (
+                  <tr className="orderExpandedRow">
+                    <td colSpan={columnCount}>
+                      <div className="orderExpandedGrid">
+                        <section className="orderExpandedCard">
+                          <h4><MapPin size={12} /> Delivery Destination</h4>
+                          <p><b>{order.customer}</b></p>
+                          <p>{order.address || order.city || "No address saved"}</p>
+                          {order.phone && (
+                            <p className="orderExpandedPhone">
+                              <Phone size={12} />
+                              <span>{order.phone}</span>
+                            </p>
+                          )}
+                          {waPhone && (
+                            <a className="orderWhatsappLink" href={`https://wa.me/${waPhone}`} target="_blank" rel="noopener noreferrer">
+                              <WhatsAppIcon size={13} />
+                              <span>Chat on WhatsApp · {order.phone}</span>
+                            </a>
+                          )}
+                        </section>
+
+                        <section className="orderExpandedCard">
+                          <h4><ShoppingBag size={12} /> Ordered Items ({orderItems.length})</h4>
+                          <ul className="orderExpandedItems">
+                            {orderItems.map((item, index) => (
+                              <li key={item.id || index}>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
+                                  <b>{item.name || item.title}</b>
+                                  <span style={{ fontWeight: 700 }}>× {item.quantity || 1}</span>
+                                </div>
+                                <span>Size: {item.size || "Standard"}{item.color ? ` · Color: ${item.color}` : ""}{item.price ? ` · Rs. ${Number(item.price).toLocaleString()}` : ""}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+
+                        <section className="orderExpandedCard orderExpandedNotes">
+                          <h4><FileText size={12} /> Workshop Notes &amp; Instructions</h4>
+                          {note ? (
+                            <div className="orderExpandedNoteBox">{note}</div>
+                          ) : (
+                            <p style={{ color: "#94a3b8", fontStyle: "italic" }}>No special instructions or internal notes.</p>
+                          )}
+                          {onSelect && (
+                            <button
+                              type="button"
+                              className="orderOpenDrawerBtn"
+                              onClick={() => onSelect(order)}
+                            >
+                              Open full order details →
+                            </button>
+                          )}
+                        </section>
+
+                        <section className="orderExpandedCard">
+                          <h4><ReceiptText size={12} /> Financial Breakdown</h4>
+                          <dl className="orderExpandedMoney">
+                            <div><dt>Subtotal</dt><dd>Rs. {money.subtotal.toLocaleString()}</dd></div>
+                            <div><dt>Delivery</dt><dd>Rs. {money.delivery.toLocaleString()}</dd></div>
+                            <div><dt>Total</dt><dd><b>Rs. {money.total.toLocaleString()}</b></dd></div>
+                            <div><dt>Advance received</dt><dd className="isPaid">Rs. {money.advance.toLocaleString()}</dd></div>
+                            <div className="isTotalRow">
+                              <dt>PostEx COD to collect</dt>
+                              <dd className={money.isPrepaid ? "isPrepaid" : "isDue"}>Rs. {money.cod.toLocaleString()}</dd>
+                            </div>
+                          </dl>
+                          {order.tracking && (
+                            <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px solid #e2e8f0", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+                              <Truck size={13} color="#4338ca" />
+                              <span>Tracking: <b>{order.tracking}</b></span>
+                            </div>
+                          )}
+                        </section>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+      {!rows.length && (
+        <EmptyState
+          icon={ShoppingBag}
+          title="No orders found"
+          description="There are no orders matching this status or search filter."
+        />
+      )}
+    </div>
+  );
+}
+
+function buildCustomerProfiles(orders) {
+  const profiles = new Map();
+  orders.forEach((order) => {
+    const key = (order.phone || order.customer || order.id).toLowerCase();
+    const existing = profiles.get(key) || {
+      id: key,
+      name: order.customer || "Guest",
+      phone: order.phone || "",
+      email: order.raw?.guest_email || order.raw?.shipping_email || "",
+      city: order.city || "",
+      address: order.address || "",
+      orders: [],
+      totalSpent: 0,
+      tags: [],
+      notes: "",
+    };
+    existing.orders.push(order);
+    if (isRevenueOrder(order)) existing.totalSpent += Number(order.total || 0);
+    existing.lastOrder = order.date;
+    profiles.set(key, existing);
+  });
+  if (!profiles.size) {
+    [
+      { name: "Ayesha Khan", phone: "0300 1112223", city: "Lahore", totalSpent: 21480, tags: ["VIP", "Repeat buyer"] },
+      { name: "Hira Ali", phone: "0312 9876543", city: "Karachi", totalSpent: 12990, tags: ["Instagram DM"] },
+      { name: "Mahnoor Shah", phone: "0333 4567890", city: "Islamabad", totalSpent: 4490, tags: ["New customer"] },
+    ].forEach((customer, index) => profiles.set(customer.phone, { ...customer, id: customer.phone, email: "", address: customer.city, orders: demoOrders.slice(index, index + 2), notes: "", lastOrder: demoOrders[index]?.date || "No orders" }));
+  }
+  return [...profiles.values()].map((customer) => {
+    const tags = new Set(customer.tags || []);
+    if (customer.totalSpent >= 20000) tags.add("VIP");
+    if ((customer.orders || []).length > 1) tags.add("Repeat buyer");
+    if (!tags.size) tags.add("New customer");
+    return { ...customer, tags: [...tags] };
+  });
+}
+
+function DashboardAnalytics({ orders, products, connected, period, setPeriod }) {
+  const days = Number(period);
+  const end = new Date();
+  const start = new Date(end); start.setDate(start.getDate() - days);
+  const previousStart = new Date(start); previousStart.setDate(previousStart.getDate() - days);
+  const orderDate = (order) => new Date(order.createdAt || order.raw?.created_at || 0);
+  const scoped = (orders || []).filter((order) => { const date = orderDate(order); return !Number.isNaN(date.getTime()) && date >= start; });
+  const previousScoped = (orders || []).filter((order) => { const date = orderDate(order); return !Number.isNaN(date.getTime()) && date >= previousStart && date < start; });
+  const delivered = scoped.filter(isDeliveredOrder);
+  const returned = scoped.filter(isReturnedOrder);
+  const sales = delivered.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const previousSales = previousScoped.filter(isDeliveredOrder).reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const salesChange = previousSales > 0 ? Math.round(((sales - previousSales) / previousSales) * 100) : null;
+  const customerKeys = delivered.map(orderCustomerIdentity).filter(Boolean);
+  const customerOrderCounts = customerKeys.reduce((map, key) => map.set(key, (map.get(key) || 0) + 1), new Map());
+  const repeatCustomers = [...customerOrderCounts.values()].filter((count) => count > 1).length;
+  const items = delivered.flatMap((order) => normalizeOrderItems(order.raw || order));
+  const productsById = new Map((products || []).map((product) => [String(product.id), product]));
+  const productsBySku = new Map((products || []).map((product) => [String(product.sku || product.articleNumber || "").trim().toLowerCase(), product]).filter(([key]) => key));
+  const productsByName = new Map((products || []).map((product) => [String(product.name || "").trim().toLowerCase(), product]));
+  const productSales = items.reduce((map, item) => {
+    const product = productsById.get(String(item.productId)) || productsBySku.get(String(item.sku || "").trim().toLowerCase()) || productsByName.get(String(item.name || "").trim().toLowerCase());
+    const key = product ? `id:${product.id}` : `item:${String(item.sku || item.name || "unknown").trim().toLowerCase()}`;
+    const current = map.get(key) || { key, product, name: product?.name || item.name || "Unknown product", sku: product?.sku || product?.articleNumber || item.sku || "—", quantity: 0 };
+    current.quantity += Number(item.quantity || 0);
+    map.set(key, current);
+    return map;
+  }, new Map());
+  const topProducts = [...productSales.values()].sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+  const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
+  return <section className="analyticsSystem" aria-labelledby="dashboard-analytics-heading"><div className="adminTitle dashboardAnalyticsTitle"><div><p>BUSINESS INTELLIGENCE</p><h2 id="dashboard-analytics-heading">Performance analytics</h2><span>{connected ? "Live delivered-order performance, matched by customer identity and product ID / SKU." : "Connect live orders to view performance."}</span></div><div className="orderTabs" aria-label="Analytics period">{[["7", "7 days"], ["30", "30 days"], ["90", "90 days"]].map(([value, label]) => <button type="button" className={period === value ? "active" : ""} aria-pressed={period === value} onClick={() => setPeriod(value)} key={value}>{label}</button>)}</div></div><div className="miniMetricGrid financeMetrics"><article><CircleDollarSign /><span><b>{money(sales)}</b>Delivered sales <small className={salesChange !== null && salesChange < 0 ? "metricTrendDown" : "metricTrendUp"}>{salesChange === null ? "No prior-period baseline" : `${salesChange >= 0 ? "+" : ""}${salesChange}% vs previous ${days} days`}</small></span></article><article><ShoppingBag /><span><b>{delivered.length}</b>Fulfilled orders</span></article><article><TrendingUp /><span><b>{money(delivered.length ? sales / delivered.length : 0)}</b>Average order value</span></article><article><Users /><span><b>{customerOrderCounts.size ? Math.round(repeatCustomers / customerOrderCounts.size * 100) : 0}%</b>Repeat customer rate</span></article><article className={returned.length ? "alertMetric" : ""}><Package /><span><b>{returned.length}</b>Returned orders</span></article></div><div className="financeGrid financeGridWide"><div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>Top products sold</h2><span>Delivered units matched by product ID, then SKU, then exact product name.</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Product / SKU</th><th>Units sold</th><th>Current stock</th></tr></thead><tbody>{topProducts.map((row) => <tr key={row.key}><td><b>{row.name}</b><small className="trackingNumber">{row.sku}</small></td><td>{row.quantity}</td><td>{row.product?.stock ?? "—"}</td></tr>)}{!topProducts.length && <tr><td colSpan="3" className="emptyFinanceCell">No delivered product sales in this period.</td></tr>}</tbody></table></div></div><div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Operations health</h2><p>Actionable indicators for the selected period.</p></div></div><div className="financeStatement"><div><span>Return rate</span><b>{delivered.length + returned.length ? Math.round(returned.length / (delivered.length + returned.length) * 100) : 0}%</b></div><div><span>Low-stock products</span><b>{products.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length}</b></div><div><span>Products with missing cost</span><b>{products.filter((product) => !Number(product.costTotalPkr || 0)).length}</b></div><div className="statementTotal"><span>Next action</span><b>{products.some((product) => !Number(product.costTotalPkr || 0)) ? "Add missing product costs" : "Review low stock"}</b></div></div></div></div></section>;
+}
+
+function CustomersPanel({ orders, onOpen }) {
+  const [activeTab, setActiveTab] = useState("customers");
+  const [search, setSearch] = useState("");
+  const [segment, setSegment] = useState("All");
+  const [selectedId, setSelectedId] = useState("");
+  const [edits, setEdits] = useState({});
+
+  // Subscribers state
+  const [subscribers, setSubscribers] = useState([]);
+  const [subscriberSearch, setSubscriberSearch] = useState("");
+  const [loadingSubscribers, setLoadingSubscribers] = useState(false);
+
+  const fetchSubscribers = useCallback(async () => {
+    try {
+      setLoadingSubscribers(true);
+      const res = await fetch("/api/admin/newsletter-subscribers");
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && Array.isArray(data.subscribers)) {
+        setSubscribers(data.subscribers);
+      }
+    } catch (err) {
+      console.error("Failed to fetch subscribers:", err);
+    } finally {
+      setLoadingSubscribers(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSubscribers();
+  }, [fetchSubscribers]);
+
+  async function deleteSubscriber(id, email) {
+    if (!window.confirm(`Are you sure you want to remove "${email}" from the newsletter list?`)) return;
+    try {
+      const res = await fetch(`/api/admin/newsletter-subscribers?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.ok) {
+        setSubscribers((prev) => prev.filter((s) => String(s.id) !== String(id)));
+      } else {
+        alert("Failed to delete subscriber.");
+      }
+    } catch {
+      alert("Failed to delete subscriber.");
+    }
+  }
+
+  function exportSubscribers() {
+    const csv = [
+      ["Email", "Discount Code", "Source", "Status", "Date Subscribed"],
+      ...subscribers.map((sub) => [
+        sub.email,
+        sub.discount_code || "WELCOME10",
+        sub.source || "homepage_newsletter",
+        sub.status || "active",
+        sub.created_at ? new Date(sub.created_at).toLocaleString() : "",
+      ]),
+    ].map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    link.download = `bustaniya-subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  const visibleSubscribers = useMemo(() => {
+    const q = subscriberSearch.toLowerCase().trim();
+    if (!q) return subscribers;
+    return subscribers.filter((sub) =>
+      [sub.email, sub.source, sub.discount_code, sub.status].join(" ").toLowerCase().includes(q)
+    );
+  }, [subscribers, subscriberSearch]);
+
+  const customers = useMemo(() => buildCustomerProfiles(orders).map((customer) => ({ ...customer, ...(edits[customer.id] || {}) })), [edits, orders]);
+  const segments = ["All", "VIP", "Repeat buyer", "New customer", "Instagram DM"];
+  const visibleCustomers = customers.filter((customer) => {
+    const matchesSegment = segment === "All" || (customer.tags || []).includes(segment);
+    const query = search.toLowerCase();
+    const matchesSearch = [customer.name, customer.phone, customer.email, customer.city, ...(customer.tags || [])].join(" ").toLowerCase().includes(query);
+    return matchesSegment && matchesSearch;
+  });
+  const selectedCustomer = customers.find((customer) => customer.id === selectedId);
+  const segmentVisual = segments.filter((item) => item !== "All").map((item, index) => ({
+    label: item,
+    value: customers.filter((customer) => (customer.tags || []).includes(item)).length,
+    color: ["#1d6840", "#4777a8", "#c78b2b", "#8d2449"][index] || "#1d6840",
+  })).filter((item) => item.value > 0);
+  const spendVisual = customers.slice().sort((a, b) => Number(b.totalSpent || 0) - Number(a.totalSpent || 0)).slice(0, 6).map((customer, index) => ({
+    label: customer.name,
+    value: Number(customer.totalSpent || 0),
+    color: ["#1d6840", "#4777a8", "#c78b2b", "#8d2449", "#6c7b43", "#7d5ba6"][index] || "#1d6840",
+  }));
+
+  function updateCustomer(customerId, changes) {
+    setEdits((current) => ({ ...current, [customerId]: { ...(current[customerId] || {}), ...changes } }));
+  }
+
+  function exportCustomers() {
+    const csv = [
+      ["Name", "Phone", "Email", "City", "Orders", "Total spent", "Tags", "Notes"],
+      ...customers.map((customer) => [customer.name, customer.phone, customer.email, customer.city, customer.orders.length, customer.totalSpent, customer.tags.join(" | "), customer.notes || ""]),
+    ].map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    link.download = `bustaniya-customers-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  return (
+    <>
+      <div className="adminTitle">
+        <div>
+          <p>AUDIENCE & CUSTOMERS</p>
+          <h1>{activeTab === "subscribers" ? "Newsletter Subscribers" : "Customers"}</h1>
+          <span>
+            {activeTab === "subscribers"
+              ? "All emails collected from homepage and footer newsletter signups, with welcome discount codes and CSV export."
+              : "Profiles, order history, total spent, segments, tags and notes."}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          <div className="orderTabs" style={{ margin: 0 }}>
+            <button
+              type="button"
+              className={activeTab === "customers" ? "active" : ""}
+              onClick={() => setActiveTab("customers")}
+            >
+              Customer Profiles ({customers.length})
+            </button>
+            <button
+              type="button"
+              className={activeTab === "subscribers" ? "active" : ""}
+              onClick={() => setActiveTab("subscribers")}
+            >
+              Subscribers ({subscribers.length})
+            </button>
+          </div>
+          {activeTab === "customers" && (
+            <button onClick={() => onOpen({ module: "Customers", feature: "Add customer", create: true })}>
+              <Plus /> Add customer
+            </button>
+          )}
+        </div>
+      </div>
+
+      {activeTab === "subscribers" ? (
+        <>
+          <div className="miniMetricGrid productMetrics">
+            <article>
+              <Users />
+              <span><b>{subscribers.length}</b>Total Subscribers</span>
+            </article>
+            <article>
+              <Sparkles />
+              <span><b>{subscribers.filter((s) => (s.status || "active") === "active").length}</b>Active</span>
+            </article>
+            <article>
+              <Tags />
+              <span><b>WELCOME10</b>Offer (10% Off)</span>
+            </article>
+            <article>
+              <Clock />
+              <span>
+                <b>
+                  {subscribers.filter((s) => s.created_at && new Date(s.created_at) > new Date(Date.now() - 7 * 86400000)).length}
+                </b>
+                New This Week
+              </span>
+            </article>
+          </div>
+
+          <section className="adminCard managementCard">
+            <div className="catalogToolbar">
+              <div className="catalogActions" style={{ width: "100%", justifyContent: "space-between" }}>
+                <div className="inlineSearch" style={{ maxWidth: "340px" }}>
+                  <Search />
+                  <input
+                    value={subscriberSearch}
+                    onChange={(event) => setSubscriberSearch(event.target.value)}
+                    placeholder="Search subscribers by email..."
+                  />
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button type="button" onClick={fetchSubscribers} title="Refresh list" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    <RefreshCw size={14} className={loadingSubscribers ? "spin" : ""} /> Refresh
+                  </button>
+                  <button type="button" onClick={exportSubscribers}>Export CSV</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="adminTableWrap">
+              <table className="adminTable customerTable">
+                <thead>
+                  <tr>
+                    <th>Email Address</th>
+                    <th>Welcome Code</th>
+                    <th>Source</th>
+                    <th>Subscribed Date</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleSubscribers.map((sub) => (
+                    <tr key={sub.id}>
+                      <td>
+                        <b>{sub.email}</b>
+                      </td>
+                      <td>
+                        <span className="statusBadge active">{sub.discount_code || "WELCOME10"}</span>
+                      </td>
+                      <td>
+                        {sub.source === "footer" ? "Site Footer" : "Homepage Newsletter"}
+                      </td>
+                      <td>
+                        {sub.created_at
+                          ? new Date(sub.created_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "-"}
+                      </td>
+                      <td>
+                        <span className="statusBadge delivered">{sub.status || "active"}</span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="deleteButton"
+                          style={{
+                            padding: "4px 10px",
+                            fontSize: "11px",
+                            color: "#e11d48",
+                            background: "rgba(225, 29, 72, 0.08)",
+                            border: "1px solid #fecdd3",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            fontWeight: 600,
+                          }}
+                          onClick={() => deleteSubscriber(sub.id, sub.email)}
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!visibleSubscribers.length && (
+                <EmptyState
+                  icon={Users}
+                  title="No subscribers found"
+                  description={
+                    subscribers.length === 0
+                      ? "When customers enter their email in the newsletter section on your storefront, their emails will appear here automatically."
+                      : "No subscribers match your search query."
+                  }
+                />
+              )}
+            </div>
+          </section>
+        </>
+      ) : (
+        <>
+          <div className="miniMetricGrid productMetrics">
+            <article><Users /><span><b>{customers.length}</b>Customers</span></article>
+            <article><Tags /><span><b>{customers.filter((c) => c.tags.includes("VIP")).length}</b>VIP</span></article>
+            <article><ShoppingBag /><span><b>{customers.reduce((sum, customer) => sum + customer.orders.length, 0)}</b>Orders</span></article>
+            <article><CircleDollarSign /><span><b>Rs. {customers.reduce((sum, customer) => sum + Number(customer.totalSpent || 0), 0).toLocaleString()}</b>Total spent</span></article>
+          </div>
+          <section className="adminCard managementCard">
+            <div className="catalogToolbar">
+              <div className="orderTabs">{segments.map((item) => <button key={item} className={segment === item ? "active" : ""} onClick={() => setSegment(item)}>{item}</button>)}</div>
+              <div className="catalogActions">
+                <div className="inlineSearch"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customers..." /></div>
+                <button onClick={exportCustomers}>Export CSV</button>
+              </div>
+            </div>
+            <div className="adminTableWrap"><table className="adminTable customerTable"><thead><tr><th>Customer</th><th>Contact</th><th>Orders</th><th>Total spent</th><th>Last order</th><th>Tags</th><th /></tr></thead><tbody>
+              {visibleCustomers.map((customer) => <tr key={customer.id}><td><b>{customer.name}</b><small className="trackingNumber"><br />{customer.city || "No city"}</small></td><td>{customer.phone || "-"}<small className="trackingNumber"><br />{customer.email || "No email"}</small></td><td>{customer.orders.length}</td><td><b>Rs. {Number(customer.totalSpent || 0).toLocaleString()}</b></td><td>{customer.lastOrder || "-"}</td><td><div className="tagList">{customer.tags.map((tag) => <span key={tag} className="statusBadge active">{tag}</span>)}</div></td><td><button className="editProductButton" onClick={() => setSelectedId(customer.id)}>Open</button></td></tr>)}
+            </tbody></table>
+              {!visibleCustomers.length && <EmptyState icon={Users} title="No customers found" description="No customer profiles match your search query or selected segment." />}
+            </div>
+          </section>
+          {selectedCustomer && <CustomerProfileDrawer customer={selectedCustomer} onClose={() => setSelectedId("")} onUpdate={updateCustomer} />}
+        </>
+      )}
+    </>
+  );
+}
+
+function CustomerProfileDrawer({ customer, onClose, onUpdate }) {
+  const [tags, setTags] = useState((customer.tags || []).join(", "));
+  const [notes, setNotes] = useState(customer.notes || "");
+  const [email, setEmail] = useState(customer.email || "");
+
+  function saveCustomer() {
+    onUpdate(customer.id, {
+      email,
+      tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+      notes,
+    });
+  }
+
+  return <><div className="adminOverlay" onClick={onClose} /><aside className="orderDetailDrawer">
+    <header><div><p>CUSTOMER PROFILE</p><h2>{customer.name}</h2><span>Rs. {Number(customer.totalSpent || 0).toLocaleString()} spent - {customer.orders.length} orders</span></div><button onClick={onClose}><X /></button></header>
+    <div className="orderDetailBody">
+      <section className="orderDetailGrid customerProfileGrid">
+        <article className="adminCard orderDetailCard"><h3>Contact</h3><b>{customer.phone || "No phone"}</b><label>Email<input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="customer@email.com" /></label><p>{customer.address || customer.city || "No address saved"}</p></article>
+        <article className="adminCard orderDetailCard"><h3>Segment</h3><b>{customer.tags?.[0] || "New customer"}</b><span>{customer.orders.length > 1 ? "Repeat buyer" : "First purchase"}</span></article>
+        <article className="adminCard orderDetailCard"><h3>Total spent</h3><b>Rs. {Number(customer.totalSpent || 0).toLocaleString()}</b><span>{customer.orders.length} orders</span></article>
+      </section>
+      <section className="adminCard orderOpsCard"><h3>Tags and notes</h3><label>Customer tags<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="VIP, Repeat buyer, Instagram DM" /></label><label>Customer notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows="5" placeholder="Preferences, sizing, complaints, delivery instructions" /></label><button onClick={saveCustomer}>Save customer</button></section>
+      <section className="adminCard orderItemsCard"><div className="inventoryListHead"><div><h2>Order history</h2><span>{customer.orders.length} orders</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order</th><th>Date</th><th>Status</th><th>Total</th><th>Tracking</th></tr></thead><tbody>{customer.orders.map((order) => <tr key={order.id}><td><b>{order.id}</b></td><td>{order.date}</td><td>{order.postexStatus || order.status}</td><td>Rs. {Number(order.total || 0).toLocaleString()}</td><td>{order.tracking || "-"}</td></tr>)}</tbody></table></div></section>
+    </div>
+  </aside></>;
+}
+
+function BackendHealthPanel() {
+  const [health, setHealth] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  async function loadHealth() {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/system-health", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to run backend health check.");
+      setHealth(result);
+    } catch (healthError) {
+      setError(healthError.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadHealth();
+  }, []);
+
+  const summary = health?.summary || { ok: 0, warning: 0, fail: 0 };
+  const checks = health?.checks || [];
+  const completenessSummary = health?.completenessSummary || { complete: 0, partial: 0, missing: 0 };
+  const completeness = health?.completeness || [];
+  const securitySummary = health?.securitySummary || { ok: 0, warning: 0, fail: 0 };
+  const securityAudit = health?.securityAudit || [];
+  const deploymentSummary = health?.deploymentSummary || { ok: 0, warning: 0, fail: 0 };
+  const deploymentAudit = health?.deploymentAudit || [];
+  const performanceSummary = health?.performanceSummary || { ok: 0, warning: 0, fail: 0 };
+  const performanceAudit = health?.performanceAudit || [];
+  const healthTotal = Math.max(1, Number(summary.ok || 0) + Number(summary.warning || 0) + Number(summary.fail || 0));
+  const completenessTotal = Math.max(1, Number(completenessSummary.complete || 0) + Number(completenessSummary.partial || 0) + Number(completenessSummary.missing || 0));
+  const securityTotal = Math.max(1, Number(securitySummary.ok || 0) + Number(securitySummary.warning || 0) + Number(securitySummary.fail || 0));
+  const statusClass = (status) => status === "ok" ? "activeStatus" : status === "warning" ? "processing" : "cancelled";
+  const completenessStatusClass = (status) => status === "complete" ? "activeStatus" : status === "partial" ? "processing" : "cancelled";
+
+  return <div className="settingsStack">
+    <section className="adminCard settingsForm settingsWideForm">
+      <div className="inventoryListHead">
+        <div>
+          <h2>Supabase backend health</h2>
+          <span>Read-only audit for database tables, required env config and public-data safety.</span>
+        </div>
+        <button type="button" onClick={loadHealth} disabled={loading} aria-busy={loading}><RefreshCw /> {loading ? "Checking..." : "Refresh"}</button>
+      </div>
+      {error && <div className="adminErrorBanner">{error}</div>}
+      <div className="dashboardMiniGrid">
+        <article className="miniMetricCard"><span>Healthy</span><b>{summary.ok || 0}</b><small>Passing checks</small></article>
+        <article className="miniMetricCard"><span>Needs review</span><b>{summary.warning || 0}</b><small>Warnings</small></article>
+        <article className="miniMetricCard"><span>Fix now</span><b>{summary.fail || 0}</b><small>Failed checks</small></article>
+      </div>
+      <div className="adminVisualGrid">
+        <section className="adminVisualCard">
+          <div className="adminVisualHead"><div><h3>Readiness score</h3><p>Backend connectivity, module readiness and security coverage.</p></div></div>
+          <VisualProgress label="Backend health" value={(Number(summary.ok || 0) / healthTotal) * 100} helper={`${summary.ok || 0} passing · ${summary.warning || 0} warnings · ${summary.fail || 0} failed`} color="#1d6840" />
+          <VisualProgress label="Feature completeness" value={(Number(completenessSummary.complete || 0) / completenessTotal) * 100} helper={`${completenessSummary.complete || 0} of ${completenessTotal} modules complete`} color="#4777a8" />
+          <VisualProgress label="Security checks" value={(Number(securitySummary.ok || 0) / securityTotal) * 100} helper={`${securitySummary.ok || 0} of ${securityTotal} checks secure`} color="#287a4c" />
+        </section>
+        <VisualDonut
+          title="Backend status split"
+          subtitle="Instant pass/warn/fail view."
+          centerValue={summary.ok || 0}
+          centerLabel="passing"
+          items={[
+            { label: "OK", value: summary.ok || 0, color: "#1d6840" },
+            { label: "Warning", value: summary.warning || 0, color: "#d08a18" },
+            { label: "Fail", value: summary.fail || 0, color: "#b73543" },
+          ]}
+        />
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead><tr><th>Area</th><th>Check</th><th>Status</th><th>Detail</th><th>Next action</th></tr></thead>
+          <tbody>
+            {checks.map((check) => <tr key={`${check.area}-${check.name}`}>
+              <td>{check.area}</td>
+              <td><b>{check.name}</b></td>
+              <td><span className={`statusBadge ${statusClass(check.status)}`}>{check.status}</span></td>
+              <td>{check.detail}</td>
+              <td>{check.action || "No action needed."}</td>
+            </tr>)}
+          </tbody>
+        </table>
+        {!checks.length && <div className="inventoryEmpty">{loading ? "Running backend checks..." : "No health checks available."}</div>}
+      </div>
+      <p className="paymentSecurityNote">Note: secret values are never shown here. This panel only confirms whether backend configuration and critical tables are reachable.</p>
+    </section>
+    <section className="adminCard settingsForm settingsWideForm">
+      <div className="inventoryListHead">
+        <div>
+          <h2>Performance audit</h2>
+          <span>API latency, image optimisation, bundle size, caching, loading states and layout stability.</span>
+        </div>
+      </div>
+      <div className="dashboardMiniGrid">
+        <article className="miniMetricCard"><span>Good</span><b>{performanceSummary.ok || 0}</b><small>Passing checks</small></article>
+        <article className="miniMetricCard"><span>Review</span><b>{performanceSummary.warning || 0}</b><small>Optimise soon</small></article>
+        <article className="miniMetricCard"><span>Slow/Risk</span><b>{performanceSummary.fail || 0}</b><small>Must fix</small></article>
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead><tr><th>Area</th><th>Performance check</th><th>Status</th><th>Detail</th><th>Action</th></tr></thead>
+          <tbody>
+            {performanceAudit.map((item) => <tr key={`${item.area}-${item.check}`}>
+              <td>{item.area}</td>
+              <td><b>{item.check}</b></td>
+              <td><span className={`statusBadge ${statusClass(item.status)}`}>{item.status}</span></td>
+              <td>{item.detail}</td>
+              <td>{item.action || "No action needed."}</td>
+            </tr>)}
+          </tbody>
+        </table>
+        {!performanceAudit.length && <div className="inventoryEmpty">{loading ? "Checking performance..." : "No performance audit data available."}</div>}
+      </div>
+      <p className="paymentSecurityNote">Performance note: these are lightweight server-side samples, not a replacement for Lighthouse/Web Vitals, but they quickly highlight the biggest operational bottlenecks.</p>
+    </section>
+    <section className="adminCard settingsForm settingsWideForm">
+      <div className="inventoryListHead">
+        <div>
+          <h2>Vercel deployment audit</h2>
+          <span>Production environment, domain, HTTPS, env readiness and serverless behaviour.</span>
+        </div>
+      </div>
+      <div className="dashboardMiniGrid">
+        <article className="miniMetricCard"><span>Ready</span><b>{deploymentSummary.ok || 0}</b><small>Passing checks</small></article>
+        <article className="miniMetricCard"><span>Review</span><b>{deploymentSummary.warning || 0}</b><small>Warnings</small></article>
+        <article className="miniMetricCard"><span>Broken</span><b>{deploymentSummary.fail || 0}</b><small>Must fix</small></article>
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead><tr><th>Area</th><th>Deployment check</th><th>Status</th><th>Detail</th><th>Action</th></tr></thead>
+          <tbody>
+            {deploymentAudit.map((item) => <tr key={`${item.area}-${item.check}`}>
+              <td>{item.area}</td>
+              <td><b>{item.check}</b></td>
+              <td><span className={`statusBadge ${statusClass(item.status)}`}>{item.status}</span></td>
+              <td>{item.detail}</td>
+              <td>{item.action || "No action needed."}</td>
+            </tr>)}
+          </tbody>
+        </table>
+        {!deploymentAudit.length && <div className="inventoryEmpty">{loading ? "Checking Vercel deployment..." : "No deployment audit data available."}</div>}
+      </div>
+      <p className="paymentSecurityNote">Vercel audit note: environment-variable values are never printed. For detailed build/runtime logs, use the Vercel dashboard.</p>
+    </section>
+    <section className="adminCard settingsForm settingsWideForm">
+      <div className="inventoryListHead">
+        <div>
+          <h2>Authentication & admin security</h2>
+          <span>Login, logout, sessions, roles, secrets and server-side authorization checks.</span>
+        </div>
+      </div>
+      <div className="dashboardMiniGrid">
+        <article className="miniMetricCard"><span>Secure</span><b>{securitySummary.ok || 0}</b><small>Passing checks</small></article>
+        <article className="miniMetricCard"><span>Review</span><b>{securitySummary.warning || 0}</b><small>Warnings</small></article>
+        <article className="miniMetricCard"><span>Risk</span><b>{securitySummary.fail || 0}</b><small>Must fix</small></article>
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead><tr><th>Area</th><th>Security check</th><th>Status</th><th>Detail</th><th>Action</th></tr></thead>
+          <tbody>
+            {securityAudit.map((item) => <tr key={`${item.area}-${item.check}`}>
+              <td>{item.area}</td>
+              <td><b>{item.check}</b></td>
+              <td><span className={`statusBadge ${statusClass(item.status)}`}>{item.status}</span></td>
+              <td>{item.detail}</td>
+              <td>{item.action || "No action needed."}</td>
+            </tr>)}
+          </tbody>
+        </table>
+        {!securityAudit.length && <div className="inventoryEmpty">{loading ? "Checking admin security..." : "No security audit data available."}</div>}
+      </div>
+      <p className="paymentSecurityNote">Security note: this audit never prints passwords, tokens or secret values. It only reports whether risky configuration is present.</p>
+    </section>
+    <section className="adminCard settingsForm settingsWideForm">
+      <div className="inventoryListHead">
+        <div>
+          <h2>Database completeness</h2>
+          <span>Feature-by-feature backend support matrix for the ecommerce system.</span>
+        </div>
+      </div>
+      <div className="dashboardMiniGrid">
+        <article className="miniMetricCard"><span>Complete</span><b>{completenessSummary.complete || 0}</b><small>Ready feature areas</small></article>
+        <article className="miniMetricCard"><span>Partial</span><b>{completenessSummary.partial || 0}</b><small>Needs DB polish</small></article>
+        <article className="miniMetricCard"><span>Missing</span><b>{completenessSummary.missing || 0}</b><small>Needs setup</small></article>
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead><tr><th>Feature</th><th>Status</th><th>Required tables</th><th>Purpose</th><th>Gap / action</th></tr></thead>
+          <tbody>
+            {completeness.map((item) => <tr key={item.feature}>
+              <td><b>{item.feature}</b>{item.note && <small className="trackingNumber">{item.note}</small>}</td>
+              <td><span className={`statusBadge ${completenessStatusClass(item.status)}`}>{item.status}</span></td>
+              <td><div className="tagList">{(item.requiredTables || []).map((table) => <span key={table}>{table}</span>)}</div></td>
+              <td>{item.purpose}</td>
+              <td>{item.gaps?.length ? <ul className="compactIssueList">{item.gaps.map((gap) => <li key={gap}>{gap}</li>)}</ul> : item.action}</td>
+            </tr>)}
+          </tbody>
+        </table>
+        {!completeness.length && <div className="inventoryEmpty">{loading ? "Checking database completeness..." : "No completeness data available."}</div>}
+      </div>
+      <p className="paymentSecurityNote">This matrix avoids unnecessary tables: for example, customer profiles and discounts can stay lightweight until real business rules require dedicated tables.</p>
+    </section>
+  </div>;
+}
+
+function SettingsPanel({ onOpen, signedInUser, initialTab = "", categories: passedCategories = [] }) {
+  const [activeTab, setActiveTab] = useState(initialTab || "Store");
+  const [savedAt, setSavedAt] = useState("");
+  const [storeSettings, setStoreSettings] = useState(DEFAULT_STORE_SETTINGS);
+  const [storeSettingsLoading, setStoreSettingsLoading] = useState(false);
+  const [storeSettingsError, setStoreSettingsError] = useState("");
+  const [storeSettingsSetup, setStoreSettingsSetup] = useState("");
+  const [heroUrlInputs, setHeroUrlInputs] = useState({});
+  const [expandedSectionId, setExpandedSectionId] = useState(null);
+  const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
+  const [addSectionInsertIndex, setAddSectionInsertIndex] = useState(null);
+  const [sectionFilterCategory, setSectionFilterCategory] = useState("all");
+  const availableCategories = (passedCategories && passedCategories.length) ? passedCategories : fallbackCategoryRecords;
+  const [staff, setStaff] = useState([]);
+  const [availablePermissions, setAvailablePermissions] = useState([]);
+  const [currentAdminUser, setCurrentAdminUser] = useState(null);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffError, setStaffError] = useState("");
+  const [staffSaved, setStaffSaved] = useState("");
+  const [capiTesting, setCapiTesting] = useState(false);
+  const [capiTestResult, setCapiTestResult] = useState(null);
+  const [shippingZones, setShippingZones] = useState([
+    { zone: "Pakistan - Standard", cities: "All PostEx service cities", rate: "Rs. 200 COD", freeAbove: "Rs. 5,000" },
+    { zone: "Lahore same-day", cities: "Lahore", rate: "Rs. 250", freeAbove: "Rs. 8,000" },
+  ]);
+  const [newZoneDraft, setNewZoneDraft] = useState({ zone: "", cities: "", rate: "", freeAbove: "" });
+
+  async function testCapiConnection() {
+    setCapiTesting(true);
+    setCapiTestResult(null);
+    try {
+      const response = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test_event", eventName: "PageView" }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || result.result?.error || "Meta API responded with error.");
+      }
+      setCapiTestResult({
+        success: true,
+        message: `✅ Test PageView event sent successfully to Meta CAPI! (Events received: ${result.result?.result?.events_received ?? 1}, fbtrace_id: ${result.result?.result?.fbtrace_id || "OK"})`,
+      });
+    } catch (err) {
+      setCapiTestResult({
+        success: false,
+        message: `❌ CAPI test failed: ${err.message}`,
+      });
+    } finally {
+      setCapiTesting(false);
+    }
+  }
+
+  const canManageUsers = canUseAdminArea(signedInUser, "users");
+
+  const settingNavGroups = [
+    {
+      group: "Storefront & Design",
+      items: [
+        { id: "Store", label: "Store Details", icon: "🏪", hint: "Brand & Banners" },
+        { id: "Sections", label: "Homepage Sections", icon: "🎨", hint: "Page Builder" },
+        { id: "SizeChart", label: "Size Guide Matrix", icon: "📏", hint: "Measurements" },
+      ],
+    },
+    {
+      group: "Checkout & Operations",
+      items: [
+        { id: "Payments", label: "Payments & COD", icon: "💳", hint: "COD, Bank, Rules" },
+        { id: "Shipping", label: "Shipping & Rates", icon: "🚚", hint: "Timeline & Zones" },
+        { id: "Checkout", label: "Checkout Flow", icon: "🛒", hint: "Guest & Fields" },
+      ],
+    },
+    {
+      group: "Marketing & Growth",
+      items: [
+        { id: "Tracking", label: "Meta Pixel & CAPI", icon: "🎯", hint: "Pixel & Events" },
+        { id: "Notifications", label: "Notifications", icon: "🔔", hint: "Email Templates" },
+        { id: "Domains", label: "Domains & SEO", icon: "🌐", hint: "URLs & Meta" },
+      ],
+    },
+    {
+      group: "Administration",
+      items: [
+        ...(canManageUsers ? [{ id: "Users", label: "Staff & Users", icon: "👥", hint: "Admin Access" }] : []),
+        { id: "System", label: "System Health", icon: "⚙️", hint: "Database Audit" },
+      ],
+    },
+  ];
+
+  useEffect(() => {
+    if (["Store", "Sections", "Tracking", "SizeChart", "Payments", "Shipping", "Notifications", "Domains", "Checkout"].includes(activeTab)) {
+      loadStoreSettings();
+    }
+    if (activeTab === "Users") loadAdminUsers();
+  }, [activeTab]);
+
+  async function addHeroImageUrl(field) {
+    const url = String(heroUrlInputs[field] || "").trim();
+    if (!url) return;
+    if (!url.startsWith("/") && !/^https?:\/\//i.test(url)) {
+      setStoreSettingsError("Paste a valid image URL (https://...) or local image path (e.g. /hero-image.jpg).");
+      return;
+    }
+    setStoreSettingsError("");
+    setStoreSettings((current) => {
+      const defaultImg = field === "heroDesktopImages" ? DEFAULT_STORE_SETTINGS.heroDesktopImage : DEFAULT_STORE_SETTINGS.heroMobileImage;
+      const legacyField = field === "heroDesktopImages" ? "heroDesktopImage" : "heroMobileImage";
+      const raw = current[field] !== undefined ? current[field] : (current[legacyField] ? [current[legacyField]] : []);
+      const currentList = Array.isArray(raw) ? raw : [raw].filter(Boolean);
+      const isOnlyDefault = currentList.length === 1 && (
+        currentList[0] === DEFAULT_STORE_SETTINGS.heroDesktopImage ||
+        currentList[0] === DEFAULT_STORE_SETTINGS.heroMobileImage ||
+        currentList[0] === "/bustaniya-campaign-hero-v5.png" ||
+        currentList[0] === "/bustaniya-campaign-hero-mobile-v1.png"
+      );
+      const nextImages = isOnlyDefault ? [url] : [...currentList, url];
+      return {
+        ...current,
+        [field]: nextImages,
+        [legacyField]: nextImages[0] || "",
+      };
+    });
+    setHeroUrlInputs((current) => ({ ...current, [field]: "" }));
+  }
+
+  function removeHeroSlide(field, idx) {
+    setStoreSettings((current) => {
+      const legacyField = field === "heroDesktopImages" ? "heroDesktopImage" : "heroMobileImage";
+      const raw = current[field] !== undefined ? current[field] : (current[legacyField] ? [current[legacyField]] : []);
+      const currentList = Array.isArray(raw) ? raw : [raw].filter(Boolean);
+      const nextImages = currentList.filter((_, i) => i !== idx);
+      return {
+        ...current,
+        [field]: nextImages,
+        [legacyField]: nextImages[0] || "",
+      };
+    });
+  }
+
+  function moveHeroSlide(field, fromIdx, toIdx) {
+    setStoreSettings((current) => {
+      const legacyField = field === "heroDesktopImages" ? "heroDesktopImage" : "heroMobileImage";
+      const raw = current[field] !== undefined ? current[field] : (current[legacyField] ? [current[legacyField]] : []);
+      const list = [...(Array.isArray(raw) ? raw : [raw].filter(Boolean))];
+      if (toIdx < 0 || toIdx >= list.length) return current;
+      const [item] = list.splice(fromIdx, 1);
+      list.splice(toIdx, 0, item);
+      return {
+        ...current,
+        [field]: list,
+        [legacyField]: list[0] || "",
+      };
+    });
+  }
+
+  function clearHeroSlides(field) {
+    setStoreSettings((current) => {
+      const legacyField = field === "heroDesktopImages" ? "heroDesktopImage" : "heroMobileImage";
+      return {
+        ...current,
+        [field]: [],
+        [legacyField]: "",
+      };
+    });
+  }
+
+  function updateHeroContent(device, changes) {
+    const key = device === "mobile" ? "heroMobileContent" : "heroDesktopContent";
+    setStoreSettings((current) => {
+      const fallback = device === "mobile"
+        ? { ...(current.heroMobileContent || current.heroDesktopContent || {}), position: "bottom" }
+        : (current.heroDesktopContent || {
+          eyebrow: current.heroEyebrow || "",
+          heading: current.heroHeading || "",
+          supportingText: current.heroSupportingText || "",
+          primaryButtonText: current.heroPrimaryButtonText || "",
+          primaryButtonLink: current.heroPrimaryButtonLink || "#products",
+          secondaryButtonText: current.heroSecondaryButtonText || "",
+          secondaryButtonLink: current.heroSecondaryButtonLink || "",
+          alignment: current.heroTextAlignment || "left",
+          position: current.heroTextPosition || "left",
+        });
+      return { ...current, [key]: { ...fallback, ...changes } };
+    });
+  }
+
+  async function loadStoreSettings() {
+    setStoreSettingsLoading(true);
+    setStoreSettingsError("");
+    try {
+      const response = await fetch("/api/admin/settings", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to load store settings.");
+      const nextSettings = result.settings || DEFAULT_STORE_SETTINGS;
+      setStoreSettings(nextSettings);
+      setShippingZones(nextSettings.shippingZones || DEFAULT_STORE_SETTINGS.shippingZones);
+      setStoreSettingsSetup(result.needsSetup ? `Run ${result.setupSql || "scripts/supabase-store-settings.sql"} in Supabase before saving live settings.` : "");
+    } catch (error) {
+      setStoreSettingsError(error.message);
+    } finally {
+      setStoreSettingsLoading(false);
+    }
+  }
+
+  async function loadAdminUsers() {
+    setStaffLoading(true);
+    setStaffError("");
+    try {
+      const response = await fetch("/api/admin/users", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to load admin users.");
+      setStaff(result.users || []);
+      setAvailablePermissions(result.permissions || []);
+      setCurrentAdminUser(result.currentUser || null);
+    } catch (error) {
+      setStaffError(error.message);
+    } finally {
+      setStaffLoading(false);
+    }
+  }
+
+  async function saveStoreSettings(event) {
+    if (event?.preventDefault) event.preventDefault();
+    setStoreSettingsLoading(true);
+    setStoreSettingsError("");
+    setStoreSettingsSetup("");
+    setSavedAt("");
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: storeSettings }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to save store settings.");
+      setStoreSettings(result.settings || storeSettings);
+      if (result.needsSetup) {
+        setStoreSettingsSetup(`Run ${result.setupSql || "scripts/supabase-store-settings.sql"} in Supabase before saving live settings.`);
+        return;
+      }
+      setSavedAt(new Date().toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }));
+    } catch (error) {
+      setStoreSettingsError(error.message);
+    } finally {
+      setStoreSettingsLoading(false);
+    }
+  }
+
+  function saveSettings(event) {
+    return saveStoreSettings(event);
+  }
+
+  function updateSettingsGroup(group, changes) {
+    setStoreSettings((current) => ({ ...current, [group]: { ...(DEFAULT_STORE_SETTINGS[group] || {}), ...(current[group] || {}), ...changes } }));
+  }
+
+  function updateAnnouncement(index, changes) {
+    setStoreSettings((current) => ({
+      ...current,
+      announcements: (current.announcements || []).map((announcement, itemIndex) =>
+        itemIndex === index ? { ...announcement, ...changes } : announcement
+      ),
+    }));
+  }
+
+  function addAnnouncement() {
+    setStoreSettings((current) => ({
+      ...current,
+      announcements: [
+        ...(current.announcements || []),
+        {
+          id: `announcement-${Date.now()}`,
+          text: "",
+          linkLabel: "",
+          linkHref: "",
+          enabled: true,
+        },
+      ],
+    }));
+  }
+
+  function removeAnnouncement(index) {
+    setStoreSettings((current) => {
+      const nextAnnouncements = (current.announcements || []).filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...current,
+        announcements: nextAnnouncements.length ? nextAnnouncements : [{
+          id: `announcement-${Date.now()}`,
+          text: "",
+          linkLabel: "",
+          linkHref: "",
+          enabled: true,
+        }],
+      };
+    });
+  }
+
+  function updatePaymentSettings(changes) {
+    setStoreSettings((current) => ({
+      ...current,
+      paymentSettings: {
+        ...DEFAULT_STORE_SETTINGS.paymentSettings,
+        ...(current.paymentSettings || {}),
+        ...changes,
+      },
+    }));
+  }
+
+  function addStaff(event) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const permissions = availablePermissions.filter((permission) => form.get(`permission-${permission}`));
+    setStaffError("");
+    setStaffSaved("");
+    setStaffLoading(true);
+    fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: form.get("name"),
+        email: form.get("email"),
+        password: form.get("password"),
+        role: form.get("role"),
+        permissions,
+      }),
+    })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Unable to create admin user.");
+        formElement.reset();
+        setStaffSaved("Admin user added.");
+        await loadAdminUsers();
+      })
+      .catch((error) => setStaffError(error.message))
+      .finally(() => setStaffLoading(false));
+  }
+
+  async function updateStaffUser(userId, changes) {
+    setStaffError("");
+    setStaffSaved("");
+    setStaffLoading(true);
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, ...changes }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to update admin user.");
+      setStaffSaved("Admin access updated.");
+      await loadAdminUsers();
+    } catch (error) {
+      setStaffError(error.message);
+    } finally {
+      setStaffLoading(false);
+    }
+  }
+
+  async function deleteStaffUser(userId) {
+    const user = staff.find((u) => u.id === userId);
+    requestConfirm({
+      title: "Remove Admin User",
+      message: `Are you sure you want to remove admin user "${user?.name || "this user"}"? They will lose access to the admin portal.`,
+      confirmText: "Remove User",
+      isDanger: true,
+      onConfirm: async () => {
+        setStaffError("");
+        setStaffSaved("");
+        setStaffLoading(true);
+        try {
+          const response = await fetch("/api/admin/users", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Unable to remove admin user.");
+          setStaffSaved("Admin user removed.");
+          await loadAdminUsers();
+        } catch (error) {
+          setStaffError(error.message);
+        } finally {
+          setStaffLoading(false);
+        }
+      },
+    });
+  }
+
+  function addShippingZone(event) {
+    if (event?.preventDefault) event.preventDefault();
+    const zoneName = String(newZoneDraft.zone || "").trim();
+    const citiesVal = String(newZoneDraft.cities || "").trim();
+    if (!zoneName || !citiesVal) return;
+    const nextZone = {
+      id: `shipping-zone-${Date.now()}`,
+      zone: zoneName,
+      cities: citiesVal,
+      rate: Math.max(0, Number(newZoneDraft.rate || 0)),
+      freeAbove: Math.max(0, Number(newZoneDraft.freeAbove || 0)),
+    };
+    setShippingZones((current) => [...current, nextZone]);
+    setStoreSettings((current) => ({ ...current, shippingZones: [...(current.shippingZones || []), nextZone] }));
+    setNewZoneDraft({ zone: "", cities: "", rate: "", freeAbove: "" });
+  }
+
+  function removeShippingZone(index) {
+    const updated = (shippingZones || []).filter((_, idx) => idx !== index);
+    setShippingZones(updated);
+    setStoreSettings((current) => ({ ...current, shippingZones: updated }));
+  }
+
+  function updateDeliverySettings(changes) {
+    setStoreSettings((current) => ({
+      ...current,
+      deliverySettings: {
+        ...(DEFAULT_STORE_SETTINGS.deliverySettings || {}),
+        ...(current.deliverySettings || {}),
+        ...changes,
+      },
+    }));
+  }
+
+  return (
+    <div className="shopifySettingsWorkspace">
+      {/* Top Header */}
+      <div className="shopifySettingsHeader">
+        <div className="shopifySettingsHeaderLeft">
+          <h1><span>⚙️</span> Settings</h1>
+          <p>Manage your storefront preferences, checkout rules, payment methods, delivery rates, and tracking pixels.</p>
+        </div>
+        <div className="shopifySettingsHeaderRight">
+          {savedAt && (
+            <span className="shopifySavedPill">
+              <span>✅</span> Saved at {savedAt}
+            </span>
+          )}
+          {activeTab !== "System" && activeTab !== "Users" && (
+            <button
+              type="button"
+              className="shopifyBtnPrimary"
+              onClick={(e) => saveStoreSettings(e)}
+              disabled={storeSettingsLoading}
+            >
+              {storeSettingsLoading ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                "💾 Save Settings"
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Error / Setup Alerts */}
+      {storeSettingsError && (
+        <div className="adminErrorBanner" style={{ marginBottom: "16px" }}>
+          ⚠️ {storeSettingsError}
+        </div>
+      )}
+      {storeSettingsSetup && (
+        <div className="adminErrorBanner" style={{ marginBottom: "16px" }}>
+          ℹ️ {storeSettingsSetup}
+        </div>
+      )}
+
+      {/* Main 2-Column Settings Layout */}
+      <div className="shopifySettingsLayout">
+        {/* Left Navigation */}
+        <aside className="shopifySettingsNav">
+          {settingNavGroups.map((group) => (
+            <div key={group.group} style={{ display: "flex", flexDirection: "column", gap: "2px", marginBottom: "8px" }}>
+              <span className="shopifyNavGroupTitle">{group.group}</span>
+              {group.items.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`shopifyNavItem ${activeTab === item.id ? "active" : ""}`}
+                  onClick={() => setActiveTab(item.id)}
+                >
+                  <div className="shopifyNavItemLeft">
+                    <span className="shopifyNavItemIcon">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </div>
+                  <span className="shopifyNavItemHint">{item.hint}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </aside>
+
+        {/* Right Settings Content */}
+        <div className="shopifySettingsContent">
+          {/* 1. STORE DETAILS */}
+          {activeTab === "Store" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {/* Product Card Design */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Storefront Design Preferences</h3>
+                    <p>Customize the visual layout of product tiles and category collections across the store.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <label className="shopifyFieldLabel">
+                    Product Card Layout
+                    <div className="shopifyVisualChoiceGrid" style={{ marginTop: "6px" }}>
+                      <div
+                        className={`shopifyVisualChoiceCard ${(storeSettings.productCardStyle || "connected") === "connected" ? "selected" : ""}`}
+                        onClick={() => setStoreSettings((current) => ({ ...current, productCardStyle: "connected" }))}
+                      >
+                        <div className="shopifyVisualChoiceHead">
+                          <b>Connected Tiles (Sapphire Style)</b>
+                          {(storeSettings.productCardStyle || "connected") === "connected" && (
+                            <span className="shopifyVisualChoiceCheck">✓</span>
+                          )}
+                        </div>
+                        <p>Modern seamless grid with edge-to-edge product tiles and clean typography.</p>
+                      </div>
+                      <div
+                        className={`shopifyVisualChoiceCard ${storeSettings.productCardStyle === "classic" ? "selected" : ""}`}
+                        onClick={() => setStoreSettings((current) => ({ ...current, productCardStyle: "classic" }))}
+                      >
+                        <div className="shopifyVisualChoiceHead">
+                          <b>Classic Cards</b>
+                          {storeSettings.productCardStyle === "classic" && (
+                            <span className="shopifyVisualChoiceCheck">✓</span>
+                          )}
+                        </div>
+                        <p>Traditional bordered ecommerce cards with individual white card containers.</p>
+                      </div>
+                    </div>
+                  </label>
+
+                  <label className="shopifyFieldLabel" style={{ marginTop: "10px" }}>
+                    Shop by Category Layout
+                    <div className="shopifyVisualChoiceGrid" style={{ marginTop: "6px" }}>
+                      <div
+                        className={`shopifyVisualChoiceCard ${(storeSettings.categorySectionStyle || "atelier") === "atelier" ? "selected" : ""}`}
+                        onClick={() => {
+                          const nextStyle = "atelier";
+                          setStoreSettings((current) => {
+                            const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
+                              sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
+                            );
+                            return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
+                          });
+                        }}
+                      >
+                        <div className="shopifyVisualChoiceHead">
+                          <b>Atelier Overlay Cards</b>
+                          {(storeSettings.categorySectionStyle || "atelier") === "atelier" && (
+                            <span className="shopifyVisualChoiceCheck">✓</span>
+                          )}
+                        </div>
+                        <p>Dark luxury overlay with elegant text typography over category imagery.</p>
+                      </div>
+                      <div
+                        className={`shopifyVisualChoiceCard ${storeSettings.categorySectionStyle === "minimal" ? "selected" : ""}`}
+                        onClick={() => {
+                          const nextStyle = "minimal";
+                          setStoreSettings((current) => {
+                            const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
+                              sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
+                            );
+                            return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
+                          });
+                        }}
+                      >
+                        <div className="shopifyVisualChoiceHead">
+                          <b>Minimal Collections Grid (House of Lucknawi)</b>
+                          {storeSettings.categorySectionStyle === "minimal" && (
+                            <span className="shopifyVisualChoiceCheck">✓</span>
+                          )}
+                        </div>
+                        <p>Soft rounded cards with category titles positioned below the photo.</p>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Announcement Bar */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Header Announcement Bar</h3>
+                    <p>Rotating promotional bar above the top header.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="shopifyBtnSecondary"
+                    onClick={addAnnouncement}
+                    style={{ fontSize: "12px", padding: "6px 12px" }}
+                  >
+                    + Add Announcement
+                  </button>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Announcement Bar Enabled</b>
+                      <span>Show announcements banner at the very top of all pages.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.announcementEnabled !== false}
+                        onChange={(e) => setStoreSettings((current) => ({ ...current, announcementEnabled: e.target.checked }))}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {(storeSettings.announcements || []).map((announcement, index) => (
+                      <div
+                        key={announcement.id || index}
+                        style={{
+                          padding: "14px",
+                          border: "1px solid #e2e8e5",
+                          borderRadius: "10px",
+                          background: "#fafcfa",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                            Announcement #{index + 1}
+                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <label className="switchLabel" style={{ fontSize: "12px" }}>
+                              <input
+                                type="checkbox"
+                                checked={announcement.enabled !== false}
+                                onChange={(e) => updateAnnouncement(index, { enabled: e.target.checked })}
+                              /> Active
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => removeAnnouncement(index)}
+                              style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "4px" }}
+                              title="Delete announcement"
+                            >
+                              <X size={15} />
+                            </button>
+                          </div>
+                        </div>
+                        <input
+                          className="shopifyInput"
+                          value={announcement.text || ""}
+                          onChange={(e) => updateAnnouncement(index, { text: e.target.value })}
+                          placeholder="e.g. Free Delivery Nationwide on orders above Rs. 5,000"
+                        />
+                        <div className="shopifyFormRow">
+                          <input
+                            className="shopifyInput"
+                            value={announcement.linkLabel || ""}
+                            onChange={(e) => updateAnnouncement(index, { linkLabel: e.target.value })}
+                            placeholder="Link text (e.g. Shop Now)"
+                          />
+                          <input
+                            className="shopifyInput"
+                            value={announcement.linkHref || ""}
+                            onChange={(e) => updateAnnouncement(index, { linkHref: e.target.value })}
+                            placeholder="Link destination (e.g. /category/kurtis)"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Social Channels */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Social Media & Instagram Gallery</h3>
+                    <p>Connect your brand Instagram & TikTok accounts.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Instagram Feed Gallery on Homepage</b>
+                      <span>Display the 6-column Instagram Reels feed on the homepage.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.instagramEnabled !== false}
+                        onChange={(e) => setStoreSettings((current) => ({ ...current, instagramEnabled: e.target.checked }))}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Instagram Handle
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.instagramHandle || "@bustaniya_"}
+                        onChange={(e) => setStoreSettings((current) => ({ ...current, instagramHandle: e.target.value }))}
+                        placeholder="@bustaniya_"
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      TikTok Handle
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.tiktokHandle || "@bustaniya_"}
+                        onChange={(e) => setStoreSettings((current) => ({ ...current, tiktokHandle: e.target.value }))}
+                        placeholder="@bustaniya_"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hero Carousel & Banners */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Hero Carousel & Campaign Banners</h3>
+                    <p>Manage desktop and mobile hero campaign banners, headlines and call-to-actions.</p>
+                  </div>
+                  <label className="switchLabel">
+                    <input
+                      type="checkbox"
+                      checked={storeSettings.heroEnabled !== false}
+                      onChange={(e) => setStoreSettings((current) => ({ ...current, heroEnabled: e.target.checked }))}
+                    /> Enabled
+                  </label>
+                </div>
+                <div className="shopifySectionBody">
+                  {/* Desktop & Mobile Slides Managers */}
+                  {[
+                    { field: "heroDesktopImages", legacyField: "heroDesktopImage", label: "Desktop Hero Slides", hint: "Wide campaign images (recommended 1920x800)" },
+                    { field: "heroMobileImages", legacyField: "heroMobileImage", label: "Mobile Hero Slides", hint: "Portrait campaign images (recommended 1080x1350 / 4:5)" },
+                  ].map((item) => {
+                    const defaultImg = item.field === "heroDesktopImages" ? DEFAULT_STORE_SETTINGS.heroDesktopImage : DEFAULT_STORE_SETTINGS.heroMobileImage;
+                    const raw = storeSettings[item.field] !== undefined ? storeSettings[item.field] : (storeSettings[item.legacyField] ? [storeSettings[item.legacyField]] : [defaultImg]);
+                    const list = Array.isArray(raw) ? raw : [raw].filter(Boolean);
+
+                    return (
+                      <div key={item.field} style={{ border: "1px solid #e2e8e5", borderRadius: "10px", padding: "16px", background: "#fdfefe" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                          <div>
+                            <span style={{ fontSize: "14px", fontWeight: 750, color: "#122a1e" }}>{item.label}</span>
+                            <span style={{ fontSize: "11.5px", color: "#667a6e", marginLeft: "8px" }}>{item.hint}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            {list.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => clearHeroSlides(item.field)}
+                                style={{ background: "none", border: "none", color: "#b91c1c", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
+                              >
+                                Clear all
+                              </button>
+                            )}
+                            <span style={{ fontSize: "11px", color: "#8c9c91", fontWeight: 600 }}>{list.length} slide{list.length === 1 ? "" : "s"}</span>
+                          </div>
+                        </div>
+
+                        {/* Grid of slides */}
+                        {list.length === 0 ? (
+                          <div style={{ padding: "16px", textAlign: "center", background: "#f8faf7", border: "1px dashed #d5ded3", borderRadius: "8px", color: "#5d6d61", fontSize: "12px", margin: "10px 0" }}>
+                            No slides configured. Add an image URL below or click{" "}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStoreSettings((current) => ({
+                                  ...current,
+                                  [item.field]: [defaultImg],
+                                  [item.legacyField]: defaultImg,
+                                }));
+                              }}
+                              style={{ background: "none", border: "none", color: "#173d29", textDecoration: "underline", cursor: "pointer", fontWeight: 700 }}
+                            >
+                              Restore default banner
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "10px", marginBottom: "12px" }}>
+                            {list.map((url, idx) => (
+                              <div key={`${url}-${idx}`} style={{ border: "1px solid #d4ded6", borderRadius: "8px", overflow: "hidden", position: "relative", background: "#f8faf7" }}>
+                                <div style={{ height: "100px", width: "100%", position: "relative" }}>
+                                  <img src={url} alt={`${item.label} ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                  <div style={{ position: "absolute", top: "4px", right: "4px", display: "flex", gap: "3px" }}>
+                                    {idx > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => moveHeroSlide(item.field, idx, idx - 1)}
+                                        title="Move left"
+                                        style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#ffffff", border: "1px solid #ccc", display: "grid", placeItems: "center", cursor: "pointer" }}
+                                      >
+                                        <ChevronLeft size={11} />
+                                      </button>
+                                    )}
+                                    {idx < list.length - 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => moveHeroSlide(item.field, idx, idx + 1)}
+                                        title="Move right"
+                                        style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#ffffff", border: "1px solid #ccc", display: "grid", placeItems: "center", cursor: "pointer" }}
+                                      >
+                                        <ChevronRight size={11} />
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => removeHeroSlide(item.field, idx)}
+                                      title="Remove"
+                                      style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#fee2e2", border: "1px solid #fca5a5", display: "grid", placeItems: "center", cursor: "pointer", color: "#991b1b" }}
+                                    >
+                                      <X size={11} />
+                                    </button>
+                                  </div>
+                                </div>
+                                <div style={{ padding: "6px 8px", fontSize: "10.5px", color: "#667a6e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={url}>
+                                  {url}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Add slide row */}
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <input
+                            className="shopifyInput"
+                            value={heroUrlInputs[item.field] || ""}
+                            onChange={(e) => setHeroUrlInputs((current) => ({ ...current, [item.field]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                addHeroImageUrl(item.field);
+                              }
+                            }}
+                            placeholder="Paste image URL (https://...) or local path (/banner.png)"
+                            style={{ flex: 1 }}
+                          />
+                          <button
+                            type="button"
+                            className="shopifyBtnSecondary"
+                            onClick={() => addHeroImageUrl(item.field)}
+                            style={{ whiteSpace: "nowrap" }}
+                          >
+                            + Add Slide
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Copy & Messaging for Desktop & Mobile */}
+                  <div className="shopifyFormRow" style={{ marginTop: "10px" }}>
+                    {[
+                      { key: "desktop", label: "Desktop Banner Copy", hint: "Headline and button shown on desktop" },
+                      { key: "mobile", label: "Mobile Banner Copy", hint: "Headline and button shown on phones" },
+                    ].map((device) => {
+                      const contentKey = device.key === "mobile" ? "heroMobileContent" : "heroDesktopContent";
+                      const legacy = {
+                        eyebrow: storeSettings.heroEyebrow ?? "",
+                        heading: storeSettings.heroHeading ?? "",
+                        supportingText: storeSettings.heroSupportingText ?? "",
+                        primaryButtonText: storeSettings.heroPrimaryButtonText ?? "",
+                        primaryButtonLink: storeSettings.heroPrimaryButtonLink ?? "",
+                        secondaryButtonText: storeSettings.heroSecondaryButtonText ?? "",
+                        secondaryButtonLink: storeSettings.heroSecondaryButtonLink ?? "",
+                        alignment: storeSettings.heroTextAlignment || "left",
+                        position: device.key === "mobile" ? "bottom" : (storeSettings.heroTextPosition || "left"),
+                      };
+                      const content = { ...legacy, ...(storeSettings[contentKey] || {}) };
+
+                      return (
+                        <div key={device.key} style={{ border: "1px solid #e2e8e5", borderRadius: "10px", padding: "16px", background: "#fdfefe", display: "flex", flexDirection: "column", gap: "10px" }}>
+                          <div>
+                            <span style={{ fontSize: "13.5px", fontWeight: 750, color: "#122a1e" }}>{device.label}</span>
+                            <p style={{ fontSize: "11.5px", color: "#667a6e", margin: "2px 0 0 0" }}>{device.hint}</p>
+                          </div>
+                          <label className="shopifyFieldLabel">
+                            Eyebrow
+                            <input
+                              className="shopifyInput"
+                              value={content.eyebrow || ""}
+                              onChange={(e) => updateHeroContent(device.key, { eyebrow: e.target.value })}
+                              placeholder="e.g. NEW SEASON"
+                            />
+                          </label>
+                          <label className="shopifyFieldLabel">
+                            Main Heading
+                            <input
+                              className="shopifyInput"
+                              value={content.heading || ""}
+                              onChange={(e) => updateHeroContent(device.key, { heading: e.target.value })}
+                              placeholder="e.g. Unstitched Luxury Lawn"
+                            />
+                          </label>
+                          <label className="shopifyFieldLabel">
+                            Supporting Description
+                            <textarea
+                              className="shopifyTextarea"
+                              rows="2"
+                              value={content.supportingText || ""}
+                              onChange={(e) => updateHeroContent(device.key, { supportingText: e.target.value })}
+                              placeholder="e.g. Crafted for effortless grace..."
+                            />
+                          </label>
+                          <div className="shopifyFormRow">
+                            <label className="shopifyFieldLabel">
+                              Primary Button Text
+                              <input
+                                className="shopifyInput"
+                                value={content.primaryButtonText || ""}
+                                onChange={(e) => updateHeroContent(device.key, { primaryButtonText: e.target.value })}
+                                placeholder="Shop Now"
+                              />
+                            </label>
+                            <label className="shopifyFieldLabel">
+                              Button Link
+                              <input
+                                className="shopifyInput"
+                                value={content.primaryButtonLink || ""}
+                                onChange={(e) => updateHeroContent(device.key, { primaryButtonLink: e.target.value })}
+                                placeholder="#products or /category/kurtis"
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Overlay Slider */}
+                  <label className="shopifyFieldLabel" style={{ marginTop: "8px" }}>
+                    Dark Overlay Opacity: {Number(storeSettings.heroOverlayIntensity || 0)}%
+                    <input
+                      type="range"
+                      min="0"
+                      max="80"
+                      step="1"
+                      value={Number(storeSettings.heroOverlayIntensity || 0)}
+                      onChange={(e) => setStoreSettings((current) => ({ ...current, heroOverlayIntensity: Number(e.target.value) }))}
+                      style={{ accentColor: "#173d29", cursor: "pointer", marginTop: "6px" }}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Business Profile */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Store Business Profile</h3>
+                    <p>Official legal details and customer contact channels.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Store Name
+                      <input className="shopifyInput" defaultValue="Bustaniya" />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Legal Business Name
+                      <input className="shopifyInput" defaultValue="Bustaniya" />
+                    </label>
+                  </div>
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Support Email
+                      <input className="shopifyInput" defaultValue="hello@bustaniya.pk" />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Customer Support Phone
+                      <input className="shopifyInput" placeholder="+92 3xx xxxxxxx" />
+                    </label>
+                  </div>
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Currency
+                      <select className="shopifySelect" defaultValue="PKR">
+                        <option>PKR (Pakistani Rupee)</option>
+                      </select>
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Timezone
+                      <select className="shopifySelect" defaultValue="Asia/Karachi">
+                        <option>Asia/Karachi (PKT)</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Save Bar */}
+              <div className="shopifySettingsBottomBar">
+                <button
+                  type="submit"
+                  className="shopifyBtnPrimary"
+                  disabled={storeSettingsLoading}
+                >
+                  {storeSettingsLoading ? "Saving Store Settings..." : "💾 Save Store Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 2. HOMEPAGE SECTIONS */}
+          {activeTab === "Sections" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <h3>Homepage Sections & Page Builder</h3>
+                      <span style={{ fontSize: "11px", fontWeight: 700, background: "#e8f2ea", color: "#16452c", padding: "2px 8px", borderRadius: "12px" }}>
+                        {(storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).length} sections configured
+                      </span>
+                    </div>
+                    <p>Reorder, customize, and add dynamic storefront sections anywhere on your homepage just like Shopify.</p>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <button
+                      type="submit"
+                      className="shopifyBtnPrimary"
+                      disabled={storeSettingsLoading}
+                      style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                    >
+                      {storeSettingsLoading ? (
+                        <>
+                          <Loader2 size={15} className="animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={15} />
+                          <span>Save Sections</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="shopifyBtnSecondary"
+                      onClick={() => {
+                        setAddSectionInsertIndex(null);
+                        setIsAddSectionModalOpen(true);
+                      }}
+                      style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                    >
+                      <Plus size={16} /> Add Section
+                    </button>
+                  </div>
+                </div>
+
+                <div className="shopifySectionBody">
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {(storeSettings.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((section, index, arr) => {
+                      const isHero = section.type === "hero";
+                      const isExpanded = expandedSectionId === section.id;
+                      const templateMeta = SECTION_TEMPLATES.find((t) => t.type === section.type);
+                      const displayTypeLabel = templateMeta?.label || section.type.replace(/_/g, " ");
+
+                      return (
+                        <div
+                          key={section.id || `${section.type}-${index}`}
+                          className={`shopifyBuilderSectionRow ${isExpanded ? "expanded" : ""} ${section.enabled === false ? "disabled" : ""}`}
+                          style={{
+                            border: isExpanded ? "1.5px solid #173d29" : "1px solid #dbe3dc",
+                            borderRadius: "10px",
+                            background: section.enabled !== false ? "#ffffff" : "#f8faf9",
+                            overflow: "hidden",
+                            transition: "all 0.15s ease",
+                            boxShadow: isExpanded ? "0 4px 14px rgba(23, 61, 41, 0.08)" : "none",
+                          }}
+                        >
+                          {/* Row Header */}
+                          <div
+                            style={{
+                              padding: "14px 16px",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              background: isExpanded ? "#f5f8f5" : (section.enabled !== false ? "#ffffff" : "#fbfcfb"),
+                              borderBottom: isExpanded ? "1px solid #e1e9e2" : "none",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              {/* Reorder Buttons */}
+                              <div style={{ display: "flex", gap: "3px" }}>
+                                <button
+                                  type="button"
+                                  disabled={index === 0}
+                                  onClick={() => setStoreSettings((current) => {
+                                    const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                    [sections[index - 1], sections[index]] = [sections[index], sections[index - 1]];
+                                    return { ...current, homepageSections: sections };
+                                  })}
+                                  style={{
+                                    width: "26px",
+                                    height: "26px",
+                                    borderRadius: "5px",
+                                    border: "1px solid #d4ded6",
+                                    background: index === 0 ? "#f1f5f2" : "#ffffff",
+                                    cursor: index === 0 ? "not-allowed" : "pointer",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    color: index === 0 ? "#9ca3af" : "#173d29",
+                                    fontWeight: 700,
+                                  }}
+                                  title="Move Up"
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={index === arr.length - 1}
+                                  onClick={() => setStoreSettings((current) => {
+                                    const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                    [sections[index], sections[index + 1]] = [sections[index + 1], sections[index]];
+                                    return { ...current, homepageSections: sections };
+                                  })}
+                                  style={{
+                                    width: "26px",
+                                    height: "26px",
+                                    borderRadius: "5px",
+                                    border: "1px solid #d4ded6",
+                                    background: index === arr.length - 1 ? "#f1f5f2" : "#ffffff",
+                                    cursor: index === arr.length - 1 ? "not-allowed" : "pointer",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    color: index === arr.length - 1 ? "#9ca3af" : "#173d29",
+                                    fontWeight: 700,
+                                  }}
+                                  title="Move Down"
+                                >
+                                  ↓
+                                </button>
+                              </div>
+
+                              <span style={{ fontSize: "11px", fontWeight: 800, color: "#8c9b91", minWidth: "20px" }}>
+                                #{index + 1}
+                              </span>
+
+                              <div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                  <span style={{ fontSize: "13.5px", fontWeight: 750, color: "#122a1e" }}>
+                                    {section.heading || section.label || displayTypeLabel}
+                                  </span>
+                                  <span style={{ fontSize: "10.5px", color: "#486151", background: "#eaf0eb", padding: "1px 6px", borderRadius: "4px", fontWeight: 600 }}>
+                                    {section.type.replace(/_/g, " ")}
+                                  </span>
+                                  {section.category && section.category !== "All" && (
+                                    <span style={{ fontSize: "10.5px", color: "#1e5b38", background: "#e1ede3", padding: "1px 6px", borderRadius: "4px", fontWeight: 600 }}>
+                                      🏷️ {section.category}
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontSize: "11px", color: "#778a7e" }}>
+                                  {section.enabled !== false ? "Visible on storefront" : "Hidden from shoppers"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              {/* Visibility Toggle Pill */}
+                              <button
+                                type="button"
+                                onClick={() => setStoreSettings((current) => {
+                                  const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                  const nextState = sections[index]?.enabled === false ? true : false;
+                                  sections[index] = { ...sections[index], enabled: nextState };
+                                  return { ...current, homepageSections: sections };
+                                })}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                  padding: "5px 12px",
+                                  borderRadius: "20px",
+                                  fontSize: "12px",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  transition: "all 0.15s ease",
+                                  border: section.enabled !== false ? "1.5px solid #a3d9b6" : "1.5px solid #d1d5db",
+                                  background: section.enabled !== false ? "#e8f6ed" : "#f3f4f6",
+                                  color: section.enabled !== false ? "#16452c" : "#6b7280",
+                                }}
+                                title={section.enabled !== false ? "Click to Disable / Hide section from storefront" : "Click to Enable / Show section on storefront"}
+                              >
+                                <span
+                                  style={{
+                                    width: "8px",
+                                    height: "8px",
+                                    borderRadius: "50%",
+                                    background: section.enabled !== false ? "#10b981" : "#9ca3af",
+                                    boxShadow: section.enabled !== false ? "0 0 6px rgba(16, 185, 129, 0.5)" : "none",
+                                  }}
+                                />
+                                <span>{section.enabled !== false ? "Enabled" : "Disabled"}</span>
+                              </button>
+
+                              {/* Customize / Edit Button */}
+                              <button
+                                type="button"
+                                className="shopifyBtnSecondary"
+                                onClick={() => setExpandedSectionId(isExpanded ? null : section.id)}
+                                style={{ fontSize: "11.5px", padding: "5px 10px", display: "flex", alignItems: "center", gap: "4px" }}
+                              >
+                                <span>{isExpanded ? "Done" : "Customize"}</span>
+                                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              </button>
+
+                              {/* Remove Section */}
+                              {!isHero && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm(`Remove "${section.heading || section.label}" from homepage?`)) {
+                                      setStoreSettings((current) => ({
+                                        ...current,
+                                        homepageSections: (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).filter((_, i) => i !== index),
+                                      }));
+                                      if (expandedSectionId === section.id) {
+                                        setExpandedSectionId(null);
+                                      }
+                                    }
+                                  }}
+                                  style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "5px", borderRadius: "4px" }}
+                                  title={`Remove ${section.label}`}
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Inline Content Customizer */}
+                          {isExpanded && (
+                            <div style={{ padding: "16px 20px 20px", display: "flex", flexDirection: "column", gap: "14px", background: "#ffffff" }}>
+                              {isHero ? (
+                                <p style={{ fontSize: "12px", color: "#667a6e", margin: 0 }}>
+                                  Hero slides and campaign imagery can be customized in the <b>Hero Carousel & Campaign Banners</b> section above.
+                                </p>
+                              ) : (
+                                <>
+                                  {/* Headings */}
+                                  <div className="shopifyFormRow">
+                                    <label className="shopifyFieldLabel">
+                                      Eyebrow / Badge Text
+                                      <input
+                                        className="shopifyInput"
+                                        value={section.eyebrow || ""}
+                                        placeholder="e.g. CURATED SELECTION"
+                                        onChange={(e) => setStoreSettings((current) => {
+                                          const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                          sections[index] = { ...sections[index], eyebrow: e.target.value };
+                                          return { ...current, homepageSections: sections };
+                                        })}
+                                      />
+                                    </label>
+                                    <label className="shopifyFieldLabel">
+                                      Section Heading
+                                      <input
+                                        className="shopifyInput"
+                                        value={section.heading || ""}
+                                        placeholder="e.g. Luxury Lawn Ensembles"
+                                        onChange={(e) => setStoreSettings((current) => {
+                                          const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                          sections[index] = { ...sections[index], heading: e.target.value };
+                                          return { ...current, homepageSections: sections };
+                                        })}
+                                      />
+                                    </label>
+                                  </div>
+
+                                  <label className="shopifyFieldLabel">
+                                    Section Subtitle / Description
+                                    <input
+                                      className="shopifyInput"
+                                      value={section.subtitle || ""}
+                                      placeholder="Short description highlighting the collection or message..."
+                                      onChange={(e) => setStoreSettings((current) => {
+                                        const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                        sections[index] = { ...sections[index], subtitle: e.target.value };
+                                        return { ...current, homepageSections: sections };
+                                      })}
+                                    />
+                                  </label>
+
+                                  {/* Type-Specific Customization Fields */}
+                                  {section.type === "featured_collection" && (
+                                    <div style={{ padding: "14px", background: "#f8faf7", border: "1px solid #dbe5dc", borderRadius: "8px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                                      <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                                        📦 Collection Configuration
+                                      </span>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Product Category Filter
+                                          <select
+                                            className="shopifySelect"
+                                            value={section.category || "All"}
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], category: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          >
+                                            <option value="All">All Categories (Latest Catalog)</option>
+                                            {availableCategories.map((cat) => (
+                                              <option key={cat.slug || cat.name} value={cat.name}>
+                                                {cat.name}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Items to Show
+                                          <select
+                                            className="shopifySelect"
+                                            value={section.limit || 4}
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], limit: Number(e.target.value) };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          >
+                                            <option value={4}>4 Products (Single row on desktop)</option>
+                                            <option value={8}>8 Products (Two rows)</option>
+                                            <option value={12}>12 Products (Three rows)</option>
+                                            <option value={16}>16 Products (Four rows)</option>
+                                          </select>
+                                        </label>
+                                      </div>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Call-to-Action Button Label
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonText || ""}
+                                            placeholder="e.g. View All Pieces"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonText: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Button Destination Link
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonLink || ""}
+                                            placeholder="e.g. /category/kurtis or #products"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonLink: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === "image_with_text" && (
+                                    <div style={{ padding: "14px", background: "#f8faf7", border: "1px solid #dbe5dc", borderRadius: "8px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                                      <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                                        🖼️ Image & Story Configuration
+                                      </span>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Campaign Image URL
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.imageUrl || ""}
+                                            placeholder="https://... or /bustaniya-campaign-hero-v5.png"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], imageUrl: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Image Alignment Layout
+                                          <select
+                                            className="shopifySelect"
+                                            value={section.imagePosition || "left"}
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], imagePosition: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          >
+                                            <option value="left">Image on Left, Story on Right</option>
+                                            <option value="right">Story on Left, Image on Right</option>
+                                          </select>
+                                        </label>
+                                      </div>
+                                      <label className="shopifyFieldLabel">
+                                        Editorial Story Body Paragraph
+                                        <textarea
+                                          className="shopifyInput"
+                                          rows={3}
+                                          value={section.content || ""}
+                                          placeholder="Share the inspiration, heritage fabric techniques, or craftsmanship behind your brand..."
+                                          onChange={(e) => setStoreSettings((current) => {
+                                            const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                            sections[index] = { ...sections[index], content: e.target.value };
+                                            return { ...current, homepageSections: sections };
+                                          })}
+                                        />
+                                      </label>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Button Text
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonText || ""}
+                                            placeholder="e.g. Discover the Atelier"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonText: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Button Destination Link
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonLink || ""}
+                                            placeholder="e.g. #products or /about"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonLink: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === "promo_banner" && (
+                                    <div style={{ padding: "14px", background: "#f8faf7", border: "1px solid #dbe5dc", borderRadius: "8px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                                      <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                                        📣 Banner Styles & Colors
+                                      </span>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Background Color
+                                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                            <input
+                                              type="color"
+                                              value={section.bgColor || "#122a1e"}
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                sections[index] = { ...sections[index], bgColor: e.target.value };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                              style={{ width: "38px", height: "36px", padding: "0", border: "1px solid #ccc", borderRadius: "4px", cursor: "pointer" }}
+                                            />
+                                            <input
+                                              className="shopifyInput"
+                                              value={section.bgColor || "#122a1e"}
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                sections[index] = { ...sections[index], bgColor: e.target.value };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                              placeholder="#122a1e"
+                                              style={{ flex: 1 }}
+                                            />
+                                          </div>
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Text Color
+                                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                            <input
+                                              type="color"
+                                              value={section.textColor || "#fdfaf3"}
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                sections[index] = { ...sections[index], textColor: e.target.value };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                              style={{ width: "38px", height: "36px", padding: "0", border: "1px solid #ccc", borderRadius: "4px", cursor: "pointer" }}
+                                            />
+                                            <input
+                                              className="shopifyInput"
+                                              value={section.textColor || "#fdfaf3"}
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                sections[index] = { ...sections[index], textColor: e.target.value };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                              placeholder="#fdfaf3"
+                                              style={{ flex: 1 }}
+                                            />
+                                          </div>
+                                        </label>
+                                      </div>
+                                      <label className="shopifyFieldLabel">
+                                        Optional Background Pattern / Photo URL
+                                        <input
+                                          className="shopifyInput"
+                                          value={section.imageUrl || ""}
+                                          placeholder="https://... (Leave empty for pure solid color)"
+                                          onChange={(e) => setStoreSettings((current) => {
+                                            const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                            sections[index] = { ...sections[index], imageUrl: e.target.value };
+                                            return { ...current, homepageSections: sections };
+                                          })}
+                                        />
+                                      </label>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Button Text
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonText || ""}
+                                            placeholder="e.g. Shop Festive Sale"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonText: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Button Link
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonLink || ""}
+                                            placeholder="e.g. #products"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonLink: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === "rich_text" && (
+                                    <div style={{ padding: "14px", background: "#f8faf7", border: "1px solid #dbe5dc", borderRadius: "8px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                                      <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                                        ✍️ Editorial Statement
+                                      </span>
+                                      <label className="shopifyFieldLabel">
+                                        Philosophy / Statement Body
+                                        <textarea
+                                          className="shopifyInput"
+                                          rows={3}
+                                          value={section.content || ""}
+                                          placeholder="Write your brand statement or manifesto..."
+                                          onChange={(e) => setStoreSettings((current) => {
+                                            const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                            sections[index] = { ...sections[index], content: e.target.value };
+                                            return { ...current, homepageSections: sections };
+                                          })}
+                                        />
+                                      </label>
+                                      <div className="shopifyFormRow">
+                                        <label className="shopifyFieldLabel">
+                                          Optional Button Text
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonText || ""}
+                                            placeholder="e.g. Learn More"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonText: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                        <label className="shopifyFieldLabel">
+                                          Button Link
+                                          <input
+                                            className="shopifyInput"
+                                            value={section.buttonLink || ""}
+                                            placeholder="e.g. #products"
+                                            onChange={(e) => setStoreSettings((current) => {
+                                              const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                              sections[index] = { ...sections[index], buttonLink: e.target.value };
+                                              return { ...current, homepageSections: sections };
+                                            })}
+                                          />
+                                        </label>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === "testimonials" && (
+                                    <div style={{ padding: "14px", background: "#f8faf7", border: "1px solid #dbe5dc", borderRadius: "8px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                                          💬 Customer Reviews & Quotes
+                                        </span>
+                                        <button
+                                          type="button"
+                                          className="shopifyBtnSecondary"
+                                          onClick={() => setStoreSettings((current) => {
+                                            const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                            const currentItems = Array.isArray(sections[index].items) ? sections[index].items : [];
+                                            sections[index] = {
+                                              ...sections[index],
+                                              items: [
+                                                ...currentItems,
+                                                { id: `rev-${Date.now()}`, name: "New Customer", location: "Lahore", rating: 5, review: "Great stitching and fabric quality!", product: "Lawn Suit" },
+                                              ],
+                                            };
+                                            return { ...current, homepageSections: sections };
+                                          })}
+                                          style={{ fontSize: "11px", padding: "4px 8px" }}
+                                        >
+                                          + Add Review
+                                        </button>
+                                      </div>
+
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                        {((Array.isArray(section.items) && section.items.length) ? section.items : []).map((rev, revIdx) => (
+                                          <div key={rev.id || revIdx} style={{ padding: "10px", background: "#ffffff", border: "1px solid #e1e9e2", borderRadius: "6px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                              <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#173d29" }}>Review #{revIdx + 1}</span>
+                                              <button
+                                                type="button"
+                                                onClick={() => setStoreSettings((current) => {
+                                                  const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                  sections[index] = {
+                                                    ...sections[index],
+                                                    items: (sections[index].items || []).filter((_, i) => i !== revIdx),
+                                                  };
+                                                  return { ...current, homepageSections: sections };
+                                                })}
+                                                style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "2px" }}
+                                              >
+                                                <X size={14} />
+                                              </button>
+                                            </div>
+                                            <div className="shopifyFormRow">
+                                              <input
+                                                className="shopifyInput"
+                                                value={rev.name || ""}
+                                                placeholder="Customer Name"
+                                                onChange={(e) => setStoreSettings((current) => {
+                                                  const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                  const items = [...(sections[index].items || [])];
+                                                  items[revIdx] = { ...items[revIdx], name: e.target.value };
+                                                  sections[index] = { ...sections[index], items };
+                                                  return { ...current, homepageSections: sections };
+                                                })}
+                                              />
+                                              <input
+                                                className="shopifyInput"
+                                                value={rev.location || ""}
+                                                placeholder="City (e.g. Lahore, Karachi)"
+                                                onChange={(e) => setStoreSettings((current) => {
+                                                  const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                  const items = [...(sections[index].items || [])];
+                                                  items[revIdx] = { ...items[revIdx], location: e.target.value };
+                                                  sections[index] = { ...sections[index], items };
+                                                  return { ...current, homepageSections: sections };
+                                                })}
+                                              />
+                                              <select
+                                                className="shopifySelect"
+                                                value={rev.rating || 5}
+                                                onChange={(e) => setStoreSettings((current) => {
+                                                  const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                  const items = [...(sections[index].items || [])];
+                                                  items[revIdx] = { ...items[revIdx], rating: Number(e.target.value) };
+                                                  sections[index] = { ...sections[index], items };
+                                                  return { ...current, homepageSections: sections };
+                                                })}
+                                                style={{ width: "110px" }}
+                                              >
+                                                <option value={5}>⭐⭐⭐⭐⭐ (5 Stars)</option>
+                                                <option value={4}>⭐⭐⭐⭐ (4 Stars)</option>
+                                                <option value={3}>⭐⭐⭐ (3 Stars)</option>
+                                              </select>
+                                            </div>
+                                            <input
+                                              className="shopifyInput"
+                                              value={rev.product || ""}
+                                              placeholder="Purchased Outfit Name (e.g. Embroidered Lawn Kurti)"
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                const items = [...(sections[index].items || [])];
+                                                items[revIdx] = { ...items[revIdx], product: e.target.value };
+                                                sections[index] = { ...sections[index], items };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                            />
+                                            <textarea
+                                              className="shopifyInput"
+                                              rows={2}
+                                              value={rev.review || ""}
+                                              placeholder="Customer review quote..."
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                const items = [...(sections[index].items || [])];
+                                                items[revIdx] = { ...items[revIdx], review: e.target.value };
+                                                sections[index] = { ...sections[index], items };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === "faq" && (
+                                    <div style={{ padding: "14px", background: "#f8faf7", border: "1px solid #dbe5dc", borderRadius: "8px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <span style={{ fontSize: "12.5px", fontWeight: 750, color: "#122a1e" }}>
+                                          ❓ Frequently Asked Questions (FAQ)
+                                        </span>
+                                        <button
+                                          type="button"
+                                          className="shopifyBtnSecondary"
+                                          onClick={() => setStoreSettings((current) => {
+                                            const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                            const currentItems = Array.isArray(sections[index].items) ? sections[index].items : [];
+                                            sections[index] = {
+                                              ...sections[index],
+                                              items: [
+                                                ...currentItems,
+                                                { id: `faq-${Date.now()}`, question: "New Question?", answer: "Helpful answer explaining your store policy..." },
+                                              ],
+                                            };
+                                            return { ...current, homepageSections: sections };
+                                          })}
+                                          style={{ fontSize: "11px", padding: "4px 8px" }}
+                                        >
+                                          + Add Question
+                                        </button>
+                                      </div>
+
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                        {((Array.isArray(section.items) && section.items.length) ? section.items : []).map((faq, faqIdx) => (
+                                          <div key={faq.id || faqIdx} style={{ padding: "10px", background: "#ffffff", border: "1px solid #e1e9e2", borderRadius: "6px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                              <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#173d29" }}>Question #{faqIdx + 1}</span>
+                                              <button
+                                                type="button"
+                                                onClick={() => setStoreSettings((current) => {
+                                                  const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                  sections[index] = {
+                                                    ...sections[index],
+                                                    items: (sections[index].items || []).filter((_, i) => i !== faqIdx),
+                                                  };
+                                                  return { ...current, homepageSections: sections };
+                                                })}
+                                                style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "2px" }}
+                                              >
+                                                <X size={14} />
+                                              </button>
+                                            </div>
+                                            <input
+                                              className="shopifyInput"
+                                              value={faq.question || ""}
+                                              placeholder="e.g. How long does delivery take?"
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                const items = [...(sections[index].items || [])];
+                                                items[faqIdx] = { ...items[faqIdx], question: e.target.value };
+                                                sections[index] = { ...sections[index], items };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                            />
+                                            <textarea
+                                              className="shopifyInput"
+                                              rows={2}
+                                              value={faq.answer || ""}
+                                              placeholder="Clear and helpful answer..."
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                                const items = [...(sections[index].items || [])];
+                                                items[faqIdx] = { ...items[faqIdx], answer: e.target.value };
+                                                sections[index] = { ...sections[index], items };
+                                                return { ...current, homepageSections: sections };
+                                              })}
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === "shop_by_category" && (() => {
+                                    const mainCats = (availableCategories || []).filter((c) => !c.parentSlug && c.status !== "Archived");
+                                    const currentCards = Array.isArray(section.cards) && section.cards.length > 0
+                                      ? section.cards
+                                      : mainCats.map((cat, idx) => ({
+                                        id: cat.id || `cat-${idx + 1}`,
+                                        name: cat.name || "",
+                                        slug: cat.slug || "",
+                                        image: cat.image || "",
+                                        description: cat.description || "",
+                                        enabled: cat.showOnHomepage !== false,
+                                      }));
+
+                                    const updateCard = (cardIdx, updates) => {
+                                      setStoreSettings((current) => {
+                                        const sections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                                        const secIdx = sections.findIndex((s) => s.id === section.id || s.type === "shop_by_category");
+                                        if (secIdx === -1) return current;
+                                        const newCards = [...currentCards];
+                                        newCards[cardIdx] = { ...newCards[cardIdx], ...updates };
+                                        sections[secIdx] = { ...sections[secIdx], cards: newCards };
+                                        return { ...current, homepageSections: sections };
+                                      });
+                                    };
+
+                                    return (
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                                        <label className="shopifyFieldLabel">
+                                          Category Display Style
+                                          <select
+                                            className="shopifySelect"
+                                            value={section.style || storeSettings.categorySectionStyle || "atelier"}
+                                            onChange={(e) => {
+                                              const nextStyle = e.target.value;
+                                              setStoreSettings((current) => {
+                                                const sections = (current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS).map((sec) =>
+                                                  sec.type === "shop_by_category" ? { ...sec, style: nextStyle } : sec
+                                                );
+                                                return { ...current, categorySectionStyle: nextStyle, homepageSections: sections };
+                                              });
+                                            }}
+                                          >
+                                            <option value="atelier">Atelier Overlay Cards (Dark Luxury Typography Overlay)</option>
+                                            <option value="minimal">Minimal Collections Grid (House of Lucknawi Style with White Padding)</option>
+                                          </select>
+                                        </label>
+
+                                        {/* Category Cards Manager */}
+                                        <div style={{ border: "1px solid #d4ded6", borderRadius: "8px", padding: "14px", background: "#f8faf7" }}>
+                                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                            <div>
+                                              <span style={{ fontSize: "13px", fontWeight: 750, color: "#122a1e" }}>Homepage Category Cards</span>
+                                              <p style={{ margin: "2px 0 0", fontSize: "11px", color: "#627366" }}>
+                                                Customize card images, labels, and visibility displayed on the storefront.
+                                              </p>
+                                            </div>
+                                            <span style={{ fontSize: "11px", fontWeight: 700, background: "#e8f2ea", color: "#16452c", padding: "2px 8px", borderRadius: "10px" }}>
+                                              {currentCards.filter((c) => c.enabled !== false).length} cards active
+                                            </span>
+                                          </div>
+
+                                          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                            {currentCards.map((card, cIdx) => (
+                                              <div
+                                                key={card.id || card.slug || cIdx}
+                                                style={{
+                                                  background: "#ffffff",
+                                                  border: "1px solid #dce4dd",
+                                                  borderRadius: "8px",
+                                                  padding: "12px",
+                                                  display: "flex",
+                                                  flexDirection: "column",
+                                                  gap: "10px",
+                                                }}
+                                              >
+                                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                                    {card.image ? (
+                                                      <img
+                                                        src={card.image}
+                                                        alt={card.name}
+                                                        style={{ width: "40px", height: "40px", borderRadius: "6px", objectFit: "cover", border: "1px solid #e1e9e2" }}
+                                                      />
+                                                    ) : (
+                                                      <div style={{ width: "40px", height: "40px", borderRadius: "6px", background: "#eaf0eb", display: "grid", placeItems: "center", fontSize: "16px" }}>
+                                                        🏷️
+                                                      </div>
+                                                    )}
+                                                    <div>
+                                                      <span style={{ fontSize: "13px", fontWeight: 750, color: "#122a1e" }}>{card.name}</span>
+                                                      <span style={{ marginLeft: "6px", fontSize: "10.5px", color: "#6b7d70", background: "#f1f5f2", padding: "1px 5px", borderRadius: "4px" }}>
+                                                        /{card.slug}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+
+                                                  {/* Enable/Disable Card */}
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => updateCard(cIdx, { enabled: card.enabled === false ? true : false })}
+                                                    style={{
+                                                      display: "inline-flex",
+                                                      alignItems: "center",
+                                                      gap: "5px",
+                                                      padding: "4px 10px",
+                                                      borderRadius: "16px",
+                                                      fontSize: "11px",
+                                                      fontWeight: 700,
+                                                      cursor: "pointer",
+                                                      border: card.enabled !== false ? "1px solid #a3d9b6" : "1px solid #d1d5db",
+                                                      background: card.enabled !== false ? "#e8f6ed" : "#f3f4f6",
+                                                      color: card.enabled !== false ? "#16452c" : "#6b7280",
+                                                    }}
+                                                  >
+                                                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: card.enabled !== false ? "#10b981" : "#9ca3af" }} />
+                                                    {card.enabled !== false ? "Visible" : "Hidden"}
+                                                  </button>
+                                                </div>
+
+                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                                                  <label style={{ fontSize: "11px", fontWeight: 600, color: "#374151", display: "flex", flexDirection: "column", gap: "3px" }}>
+                                                    Card Title
+                                                    <input
+                                                      className="shopifyInput"
+                                                      style={{ fontSize: "12px", padding: "6px 8px" }}
+                                                      value={card.name}
+                                                      onChange={(e) => updateCard(cIdx, { name: e.target.value })}
+                                                      placeholder="e.g. Kurtis, Co-ord Sets"
+                                                    />
+                                                  </label>
+                                                  <label style={{ fontSize: "11px", fontWeight: 600, color: "#374151", display: "flex", flexDirection: "column", gap: "3px" }}>
+                                                    Card Image URL
+                                                    <input
+                                                      className="shopifyInput"
+                                                      style={{ fontSize: "12px", padding: "6px 8px" }}
+                                                      value={card.image}
+                                                      onChange={(e) => updateCard(cIdx, { image: e.target.value })}
+                                                      placeholder="https://... or /image.png"
+                                                    />
+                                                  </label>
+                                                </div>
+
+                                                <label style={{ fontSize: "11px", fontWeight: 600, color: "#374151", display: "flex", flexDirection: "column", gap: "3px" }}>
+                                                  Card Description / Subtitle
+                                                  <input
+                                                    className="shopifyInput"
+                                                    style={{ fontSize: "12px", padding: "6px 8px" }}
+                                                    value={card.description}
+                                                    onChange={(e) => updateCard(cIdx, { description: e.target.value })}
+                                                    placeholder="Curated essentials, made for everyday elegance."
+                                                  />
+                                                </label>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {section.type === "instagram_feed" && (
+                                    <div style={{ border: "1px solid #d4ded6", borderRadius: "8px", padding: "14px", background: "#f8faf7", marginTop: "6px" }}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                                        <span style={{ fontSize: "13px", fontWeight: 750, color: "#122a1e" }}>Instagram Reels Links</span>
+                                        <button
+                                          type="button"
+                                          className="shopifyBtnSecondary"
+                                          onClick={() => setStoreSettings((current) => ({
+                                            ...current,
+                                            instagramPosts: [
+                                              ...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []),
+                                              { id: `instagram-${Date.now()}`, mediaType: "video", url: "", caption: "", image: "" },
+                                            ],
+                                          }))}
+                                          style={{ fontSize: "11px", padding: "5px 10px" }}
+                                        >
+                                          + Add Reel
+                                        </button>
+                                      </div>
+
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                        {(storeSettings.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).map((post, postIndex) => (
+                                          <div key={post.id || postIndex} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                            <input
+                                              className="shopifyInput"
+                                              value={post.url || ""}
+                                              placeholder="https://www.instagram.com/reel/..."
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
+                                                posts[postIndex] = { ...posts[postIndex], url: e.target.value };
+                                                return { ...current, instagramPosts: posts };
+                                              })}
+                                              style={{ flex: 1 }}
+                                            />
+                                            <input
+                                              className="shopifyInput"
+                                              value={post.caption || ""}
+                                              placeholder="Caption / Collection"
+                                              onChange={(e) => setStoreSettings((current) => {
+                                                const posts = [...(current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || [])];
+                                                posts[postIndex] = { ...posts[postIndex], caption: e.target.value };
+                                                return { ...current, instagramPosts: posts };
+                                              })}
+                                              style={{ width: "180px" }}
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => setStoreSettings((current) => {
+                                                const posts = (current.instagramPosts || DEFAULT_STORE_SETTINGS.instagramPosts || []).filter((_, pIdx) => pIdx !== postIndex);
+                                                return { ...current, instagramPosts: posts };
+                                              })}
+                                              style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "4px" }}
+                                            >
+                                              <X size={15} />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+
+                              {/* Quick Insert Below */}
+                              <div style={{ marginTop: "10px", paddingTop: "12px", borderTop: "1px dashed #d5ded6", display: "flex", justifyContent: "flex-end" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAddSectionInsertIndex(index + 1);
+                                    setIsAddSectionModalOpen(true);
+                                  }}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "#16452c",
+                                    fontSize: "12px",
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                  }}
+                                >
+                                  <Plus size={14} /> Insert section below this
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Add Section Button Box */}
+                  <div
+                    onClick={() => {
+                      setAddSectionInsertIndex(null);
+                      setIsAddSectionModalOpen(true);
+                    }}
+                    style={{
+                      marginTop: "16px",
+                      padding: "16px",
+                      border: "2px dashed #b7cabb",
+                      borderRadius: "10px",
+                      background: "#f9fbf9",
+                      textAlign: "center",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "6px",
+                      transition: "all 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "#173d29";
+                      e.currentTarget.style.background = "#f2f7f3";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "#b7cabb";
+                      e.currentTarget.style.background = "#f9fbf9";
+                    }}
+                  >
+                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#e2ede4", color: "#16452c", display: "grid", placeItems: "center" }}>
+                      <Plus size={18} />
+                    </div>
+                    <span style={{ fontSize: "13.5px", fontWeight: 750, color: "#122a1e" }}>
+                      + Add New Section to Homepage
+                    </span>
+                    <span style={{ fontSize: "11.5px", color: "#667a6e" }}>
+                      Choose from Featured Collections, Image with Text, Promo Banners, Testimonials, FAQ Accordion and more.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Sticky Action Bar */}
+              <div className="shopifySettingsBottomBar">
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                    {storeSettingsLoading ? "Saving Sections..." : "💾 Save Page Sections"}
+                  </button>
+                  <button
+                    type="button"
+                    className="shopifyBtnSecondary"
+                    onClick={() => window.open("/", "_blank")}
+                  >
+                    👁️ View Live Storefront
+                  </button>
+                </div>
+                {savedAt && (
+                  <span style={{ fontSize: "11.5px", color: "#16452c", fontWeight: 600 }}>
+                    ✓ Sections saved at {savedAt}
+                  </span>
+                )}
+              </div>
+            </form>
+          )}
+
+          {/* Shopify-Style Add Section Modal */}
+          {isAddSectionModalOpen && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 9999,
+                background: "rgba(10, 28, 18, 0.65)",
+                backdropFilter: "blur(4px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "20px",
+              }}
+              onClick={() => setIsAddSectionModalOpen(false)}
+            >
+              <div
+                style={{
+                  background: "#ffffff",
+                  borderRadius: "14px",
+                  width: "min(780px, 96vw)",
+                  maxHeight: "88vh",
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                  boxShadow: "0 20px 40px rgba(0,0,0,0.24)",
+                  border: "1px solid #d5dfd7",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div
+                  style={{
+                    padding: "18px 24px",
+                    borderBottom: "1px solid #e2e8e5",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    background: "#f9fbf9",
+                  }}
+                >
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 800, color: "#122a1e" }}>
+                      Add a Section to Homepage
+                    </h3>
+                    <p style={{ margin: "3px 0 0", fontSize: "12px", color: "#64776b" }}>
+                      {typeof addSectionInsertIndex === "number"
+                        ? `Inserting section at position #${addSectionInsertIndex + 1}`
+                        : "Section will be placed at the bottom of the page (can be moved anywhere anytime)"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddSectionModalOpen(false)}
+                    style={{ background: "none", border: "none", color: "#556b5d", cursor: "pointer", padding: "6px" }}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Filter Tabs */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "6px",
+                    padding: "10px 24px",
+                    borderBottom: "1px solid #eef2ef",
+                    overflowX: "auto",
+                    background: "#ffffff",
+                  }}
+                >
+                  {[
+                    { id: "all", label: "All Templates" },
+                    { id: "Products", label: "Products & Collections" },
+                    { id: "Editorial & Media", label: "Editorial & Media" },
+                    { id: "Promotions", label: "Promotions & Banners" },
+                    { id: "Social Proof", label: "Reviews & Social" },
+                    { id: "Customer Support", label: "FAQ & Tailoring" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSectionFilterCategory(tab.id)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "20px",
+                        border: sectionFilterCategory === tab.id ? "1.5px solid #16452c" : "1px solid #dbe2dd",
+                        background: sectionFilterCategory === tab.id ? "#eaf2eb" : "#ffffff",
+                        color: sectionFilterCategory === tab.id ? "#16452c" : "#4f6356",
+                        fontSize: "12px",
+                        fontWeight: sectionFilterCategory === tab.id ? 750 : 600,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Section Templates Grid */}
+                <div
+                  style={{
+                    padding: "20px 24px",
+                    overflowY: "auto",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+                    gap: "14px",
+                  }}
+                >
+                  {SECTION_TEMPLATES.filter((tpl) => {
+                    if (sectionFilterCategory === "all") return true;
+                    if (sectionFilterCategory === "Customer Support") {
+                      return tpl.categoryGroup === "Customer Support" || tpl.categoryGroup === "Specialty";
+                    }
+                    return tpl.categoryGroup === sectionFilterCategory;
+                  }).map((tpl) => (
+                    <div
+                      key={tpl.type}
+                      style={{
+                        border: "1px solid #d8e2da",
+                        borderRadius: "10px",
+                        padding: "16px",
+                        background: "#ffffff",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        transition: "all 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = "#16452c";
+                        e.currentTarget.style.boxShadow = "0 6px 16px rgba(22, 69, 44, 0.08)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = "#d8e2da";
+                        e.currentTarget.style.boxShadow = "none";
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
+                          <span style={{ fontSize: "14px", fontWeight: 800, color: "#122a1e" }}>
+                            {tpl.label}
+                          </span>
+                          {tpl.badge && (
+                            <span style={{ fontSize: "10.5px", fontWeight: 700, background: "#e8f2ea", color: "#16452c", padding: "2px 7px", borderRadius: "10px" }}>
+                              {tpl.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ margin: 0, fontSize: "11.5px", color: "#617366", lineHeight: 1.5 }}>
+                          {tpl.description}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="shopifyBtnPrimary"
+                        onClick={() => {
+                          const newSection = {
+                            ...tpl.defaultProps,
+                            id: `${tpl.type}-${Date.now()}`,
+                            type: tpl.type,
+                            enabled: true,
+                          };
+                          setStoreSettings((current) => {
+                            const currentSections = [...(current.homepageSections || DEFAULT_HOMEPAGE_SECTIONS)];
+                            if (typeof addSectionInsertIndex === "number" && addSectionInsertIndex >= 0) {
+                              currentSections.splice(addSectionInsertIndex, 0, newSection);
+                            } else {
+                              currentSections.push(newSection);
+                            }
+                            return { ...current, homepageSections: currentSections };
+                          });
+                          setExpandedSectionId(newSection.id);
+                          setIsAddSectionModalOpen(false);
+                          setAddSectionInsertIndex(null);
+                        }}
+                        style={{ width: "100%", justifyContent: "center", fontSize: "12px", padding: "8px" }}
+                      >
+                        + Add to Homepage
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. SIZE GUIDE MATRIX */}
+          {activeTab === "SizeChart" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Size Guide Configuration</h3>
+                    <p>Customize the size guide modal title, fit advice, and measurement values shown across product pages.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Size Guide Title
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.sizeChartSettings?.title || "Bustaniya Size Guide"}
+                        onChange={(e) => updateSettingsGroup("sizeChartSettings", { title: e.target.value })}
+                        placeholder="e.g. Bustaniya Size Guide"
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Subtitle Note
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.sizeChartSettings?.subtitle || "Standard Ready-to-Wear Measurements (Inches)"}
+                        onChange={(e) => updateSettingsGroup("sizeChartSettings", { subtitle: e.target.value })}
+                        placeholder="e.g. Standard Ready-to-Wear Measurements (Inches)"
+                      />
+                    </label>
+                  </div>
+                  <label className="shopifyFieldLabel">
+                    Fit Advice Text
+                    <textarea
+                      className="shopifyTextarea"
+                      rows="2"
+                      value={storeSettings.sizeChartSettings?.advice || ""}
+                      onChange={(e) => updateSettingsGroup("sizeChartSettings", { advice: e.target.value })}
+                      placeholder="Fit advice shown under the measurements table..."
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Dynamic Measurement Table */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Ready-to-Wear Measurement Matrix</h3>
+                    <p>Garment measurements in inches across XS, S, M, L, XL.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="shopifyBtnSecondary"
+                    onClick={() => {
+                      const current = storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements;
+                      const next = [
+                        ...current,
+                        { name: "NEW MEASUREMENT", values: { XS: "0", S: "0", M: "0", L: "0", XL: "0" } },
+                      ];
+                      updateSettingsGroup("sizeChartSettings", { measurements: next });
+                    }}
+                    style={{ fontSize: "12px", padding: "6px 12px" }}
+                  >
+                    + Add Measurement
+                  </button>
+                </div>
+                <div className="shopifySectionBody" style={{ padding: 0 }}>
+                  <div className="shopifyTableWrap">
+                    <table className="shopifyOrderTable">
+                      <thead>
+                        <tr>
+                          <th>Measurement Name</th>
+                          <th style={{ textAlign: "center", width: "90px" }}>XS</th>
+                          <th style={{ textAlign: "center", width: "90px" }}>S</th>
+                          <th style={{ textAlign: "center", width: "90px" }}>M</th>
+                          <th style={{ textAlign: "center", width: "90px" }}>L</th>
+                          <th style={{ textAlign: "center", width: "90px" }}>XL</th>
+                          <th style={{ width: "40px" }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements).map((m, mIdx) => (
+                          <tr key={mIdx}>
+                            <td>
+                              <input
+                                className="shopifyInput"
+                                style={{ fontWeight: 700, textTransform: "uppercase" }}
+                                value={m.name || ""}
+                                onChange={(e) => {
+                                  const measurements = [...(storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements)];
+                                  measurements[mIdx] = { ...measurements[mIdx], name: e.target.value.toUpperCase() };
+                                  updateSettingsGroup("sizeChartSettings", { measurements });
+                                }}
+                                placeholder="CHEST"
+                              />
+                            </td>
+                            {["XS", "S", "M", "L", "XL"].map((sz) => (
+                              <td key={sz} style={{ textAlign: "center" }}>
+                                <input
+                                  className="shopifyInput"
+                                  style={{ textAlign: "center", width: "70px", margin: "0 auto" }}
+                                  value={m.values?.[sz] || ""}
+                                  onChange={(e) => {
+                                    const measurements = [...(storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements)];
+                                    const values = { ...(measurements[mIdx].values || {}), [sz]: e.target.value };
+                                    measurements[mIdx] = { ...measurements[mIdx], values };
+                                    updateSettingsGroup("sizeChartSettings", { measurements });
+                                  }}
+                                  placeholder="0"
+                                />
+                              </td>
+                            ))}
+                            <td style={{ textAlign: "center" }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const measurements = (storeSettings.sizeChartSettings?.measurements || DEFAULT_STORE_SETTINGS.sizeChartSettings.measurements).filter((_, i) => i !== mIdx);
+                                  updateSettingsGroup("sizeChartSettings", { measurements });
+                                }}
+                                style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "4px" }}
+                                title="Remove measurement"
+                              >
+                                <X size={15} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Size Chart..." : "💾 Save Size Guide Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 4. PAYMENTS & COD */}
+          {activeTab === "Payments" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Payment Methods</h3>
+                    <p>Enable and configure payment options available to customers during checkout.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Cash on Delivery (COD)</b>
+                      <span>Customer pays for the parcel upon delivery directly to the courier rider.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.paymentSettings?.codEnabled !== false}
+                        onChange={(e) => updatePaymentSettings({ codEnabled: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Full Advance Payment (Free Delivery)</b>
+                      <span>Customer pays the full amount in advance via bank transfer/JazzCash and receives 100% free delivery.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.paymentSettings?.manualTransferEnabled !== false}
+                        onChange={(e) => updatePaymentSettings({ manualTransferEnabled: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* COD Risk Rules */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Cash on Delivery (COD) Risk Rules</h3>
+                    <p>Safeguards against fake or unverified COD orders.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Phone Verification Required</b>
+                      <span>Mark unverified numbers in admin so staff confirms orders via WhatsApp before dispatch.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.paymentSettings?.codPhoneVerification !== false}
+                        onChange={(e) => updatePaymentSettings({ codPhoneVerification: e.target.checked })}
+                      /> Required
+                    </label>
+                  </div>
+
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Minimum COD Order (PKR)
+                      <input
+                        type="number"
+                        min="0"
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.codMinOrderPkr ?? 0}
+                        onChange={(e) => updatePaymentSettings({ codMinOrderPkr: e.target.value })}
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Maximum COD Order (PKR)
+                      <input
+                        type="number"
+                        min="0"
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.codMaxOrderPkr ?? 50000}
+                        onChange={(e) => updatePaymentSettings({ codMaxOrderPkr: e.target.value })}
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      COD Delivery Charge (PKR)
+                      <input
+                        type="number"
+                        min="0"
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.codDeliveryChargePkr ?? 250}
+                        onChange={(e) => updatePaymentSettings({ codDeliveryChargePkr: e.target.value })}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bank & WhatsApp Details */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Bank Receiving Details & WhatsApp Verification</h3>
+                    <p>Bank details displayed for advance payment orders. Customers send their payment screenshot to WhatsApp.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Bank Name
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.bankName || ""}
+                        onChange={(e) => updatePaymentSettings({ bankName: e.target.value })}
+                        placeholder="e.g. Meezan Bank / Nayapay"
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Account Title
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.bankTitle || ""}
+                        onChange={(e) => updatePaymentSettings({ bankTitle: e.target.value })}
+                        placeholder="e.g. Amna Butt / Bustaniya"
+                      />
+                    </label>
+                  </div>
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Account Number
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.bankAccountNumber || ""}
+                        onChange={(e) => updatePaymentSettings({ bankAccountNumber: e.target.value })}
+                        placeholder="0101010101..."
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      IBAN (Optional)
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.paymentSettings?.bankIban || ""}
+                        onChange={(e) => updatePaymentSettings({ bankIban: e.target.value })}
+                        placeholder="PK..."
+                      />
+                    </label>
+                  </div>
+                  <label className="shopifyFieldLabel">
+                    WhatsApp Support & Verification Phone Number
+                    <input
+                      type="tel"
+                      className="shopifyInput"
+                      value={storeSettings.paymentSettings?.whatsappNumber || ""}
+                      onChange={(e) => updatePaymentSettings({ whatsappNumber: e.target.value })}
+                      placeholder="923001234567"
+                    />
+                    <small>Powers the floating WhatsApp chat widget and the checkout payment-proof screenshot button.</small>
+                  </label>
+                </div>
+              </div>
+
+              {/* Checkout Instructions */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Checkout Payment Instructions</h3>
+                    <p>Customize headings and instruction bullet points shown on the customer checkout page.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <PaymentInstructionEditor
+                    title="1. Cash on Delivery (COD) Instructions"
+                    headingValue={storeSettings.paymentSettings?.codHeading}
+                    headingPlaceholder="Cash on Delivery Instructions"
+                    instructionsValue={storeSettings.paymentSettings?.codInstructions}
+                    onUpdateHeading={(heading) => updatePaymentSettings({ codHeading: heading })}
+                    onUpdateInstructions={(text) => updatePaymentSettings({ codInstructions: text })}
+                  />
+
+                  <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px dashed #e2e8e5" }}>
+                    <PaymentInstructionEditor
+                      title="2. Full Advance Payment Instructions"
+                      headingValue={storeSettings.paymentSettings?.advanceHeading}
+                      headingPlaceholder="Full Advance Payment Instructions"
+                      instructionsValue={storeSettings.paymentSettings?.instructions}
+                      onUpdateHeading={(heading) => updatePaymentSettings({ advanceHeading: heading })}
+                      onUpdateInstructions={(text) => updatePaymentSettings({ instructions: text })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Payment Settings..." : "💾 Save Payment Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 5. SHIPPING & DELIVERY */}
+          {activeTab === "Shipping" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Global Delivery Timeline & Copy</h3>
+                    <p>Default delivery timeline and free shipping thresholds displayed across all products.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Estimated Delivery Timeline
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.deliverySettings?.estimatedDays || ""}
+                        onChange={(e) => updateDeliverySettings({ estimatedDays: e.target.value })}
+                        placeholder="e.g. 8-9 delivery days"
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Free Delivery Above Order (PKR)
+                      <input
+                        type="number"
+                        min="0"
+                        className="shopifyInput"
+                        value={storeSettings.deliverySettings?.freeDeliveryThreshold ?? 5000}
+                        onChange={(e) => updateDeliverySettings({ freeDeliveryThreshold: e.target.value })}
+                        placeholder="5000"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="shopifyFieldLabel">
+                    Standard Delivery Fee Copy
+                    <input
+                      className="shopifyInput"
+                      value={storeSettings.deliverySettings?.deliveryFeeText || ""}
+                      onChange={(e) => updateDeliverySettings({ deliveryFeeText: e.target.value })}
+                      placeholder="e.g. Rs. 200 standard delivery nationwide · Free above Rs. 5,000"
+                    />
+                  </label>
+
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Cash on Delivery Availability Badge</b>
+                      <span>Highlight COD availability badge on product detail pages.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.deliverySettings?.codAvailable !== false}
+                        onChange={(e) => updateDeliverySettings({ codAvailable: e.target.checked })}
+                      /> Available
+                    </label>
+                  </div>
+
+                  <label className="shopifyFieldLabel">
+                    Global Default Delivery Information Text
+                    <textarea
+                      className="shopifyTextarea"
+                      rows="3"
+                      value={storeSettings.deliverySettings?.defaultDeliveryInfo || ""}
+                      onChange={(e) => updateDeliverySettings({ defaultDeliveryInfo: e.target.value })}
+                      placeholder="Orders are processed within 24 hours and delivered within 8-9 delivery days across Pakistan..."
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Shipping Zones Table */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Configured Shipping Zones & Rates</h3>
+                    <p>Courier delivery rates based on destination city.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody" style={{ padding: 0 }}>
+                  <div className="shopifyTableWrap">
+                    <table className="shopifyOrderTable">
+                      <thead>
+                        <tr>
+                          <th>Zone</th>
+                          <th>Cities Covered</th>
+                          <th>Delivery Rate</th>
+                          <th>Free Above</th>
+                          <th style={{ width: "40px" }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(shippingZones || []).map((zone, index) => (
+                          <tr key={zone.id || index}>
+                            <td><b>{zone.zone}</b></td>
+                            <td>{zone.cities}</td>
+                            <td>Rs. {Number(zone.rate || 0).toLocaleString()}</td>
+                            <td>{Number(zone.freeAbove || 0) > 0 ? `Rs. ${Number(zone.freeAbove).toLocaleString()}` : "—"}</td>
+                            <td>
+                              <button
+                                type="button"
+                                onClick={() => removeShippingZone(index)}
+                                style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", padding: "4px" }}
+                                title="Remove zone"
+                              >
+                                <X size={15} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Add Zone Inline Form */}
+                  <div style={{ padding: "16px", borderTop: "1px solid #edf2ee", background: "#fafcfa" }}>
+                    <span style={{ fontSize: "13px", fontWeight: 750, color: "#122a1e", display: "block", marginBottom: "10px" }}>
+                      + Add Shipping Zone
+                    </span>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr)) 90px", gap: "10px", alignItems: "flex-end" }}>
+                      <input value={newZoneDraft.zone} onChange={(e) => setNewZoneDraft((p) => ({ ...p, zone: e.target.value }))} className="shopifyInput" placeholder="Zone Name (e.g. Karachi)" />
+                      <input value={newZoneDraft.cities} onChange={(e) => setNewZoneDraft((p) => ({ ...p, cities: e.target.value }))} className="shopifyInput" placeholder="Cities (e.g. Karachi, Hyderabad)" />
+                      <input value={newZoneDraft.rate} onChange={(e) => setNewZoneDraft((p) => ({ ...p, rate: e.target.value }))} type="number" min="0" className="shopifyInput" placeholder="Rate (PKR)" />
+                      <input value={newZoneDraft.freeAbove} onChange={(e) => setNewZoneDraft((p) => ({ ...p, freeAbove: e.target.value }))} type="number" min="0" className="shopifyInput" placeholder="Free Above (PKR)" />
+                      <button type="button" onClick={addShippingZone} className="shopifyBtnPrimary" style={{ height: "40px" }}>Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Shipping..." : "💾 Save Shipping Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 6. CHECKOUT FLOW */}
+          {activeTab === "Checkout" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Checkout Experience & Customer Options</h3>
+                    <p>Control checkout friction, required contact info, and default payment method.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Guest Checkout</b>
+                      <span>Let walk-in and Instagram customers place orders instantly without creating an account.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.checkoutSettings?.guestCheckoutEnabled !== false}
+                        onChange={(e) => updateSettingsGroup("checkoutSettings", { guestCheckoutEnabled: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Phone Number Required</b>
+                      <span>Mandatory for PostEx courier delivery and COD order confirmation.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.checkoutSettings?.phoneRequired !== false}
+                        onChange={(e) => updateSettingsGroup("checkoutSettings", { phoneRequired: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Default Payment Selected
+                      <select
+                        className="shopifySelect"
+                        value={storeSettings.checkoutSettings?.defaultPayment || "cod"}
+                        onChange={(e) => updateSettingsGroup("checkoutSettings", { defaultPayment: e.target.value })}
+                      >
+                        <option value="cod">Cash on Delivery (COD)</option>
+                        <option value="full_advance">Full Advance (Free Delivery)</option>
+                      </select>
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Customer Address Fields
+                      <select
+                        className="shopifySelect"
+                        value={storeSettings.checkoutSettings?.addressMode || "detailed"}
+                        onChange={(e) => updateSettingsGroup("checkoutSettings", { addressMode: e.target.value })}
+                      >
+                        <option value="detailed">Full Address Required (House, Street, Area)</option>
+                        <option value="simple">Simple City & Address Only</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="shopifyFieldLabel">
+                    Checkout Instructions / Note for Customers
+                    <textarea
+                      className="shopifyTextarea"
+                      rows="3"
+                      value={storeSettings.checkoutSettings?.checkoutNote || ""}
+                      onChange={(e) => updateSettingsGroup("checkoutSettings", { checkoutNote: e.target.value })}
+                      placeholder="e.g. Please ensure your delivery phone number is active for courier updates."
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Checkout..." : "💾 Save Checkout Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 7. META PIXEL & CAPI */}
+          {activeTab === "Tracking" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Meta Pixel & Conversions API (CAPI)</h3>
+                    <p>Server-side tracking for Meta Ads, Instagram campaigns, and Google Analytics.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyFormRow">
+                    <label className="shopifyFieldLabel">
+                      Meta (Facebook) Pixel ID
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.domainSettings?.metaPixelId || ""}
+                        onChange={(e) => updateSettingsGroup("domainSettings", { metaPixelId: e.target.value })}
+                        placeholder="e.g. 1972532723444962"
+                      />
+                    </label>
+                    <label className="shopifyFieldLabel">
+                      Google Analytics Measurement ID (GA4)
+                      <input
+                        className="shopifyInput"
+                        value={storeSettings.domainSettings?.analyticsMeasurementId || ""}
+                        onChange={(e) => updateSettingsGroup("domainSettings", { analyticsMeasurementId: e.target.value })}
+                        placeholder="G-XXXXXXXXXX"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="shopifyFieldLabel">
+                    Meta Conversions API (CAPI) System User Token
+                    <textarea
+                      className="shopifyTextarea"
+                      rows="4"
+                      value={storeSettings.domainSettings?.metaCapiAccessToken || ""}
+                      onChange={(e) => updateSettingsGroup("domainSettings", { metaCapiAccessToken: e.target.value })}
+                      placeholder="EAAN... (Paste your Meta System User Access Token here)"
+                      style={{ fontFamily: "monospace", fontSize: "12px" }}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Live Events & Testing */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Standard Events & CAPI Verification</h3>
+                    <p>Tracked events dispatched automatically to Meta Events Manager.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "14px 18px", color: "#166534", fontSize: "13px", lineHeight: 1.6 }}>
+                    <div style={{ fontWeight: 800, marginBottom: "4px" }}>🎯 Active Standard Events:</div>
+                    <div>• <b>PageView</b> (All page loads nationwide)</div>
+                    <div>• <b>ViewContent</b> (Product detail views with currency PKR)</div>
+                    <div>• <b>AddToCart</b> (When product is added to cart)</div>
+                    <div>• <b>InitiateCheckout</b> (When checkout page loads)</div>
+                    <div>• <b>Purchase</b> (When customer places order successfully with full deduplication eventID)</div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="shopifyBtnPrimary"
+                      onClick={testCapiConnection}
+                      disabled={capiTesting}
+                      style={{ background: "#2563eb", borderColor: "#1d4ed8" }}
+                    >
+                      {capiTesting ? "Testing CAPI..." : "⚡ Test Meta CAPI Connection"}
+                    </button>
+                    <a
+                      href="https://eventsmanager.facebook.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shopifyBtnSecondary"
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                    >
+                      <span>Open Meta Events Manager</span>
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
+
+                  {capiTestResult && (
+                    <div style={{ padding: "12px 16px", borderRadius: "8px", background: capiTestResult.success ? "#f0fdf4" : "#fef2f2", border: `1px solid ${capiTestResult.success ? "#bbf7d0" : "#fecaca"}`, color: capiTestResult.success ? "#166534" : "#991b1b", fontSize: "13px", fontWeight: 600 }}>
+                      {capiTestResult.message}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Tracking..." : "💾 Save Tracking Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 8. NOTIFICATIONS */}
+          {activeTab === "Notifications" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Customer Email Notifications</h3>
+                    <p>Templates sent to customers upon order placement and dispatch.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Order Confirmation Email</b>
+                      <span>Send automated email receipt when customer completes checkout.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.notificationSettings?.orderConfirmationEnabled !== false}
+                        onChange={(e) => updateSettingsGroup("notificationSettings", { orderConfirmationEnabled: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <label className="shopifyFieldLabel">
+                    Email Subject Line
+                    <input
+                      className="shopifyInput"
+                      value={storeSettings.notificationSettings?.orderConfirmationSubject || ""}
+                      onChange={(e) => updateSettingsGroup("notificationSettings", { orderConfirmationSubject: e.target.value })}
+                      placeholder="e.g. Your Bustaniya Order Confirmation"
+                    />
+                  </label>
+
+                  <label className="shopifyFieldLabel">
+                    Email Template Body
+                    <textarea
+                      className="shopifyTextarea"
+                      rows="6"
+                      value={storeSettings.notificationSettings?.orderConfirmationTemplate || ""}
+                      onChange={(e) => updateSettingsGroup("notificationSettings", { orderConfirmationTemplate: e.target.value })}
+                      placeholder="Assalam-o-Alaikum {customer_name}, thank you for ordering from Bustaniya..."
+                    />
+                  </label>
+
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Fulfillment & PostEx Tracking Update</b>
+                      <span>Notify customer when parcel is booked and assigned a PostEx tracking number.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.notificationSettings?.fulfillmentUpdateEnabled !== false}
+                        onChange={(e) => updateSettingsGroup("notificationSettings", { fulfillmentUpdateEnabled: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>COD Phone Verification Reminder</b>
+                      <span>Alert staff in dashboard when high-value COD orders need customer call verification.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.notificationSettings?.codVerificationReminderEnabled !== false}
+                        onChange={(e) => updateSettingsGroup("notificationSettings", { codVerificationReminderEnabled: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Notifications..." : "💾 Save Notification Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 9. DOMAINS & SEO */}
+          {activeTab === "Domains" && (
+            <form onSubmit={saveStoreSettings} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Domains & Search Engine Optimization</h3>
+                    <p>Primary public storefront URL and default search metadata.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <label className="shopifyFieldLabel">
+                    Primary Storefront Domain
+                    <input
+                      className="shopifyInput"
+                      value={storeSettings.domainSettings?.primaryDomain || ""}
+                      onChange={(e) => updateSettingsGroup("domainSettings", { primaryDomain: e.target.value })}
+                      placeholder="e.g. bustaniya.pk"
+                    />
+                  </label>
+
+                  <div className="shopifyToggleRow">
+                    <div className="shopifyToggleRowLeft">
+                      <b>Automatic www Redirect</b>
+                      <span>Redirect www requests directly to primary domain for clean SEO.</span>
+                    </div>
+                    <label className="switchLabel">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.domainSettings?.wwwRedirect !== false}
+                        onChange={(e) => updateSettingsGroup("domainSettings", { wwwRedirect: e.target.checked })}
+                      /> Enabled
+                    </label>
+                  </div>
+
+                  <label className="shopifyFieldLabel">
+                    Default Homepage SEO Title
+                    <input
+                      className="shopifyInput"
+                      value={storeSettings.domainSettings?.seoTitle || ""}
+                      onChange={(e) => updateSettingsGroup("domainSettings", { seoTitle: e.target.value })}
+                      placeholder="e.g. Bustaniya | Luxury Unstitched & Ready-to-Wear"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="shopifySettingsBottomBar">
+                <button type="submit" className="shopifyBtnPrimary" disabled={storeSettingsLoading}>
+                  {storeSettingsLoading ? "Saving Domain..." : "💾 Save Domain Settings"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 10. STAFF & USERS */}
+          {activeTab === "Users" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {staffError && <div className="adminErrorBanner">⚠️ {staffError}</div>}
+              {staffSaved && <div className="adminErrorBanner settingsSaved">✅ {staffSaved}</div>}
+
+              {/* Staff Accounts Table */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Admin Staff Accounts</h3>
+                    <p>{currentAdminUser ? `Signed in as ${currentAdminUser.name} (${currentAdminUser.role})` : "Manage team access"}</p>
+                  </div>
+                  {staffLoading && <span style={{ fontSize: "12px", color: "#667a6e" }}>Refreshing...</span>}
+                </div>
+                <div className="shopifySectionBody" style={{ padding: 0 }}>
+                  <div className="shopifyTableWrap">
+                    <table className="shopifyOrderTable">
+                      <thead>
+                        <tr>
+                          <th>Team Member</th>
+                          <th>Email</th>
+                          <th>Role</th>
+                          <th>Permissions</th>
+                          <th>Status</th>
+                          <th style={{ textAlign: "right" }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {staff.map((user) => (
+                          <tr key={user.id}>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#173d29", color: "#ffffff", display: "grid", placeItems: "center", fontSize: "12px", fontWeight: 800 }}>
+                                  {(user.name || "U").slice(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                  <b style={{ color: "#122a1e" }}>{user.name}</b>
+                                  <small style={{ display: "block", color: "#798c80", fontSize: "11px" }}>
+                                    {user.lastLoginAt ? `Last login ${new Date(user.lastLoginAt).toLocaleDateString("en-PK")}` : "No login yet"}
+                                  </small>
+                                </div>
+                              </div>
+                            </td>
+                            <td>{user.email}</td>
+                            <td>
+                              <span className={`shopifyPill ${user.role === "Owner" ? "paid" : "in_transit"}`}>
+                                {user.role}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                {(user.permissions || []).map((perm) => (
+                                  <span key={perm} style={{ fontSize: "10.5px", background: "#f0f4f1", color: "#32463a", padding: "2px 6px", borderRadius: "4px" }}>
+                                    {perm}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`shopifyPill ${user.status === "Active" ? "paid" : "returned"}`}>
+                                <span className="pillDot" /> {user.status}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: "right" }}>
+                              <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
+                                <button
+                                  type="button"
+                                  className="shopifyRowBtn"
+                                  onClick={() => updateStaffUser(user.id, { status: user.status === "Active" ? "Disabled" : "Active" })}
+                                >
+                                  {user.status === "Active" ? "Disable" : "Enable"}
+                                </button>
+                                {user.role !== "Owner" && (
+                                  <button
+                                    type="button"
+                                    className="shopifyRowBtn danger"
+                                    onClick={() => deleteStaffUser(user.id)}
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Add Staff User Form */}
+              <div className="shopifySectionCard">
+                <div className="shopifySectionHeader">
+                  <div>
+                    <h3>Add New Admin User</h3>
+                    <p>Grant access to employees or workshop managers with custom permissions.</p>
+                  </div>
+                </div>
+                <div className="shopifySectionBody">
+                  <form onSubmit={addStaff} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                    <div className="shopifyFormRow">
+                      <label className="shopifyFieldLabel">
+                        Full Name
+                        <input name="name" required className="shopifyInput" placeholder="e.g. Asad Ali" />
+                      </label>
+                      <label className="shopifyFieldLabel">
+                        Login Email
+                        <input name="email" type="email" required className="shopifyInput" placeholder="asad@bustaniya.pk" />
+                      </label>
+                    </div>
+                    <div className="shopifyFormRow">
+                      <label className="shopifyFieldLabel">
+                        Account Password
+                        <input name="password" type="password" minLength="10" required className="shopifyInput" placeholder="Minimum 10 characters" />
+                      </label>
+                      <label className="shopifyFieldLabel">
+                        Role
+                        <select name="role" defaultValue="Staff" className="shopifySelect">
+                          <option>Staff</option>
+                          <option>Owner</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <label className="shopifyFieldLabel">
+                      Granular Feature Access Permissions
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "10px", marginTop: "8px" }}>
+                        {availablePermissions.map((permission) => (
+                          <label key={permission} className="switchLabel" style={{ fontSize: "13px" }}>
+                            <input
+                              name={`permission-${permission}`}
+                              type="checkbox"
+                              defaultChecked={["dashboard", "orders"].includes(permission)}
+                            /> {permission}
+                          </label>
+                        ))}
+                      </div>
+                    </label>
+
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "10px" }}>
+                      <button
+                        type="submit"
+                        className="shopifyBtnPrimary"
+                        disabled={staffLoading}
+                      >
+                        {staffLoading ? "Adding User..." : "Add Admin User"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 11. SYSTEM HEALTH */}
+          {activeTab === "System" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <BackendHealthPanel />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function settingsTabHint(tab) {
+  return {
+    Store: "Details",
+    Sections: "Page builder",
+    Tracking: "Meta Pixel & CAPI",
+    SizeChart: "Measurements",
+    Payments: "COD, bank",
+    Shipping: "Zones, rates",
+    Users: "Staff access",
+    Notifications: "Email templates",
+    Domains: "Store URL",
+    Checkout: "Customer flow",
+    System: "Backend audit",
+  }[tab];
+}
+
+function PaymentInstructionEditor({ title, headingValue, headingPlaceholder, instructionsValue, onUpdateHeading, onUpdateInstructions }) {
+  const bullets = useMemo(() => {
+    const raw = String(instructionsValue || "").replace(/\r\n?/g, "\n").trim();
+    if (!raw) return [""];
+    const points = raw.split(/(?<=\.)\s+|\n+/).map(p => p.trim()).filter(Boolean);
+    return points.length > 0 ? points : [""];
+  }, [instructionsValue]);
+
+  function updateBullet(index, val) {
+    const nextBullets = [...bullets];
+    nextBullets[index] = val;
+    onUpdateInstructions(nextBullets.filter(Boolean).join(". "));
+  }
+
+  function addBullet() {
+    const nextBullets = [...bullets, ""];
+    onUpdateInstructions(nextBullets.join(". "));
+  }
+
+  function removeBullet(index) {
+    const nextBullets = bullets.filter((_, i) => i !== index);
+    onUpdateInstructions(nextBullets.join(". "));
+  }
+
+  return (
+    <div className="paymentInstructionEditorCard">
+      <h4>{title}</h4>
+      <div className="formRow">
+        <label>
+          Section Heading / Title
+          <input
+            value={headingValue || ""}
+            onChange={(e) => onUpdateHeading(e.target.value)}
+            placeholder={headingPlaceholder}
+          />
+        </label>
+      </div>
+
+      <div className="instructionBulletsManager">
+        <label>Instruction Bullet Points</label>
+        {bullets.map((bullet, index) => (
+          <div className="instructionBulletRow" key={`${index}-${bullet.slice(0, 10)}`}>
+            <span className="bulletNumberBadge">•</span>
+            <input
+              value={bullet}
+              onChange={(e) => updateBullet(index, e.target.value)}
+              placeholder={`Bullet point ${index + 1}`}
+            />
+            {bullets.length > 1 && (
+              <button
+                type="button"
+                className="removeBulletBtn"
+                title="Remove bullet point"
+                onClick={() => removeBullet(index)}
+              >
+                &times;
+              </button>
+            )}
+          </div>
+        ))}
+        <button type="button" className="addBulletBtn" onClick={addBullet}>
+          + Add Bullet Point
+        </button>
+      </div>
+
+      <div className="instructionPreviewCard">
+        <span className="previewBadge">CUSTOMER CHECKOUT PREVIEW</span>
+        <b>{headingValue || headingPlaceholder}</b>
+        <ul className="previewBulletList">
+          {bullets.filter(Boolean).map((b, i) => (
+            <li key={i}>{b}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceDrawer({ workspace, onClose, onSave, activity }) {
+  const [createMode, setCreateMode] = useState(Boolean(workspace.create));
+  const records = activity.filter(item => item.module === workspace.module && item.feature === workspace.feature);
+
+  function saveRecord(event) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    onSave({
+      id: Date.now(),
+      module: workspace.module,
+      feature: workspace.feature,
+      title: form.get("title") || `${workspace.feature} record`,
+      status: form.get("status") || "Active",
+      value: form.get("value") || "—",
+      created: "Just now"
+    });
+  }
+
+  return <><div className="adminOverlay" onClick={onClose} />
+    <aside className="workspaceDrawer">
+      <header><div><p>{workspace.module}</p><h2>{workspace.feature}</h2></div><button onClick={onClose}><X /></button></header>
+      <div className="workspaceBody">
+        <div className="workspaceToolbar">
+          <div className="inlineSearch"><Search /><input placeholder={`Search ${workspace.feature.toLowerCase()}...`} /></div>
+          <button onClick={() => setCreateMode(!createMode)}><Plus /> New record</button>
+        </div>
+
+        {createMode && <form className="workspaceForm" onSubmit={saveRecord}>
+          <h3>Create {workspace.feature.toLowerCase()}</h3>
+          <label>Title or name<input name="title" required placeholder={`Enter ${workspace.feature.toLowerCase()} name`} /></label>
+          {(workspace.module === "Discounts" || workspace.module === "Gift cards" || workspace.module === "Finances") &&
+            <div className="formRow"><label>Amount / value<input name="value" type="number" placeholder="0" /></label><label>Value type<select><option>PKR</option><option>Percentage</option></select></label></div>}
+          {workspace.module === "Marketing" && <div className="formRow"><label>Channel<select><option>Email</option><option>Instagram</option><option>Facebook</option><option>SMS</option></select></label><label>Audience<select><option>All customers</option><option>Subscribers</option><option>Returning customers</option></select></label></div>}
+          {workspace.module === "Inventory" && <div className="formRow"><label>Origin<input placeholder="Supplier or location" /></label><label>Destination<input defaultValue="Bustaniya warehouse" /></label></div>}
+          {workspace.module === "Orders" && <div className="formRow"><label>Customer<input placeholder="Customer name" /></label><label>Order value<input name="value" type="number" placeholder="0" /></label></div>}
+          {workspace.module === "Markets" && <div className="formRow"><label>Country / region<input placeholder="Pakistan" /></label><label>Currency<select><option>PKR</option><option>USD</option><option>GBP</option><option>AED</option></select></label></div>}
+          <div className="formRow"><label>Status<select name="status"><option>Active</option><option>Draft</option><option>Scheduled</option><option>Paused</option></select></label><label>Date<input type="date" /></label></div>
+          <label>Notes<textarea rows="4" placeholder="Add internal notes..." /></label>
+          <div className="workspaceFormActions"><button type="button" onClick={() => setCreateMode(false)}>Cancel</button><button>Save record</button></div>
+        </form>}
+
+        <section className="workspaceRecords">
+          <div className="workspaceInfo"><div><b>{records.length}</b><span>Local records</span></div><div><b>Ready</b><span>Supabase status</span></div></div>
+          <div className="workspaceList">
+            {records.length ? records.map(record => <article key={record.id}><div><b>{record.title}</b><span>{record.created}</span></div><p>{record.value}</p><i>{record.status}</i><button><MoreHorizontal /></button></article>)
+              : <div className="workspaceEmpty"><Package /><h3>No records yet</h3><p>Create your first {workspace.feature.toLowerCase()} record. It will work locally until Supabase is connected.</p><button onClick={() => setCreateMode(true)}><Plus /> Create record</button></div>}
+          </div>
+        </section>
+      </div>
+    </aside>
+  </>;
+}

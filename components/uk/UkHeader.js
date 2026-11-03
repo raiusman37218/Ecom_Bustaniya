@@ -75,7 +75,15 @@ export default function UkHeader({
 
   const navigationCategories = useMemo(() => {
     const valid = (categories || [])
-      .filter((category) => category && !category.parentSlug && category.showInHeader !== false)
+      .filter(
+        (category) =>
+          category &&
+          !category.parentSlug &&
+          category.showInHeader !== false &&
+          category.status !== "Archived" &&
+          category.status !== "Draft"
+      )
+      .sort((a, b) => Number(a.sortOrder ?? 100) - Number(b.sortOrder ?? 100))
       .map((category) => ({ name: category.name, slug: category.slug }));
 
     return valid.length > 0 ? valid : DEFAULT_NAV_CATEGORIES;

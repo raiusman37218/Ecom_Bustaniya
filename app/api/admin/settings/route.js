@@ -7,6 +7,7 @@ import {
   isStoreSettingsSetupError,
   updateStoreSettings,
 } from "../../../../lib/storeSettings";
+import { invalidatePluginsCache } from "../../../../lib/plugins/engine";
 
 const MAX_HERO_SLIDES = 12;
 
@@ -95,17 +96,31 @@ export async function PATCH(request) {
       ...existing,
       ...(body.settings || {}),
       financeTransactions: body?.settings?.financeTransactions ?? existing.financeTransactions,
+      pluginsRegistry: body?.settings?.pluginsRegistry ?? existing.pluginsRegistry,
     };
     await validateHeroImages(nextSettings);
     await validateInstagramPosts(nextSettings);
     const settings = await updateStoreSettings(nextSettings);
     invalidateStoreSettingsCache();
+    invalidatePluginsCache();
     try {
       revalidateTag("store-settings");
       revalidatePath("/", "page");
       revalidatePath("/", "layout");
       revalidatePath("/uk", "page");
+      revalidatePath("/uk", "layout");
       revalidatePath("/admin", "page");
+      revalidatePath("/cart", "page");
+      revalidatePath("/checkout", "page");
+      revalidatePath("/search", "page");
+      revalidatePath("/wishlist", "page");
+      revalidatePath("/track-order", "page");
+      revalidatePath("/product/[id]", "page");
+      revalidatePath("/category/[slug]", "page");
+      revalidatePath("/category/[slug]/[subcategory]", "page");
+      revalidatePath("/uk/product/[id]", "page");
+      revalidatePath("/uk/category/[slug]", "page");
+      revalidatePath("/uk/category/[slug]/[subcategory]", "page");
       revalidatePath("/about", "page");
       revalidatePath("/contact", "page");
       revalidatePath("/faqs", "page");

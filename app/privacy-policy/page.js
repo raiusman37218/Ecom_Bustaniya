@@ -2,6 +2,9 @@ import { buildMetadata, siteConfig } from "../../lib/seo";
 import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
 import { getStoreSettings } from "../../lib/storeSettings";
+import { getCatalogCategories } from "../../lib/categories";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = buildMetadata({
   title: "Privacy Policy",
@@ -11,11 +14,14 @@ export const metadata = buildMetadata({
 });
 
 export default async function PrivacyPolicyPage() {
-  const storeSettings = await getStoreSettings();
+  const [storeSettings, categories] = await Promise.all([
+    getStoreSettings(),
+    getCatalogCategories(),
+  ]);
 
   return (
     <div className="siteLayout">
-      <SiteHeader storeSettings={storeSettings} />
+      <SiteHeader storeSettings={storeSettings} categories={categories} />
       <main className="infoPage">
         <section className="infoHero">
           <p className="eyebrow">PRIVACY POLICY</p>
@@ -34,7 +40,7 @@ export default async function PrivacyPolicyPage() {
           <p>{siteConfig.email || "support@bustaniya.pk"}</p>
         </section>
       </main>
-      <SiteFooter storeSettings={storeSettings} />
+      <SiteFooter storeSettings={storeSettings} categories={categories} />
     </div>
   );
 }

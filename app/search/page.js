@@ -7,7 +7,8 @@ import { getCatalogProducts } from "../../lib/catalog";
 import { getStoreSettings } from "../../lib/storeSettings";
 import { buildMetadata } from "../../lib/seo";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function generateMetadata({ searchParams }) {
   const params = await searchParams;
@@ -104,7 +105,7 @@ export default async function SearchPage({ searchParams }) {
         )}
       </main>
 
-      <SiteFooter storeSettings={storeSettings} />
+      <SiteFooter storeSettings={storeSettings} categories={categories} />
     </>
   );
 }
