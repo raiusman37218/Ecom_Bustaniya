@@ -565,22 +565,7 @@
 /* -------------------------------------------------------------
    8. QUICK VIEW MODAL
    ------------------------------------------------------------- */
-.quickViewModal {
-  border-radius: 3px;
-  box-shadow: 0 40px 110px -30px rgba(14, 40, 26, .6);
-}
-.quickViewDetails h2 {
-  font-family: var(--font-display);
-  font-size: 30px;
-  line-height: 1.12;
-}
-.quickViewDetails > button,
-.addBagButton {
-  letter-spacing: .16em;
-  transition: background .22s var(--bs-ease);
-}
-.quickViewDetails > button:hover,
-.addBagButton:hover { background: var(--bs-berry); }
+
 
 /* -------------------------------------------------------------
    9. SCROLL REVEAL — softer, shorter travel

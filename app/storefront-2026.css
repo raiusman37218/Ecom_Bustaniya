@@ -1254,6 +1254,7 @@
    where there is no hover, exactly as the import decides it. */
 .bs-st .productCard .quickViewButton {
   position: absolute;
+  z-index: 6;
   left: 10px;
   right: 10px;
   bottom: 10px;
@@ -1262,12 +1263,12 @@
   min-height: 44px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   padding: 0 14px;
-  background: var(--bs-st-paper);
-  color: var(--bs-st-ink);
-  border: 0;
-  border-radius: 0;
+  background: var(--bs-st-paper, #ffffff);
+  color: var(--bs-st-ink, #111111);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
   font: inherit;
   font-size: 11px;
   font-weight: var(--bs-weight-semibold);
@@ -1277,7 +1278,8 @@
   opacity: 0;
   transform: translateY(8px);
   pointer-events: none;
-  transition: opacity 300ms ease, transform 300ms ease, background 250ms, color 250ms;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: opacity 250ms ease, transform 250ms ease, background 200ms ease, color 200ms ease;
 }
 .bs-st .productCard:hover .quickViewButton,
 .bs-st .productCard:focus-within .quickViewButton {
@@ -1286,12 +1288,23 @@
   pointer-events: auto;
 }
 .bs-st .productCard .quickViewButton:hover {
-  background: var(--bs-st-ink);
-  color: var(--bs-st-paper);
+  background: var(--bs-st-ink, #111111);
+  color: var(--bs-st-paper, #ffffff);
 }
 @media (hover: none) {
-  /* On touch/mobile, hide permanent overlay banner that obscures the dress photo */
-  .bs-st .productCard .quickViewButton { display: none !important; }
+  .bs-st .productCard .quickViewButton {
+    display: flex !important;
+    opacity: 0.95 !important;
+    transform: none !important;
+    pointer-events: auto !important;
+    min-height: 36px !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    color: #111111 !important;
+    backdrop-filter: blur(4px) !important;
+    font-size: 10px !important;
+    border-radius: 4px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  }
 }
 
 .bs-st .productCard .productInfo {
@@ -2107,6 +2120,7 @@
    `quickViewButton`; same bar, same reveal. */
 .bs-st .productCard .quickAdd {
   position: absolute;
+  z-index: 6;
   left: 10px;
   right: 10px;
   bottom: 10px;
@@ -2117,23 +2131,45 @@
   align-items: center;
   justify-content: center;
   padding: 0 14px;
-  background: var(--bs-st-paper);
-  color: var(--bs-st-ink);
-  border: 0;
-  border-radius: 0;
+  background: var(--bs-st-paper, #ffffff);
+  color: var(--bs-st-ink, #111111);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
   font-size: 11px;
   font-weight: var(--bs-weight-semibold);
   letter-spacing: 0.16em;
   text-transform: uppercase;
+  cursor: pointer;
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity 300ms ease, transform 300ms ease;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: opacity 250ms ease, transform 250ms ease, background 200ms ease, color 200ms ease;
 }
 .bs-st .productCard:hover .quickAdd,
-.bs-st .productCard:focus-within .quickAdd { opacity: 1; transform: translateY(0); }
+.bs-st .productCard:focus-within .quickAdd {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.bs-st .productCard .quickAdd:hover {
+  background: var(--bs-st-ink, #111111);
+  color: var(--bs-st-paper, #ffffff);
+}
 @media (hover: none) {
-  /* Hide hover quickAdd on touch devices so card image is 100% visible */
-  .bs-st .productCard .quickAdd { display: none !important; }
+  .bs-st .productCard .quickAdd {
+    display: flex !important;
+    opacity: 0.95 !important;
+    transform: none !important;
+    pointer-events: auto !important;
+    min-height: 36px !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    color: #111111 !important;
+    backdrop-filter: blur(4px) !important;
+    font-size: 10px !important;
+    border-radius: 4px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  }
 }
 .bs-st .productCard .priceCurrent {
   font-size: 14px;

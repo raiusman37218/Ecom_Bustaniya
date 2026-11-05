@@ -8,6 +8,7 @@ import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from
 import { getColorHex } from "../data/variantOptions";
 import { getProductCategoryComparePrice, getProductCategoryPrice } from "../data/store";
 import { useWishlist } from "../lib/wishlist";
+import QuickViewModal from "./QuickViewModal";
 
 export default function CategoryProductsGrid({
   initialProducts = [],
@@ -15,7 +16,32 @@ export default function CategoryProductsGrid({
   categoryName = "",
 }) {
   const [sortBy, setSortBy] = useState("featured");
+  const [quickViewProduct, setQuickViewProduct] = useState(null);
   const { isInWishlist, toggle: toggleWishlist } = useWishlist();
+
+  function handleAddToCart(product, size = "S", qty = 1, color = null) {
+    try {
+      const stored = localStorage.getItem("bustaniya-cart") || localStorage.getItem("bustaniya_cart");
+      const current = stored ? JSON.parse(stored) : [];
+      const itemColor = color || product.color || (Array.isArray(product.colors) ? product.colors[0] : null);
+
+      const found = current.find(
+        (item) => item.id === product.id && item.size === size && (item.color || "") === (itemColor || "")
+      );
+      let nextCart;
+      if (found) {
+        nextCart = current.map((item) =>
+          item.id === product.id && item.size === size && (item.color || "") === (itemColor || "")
+            ? { ...item, quantity: item.quantity + qty }
+            : item
+        );
+      } else {
+        nextCart = [...current, { ...product, size, color: itemColor, quantity: qty }];
+      }
+      localStorage.setItem("bustaniya-cart", JSON.stringify(nextCart));
+      window.dispatchEvent(new Event("cart-updated"));
+    } catch {}
+  }
 
   const sortedProducts = useMemo(() => {
     const list = [...initialProducts];
@@ -96,7 +122,18 @@ export default function CategoryProductsGrid({
                 />
                 {product.badge && <span className="badge">{product.badge}</span>}
                 {onSale && salePercent > 0 && <span className="saleBadge">{salePercent}% OFF</span>}
-                <span className="quickAdd">Choose options</span>
+                <button
+                  type="button"
+                  className="quickViewButton quickAdd"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setQuickViewProduct(product);
+                  }}
+                  aria-label={`Quick view ${product.name}`}
+                >
+                  Quick view
+                </button>
               </Link>
 
               <button
@@ -166,6 +203,15 @@ export default function CategoryProductsGrid({
             Back to Home
           </Link>
         </div>
+      )}
+
+      {quickViewProduct && (
+        <QuickViewModal
+          product={quickViewProduct}
+          onClose={() => setQuickViewProduct(null)}
+          onAddToCart={handleAddToCart}
+          currency="Rs."
+        />
       )}
     </div>
   );

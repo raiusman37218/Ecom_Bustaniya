@@ -12,6 +12,7 @@ import UkHeader from "./UkHeader";
 import UkFooter from "./UkFooter";
 import SizeChartModal from "../SizeChartModal";
 import ShopByCategory from "../ShopByCategory";
+import QuickViewModal from "../QuickViewModal";
 import { useWishlist } from "../../lib/wishlist";
 
 const fallbackCategoryRecords = categories
@@ -77,9 +78,15 @@ export default function UkHomePageClient({
   const [categoryRecords, setCategoryRecords] = useState(() => (initialCategories || []).filter((category) => category && !category.parentSlug));
   const [heroSlide, setHeroSlide] = useState(0);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
-  const [quickViewSize, setQuickViewSize] = useState("S");
-  const [quickViewQty, setQuickViewQty] = useState(1);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
+
+  function openQuickView(product, e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setQuickViewProduct(product);
+  }
   const [expandedFaqId, setExpandedFaqId] = useState(null);
   const instagramRailRef = useRef(null);
 
@@ -429,7 +436,7 @@ export default function UkHomePageClient({
                             color={isInWishlist(product.id) ? "#c8175a" : "#16301d"}
                           />
                         </button>
-                        <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
+                        <button className="quickViewButton" type="button" onClick={(e) => openQuickView(product, e)}>Quick view</button>
                       </div>
                       <div className="productInfo">
                         <div>
@@ -533,7 +540,7 @@ export default function UkHomePageClient({
                             color={isInWishlist(product.id) ? "#c8175a" : "#16301d"}
                           />
                         </button>
-                        <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
+                        <button className="quickViewButton" type="button" onClick={(e) => openQuickView(product, e)}>Quick view</button>
                       </div>
                       <div className="productInfo">
                         <div>
@@ -670,7 +677,7 @@ export default function UkHomePageClient({
                             color={isInWishlist(product.id) ? "#c8175a" : "#16301d"}
                           />
                         </button>
-                        <button className="quickViewButton" type="button" onClick={() => setQuickViewProduct(product)}>Quick view</button>
+                        <button className="quickViewButton" type="button" onClick={(e) => openQuickView(product, e)}>Quick view</button>
                       </div>
                       <div className="productInfo">
                         <div>
@@ -919,61 +926,15 @@ export default function UkHomePageClient({
       <UkFooter categories={categoryRecords} storeSettings={safeSettings} />
 
       {quickViewProduct && (
-        <>
-          <div className="overlay" onClick={() => setQuickViewProduct(null)} />
-          <section className="quickViewModal" role="dialog" aria-modal="true" aria-label={`Quick view ${quickViewProduct.name}`}>
-            <button className="quickViewClose" onClick={() => setQuickViewProduct(null)} aria-label="Close quick view"><X /></button>
-            <div className="quickViewImage">
-              <Image src={quickViewProduct.image} alt={quickViewProduct.name} fill sizes="(max-width: 700px) 90vw, 360px" />
-              {salePercent(quickViewProduct) > 0 && <span className="saleBadge">-{salePercent(quickViewProduct)}%</span>}
-            </div>
-            <div className="quickViewDetails">
-              <p className="eyebrow">{quickViewProduct.category}</p>
-              <h2>{quickViewProduct.name}</h2>
-              <div className="quickViewPrice">
-                <span>{formatPrice(quickViewProduct.price, "uk")}</span>
-                {salePercent(quickViewProduct) > 0 && <del>{formatPrice(quickViewProduct.compareAtPrice || quickViewProduct.compare_at_price, "uk")}</del>}
-              </div>
-
-              <span className="productDescription">{quickViewProduct.description || "A thoughtfully designed Bustaniya piece, stitched to perfection with premium fabrics."}</span>
-
-              {/* Size Selector */}
-              <div className="selectorHeading" style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <b>Select Size</b>
-                <button type="button" className="sizeGuideLinkBtn" onClick={() => setSizeChartOpen(true)}>
-                  <Ruler size={14} /> Size guide
-                </button>
-              </div>
-              <div className="sizeOptions">
-                {(Array.isArray(quickViewProduct.sizes) && quickViewProduct.sizes.length ? quickViewProduct.sizes : ["S", "M", "L", "XL"]).map((item) => (
-                  <button key={item} type="button" className={quickViewSize === item ? "selected" : ""} onClick={() => setQuickViewSize(item)}>{item}</button>
-                ))}
-              </div>
-
-              {/* Quantity Selector */}
-              <div className="quantityHeading" style={{ marginTop: "10px" }}><b>Quantity</b></div>
-              <div className="quantity productQuantity" style={{ marginBottom: "12px" }}>
-                <button type="button" onClick={() => setQuickViewQty(Math.max(1, quickViewQty - 1))}><Minus size={14} /></button>
-                <span>{quickViewQty}</span>
-                <button type="button" disabled={Number(quickViewProduct.stock || 0) <= quickViewQty} onClick={() => setQuickViewQty(quickViewQty + 1)}><Plus size={14} /></button>
-              </div>
-
-              <div className="quickViewActions">
-                <button
-                  type="button"
-                  className="addBagButton"
-                  onClick={() => { addToCart(quickViewProduct, quickViewSize, quickViewQty); setQuickViewProduct(null); }}
-                  disabled={Number(quickViewProduct.stock || 0) <= 0}
-                >
-                  {Number(quickViewProduct.stock || 0) > 0 ? `Add to bag (${quickViewSize})` : "Out of stock"}
-                </button>
-                <a className="viewFullDetailsLink" href={`/uk/product/${quickViewProduct.id}`}>
-                  View full details <ArrowRight size={15} />
-                </a>
-              </div>
-            </div>
-          </section>
-        </>
+        <QuickViewModal
+          product={quickViewProduct}
+          onClose={() => setQuickViewProduct(null)}
+          onAddToCart={(prod, size, qty, color) => {
+            addToCart(prod, size, qty, color);
+          }}
+          onOpenSizeChart={() => setSizeChartOpen(true)}
+          currency="£"
+        />
       )}
 
       {cartOpen && <div className="overlay" onClick={() => setCartOpen(false)} />}
