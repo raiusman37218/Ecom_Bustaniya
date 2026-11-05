@@ -10,6 +10,7 @@ import { getStoreSettings } from "../../../../lib/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, paymentSnapshot } from "../../../../lib/paymentRules";
 import { sendMetaCapiEvent } from "../../../../lib/metaCapi";
 import { triggerPluginHook } from "../../../../lib/plugins/engine";
+import { getCanonicalPostexCity } from "../../../../lib/postexCities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -378,6 +379,15 @@ export async function POST(request) {
         { status: 400 }
       );
     }
+
+    const canonicalCity = getCanonicalPostexCity(normalizedCustomer.city);
+    if (!canonicalCity) {
+      return NextResponse.json(
+        { error: "Please select a valid delivery city served by PostEx courier." },
+        { status: 400 }
+      );
+    }
+    normalizedCustomer.city = canonicalCity;
     if (!isValidPakistanMobile(courierPhone)) {
       return NextResponse.json(
         { error: "Please enter a valid Pakistani mobile number, for example 03XXXXXXXXX." },

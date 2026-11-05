@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Truck,
+  X,
 } from "lucide-react";
 import "./checkout.css";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../../lib/images";
@@ -28,24 +29,7 @@ import { buildShippingAddress } from "../../lib/shippingAddress";
 import { DEFAULT_STORE_SETTINGS } from "../../data/storeSettings";
 import { calculatePaymentAmounts, normalizePaymentMethod, PAYMENT_METHODS } from "../../lib/paymentRules";
 import { trackEvent, saveConsentedCustomerData } from "../../lib/trackEvent";
-
-const MAJOR_CITIES = [
-  "Lahore",
-  "Karachi",
-  "Islamabad",
-  "Rawalpindi",
-  "Faisalabad",
-  "Multan",
-  "Peshawar",
-  "Quetta",
-  "Gujranwala",
-  "Sialkot",
-  "Hyderabad",
-  "Bahawalpur",
-  "Sargodha",
-  "Sukkur",
-  "Abbottabad",
-];
+import { POPULAR_POSTEX_CITIES, searchPostexCities } from "../../lib/postexCities";
 
 function formatPrice(amount) {
   const num = Number(amount || 0);
@@ -58,7 +42,7 @@ function isValidPakistanMobile(value = "") {
   return /^03\d{9}$/.test(normalized);
 }
 
-function validateCheckoutForm(form) {
+function validateCheckoutForm(form, cities = []) {
   const errors = {};
   if (!form.firstName?.trim() && !form.fullName?.trim()) {
     errors.firstName = "Enter a first name";
@@ -72,7 +56,13 @@ function validateCheckoutForm(form) {
     errors.address = "Enter an address";
   }
   if (!form.city?.trim()) {
-    errors.city = "Enter a city";
+    errors.city = "Please select a delivery city";
+  } else if (Array.isArray(cities) && cities.length > 0) {
+    const cleanCity = form.city.trim().toLowerCase();
+    const isListed = cities.some((c) => c.toLowerCase() === cleanCity);
+    if (!isListed) {
+      errors.city = "Please select a valid city from the PostEx delivery list";
+    }
   }
   if (!form.phone?.trim()) {
     errors.phone = "Enter a phone number";
@@ -88,89 +78,205 @@ function validateCheckoutForm(form) {
 function CityCombobox({ value, onChange, cities, loading, disabled, error }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef(null);
+  const listboxRef = useRef(null);
 
+  // Sync search input with value when closed
+  useEffect(() => {
+    if (!isOpen) {
+      setSearch(value || "");
+    }
+  }, [value, isOpen]);
+
+  // Click outside listener: enforce selection or revert
   useEffect(() => {
     function handleClickOutside(e) {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setIsOpen(false);
+        setActiveIndex(-1);
+
+        const trimmed = search.trim();
+        if (!trimmed) {
+          onChange({ target: { name: "city", value: "" } });
+          setSearch("");
+          return;
+        }
+
+        // Check if what was typed matches any city exactly (case-insensitive)
+        const exactMatch = cities.find((c) => c.toLowerCase() === trimmed.toLowerCase());
+        if (exactMatch) {
+          onChange({ target: { name: "city", value: exactMatch } });
+          setSearch(exactMatch);
+        } else if (value && cities.some((c) => c.toLowerCase() === value.trim().toLowerCase())) {
+          // Revert back to the selected valid city
+          setSearch(value);
+        } else {
+          // Typed text is not in PostEx list - clear city so validation shows error
+          onChange({ target: { name: "city", value: "" } });
+          setSearch("");
+        }
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [search, value, cities, onChange]);
 
+  // Ranked search: exact matches first, starts-with next, word boundaries next, contains next
   const filteredCities = useMemo(() => {
+    if (!cities || !cities.length) return [];
     if (!search.trim()) return cities;
-    const query = search.toLowerCase().trim();
-    return cities.filter((city) => city.toLowerCase().includes(query));
+    return searchPostexCities(search, 40, cities);
   }, [cities, search]);
 
   const popularCitiesFiltered = useMemo(() => {
     if (search.trim()) return [];
-    return MAJOR_CITIES.filter((major) =>
-      cities.some((c) => c.toLowerCase() === major.toLowerCase())
+    return POPULAR_POSTEX_CITIES.filter((pop) =>
+      cities.some((c) => c.toLowerCase() === pop.toLowerCase())
     );
   }, [cities, search]);
 
+  // Candidate items for keyboard navigation (ArrowDown / ArrowUp / Enter)
+  const currentOptions = useMemo(() => {
+    if (search.trim()) {
+      return filteredCities;
+    }
+    const popularSet = new Set(popularCitiesFiltered.map((c) => c.toLowerCase()));
+    const remaining = cities.filter((c) => !popularSet.has(c.toLowerCase())).slice(0, 30);
+    return [...popularCitiesFiltered, ...remaining];
+  }, [search, filteredCities, popularCitiesFiltered, cities]);
+
   function handleSelect(city) {
-    onChange({ target: { name: "city", value: city } });
-    setSearch("");
+    const canonical = cities.find((c) => c.toLowerCase() === String(city || "").trim().toLowerCase()) || city;
+    onChange({ target: { name: "city", value: canonical } });
+    setSearch(canonical);
     setIsOpen(false);
+    setActiveIndex(-1);
   }
+
+  function handleClear(e) {
+    e?.stopPropagation();
+    onChange({ target: { name: "city", value: "" } });
+    setSearch("");
+    setActiveIndex(-1);
+    setIsOpen(true);
+  }
+
+  const isCitySelectedAndValid = Boolean(
+    value && cities.some((c) => c.toLowerCase() === value.trim().toLowerCase())
+  );
 
   return (
     <div className="shopifyCityComboboxContainer" ref={containerRef}>
-      <div className="shopifyInputWrapper">
+      <div className="shopifyInputWrapper" style={{ position: "relative" }}>
         <input
           type="text"
           name="city"
           autoComplete="address-level2"
-          // The field had no accessible name, and its dropdown was mouse-only:
-          // the options are plain divs with an onClick. Free typing always
-          // worked, so checkout was never blocked, but there was no way to take
-          // a suggestion from the keyboard. Enter now accepts the first match.
-          aria-label="City"
+          aria-label="Delivery City (Serviceable by PostEx)"
           role="combobox"
           aria-expanded={isOpen}
           aria-controls="checkout-city-listbox"
           aria-autocomplete="list"
           className={`shopifyInput ${error ? "hasError" : ""}`}
-          placeholder={loading ? "Loading cities..." : "City"}
+          placeholder={loading ? "Loading serviceable cities..." : "Select delivery city"}
           value={isOpen ? search : value || ""}
           disabled={disabled || loading}
           onFocus={() => {
             setSearch(value || "");
             setIsOpen(true);
+            setActiveIndex(-1);
           }}
           onKeyDown={(event) => {
-            if (event.key === "Escape" && isOpen) {
+            if (event.key === "Escape") {
               event.preventDefault();
               setIsOpen(false);
+              setSearch(value || "");
+              setActiveIndex(-1);
               return;
             }
-            if (event.key === "Enter" && isOpen) {
-              // Prefer a city that starts with what was typed. The filter
-              // matches anywhere in the name, so "Lah" would otherwise accept
-              // "ALLAH ABAD" ahead of "LAHORE".
-              const typed = search.trim().toLowerCase();
-              const candidates = [...popularCitiesFiltered, ...filteredCities];
-              const firstMatch =
-                (typed && candidates.find((c) => String(c).toLowerCase().startsWith(typed))) || candidates[0];
-              if (firstMatch) {
+
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              if (!isOpen) {
+                setIsOpen(true);
+                return;
+              }
+              setActiveIndex((prev) => (prev < currentOptions.length - 1 ? prev + 1 : 0));
+              return;
+            }
+
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              if (!isOpen) {
+                setIsOpen(true);
+                return;
+              }
+              setActiveIndex((prev) => (prev > 0 ? prev - 1 : currentOptions.length - 1));
+              return;
+            }
+
+            if (event.key === "Enter") {
+              if (isOpen && currentOptions.length > 0) {
                 event.preventDefault();
-                handleSelect(firstMatch);
+                const selectedOption =
+                  activeIndex >= 0 && activeIndex < currentOptions.length
+                    ? currentOptions[activeIndex]
+                    : currentOptions[0];
+                if (selectedOption) {
+                  handleSelect(selectedOption);
+                }
               }
             }
           }}
           onChange={(e) => {
-            setSearch(e.target.value);
-            onChange({ target: { name: "city", value: e.target.value } });
+            const typed = e.target.value;
+            setSearch(typed);
+            setActiveIndex(0);
             if (!isOpen) setIsOpen(true);
+
+            // If user typed exact city name, snap immediately to canonical
+            const exactMatch = cities.find((c) => c.toLowerCase() === typed.trim().toLowerCase());
+            if (exactMatch) {
+              onChange({ target: { name: "city", value: exactMatch } });
+            } else {
+              // Unverified/partial text cannot be submitted as a final city
+              onChange({ target: { name: "city", value: "" } });
+            }
           }}
         />
-        <ChevronDown size={15} style={{ position: "absolute", right: 12, color: "#737373", pointerEvents: "none" }} />
+
+        {value && !disabled && (
+          <button
+            type="button"
+            className="shopifyCityClearBtn"
+            onClick={handleClear}
+            title="Change city"
+            aria-label="Change city"
+          >
+            <X size={13} />
+          </button>
+        )}
+
+        <ChevronDown
+          size={15}
+          style={{
+            position: "absolute",
+            right: 12,
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "#737373",
+            pointerEvents: "none",
+          }}
+        />
       </div>
+
+      {isCitySelectedAndValid && !isOpen && (
+        <div className="shopifyCityVerifiedBadge">
+          <Check size={12} /> PostEx delivery available
+        </div>
+      )}
+
       {error && (
         <div className="shopifyInputErrorMsg" role="alert">
           <AlertCircle size={12} /> {error}
@@ -178,35 +284,87 @@ function CityCombobox({ value, onChange, cities, loading, disabled, error }) {
       )}
 
       {isOpen && cities.length > 0 && (
-        <div className="shopifyCityDropdownMenu" id="checkout-city-listbox" role="listbox" aria-label="City suggestions">
-          {popularCitiesFiltered.length > 0 && (
-            <div className="shopifyCityDropdownHeader">Popular Cities</div>
+        <div
+          className="shopifyCityDropdownMenu"
+          id="checkout-city-listbox"
+          role="listbox"
+          aria-label="PostEx Delivery Cities"
+          ref={listboxRef}
+        >
+          {search.trim() ? (
+            filteredCities.length > 0 ? (
+              <>
+                <div className="shopifyCityDropdownHeader">
+                  Matching Serviceable Cities ({filteredCities.length})
+                </div>
+                {filteredCities.map((city, idx) => {
+                  const isSelected = value && value.toLowerCase() === city.toLowerCase();
+                  const isActive = activeIndex === idx;
+                  return (
+                    <div
+                      key={city}
+                      className={`shopifyCityDropdownItem ${isSelected ? "isSelected" : ""} ${isActive ? "isActive" : ""}`}
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => handleSelect(city)}
+                    >
+                      <span>{city}</span>
+                      {isSelected && <Check size={14} className="text-emerald-600" />}
+                    </div>
+                  );
+                })}
+              </>
+            ) : (
+              <div className="shopifyCityDropdownEmpty">
+                <span>No delivery coverage found for &ldquo;{search}&rdquo;.</span>
+                <span className="shopifyCityDropdownEmptySub">
+                  PostEx delivers to 900+ cities in Pakistan. Please select your nearest city from the list.
+                </span>
+              </div>
+            )
+          ) : (
+            <>
+              {popularCitiesFiltered.length > 0 && (
+                <>
+                  <div className="shopifyCityDropdownHeader">Popular Cities (PostEx Express)</div>
+                  {popularCitiesFiltered.map((city, idx) => {
+                    const isSelected = value && value.toLowerCase() === city.toLowerCase();
+                    const isActive = activeIndex === idx;
+                    return (
+                      <div
+                        key={city}
+                        className={`shopifyCityDropdownItem ${isSelected ? "isSelected" : ""} ${isActive ? "isActive" : ""}`}
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => handleSelect(city)}
+                      >
+                        <span>{city}</span>
+                        {isSelected && <Check size={14} className="text-emerald-600" />}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+              <div className="shopifyCityDropdownHeader">All Operational Cities ({cities.length})</div>
+              {cities.slice(0, 35).map((city, idx) => {
+                const globalIdx = popularCitiesFiltered.length + idx;
+                const isSelected = value && value.toLowerCase() === city.toLowerCase();
+                const isActive = activeIndex === globalIdx;
+                return (
+                  <div
+                    key={city}
+                    className={`shopifyCityDropdownItem ${isSelected ? "isSelected" : ""} ${isActive ? "isActive" : ""}`}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => handleSelect(city)}
+                  >
+                    <span>{city}</span>
+                    {isSelected && <Check size={14} className="text-emerald-600" />}
+                  </div>
+                );
+              })}
+            </>
           )}
-          {popularCitiesFiltered.map((city) => (
-            <div
-              key={city}
-              className="shopifyCityDropdownItem"
-              role="option"
-              aria-selected={value === city}
-              onClick={() => handleSelect(city)}
-            >
-              {city}
-            </div>
-          ))}
-          <div className="shopifyCityDropdownHeader">
-            {search.trim() ? `Matching Cities (${filteredCities.length})` : "All Cities"}
-          </div>
-          {filteredCities.slice(0, 30).map((city) => (
-            <div
-              key={city}
-              className="shopifyCityDropdownItem"
-              role="option"
-              aria-selected={value === city}
-              onClick={() => handleSelect(city)}
-            >
-              {city}
-            </div>
-          ))}
         </div>
       )}
     </div>
@@ -277,7 +435,15 @@ export default function CheckoutPage() {
       .then(async (response) => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error);
-        setCities(result.cities || []);
+        const validList = result.cities || [];
+        setCities(validList);
+
+        // If a city was restored from localStorage, verify it against PostEx valid list
+        setForm((current) => {
+          if (!current.city) return current;
+          const matched = validList.find((c) => c.toLowerCase() === current.city.trim().toLowerCase());
+          return matched ? { ...current, city: matched } : { ...current, city: "" };
+        });
       })
       .catch(() => setCitiesError(true))
       .finally(() => setCitiesLoading(false));
@@ -390,7 +556,7 @@ export default function CheckoutPage() {
     event.preventDefault();
     if (submitting || !cart.length) return;
 
-    const validationErrors = validateCheckoutForm(form);
+    const validationErrors = validateCheckoutForm(form, cities);
     setFieldErrors(validationErrors);
 
     if (Object.keys(validationErrors).length > 0) {
@@ -408,6 +574,20 @@ export default function CheckoutPage() {
       return;
     }
 
+    const matchedCity = cities.find((c) => c.toLowerCase() === form.city?.trim().toLowerCase());
+    if (!matchedCity && cities.length > 0) {
+      setFieldErrors((curr) => ({
+        ...curr,
+        city: "Please select a valid city from the PostEx delivery list",
+      }));
+      const cityInput = document.querySelector('[name="city"]');
+      if (cityInput) {
+        cityInput.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => cityInput.focus(), 150);
+      }
+      return;
+    }
+
     setSubmitting(true);
     setError("");
 
@@ -420,7 +600,7 @@ export default function CheckoutPage() {
       email: form.email?.trim() || "",
       address: completeAddress || form.address?.trim() || "",
       apartment: form.apartment?.trim() || "",
-      city: form.city?.trim() || "",
+      city: matchedCity || form.city?.trim() || "",
       postalCode: form.postalCode?.trim() || "",
     };
 

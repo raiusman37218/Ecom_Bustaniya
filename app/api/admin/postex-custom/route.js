@@ -6,6 +6,7 @@ import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabase
 import { getCourierAdapter, postexTrackingNumberFromBooking } from "../../../../lib/courierAdapters";
 import { recordShipmentState } from "../../../../lib/shipments";
 import { recordVerifiedAdvance } from "../../../../lib/financeOrders";
+import { getCanonicalPostexCity } from "../../../../lib/postexCities";
 
 async function ensureOrderItems(orderId, items) {
   if (!orderId || !items.length) return;
@@ -230,6 +231,17 @@ export async function POST(request) {
     }
     if (String(customer.city || "").trim().length > 80) {
       throw validationError("City name is too long.");
+    }
+
+    const canonicalCity = getCanonicalPostexCity(customer.city);
+    if (shouldBookPostex && !canonicalCity) {
+      return NextResponse.json(
+        { error: `The city "${customer.city}" is not recognized by PostEx. Please select a valid city from the PostEx dropdown.` },
+        { status: 400 }
+      );
+    }
+    if (canonicalCity) {
+      customer.city = canonicalCity;
     }
 
     const products = await getCatalogProducts();
