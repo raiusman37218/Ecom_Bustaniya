@@ -16,7 +16,12 @@ import {
   listSupplierBills,
   isMissingTableError,
 } from "../../../../lib/financeStore";
-import { backfillDeliveredOrderCogs, backfillVerifiedAdvances, recordVerifiedAdvance } from "../../../../lib/financeOrders";
+import {
+  backfillDeliveredOrderCogs,
+  backfillVerifiedAdvances,
+  recordVerifiedAdvance,
+  voidOrderAdvanceTransaction,
+} from "../../../../lib/financeOrders";
 import { supabaseAdminRequest } from "../../../../lib/supabaseRest";
 
 const SETUP_HINT = "Run scripts/supabase-finance.sql and scripts/supabase-finance-phase2.sql in Supabase, then reload.";
@@ -266,37 +271,90 @@ export async function POST(request) {
         return NextResponse.json({ success: true, adjusted: true, transaction: adjustment });
       }
 
-      case "verify_order_advance": {
+      case "verify_order_advance":
+      case "update_order_payment": {
         const orderId = String(body.orderId || "").trim();
         if (!orderId) return NextResponse.json({ error: "Order ID zaroori hai." }, { status: 422 });
         const rows = await supabaseAdminRequest(`orders?select=*&id=eq.${encodeURIComponent(orderId)}&limit=1`);
         const order = rows?.[0];
         if (!order) return NextResponse.json({ error: "Order nahi mila." }, { status: 404 });
+
+        const currentTotal = Math.max(0, Number(order.total_order_value_pkr ?? order.total_pkr ?? 0) || 0);
+        const currentSubtotal = Math.max(0, Number(order.product_subtotal_pkr ?? (currentTotal - Number(order.delivery_charges_pkr ?? 0))) || 0);
+        const currentDelivery = Math.max(0, Number(order.delivery_charges_pkr ?? 0) || 0);
+
+        let nextAdvance = body.advancePkr !== undefined
+          ? Math.min(currentTotal, Math.max(0, Number(body.advancePkr || 0) || 0))
+          : Math.max(0, Number(order.amount_payable_in_advance_pkr ?? 0) || 0);
+
+        let nextPaymentMethod = order.payment_method || "cod";
+        if (body.scenario === "full_advance") {
+          nextAdvance = currentTotal;
+          nextPaymentMethod = "full_advance";
+        } else if (body.scenario === "delivery_advance") {
+          nextAdvance = body.advancePkr !== undefined
+            ? Math.min(currentTotal, Math.max(0, Number(body.advancePkr || 0) || 0))
+            : (currentDelivery > 0 ? currentDelivery : Math.min(currentTotal, 250));
+          nextPaymentMethod = "cod";
+        } else if (body.scenario === "cod") {
+          nextAdvance = 0;
+          nextPaymentMethod = "cod";
+        }
+
+        const mode = body.mode || (body.action === "verify_order_advance" ? "verify" : "verify");
+        let nextPaymentStatus = body.paymentStatus || "Payment Verified";
+        if (mode === "unverify") {
+          nextPaymentStatus = nextAdvance > 0 ? "Advance Pending" : "COD pending";
+        } else if (mode === "reject") {
+          nextPaymentStatus = "Payment Rejected";
+        } else if (mode === "verify") {
+          if (nextAdvance <= 0 && body.scenario !== "cod") {
+            nextAdvance = currentDelivery > 0 && currentDelivery < currentTotal ? currentDelivery : currentTotal;
+          }
+          nextPaymentStatus = nextAdvance >= currentTotal && currentTotal > 0 ? "Paid" : "Payment Verified";
+        }
+
+        const nextCodRemaining = Math.max(0, currentTotal - nextAdvance);
+        const isVerifying = nextPaymentStatus === "Payment Verified" || nextPaymentStatus === "Paid";
+        const unlockFulfillment = isVerifying && ["On hold", "Unfulfilled", ""].includes(order.fulfillment_status || "")
+          ? "Packing"
+          : undefined;
+
+        const orderPatch = {
+          payment_status: nextPaymentStatus,
+          payment_proof_status: nextPaymentStatus,
+          payment_method: nextPaymentMethod,
+          amount_payable_in_advance_pkr: nextAdvance,
+          amount_payable_on_delivery_pkr: nextCodRemaining,
+          ...(body.paymentReference !== undefined ? { payment_reference: String(body.paymentReference || "").trim() || null } : {}),
+          ...(unlockFulfillment ? { fulfillment_status: unlockFulfillment } : {}),
+          ...(isVerifying ? { advance_verified_at: order.advance_verified_at || new Date().toISOString() } : { advance_verified_at: null }),
+        };
+
         const updatedOrderRows = await supabaseAdminRequest(`orders?id=eq.${encodeURIComponent(orderId)}`, {
           method: "PATCH",
-          body: {
-            payment_status: "Payment Verified",
-            payment_proof_status: "Payment Verified",
-            advance_verified_at: order.advance_verified_at || new Date().toISOString(),
-          },
+          body: orderPatch,
           prefer: "return=representation",
-        }).catch(() => [
-          {
-            ...order,
-            payment_status: "Payment Verified",
-            payment_proof_status: "Payment Verified",
-          },
-        ]);
-        const verifiedOrder = updatedOrderRows?.[0] || {
-          ...order,
-          payment_status: "Payment Verified",
-          payment_proof_status: "Payment Verified",
-        };
-        const advanceResult = await recordVerifiedAdvance(verifiedOrder, {
-          actor: user,
-          accountId: body.accountId || undefined,
+        }).catch(() => [{ ...order, ...orderPatch }]);
+
+        const updatedOrder = updatedOrderRows?.[0] || { ...order, ...orderPatch };
+
+        let advanceResult = null;
+        if (isVerifying && nextAdvance > 0) {
+          advanceResult = await recordVerifiedAdvance(updatedOrder, {
+            actor: user,
+            accountId: body.accountId || undefined,
+            customAmountPkr: nextAdvance,
+          });
+        } else {
+          advanceResult = await voidOrderAdvanceTransaction(orderId, { actor: user });
+        }
+
+        return NextResponse.json({
+          success: true,
+          order: updatedOrder,
+          advanceResult,
         });
-        return NextResponse.json({ success: true, advanceResult });
       }
 
       case "void_supplier_bill": {

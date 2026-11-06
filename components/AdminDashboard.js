@@ -3413,6 +3413,21 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
   const deliveredCount = deliveredScoped.length;
   const averageOrderValue = deliveredCount ? Math.round(salesPeriodTotal / deliveredCount) : 0;
 
+  const dashboardVerifiedAdvances = connected
+    ? liveOrders
+        .filter((order) => {
+          const orderDate = toOrderDate(order);
+          if (!orderDate) return false;
+          const daysAgo = (new Date() - orderDate) / (1000 * 60 * 60 * 24);
+          if (daysAgo > chartRange) return false;
+          if (isDeliveredOrder(order)) return false;
+          const rawPay = String(order.paymentStatus || order.payment_status || order.paymentProofStatus || "").toLowerCase();
+          const isVerified = (rawPay.includes("verif") && !rawPay.includes("unverif") && !rawPay.includes("await") && !rawPay.includes("due") && !rawPay.includes("pending")) || rawPay === "paid";
+          return isVerified && Number(order.amountPayableInAdvance || order.amount_payable_in_advance_pkr || 0) > 0;
+        })
+        .reduce((sum, order) => sum + Number(order.amountPayableInAdvance || order.amount_payable_in_advance_pkr || 0), 0)
+    : 0;
+
   const customerKeys = deliveredScoped.map(orderCustomerIdentity).filter(Boolean);
   const customerOrderCounts = customerKeys.reduce((map, key) => map.set(key, (map.get(key) || 0) + 1), new Map());
   const repeatCustomers = [...customerOrderCounts.values()].filter((count) => count > 1).length;
@@ -3447,13 +3462,13 @@ function DashboardHome({ setActive, orders, products, metrics, connected, loadin
     <div className="premiumMetricGrid">
       <div className="premiumMetricCard salesCard">
         <div className="premiumMetricHeader">
-          <span>Delivered Sales</span>
+          <span>Delivered Sales &amp; Advances</span>
           <CircleDollarSign />
         </div>
-        <div className="premiumMetricValue">Rs. {salesPeriodTotal.toLocaleString()}</div>
+        <div className="premiumMetricValue">Rs. {(salesPeriodTotal + dashboardVerifiedAdvances).toLocaleString()}</div>
         <div className="premiumMetricNote">
           <span className={salesPeriodChange !== null && salesPeriodChange < 0 ? "metricTrendDown" : "metricTrendUp"}>
-            {salesPeriodChange === null ? `Last ${chartRange} days` : `${salesPeriodChange >= 0 ? "+" : ""}${salesPeriodChange}% vs prior ${chartRange} days`}
+            {dashboardVerifiedAdvances > 0 ? `Delivered Rs. ${salesPeriodTotal.toLocaleString()} · Adv Rs. ${dashboardVerifiedAdvances.toLocaleString()}` : (salesPeriodChange === null ? `Last ${chartRange} days` : `${salesPeriodChange >= 0 ? "+" : ""}${salesPeriodChange}% vs prior ${chartRange} days`)}
           </span>
         </div>
       </div>
@@ -5140,6 +5155,7 @@ function isReturnedOrder(order) {
 
 const orderCategoryLabels = [
   "Total Orders",
+  "Needs Verification",
   "Unbooked",
   "In Courier",
   "Out For Delivery",
@@ -5217,10 +5233,12 @@ function cleanUserNote(rawNote = "") {
 
 function formatPaymentStatus(value = "", { advance = 0, total = 0 } = {}) {
   const s = String(value || "").trim().toLowerCase();
-  if (s === "paid" || s.includes("full paid") || s.includes("fully paid") || (total > 0 && advance >= total && advance > 0)) return "Paid";
   if (s.includes("reject") || s.includes("decline") || s.includes("fail")) return "Payment Rejected";
   if (s.includes("refund")) return "Refunded";
-  if (s.includes("verif") && !s.includes("await") && !s.includes("due") && !s.includes("pending")) return "Payment Verified";
+  const isExplicitPaid = s === "paid" || s.includes("full paid") || s.includes("fully paid");
+  const isExplicitVerified = s.includes("verif") && !s.includes("unverif") && !s.includes("await") && !s.includes("due") && !s.includes("pending");
+  if (isExplicitPaid || (isExplicitVerified && total > 0 && advance >= total && advance > 0)) return "Paid";
+  if (isExplicitVerified) return "Payment Verified";
   if (s.includes("proof") || s.includes("submitted") || s.includes("due")) return "Proof Submitted";
   if (s.includes("advance") || advance > 0) return "Advance Pending";
   if (s.includes("cod")) return "COD Pending";
@@ -5267,6 +5285,16 @@ function orderMatchesCategory(order, tab) {
   );
 
   if (tab === "Total Orders") return true;
+  if (tab === "Needs Verification") {
+    const rawPay = String(order.paymentStatus || order.payment_status || order.paymentProofStatus || "").toLowerCase();
+    const adv = Number(order.amountPayableInAdvance || order.amount_payable_in_advance_pkr || 0);
+    const isCancelled = String(order.status || "").toLowerCase().includes("cancel");
+    if (isCancelled) return false;
+    const isVerified = (rawPay.includes("verif") && !rawPay.includes("unverif") && !rawPay.includes("await") && !rawPay.includes("due") && !rawPay.includes("pending")) || rawPay === "paid";
+    const isRejected = rawPay.includes("reject") || rawPay.includes("fail") || rawPay.includes("decline") || rawPay.includes("refund");
+    if (isVerified || isRejected) return false;
+    return adv > 0 || rawPay.includes("proof") || rawPay.includes("submitted") || rawPay.includes("advance");
+  }
   if (tab === "Advance Paid") return Number(order.amountPayableInAdvance || 0) > 0;
   if (tab === "Unbooked") return isUnbooked;
 
@@ -6461,6 +6489,18 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
   const unfulfilledCount = useMemo(() => allRows.filter((order) => orderMatchesCategory(order, "Unbooked")).length, [allRows]);
   const inTransitCount = useMemo(() => allRows.filter((order) => orderMatchesCategory(order, "In Courier")).length, [allRows]);
   const deliveredRevenue = useMemo(() => allRows.filter(isDeliveredOrder).reduce((sum, order) => sum + orderMoney(order).total, 0), [allRows]);
+  const verifiedAdvanceTotal = useMemo(() => {
+    return allRows
+      .filter((order) => {
+        const rawPay = String(order.paymentStatus || order.payment_status || order.paymentProofStatus || "").toLowerCase();
+        const isVerified = (rawPay.includes("verif") && !rawPay.includes("unverif") && !rawPay.includes("await") && !rawPay.includes("due") && !rawPay.includes("pending")) || rawPay === "paid";
+        return isVerified && Number(order.amountPayableInAdvance || order.amount_payable_in_advance_pkr || 0) > 0;
+      })
+      .reduce((sum, order) => sum + Number(order.amountPayableInAdvance || order.amount_payable_in_advance_pkr || 0), 0);
+  }, [allRows]);
+  const pendingVerificationCount = useMemo(() => {
+    return allRows.filter((order) => orderMatchesCategory(order, "Needs Verification")).length;
+  }, [allRows]);
 
   useEffect(() => {
     localStorage.removeItem("bustaniya-custom-orders");
@@ -6595,6 +6635,10 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
         orderStage: stage,
         status: stage,
         paymentStatus: changes.paymentStatus,
+        paymentOption: changes.paymentOption,
+        paymentMethod: changes.paymentMethod,
+        paymentAccountId: changes.paymentAccountId,
+        deliveryCharges: changes.deliveryCharges,
         paymentReference: changes.paymentReference,
         amountPayableInAdvance: changes.amountPayableInAdvance,
         confirmationStatus: changes.confirmationStatus,
@@ -6619,6 +6663,27 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
     updateLocalOrder(order.id, nextChanges);
     onRetry?.();
     return nextChanges;
+  }
+
+  async function handleQuickVerify(order, accountId) {
+    const total = Math.max(0, Number(order.total || order.total_pkr || order.total_order_value_pkr || 0) || 0);
+    const advance = Math.max(0, Number(order.amountPayableInAdvance || order.amount_payable_in_advance_pkr || 0) || 0);
+    const effectiveAdv = advance > 0 ? advance : total;
+    const isFull = effectiveAdv >= total && total > 0;
+    const nextPayStatus = isFull ? "Paid" : "Payment Verified";
+    const nextFulfillment = ["On hold", "Unfulfilled", ""].includes(order.fulfillmentStatus || "") ? "Packing" : (order.fulfillmentStatus || "Packing");
+    const nextStage = ["On Hold", "pending", "Unbooked", ""].includes(order.status || "") ? "Packing" : (order.status || "Packing");
+    await persistOrderUpdate(order, {
+      paymentStatus: nextPayStatus,
+      paymentOption: isFull ? "full_advance" : "cod_delivery_advance",
+      paymentAccountId: accountId,
+      amountPayableInAdvance: effectiveAdv,
+      fulfillmentStatus: nextFulfillment,
+      status: nextStage,
+      postexStatus: nextStage,
+      orderStage: nextStage,
+      confirmationStatus: "Confirmed",
+    });
   }
 
   async function saveCustomOrderToSupabase(order) {
@@ -6807,17 +6872,28 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
               <span className="shopifyKpiSub">Store lifetime volume</span>
             </div>
 
-            <div className="shopifyKpiCard">
+            <div
+              className="shopifyKpiCard"
+              style={{ cursor: pendingVerificationCount > 0 ? "pointer" : "default" }}
+              onClick={() => {
+                if (pendingVerificationCount > 0) setActiveTab("Needs Verification");
+              }}
+              title={pendingVerificationCount > 0 ? "Click to view orders awaiting payment verification" : undefined}
+            >
               <div className="shopifyKpiTop">
                 <span className="shopifyKpiLabel">Needs Action</span>
                 <span className="shopifyKpiIconBadge shopifyKpiPending">
                   <Clock size={17} />
                 </span>
               </div>
-              <div className={`shopifyKpiValue ${unfulfilledCount > 0 ? "shopifyKpiAlert" : ""}`}>
-                {unfulfilledCount} {unfulfilledCount === 1 ? "order" : "orders"}
+              <div className={`shopifyKpiValue ${(unfulfilledCount > 0 || pendingVerificationCount > 0) ? "shopifyKpiAlert" : ""}`}>
+                {unfulfilledCount} unbooked{pendingVerificationCount > 0 ? ` · ${pendingVerificationCount} verify` : ""}
               </div>
-              <span className="shopifyKpiSub">Unfulfilled / Unbooked</span>
+              <span className="shopifyKpiSub">
+                {pendingVerificationCount > 0
+                  ? `${pendingVerificationCount} payment${pendingVerificationCount === 1 ? "" : "s"} need verification`
+                  : "Unfulfilled / Unbooked"}
+              </span>
             </div>
 
             <div className="shopifyKpiCard">
@@ -6833,15 +6909,18 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
 
             <div className="shopifyKpiCard">
               <div className="shopifyKpiTop">
-                <span className="shopifyKpiLabel">Delivered Revenue</span>
+                <span className="shopifyKpiLabel">Revenue &amp; Advances</span>
                 <span className="shopifyKpiIconBadge shopifyKpiDelivered">
                   <TrendingUp size={17} />
                 </span>
               </div>
               <div className="shopifyKpiValue shopifyKpiSuccess">
-                Rs. {Math.round(deliveredRevenue).toLocaleString()}
+                Rs. {Math.round(deliveredRevenue + verifiedAdvanceTotal).toLocaleString()}
               </div>
-              <span className="shopifyKpiSub">Delivered COD revenue</span>
+              <span className="shopifyKpiSub">
+                Delivered Rs. {Math.round(deliveredRevenue).toLocaleString()}
+                {verifiedAdvanceTotal > 0 ? ` · Adv Rs. ${Math.round(verifiedAdvanceTotal).toLocaleString()}` : ""}
+              </span>
             </div>
           </div>
 
@@ -6942,6 +7021,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
                   setDeleteError("");
                   setOrderToDelete(order);
                 }}
+                onQuickVerify={handleQuickVerify}
               />
             )}
 
@@ -9766,6 +9846,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus || "COD pending");
   const [paymentReference, setPaymentReference] = useState(order.paymentReference || order.raw?.payment_reference || "");
   const [advancePaidAmount, setAdvancePaidAmount] = useState(Number(order.amountPayableInAdvance || 0));
+  const [paymentAccountId, setPaymentAccountId] = useState("");
   const [fulfillmentStatus, setFulfillmentStatus] = useState(order.fulfillmentStatus || "Unfulfilled");
   const [deliveryMethod, setDeliveryMethod] = useState(order.deliveryMethod || (order.tracking ? "PostEx" : "Rider / same city"));
   const [risk, setRisk] = useState(order.risk || "Standard COD");
@@ -9904,13 +9985,20 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   }
 
   function changes(overrides = {}) {
+    const adv = Number(advancePaidAmount || 0);
+    const tot = calculatedOrderTotal;
+    const isPrepaid = adv >= tot && tot > 0;
+    const option = isPrepaid ? "full_advance" : (adv > 0 ? "cod_delivery_advance" : "cod");
     return {
       tracking,
       status: orderStage,
       postexStatus: orderStage,
       paymentStatus,
+      paymentOption: option,
+      paymentMethod: isPrepaid ? "full_advance" : "cod",
+      paymentAccountId: paymentAccountId || undefined,
       paymentReference,
-      amountPayableInAdvance: Number(advancePaidAmount || 0),
+      amountPayableInAdvance: adv,
       confirmationStatus: order.confirmationStatus,
       fulfillmentStatus,
       deliveryMethod,
@@ -10337,12 +10425,20 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                   <span>{copiedOrderNumber ? "Copied" : "Copy"}</span>
                 </button>
                 {/* Payment pill */}
-                {paymentStatus.toLowerCase().includes("paid") || paymentStatus.toLowerCase().includes("verified") ? (
-                  <span className="shopifyPill paid"><span className="pillDot" /> Paid</span>
-                ) : Number(advancePaidAmount || 0) > 0 ? (
-                  <span className="shopifyPill partially_paid"><span className="pillDot" /> Adv Paid</span>
+                {paymentStatus === "Paid" || (isPaymentPaidOrVerified && advNum >= calculatedOrderTotal && calculatedOrderTotal > 0) ? (
+                  <span className="shopifyPill paid"><span className="pillDot" /> 100% Prepaid</span>
+                ) : isPaymentPaidOrVerified && advNum > 0 ? (
+                  <span className="shopifyPill partially_paid"><span className="pillDot" /> Adv Verified (Rs. {advNum.toLocaleString()})</span>
+                ) : isPaymentRejected ? (
+                  <span className="shopifyPill returned"><span className="pillDot" /> Payment Rejected</span>
+                ) : isPaymentProofSubmitted || (advNum > 0 && !isPaymentPaidOrVerified) ? (
+                  <span className="shopifyPill pending" style={{ background: "#fffbeb", color: "#b45309", borderColor: "#fde68a" }}>
+                    <span className="pillDot" style={{ background: "#d97706" }} /> Adv Pending (Rs. {advNum.toLocaleString()})
+                  </span>
+                ) : isDelivered ? (
+                  <span className="shopifyPill paid"><span className="pillDot" /> COD Collected</span>
                 ) : (
-                  <span className="shopifyPill pending"><span className="pillDot" /> {paymentStatus}</span>
+                  <span className="shopifyPill pending"><span className="pillDot" /> COD Pending</span>
                 )}
                 {/* Fulfillment pill */}
                 {isDelivered ? (
@@ -10761,12 +10857,20 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                     Payment &amp; Financial Accounting
                   </h3>
                 </div>
-                {paymentStatus.toLowerCase().includes("paid") || paymentStatus.toLowerCase().includes("verified") ? (
-                  <span className="shopifyPill paid"><span className="pillDot" /> Paid</span>
-                ) : Number(advancePaidAmount || 0) > 0 ? (
-                  <span className="shopifyPill partially_paid"><span className="pillDot" /> Adv Paid</span>
+                {paymentStatus === "Paid" || (isPaymentPaidOrVerified && advNum >= calculatedOrderTotal && calculatedOrderTotal > 0) ? (
+                  <span className="shopifyPill paid"><span className="pillDot" /> 100% Prepaid</span>
+                ) : isPaymentPaidOrVerified && advNum > 0 ? (
+                  <span className="shopifyPill partially_paid"><span className="pillDot" /> Adv Verified (Rs. {advNum.toLocaleString()})</span>
+                ) : isPaymentRejected ? (
+                  <span className="shopifyPill returned"><span className="pillDot" /> Payment Rejected</span>
+                ) : isPaymentProofSubmitted || (advNum > 0 && !isPaymentPaidOrVerified) ? (
+                  <span className="shopifyPill pending" style={{ background: "#fffbeb", color: "#b45309", borderColor: "#fde68a" }}>
+                    <span className="pillDot" style={{ background: "#d97706" }} /> Adv Pending (Rs. {advNum.toLocaleString()})
+                  </span>
+                ) : isDelivered ? (
+                  <span className="shopifyPill paid"><span className="pillDot" /> COD Collected</span>
                 ) : (
-                  <span className="shopifyPill pending"><span className="pillDot" /> {paymentStatus}</span>
+                  <span className="shopifyPill pending"><span className="pillDot" /> COD Pending</span>
                 )}
               </div>
 
@@ -10889,6 +10993,20 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                       <option>Refunded</option>
                     </select>
                   </label>
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#495a4f" }}>Receiving Account (Finance)</span>
+                    <select
+                      value={paymentAccountId}
+                      onChange={(event) => setPaymentAccountId(event.target.value)}
+                      style={{ padding: "8px 10px", fontSize: "13px", borderRadius: "6px", border: "1px solid #d5dfd6" }}
+                    >
+                      <option value="">Default (NayaPay — Amina)</option>
+                      <option value="nayapay_amina">NayaPay — Amina</option>
+                      <option value="alfalah_owner">Bank Alfalah — Owner</option>
+                      <option value="cash_hand">Cash in hand</option>
+                    </select>
+                  </label>
                 </div>
 
                 {/* Dynamic Context-Aware Payment & Fulfillment Action Area */}
@@ -10926,12 +11044,17 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                         <button
                           type="button"
                           onClick={() => {
-                            setPaymentStatus("Payment Verified");
+                            const isFull = advNum >= calculatedOrderTotal && calculatedOrderTotal > 0;
+                            const nextPay = isFull ? "Paid" : "Payment Verified";
+                            setPaymentStatus(nextPay);
                             setFulfillmentStatus("Packing");
+                            setOrderStage("Packing");
                             saveChanges({
-                              paymentStatus: "Payment Verified",
+                              paymentStatus: nextPay,
+                              paymentOption: isFull ? "full_advance" : (advNum > 0 ? "cod_delivery_advance" : "cod"),
+                              paymentAccountId: paymentAccountId || undefined,
                               paymentReference,
-                              amountPayableInAdvance: Number(advancePaidAmount || 0),
+                              amountPayableInAdvance: advNum,
                               fulfillmentStatus: "Packing",
                               confirmationStatus: "Confirmed",
                               status: "Packing",
@@ -10949,7 +11072,11 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                           type="button"
                           onClick={() => {
                             setPaymentStatus("Payment Rejected");
-                            saveChanges({ paymentStatus: "Payment Rejected", paymentReference, confirmationStatus: "Confirmed" });
+                            saveChanges({
+                              paymentStatus: "Payment Rejected",
+                              paymentReference,
+                              confirmationStatus: "Confirmed",
+                            });
                           }}
                           disabled={saving}
                           className="shopifyRowBtn danger"
@@ -10959,6 +11086,28 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                           <span>Reject Proof</span>
                         </button>
                       </>
+                    )}
+
+                    {/* Reversible Payment Control: Unverify if already verified */}
+                    {isPaymentPaidOrVerified && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextPay = advNum > 0 ? "Advance Pending" : "COD pending";
+                          setPaymentStatus(nextPay);
+                          saveChanges({
+                            paymentStatus: nextPay,
+                            amountPayableInAdvance: advNum,
+                            confirmationStatus: "Confirmed",
+                          });
+                        }}
+                        disabled={saving}
+                        className="shopifyRowBtn"
+                        style={{ fontSize: "12px", padding: "7px 12px", color: "#b45309", borderColor: "#fde68a", background: "#fffbeb" }}
+                        title="Reset payment to unverified (voids finance entry)"
+                      >
+                        Unverify Payment
+                      </button>
                     )}
 
                     {/* CASE 2: COD Order - not yet moved to packing */}
@@ -11483,6 +11632,7 @@ function OrderTable({
   onPrintStitchingOrder,
   onPrintSingleOrder,
   onDeleteOrder,
+  onQuickVerify,
 }) {
   const [expandedId, setExpandedId] = useState(null);
   const selectable = Boolean(onToggleSelectOrder);
@@ -11532,9 +11682,18 @@ function OrderTable({
               if (matchedCatalog) thumbUrl = matchedCatalog.img || matchedCatalog.images?.[0] || "";
             }
 
-            // Payment pill classes
-            const isPaid = money.isFullyAdvanced || String(order.paymentStatus || "").toLowerCase().includes("paid") || String(order.paymentStatus || "").toLowerCase().includes("verified");
-            const isAdvance = !isPaid && (money.hasAdvance || Number(order.amountPayableInAdvance || 0) > 0);
+            // Accurate Payment pill breakdown
+            const rawPay = String(order.paymentStatus || order.payment_status || order.paymentProofStatus || "").toLowerCase();
+            const orderTotal = Math.max(0, Number(order.total || order.total_pkr || order.total_order_value_pkr || money.total || 0) || 0);
+            const orderAdv = Math.max(0, Number(order.amountPayableInAdvance || order.amount_payable_in_advance_pkr || money.advance || 0) || 0);
+            const orderCod = Math.max(0, orderTotal - orderAdv);
+
+            const isVerifiedPayment = (rawPay.includes("verif") && !rawPay.includes("unverif") && !rawPay.includes("await") && !rawPay.includes("due") && !rawPay.includes("pending")) || rawPay === "paid";
+            const isProofSubmitted = rawPay.includes("proof") || rawPay.includes("submitted");
+            const isRejectedPayment = rawPay.includes("reject") || rawPay.includes("fail") || rawPay.includes("decline");
+            const isFullPrepaid = orderTotal > 0 && orderAdv >= orderTotal;
+            const isDeliveryAdv = orderAdv > 0 && orderAdv < orderTotal;
+            const needsQuickVerify = (orderAdv > 0 || isProofSubmitted) && !isVerifiedPayment && !isRejectedPayment;
 
             // Fulfillment status pill classes
             const rawStatusLower = String(statusLabel || "").toLowerCase();
@@ -11650,20 +11809,66 @@ function OrderTable({
                   </td>
 
                   {/* 4. Payment Status */}
-                  <td>
-                    {isPaid ? (
-                      <span className="shopifyPill paid">
-                        <span className="pillDot" /> Paid
-                      </span>
-                    ) : isAdvance ? (
-                      <span className="shopifyPill partially_paid" title={`Advance Rs. ${money.advance.toLocaleString()} received`}>
-                        <span className="pillDot" /> Partially paid
-                      </span>
-                    ) : (
-                      <span className="shopifyPill pending">
-                        <span className="pillDot" /> Pending
-                      </span>
-                    )}
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                      {isVerifiedPayment && isFullPrepaid ? (
+                        <span className="shopifyPill paid" title="100% Prepaid · Payment Verified">
+                          <span className="pillDot" /> 100% Prepaid
+                        </span>
+                      ) : isVerifiedPayment && isDeliveryAdv ? (
+                        <span className="shopifyPill partially_paid" title={`Advance Rs. ${orderAdv.toLocaleString()} Verified · COD Rs. ${orderCod.toLocaleString()} Due`}>
+                          <span className="pillDot" /> Adv Rs. {orderAdv.toLocaleString()} · COD Rs. {orderCod.toLocaleString()}
+                        </span>
+                      ) : isVerifiedPayment && isDelivered ? (
+                        <span className="shopifyPill paid" title="Delivered & Full Paid">
+                          <span className="pillDot" /> Paid (Delivered)
+                        </span>
+                      ) : isRejectedPayment ? (
+                        <span className="shopifyPill returned" title="Payment proof rejected">
+                          <span className="pillDot" /> Rejected
+                        </span>
+                      ) : isProofSubmitted ? (
+                        <span className="shopifyPill pending" style={{ background: "#fef3c7", color: "#92400e", borderColor: "#fde68a" }} title="Payment proof submitted — verify required">
+                          <span className="pillDot" style={{ background: "#d97706" }} /> Proof Submitted
+                        </span>
+                      ) : orderAdv > 0 ? (
+                        <span className="shopifyPill pending" style={{ background: "#fffbeb", color: "#b45309", borderColor: "#fde68a" }} title={`Advance Rs. ${orderAdv.toLocaleString()} verification pending`}>
+                          <span className="pillDot" style={{ background: "#d97706" }} /> Adv Pending (Rs. {orderAdv.toLocaleString()})
+                        </span>
+                      ) : isDelivered ? (
+                        <span className="shopifyPill paid" title="Delivered COD collected">
+                          <span className="pillDot" /> COD Collected
+                        </span>
+                      ) : (
+                        <span className="shopifyPill pending" title={`COD Rs. ${orderTotal.toLocaleString()} due on delivery`}>
+                          <span className="pillDot" /> COD Rs. {orderTotal.toLocaleString()}
+                        </span>
+                      )}
+
+                      {needsQuickVerify && onQuickVerify && (
+                        <button
+                          type="button"
+                          className="shopifyPrimaryButton"
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: "11px",
+                            alignSelf: "flex-start",
+                            borderRadius: "4px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
+                            marginTop: "2px",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onQuickVerify(order);
+                          }}
+                          title="1-Click: Verify payment, move to Packing & post to Finance"
+                        >
+                          <Check size={11} /> Verify
+                        </button>
+                      )}
+                    </div>
                   </td>
 
                   {/* 5. Fulfillment / Courier */}
@@ -11709,13 +11914,15 @@ function OrderTable({
                   {/* 6. Total PKR */}
                   <td>
                     <div className="shopifyTotalCell">
-                      <span className="shopifyTotalValue">Rs. {money.total.toLocaleString()}</span>
+                      <span className="shopifyTotalValue">Rs. {orderTotal.toLocaleString()}</span>
                       <span className="shopifyTotalSub">
-                        {money.isFullyAdvanced
+                        {isFullPrepaid && isVerifiedPayment
                           ? "100% Prepaid"
-                          : money.hasAdvance
-                            ? `COD: Rs. ${money.cod.toLocaleString()}`
-                            : `COD: Rs. ${money.cod.toLocaleString()}`}
+                          : isFullPrepaid && !isVerifiedPayment
+                            ? "Prepaid (Pending)"
+                            : orderAdv > 0
+                              ? `Adv: Rs. ${orderAdv.toLocaleString()} · COD: Rs. ${orderCod.toLocaleString()}`
+                              : `COD: Rs. ${orderCod.toLocaleString()}`}
                       </span>
                     </div>
                   </td>

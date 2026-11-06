@@ -170,8 +170,10 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
   const [orderProfitFilter, setOrderProfitFilter] = useState("all"); // "all" | "loss" | "estimated"
   const [orderProfitSearch, setOrderProfitSearch] = useState("");
 
-  // Advances & Supplier Bill filters
-  const [advanceFilter, setAdvanceFilter] = useState("all"); // "all" | "needs_action" | "posted"
+  // Advances / Order Payment Scenarios & Supplier Bill filters
+  const [advanceFilter, setAdvanceFilter] = useState("advance_all"); // "needs_action" | "advance_all" | "full_advance" | "delivery_advance" | "cod" | "posted" | "all"
+  const [advanceSearch, setAdvanceSearch] = useState("");
+  const [verifyAccountByOrder, setVerifyAccountByOrder] = useState({});
   const [billFilter, setBillFilter] = useState("open"); // "open" | "overdue" | "paid" | "all"
 
   const query = useMemo(() => {
@@ -300,6 +302,26 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
   if (!report) return null;
 
   const { cash, sales, pnl, postex, advances, suppliers, marketing, inventory, accounts, alerts, products, categories, orders, settings } = report;
+  const paymentScenarios = report.paymentScenarios || {
+    totalOrdersCount: advances.rows.length,
+    needsVerificationCount: advances.rows.filter((r) => !r.verified).length,
+    needsVerificationPkr: advances.pendingPkr || 0,
+    fullAdvanceCount: 0,
+    fullAdvanceTotalPkr: 0,
+    fullAdvanceVerifiedPkr: 0,
+    fullAdvancePendingPkr: 0,
+    deliveryAdvanceCount: 0,
+    deliveryAdvanceVerifiedPkr: 0,
+    deliveryAdvancePendingPkr: 0,
+    deliveryAdvanceCodRemainingPkr: 0,
+    codOnlyCount: 0,
+    codOnlyTotalPkr: 0,
+    codOnlyDeliveredPkr: 0,
+    codOnlyInPipelinePkr: 0,
+    verifiedAdvanceInPipelinePkr: 0,
+    totalConfirmedRevenuePkr: sales.grossRevenuePkr || 0,
+    rows: advances.rows,
+  };
   const sortedAccounts = sortFinanceAccounts(accounts);
   const alfalahAccount = sortedAccounts.find((a) => a.slug === "alfalah_owner") || sortedAccounts[0];
   const nayapayAccount = sortedAccounts.find((a) => a.slug === "nayapay_amina") || sortedAccounts[0];
@@ -348,10 +370,30 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
     return true;
   });
 
-  // Filtered Advance rows
-  const filteredAdvances = advances.rows.filter((row) => {
-    if (advanceFilter === "needs_action") return !row.verified || !row.cashPosted;
-    if (advanceFilter === "posted") return row.verified && row.cashPosted;
+  // Filtered Order Payment Scenario rows
+  const scenarioRowsSource = paymentScenarios.rows?.length ? paymentScenarios.rows : advances.rows;
+  const pendingAdvanceActions = scenarioRowsSource.filter(
+    (r) => r.needsVerification || (Number(r.advancePkr || 0) > 0 && (!r.verified || !r.cashPosted) && !r.isRejected && !r.isCancelled)
+  ).length;
+  const filteredAdvances = scenarioRowsSource.filter((row) => {
+    if (advanceFilter === "needs_action") {
+      if (!(row.needsVerification || (Number(row.advancePkr || 0) > 0 && (!row.verified || !row.cashPosted) && !row.isRejected && !row.isCancelled))) return false;
+    } else if (advanceFilter === "advance_all") {
+      if (!(Number(row.advancePkr || 0) > 0 || row.scenario === "full_advance" || row.scenario === "delivery_advance" || row.scenario === "partial_advance")) return false;
+    } else if (advanceFilter === "full_advance") {
+      if (row.scenario !== "full_advance") return false;
+    } else if (advanceFilter === "delivery_advance") {
+      if (row.scenario !== "delivery_advance" && row.scenario !== "partial_advance") return false;
+    } else if (advanceFilter === "cod") {
+      if (row.scenario !== "cod") return false;
+    } else if (advanceFilter === "posted") {
+      if (!(row.verified && row.cashPosted)) return false;
+    }
+    if (advanceSearch.trim()) {
+      const q = advanceSearch.trim().toLowerCase();
+      const hay = `${row.orderNumber || ""} ${row.customer || ""} ${row.phone || ""} ${row.city || ""} ${row.scenarioLabel || ""} ${row.paymentStatus || ""} ${row.orderStage || ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
     return true;
   });
 
@@ -370,7 +412,6 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
   const postexReceiptRows = report.transactions.filter((t) => t.entry_type === "postex_bank_receipt");
 
   // Pending Action Count for Quick Action Strip
-  const pendingAdvanceActions = advances.rows.filter((r) => !r.verified || !r.cashPosted).length;
   const unassignedCount = report.transactions.filter((t) => !t.account_id && !t.voided).length;
 
   return (
@@ -540,7 +581,7 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
       {tab === "overview" && (
         <>
           {/* Smart Quick-Fix Action Center if anything needs 1-click attention */}
-          {(pnl.estimatedCogsOrderCount > 0 || advances.notInCashCount > 0 || unassignedCount > 0 || suppliers.overdue.length > 0 || postex.receivablePkr > 0) && (
+          {(paymentScenarios.needsVerificationCount > 0 || pnl.estimatedCogsOrderCount > 0 || advances.notInCashCount > 0 || unassignedCount > 0 || suppliers.overdue.length > 0 || postex.receivablePkr > 0) && (
             <div className="shopifySectionCard" style={{ padding: "14px 18px", background: "#fafcfa", border: "1.5px solid #d4ded6" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -548,6 +589,19 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
                   <b style={{ fontSize: "13.5px", color: "#122a1e" }}>Easy Finance Shortcuts — 1-Click Actions:</b>
                 </div>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {paymentScenarios.needsVerificationCount > 0 && (
+                    <button
+                      type="button"
+                      className="shopifyAccountQuickBtn"
+                      style={{ background: "#fffbeb", borderColor: "#fde68a", color: "#92400e", fontWeight: 700 }}
+                      onClick={() => {
+                        setAdvanceFilter("needs_action");
+                        setTab("payments");
+                      }}
+                    >
+                      <CheckCircle2 size={12} /> Verify {paymentScenarios.needsVerificationCount} Payment{paymentScenarios.needsVerificationCount === 1 ? "" : "s"} ({money(paymentScenarios.needsVerificationPkr)}) →
+                    </button>
+                  )}
                   {(pnl.estimatedCogsOrderCount > 0 || advances.notInCashCount > 0) && (
                     <button
                       type="button"
@@ -623,7 +677,10 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               <div className="shopifyFinanceKpiInfo">
                 <span className="shopifyFinanceKpiLabel">Sales (Delivered)</span>
                 <span className="shopifyFinanceKpiValue">{money(sales.grossRevenuePkr)}</span>
-                <span className="shopifyFinanceKpiHelp">{sales.deliveredOrders} delivered orders</span>
+                <span className="shopifyFinanceKpiHelp">
+                  {sales.deliveredOrders} delivered orders
+                  {paymentScenarios.verifiedAdvanceInPipelinePkr > 0 ? ` · Confirmed + Adv: ${money(sales.totalConfirmedRevenuePkr || (sales.grossRevenuePkr + paymentScenarios.verifiedAdvanceInPipelinePkr))}` : ""}
+                </span>
               </div>
             </div>
 
@@ -650,7 +707,11 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               <div className="shopifyFinanceKpiInfo">
                 <span className="shopifyFinanceKpiLabel">Advance Received</span>
                 <span className="shopifyFinanceKpiValue">{money(advances.cashPostedPkr || 0)}</span>
-                <span className="shopifyFinanceKpiHelp">{money(advances.verifiedPkr)} verified ({pendingAdvanceActions ? `${pendingAdvanceActions} action needed` : "all posted"})</span>
+                <span className="shopifyFinanceKpiHelp">
+                  {paymentScenarios.needsVerificationCount > 0
+                    ? `${paymentScenarios.needsVerificationCount} awaiting verification (${money(paymentScenarios.needsVerificationPkr)})`
+                    : `${money(advances.verifiedPkr)} verified (${advances.notInCashCount ? `${advances.notInCashCount} pending post` : "all posted"})`}
+                </span>
               </div>
             </div>
 
@@ -678,6 +739,63 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
                 <span className="shopifyFinanceKpiLabel">Supplier Payable</span>
                 <span className={`shopifyFinanceKpiValue ${suppliers.payablePkr > 0 ? "text-orange-700" : ""}`}>{money(suppliers.payablePkr)}</span>
                 <span className="shopifyFinanceKpiHelp">{suppliers.overdue.length ? `${suppliers.overdue.length} overdue bills` : "No overdue bills"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Scenarios & Pipeline Health Card */}
+          <div className="shopifySectionCard" style={{ padding: "18px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "8px" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "750", color: "#122a1e" }}>Payment Scenarios &amp; Order Cashflow Status</h3>
+                <p style={{ margin: "2px 0 0", fontSize: "12.5px", color: "#667a6e" }}>
+                  Full Advance (100%), Delivery Advance + COD, aur Pure COD orders ka mukammal hisaab.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="shopifySecondaryButton"
+                style={{ fontSize: "12px", padding: "6px 12px" }}
+                onClick={() => { setAdvanceFilter("all"); setTab("payments"); }}
+              >
+                Manage All Order Payments →
+              </button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
+              <div style={{ background: "#f8faf8", border: "1.5px solid #d4ded6", borderRadius: "10px", padding: "12px 14px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "#166534", marginBottom: "4px" }}>100% Full Advance (Prepaid)</div>
+                <div style={{ fontSize: "18px", fontWeight: 800, color: "#122a1e" }}>{money(paymentScenarios.fullAdvanceTotalPkr)}</div>
+                <div style={{ fontSize: "11.5px", color: "#667a6e", marginTop: "4px" }}>
+                  {paymentScenarios.fullAdvanceCount} orders · Verified: <b>{money(paymentScenarios.fullAdvanceVerifiedPkr)}</b> · Pending: <b>{money(paymentScenarios.fullAdvancePendingPkr)}</b>
+                </div>
+              </div>
+
+              <div style={{ background: "#f8faf8", border: "1.5px solid #d4ded6", borderRadius: "10px", padding: "12px 14px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "#0369a1", marginBottom: "4px" }}>Delivery Advance + COD</div>
+                <div style={{ fontSize: "18px", fontWeight: 800, color: "#122a1e" }}>{money(paymentScenarios.deliveryAdvanceVerifiedPkr)} <span style={{ fontSize: "12px", fontWeight: 500, color: "#64748b" }}>Adv</span></div>
+                <div style={{ fontSize: "11.5px", color: "#667a6e", marginTop: "4px" }}>
+                  {paymentScenarios.deliveryAdvanceCount} orders · COD Due on Delivery: <b>{money(paymentScenarios.deliveryAdvanceCodRemainingPkr)}</b>
+                </div>
+              </div>
+
+              <div style={{ background: "#f8faf8", border: "1.5px solid #d4ded6", borderRadius: "10px", padding: "12px 14px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>Pure Cash On Delivery (COD)</div>
+                <div style={{ fontSize: "18px", fontWeight: 800, color: "#122a1e" }}>{money(paymentScenarios.codOnlyTotalPkr)}</div>
+                <div style={{ fontSize: "11.5px", color: "#667a6e", marginTop: "4px" }}>
+                  {paymentScenarios.codOnlyCount} orders · Delivered: <b>{money(paymentScenarios.codOnlyDeliveredPkr)}</b> · In Transit: <b>{money(paymentScenarios.codOnlyInPipelinePkr)}</b>
+                </div>
+              </div>
+
+              <div style={{ background: paymentScenarios.needsVerificationCount > 0 ? "#fffbeb" : "#f0fdf4", border: `1.5px solid ${paymentScenarios.needsVerificationCount > 0 ? "#fde68a" : "#bbf7d0"}`, borderRadius: "10px", padding: "12px 14px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: paymentScenarios.needsVerificationCount > 0 ? "#92400e" : "#166534", marginBottom: "4px" }}>Awaiting Manual Verification</div>
+                <div style={{ fontSize: "18px", fontWeight: 800, color: paymentScenarios.needsVerificationCount > 0 ? "#b45309" : "#15803d" }}>
+                  {paymentScenarios.needsVerificationCount} Orders
+                </div>
+                <div style={{ fontSize: "11.5px", color: "#667a6e", marginTop: "4px" }}>
+                  {paymentScenarios.needsVerificationCount > 0
+                    ? `Rs. ${money(paymentScenarios.needsVerificationPkr)} verify karna baqi hai`
+                    : "All advances verified and posted!"}
+                </div>
               </div>
             </div>
           </div>
@@ -1393,14 +1511,18 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
           </div>
 
           <Card
-            title="Customer advance receipts"
-            subtitle="Verified advance NayaPay account mein cash ban jata hai. Unverified order ko yahan se 1-click mein verify & post kar sakte hain."
+            title="Order Payments & Manual Verification Hub"
+            subtitle="Full Advance (100%), Delivery Advance + COD, aur Pure COD orders ko yahan se manually verify karein. Har verified payment foran Finance account mein cash ban jati hai."
             right={
-              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
                 {[
-                  ["all", `All (${advances.rows.length})`],
                   ["needs_action", `Needs Action (${pendingAdvanceActions})`],
-                  ["posted", `Posted (${advances.rows.length - pendingAdvanceActions})`],
+                  ["advance_all", `All Advances (${scenarioRowsSource.filter((r) => Number(r.advancePkr || 0) > 0).length})`],
+                  ["full_advance", `Full Advance (${paymentScenarios.fullAdvanceCount || 0})`],
+                  ["delivery_advance", `Delivery Adv (${paymentScenarios.deliveryAdvanceCount || 0})`],
+                  ["cod", `Pure COD (${paymentScenarios.codOnlyCount || 0})`],
+                  ["posted", `Finance Posted`],
+                  ["all", `All Orders (${scenarioRowsSource.length})`],
                 ].map(([val, label]) => (
                   <button
                     key={val}
@@ -1415,39 +1537,165 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
               </div>
             }
           >
-            <Table head={["Customer", "Order", "City", "Advance", "COD Baqi", "Status", "Action"]} empty="Is filter/period mein koi advance nahi.">
-              {filteredAdvances.map((row) => (
-                <tr key={row.id}>
-                  <td style={{ minWidth: "160px", maxWidth: "260px" }}><div style={{ display: "flex", flexDirection: "column" }}><b>{row.customer}</b>{row.phone ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{row.phone}</small> : null}</div></td>
-                  <td><b>{row.orderNumber ? `#${row.orderNumber}` : String(row.id).slice(0, 8)}</b></td>
-                  <td>{row.city || "—"}</td>
-                  <td className="incomeAmount font-bold">+ {money(row.advancePkr)}</td>
-                  <td>{row.codRemainingPkr === 0 ? "Rs. 0 (Prepaid)" : money(row.codRemainingPkr)}</td>
-                  <td>
-                    <span className={`shopifyStatusBadge ${row.verified && row.cashPosted ? "active" : "pending"}`}>
-                      {row.verified ? (row.cashPosted ? "Verified · Amina NayaPay" : "Verified · Posting pending") : row.paymentStatus}
-                    </span>
-                  </td>
-                  <td>
-                    {(!row.verified || !row.cashPosted) ? (
-                      <button
-                        type="button"
-                        className="shopifyPrimaryButton"
-                        style={{ padding: "4px 10px", fontSize: "11.5px" }}
-                        disabled={busy}
-                        onClick={() => post(
-                          { action: "verify_order_advance", orderId: row.id, accountId: nayapayAccount?.id },
-                          `Order ${row.orderNumber ? `#${row.orderNumber}` : ""} advance verified & posted to NayaPay!`
+            <div className="shopifyCardFilterBar" style={{ marginBottom: "12px" }}>
+              <div style={{ position: "relative", flex: "1 1 240px", maxWidth: "380px" }}>
+                <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#728578" }} />
+                <input
+                  type="text"
+                  placeholder="Search order #, customer, phone, city..."
+                  value={advanceSearch}
+                  onChange={(e) => setAdvanceSearch(e.target.value)}
+                  style={{ width: "100%", padding: "7px 10px 7px 32px", border: "1.5px solid #d4ded6", borderRadius: "8px", fontSize: "13px" }}
+                />
+              </div>
+              {advanceSearch && (
+                <button
+                  type="button"
+                  className="shopifySecondaryButton"
+                  style={{ fontSize: "12px", padding: "6px 10px" }}
+                  onClick={() => setAdvanceSearch("")}
+                >
+                  Clear Search
+                </button>
+              )}
+            </div>
+
+            <Table head={["Customer & Contact", "Order & Stage", "Scenario & Total", "Advance", "COD Baqi", "Status", "Manual Verification & Receiving Account"]} empty="Is filter/period mein koi order payment nahi mila.">
+              {filteredAdvances.map((row) => {
+                const targetAccountId = verifyAccountByOrder[row.id] || row.postedAccountId || nayapayAccount?.id;
+                const isPrepaidFull = row.scenario === "full_advance";
+                return (
+                  <tr key={row.id}>
+                    <td style={{ minWidth: "160px", maxWidth: "240px" }}>
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <b>{row.customer}</b>
+                        {row.phone ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{row.phone}</small> : null}
+                        {row.city ? <small style={{ display: "block", fontSize: "11px", color: "#85968b" }}>{row.city}</small> : null}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <b>{row.orderNumber ? `#${row.orderNumber}` : String(row.id).slice(0, 8)}</b>
+                        <span className="shopifyStatusBadge" style={{ fontSize: "10.5px", padding: "1px 6px", alignSelf: "flex-start" }}>
+                          {row.orderStage}
+                        </span>
+                        {row.fulfillmentStatus && row.fulfillmentStatus !== "Unfulfilled" && (
+                          <small style={{ fontSize: "10px", color: "#475569" }}>{row.fulfillmentStatus}</small>
                         )}
-                      >
-                        {row.verified ? "Post to NayaPay" : "Verify & Post"}
-                      </button>
-                    ) : (
-                      <small className="text-xs text-[#166534] font-semibold">Posted ✓</small>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <span
+                          className="shopifyStatusBadge"
+                          style={{
+                            fontSize: "11px",
+                            padding: "2px 6px",
+                            alignSelf: "flex-start",
+                            background: isPrepaidFull ? "#dcfce7" : row.scenario === "delivery_advance" ? "#e0f2fe" : "#f1f5f9",
+                            color: isPrepaidFull ? "#166534" : row.scenario === "delivery_advance" ? "#0369a1" : "#475569",
+                            borderColor: isPrepaidFull ? "#bbf7d0" : row.scenario === "delivery_advance" ? "#bae6fd" : "#cbd5e1",
+                          }}
+                        >
+                          {row.scenarioLabel}
+                        </span>
+                        <b>{money(row.totalPkr)}</b>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span className={Number(row.advancePkr) > 0 ? "incomeAmount font-bold" : "text-gray-400"}>
+                          {Number(row.advancePkr) > 0 ? `+ ${money(row.advancePkr)}` : "Rs. 0"}
+                        </span>
+                        {row.cashPosted ? (
+                          <small style={{ fontSize: "10px", color: "#166534", fontWeight: 600 }}>
+                            in {row.postedAccountName || "Finance"}
+                          </small>
+                        ) : Number(row.advancePkr) > 0 && row.verified ? (
+                          <small style={{ fontSize: "10px", color: "#b45309" }}>posting pending</small>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <b>{row.codRemainingPkr === 0 ? "Rs. 0 (Prepaid)" : money(row.codRemainingPkr)}</b>
+                        {row.isDelivered ? (
+                          <small style={{ fontSize: "10px", color: "#166534" }}>Delivered</small>
+                        ) : (
+                          <small style={{ fontSize: "10px", color: "#64748b" }}>On delivery</small>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`shopifyStatusBadge ${row.verified && (row.cashPosted || row.advancePkr === 0) ? "active" : row.needsVerification ? "pending" : ""}`}>
+                        {row.paymentStatus}
+                      </span>
+                      {row.paymentReference && (
+                        <small style={{ display: "block", fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                          Ref: {row.paymentReference}
+                        </small>
+                      )}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        {(!row.verified || !row.cashPosted) ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                            <select
+                              value={targetAccountId}
+                              onChange={(e) => setVerifyAccountByOrder({ ...verifyAccountByOrder, [row.id]: e.target.value })}
+                              className="shopifyFinancePeriodSelect"
+                              style={{ padding: "4px 6px", fontSize: "11px", maxWidth: "130px" }}
+                              title="Select receiving account"
+                              disabled={busy}
+                            >
+                              {sortedAccounts.map((acc) => (
+                                <option key={acc.id} value={acc.id}>{acc.name}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="shopifyPrimaryButton"
+                              style={{ padding: "4px 10px", fontSize: "11.5px", whiteSpace: "nowrap" }}
+                              disabled={busy}
+                              onClick={() => post(
+                                {
+                                  action: "update_order_payment",
+                                  orderId: row.id,
+                                  mode: "verify",
+                                  paymentStatus: isPrepaidFull ? "Paid" : "Payment Verified",
+                                  accountId: targetAccountId,
+                                },
+                                `Order ${row.orderNumber ? `#${row.orderNumber}` : ""} payment verified & posted to Finance!`
+                              )}
+                            >
+                              {row.verified ? "Post to Finance" : "Verify & Post"}
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "11.5px", color: "#166534", fontWeight: 700 }}>
+                              ✓ Verified &amp; Posted
+                            </span>
+                            <button
+                              type="button"
+                              className="removeProductButton"
+                              style={{ padding: "2px 6px", fontSize: "10.5px" }}
+                              disabled={busy}
+                              onClick={() => post(
+                                { action: "update_order_payment", orderId: row.id, mode: "unverify" },
+                                `Order #${row.orderNumber || row.id} payment unverified.`
+                              )}
+                              title="Reset payment to unverified"
+                            >
+                              Unverify
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </Table>
           </Card>
 
