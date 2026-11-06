@@ -42,6 +42,7 @@ const manrope = Manrope({
 import { buildMetadata, siteConfig } from "../lib/seo";
 import MetaPixel from "../components/MetaPixel";
 import RegionSwitcher from "../components/RegionSwitcher";
+import StylesheetGuard from "../components/StylesheetGuard";
 import PluginWidgetsHost from "../components/PluginWidgetsHost";
 import { getActiveStorefrontWidgets } from "../lib/plugins/engine";
 import { getStoreSettings } from "../lib/storeSettings";
@@ -122,6 +123,7 @@ export default async function RootLayout({ children }) {
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
       </head>
       <body>
+        <StylesheetGuard />
         <PluginWidgetsHost
           initialWidgets={pluginWidgets}
           defaultPhoneNumber={whatsappNumber}

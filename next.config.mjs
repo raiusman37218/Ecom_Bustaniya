@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Lets a deploy build into a throwaway directory while the live server keeps
+  // serving the current one, then swap the two. Building straight into .next
+  // under a running server rewrites every chunk hash beneath it, so anyone on
+  // the site during the build gets 404s for CSS and JS that no longer exist —
+  // a page that loads with no styling at all. Unset, this is plain ".next".
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
