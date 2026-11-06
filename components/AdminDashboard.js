@@ -10443,8 +10443,16 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 {/* Fulfillment pill */}
                 {isDelivered ? (
                   <span className="shopifyPill delivered"><span className="pillDot" /> Delivered</span>
-                ) : isBooked ? (
+                ) : isReturned ? (
+                  <span className="shopifyPill returned"><span className="pillDot" /> Returned</span>
+                ) : isCancelled ? (
+                  <span className="shopifyPill" style={{ background: "#f1f5f9", color: "#475569", borderColor: "#cbd5e1" }}><span className="pillDot" style={{ background: "#64748b" }} /> Cancelled</span>
+                ) : isOutForDelivery || isInTransit ? (
                   <span className="shopifyPill in_transit"><span className="pillDot" /> In transit</span>
+                ) : isBooked ? (
+                  <span className="shopifyPill in_transit"><span className="pillDot" /> Booked with PostEx</span>
+                ) : isPacking ? (
+                  <span className="shopifyPill pending" style={{ background: "#fffbeb", color: "#b45309", borderColor: "#fde68a" }}><span className="pillDot" style={{ background: "#d97706" }} /> Packing &amp; Stitching</span>
                 ) : (
                   <span className="shopifyPill unfulfilled"><span className="pillDot" /> Unfulfilled</span>
                 )}
@@ -10564,6 +10572,117 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
               <span>⚠️</span> PostEx booking COD mismatch: PostEx is set to collect Rs. {savedMoney.bookedCod?.toLocaleString()}. Due amount is Rs. {savedMoney.cod?.toLocaleString()}.
             </div>
           )}
+
+          {/* Visual 5-Step Order Stepper & Smart Next Action Hub */}
+          <div className="shopifyOrderStepperCard">
+            {/* Visual Stepper */}
+            <div className="shopifyOrderStepper">
+              {stepperSteps.map((step, idx) => {
+                const isCompleted = idx < currentStepIndex;
+                const isActive = idx === currentStepIndex;
+                return (
+                  <Fragment key={step.label}>
+                    <div className={`shopifyStepperStep ${isCompleted ? "completed" : ""} ${isActive ? "active" : ""}`}>
+                      <div className="shopifyStepperCircle">
+                        {isCompleted ? <Check size={16} /> : <span>{step.icon}</span>}
+                      </div>
+                      <div className="shopifyStepperText">
+                        <span className="shopifyStepperLabel">{step.label}</span>
+                        <span className="shopifyStepperSub">{step.sub}</span>
+                      </div>
+                    </div>
+                    {idx < stepperSteps.length - 1 && (
+                      <div className={`shopifyStepperLine ${idx < currentStepIndex ? "completed" : ""}`} />
+                    )}
+                  </Fragment>
+                );
+              })}
+            </div>
+
+            {/* Smart Next Step Action Ribbon */}
+            <div
+              className="shopifyNextStepBanner"
+              style={{
+                background: nextStepInfo.bg,
+                borderColor: nextStepInfo.border,
+                color: nextStepInfo.text,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", flex: 1 }}>
+                <span style={{ fontSize: "20px" }}>{nextStepInfo.icon}</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", background: "rgba(0,0,0,0.06)", padding: "2px 8px", borderRadius: "4px" }}>
+                      {nextStepInfo.badge}
+                    </span>
+                    <b style={{ fontSize: "13.5px", color: nextStepInfo.text }}>{nextStepInfo.step}</b>
+                  </div>
+                  <div style={{ fontSize: "13px", color: nextStepInfo.text, fontWeight: 550, marginTop: "2px" }}>
+                    {nextStepInfo.actionUrdu} <span style={{ opacity: 0.85, fontSize: "12px" }}>({nextStepInfo.actionEng})</span>
+                  </div>
+                </div>
+              </div>
+
+              {nextStepInfo.ctaText && (
+                <div style={{ flexShrink: 0 }}>
+                  {nextStepInfo.ctaType === "link" ? (
+                    <a
+                      href={nextStepInfo.ctaHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shopifyBtnPrimary"
+                      style={{ background: "#16a34a", borderColor: "#15803d", color: "#fff", display: "inline-flex", alignItems: "center", gap: "6px", textDecoration: "none", padding: "8px 16px", fontSize: "12.5px" }}
+                    >
+                      <MessageSquare size={14} />
+                      <span>{nextStepInfo.ctaText}</span>
+                    </a>
+                  ) : nextStepInfo.ctaType === "book_postex" ? (
+                    <button
+                      type="button"
+                      className="shopifyBtnPrimary"
+                      onClick={bookWithPostex}
+                      disabled={saving || bookingPostex}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 16px", fontSize: "12.5px" }}
+                    >
+                      <Truck size={14} />
+                      <span>{bookingPostex ? "Booking..." : nextStepInfo.ctaText}</span>
+                    </button>
+                  ) : nextStepInfo.ctaType === "check_status" ? (
+                    <button
+                      type="button"
+                      className="shopifyBtnPrimary"
+                      onClick={checkLivePostexStatus}
+                      disabled={saving || checkingPostex}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 16px", fontSize: "12.5px" }}
+                    >
+                      <RefreshCw size={14} className={checkingPostex ? "animate-spin" : ""} />
+                      <span>{checkingPostex ? "Checking..." : nextStepInfo.ctaText}</span>
+                    </button>
+                  ) : nextStepInfo.ctaType === "packing_slip" ? (
+                    <button
+                      type="button"
+                      className="shopifyBtnSecondary"
+                      onClick={printPackingSlip}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 16px", fontSize: "12.5px" }}
+                    >
+                      <Package size={14} />
+                      <span>{nextStepInfo.ctaText}</span>
+                    </button>
+                  ) : nextStepInfo.ctaType === "invoice" ? (
+                    <button
+                      type="button"
+                      className="shopifyBtnSecondary"
+                      onClick={printInvoice}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 16px", fontSize: "12.5px" }}
+                    >
+                      <Printer size={14} />
+                      <span>{nextStepInfo.ctaText}</span>
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* 2-Column Shopify Grid */}
@@ -10879,14 +10998,18 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                 <div className={`shopifyCodDueCard ${currentCod === 0 ? "prepaid" : "cod"}`}>
                   <div>
                     <div className="shopifyCodLabel">
-                      {currentCod === 0 ? "Payment Status" : "Cash on Delivery (COD Due)"}
+                      {currentCod === 0
+                        ? "Payment Settled (100% Prepaid)"
+                        : Number(advancePaidAmount || 0) > 0
+                          ? `COD Balance Due (After Rs. ${Number(advancePaidAmount || 0).toLocaleString()} Advance)`
+                          : "Cash on Delivery (COD Due)"}
                     </div>
                     <div className="shopifyCodValue">
                       {currentCod === 0 ? "Rs. 0 (Fully Paid)" : `Rs. ${currentCod.toLocaleString()}`}
                     </div>
                   </div>
                   <span className={`shopifyCodBadge ${currentCod === 0 ? "prepaid" : ""}`}>
-                    {currentCod === 0 ? "Paid in full" : "Collect from customer"}
+                    {currentCod === 0 ? "Paid in full" : `Collect Rs. ${currentCod.toLocaleString()} from customer`}
                   </span>
                 </div>
 
@@ -10911,6 +11034,12 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                   <div className="shopifyFinancialRow total">
                     <span>Total Order Value</span>
                     <b>Rs. {calculatedOrderTotal.toLocaleString()}</b>
+                  </div>
+                  <div className="shopifyFinancialRow" style={{ fontWeight: 750, color: currentCod === 0 ? "#15803d" : "#1e40af", paddingTop: "4px", borderTop: "1px dashed #e2e8f0" }}>
+                    <span>Net Balance Due (COD Collection)</span>
+                    <b style={{ color: currentCod === 0 ? "#15803d" : "#1d4ed8" }}>
+                      {currentCod === 0 ? "Rs. 0 (Paid in Full)" : `Rs. ${currentCod.toLocaleString()}`}
+                    </b>
                   </div>
                 </div>
 
@@ -11323,8 +11452,22 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                       href={waLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="shopifyWaBtn"
-                      style={{ padding: "8px 14px", fontSize: "12.5px", fontWeight: 700, flex: 1, justifyContent: "center", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                      style={{
+                        padding: "8px 14px",
+                        fontSize: "12.5px",
+                        fontWeight: 700,
+                        flex: 1,
+                        justifyContent: "center",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        background: "#16a34a",
+                        color: "#ffffff",
+                        borderRadius: "6px",
+                        border: "1px solid #15803d",
+                        textDecoration: "none",
+                        boxShadow: "0 1px 2px rgba(22, 163, 74, 0.2)",
+                      }}
                       title="Open WhatsApp with pre-filled confirmation message"
                     >
                       <MessageSquare size={14} />
@@ -15577,7 +15720,7 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "", categories: pass
                         className="shopifyInput"
                         value={storeSettings.domainSettings?.metaPixelId || ""}
                         onChange={(e) => updateSettingsGroup("domainSettings", { metaPixelId: e.target.value })}
-                        placeholder="e.g. 1972532723444962"
+                        placeholder="e.g. 1506776198019247"
                       />
                     </label>
                     <label className="shopifyFieldLabel">

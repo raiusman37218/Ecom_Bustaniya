@@ -33355,6 +33355,134 @@ html {
   gap: 16px;
 }
 
+/* ==========================================================================
+   SHOPIFY-GRADE ORDER FULFILLMENT STEPPER & SMART GUIDANCE HUB
+   ========================================================================== */
+.shopifyOrderStepperCard {
+  background: #ffffff;
+  border: 1px solid #dbe3dc;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 16px 22px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.shopifyOrderStepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  width: 100%;
+}
+
+.shopifyStepperStep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  z-index: 2;
+  background: #ffffff;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.shopifyStepperCircle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  border: 2px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.shopifyStepperStep.completed .shopifyStepperCircle {
+  background: #15803d;
+  border-color: #15803d;
+  color: #ffffff;
+}
+
+.shopifyStepperStep.active .shopifyStepperCircle {
+  background: #ffffff;
+  border-color: #173d29;
+  color: #173d29;
+  box-shadow: 0 0 0 4px rgba(23, 61, 41, 0.12);
+  font-weight: 800;
+}
+
+.shopifyStepperText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.shopifyStepperLabel {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #475569;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.shopifyStepperStep.completed .shopifyStepperLabel {
+  color: #166534;
+}
+
+.shopifyStepperStep.active .shopifyStepperLabel {
+  color: #173d29;
+  font-weight: 800;
+}
+
+.shopifyStepperSub {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.shopifyStepperStep.active .shopifyStepperSub {
+  color: #59675d;
+  font-weight: 600;
+}
+
+.shopifyStepperLine {
+  flex: 1;
+  height: 2px;
+  background: #e2e8f0;
+  margin: 0 8px;
+  position: relative;
+  z-index: 1;
+  min-width: 16px;
+}
+
+.shopifyStepperLine.completed {
+  background: #15803d;
+}
+
+@media (max-width: 900px) {
+  .shopifyOrderStepper {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .shopifyStepperLine {
+    display: none;
+  }
+  .shopifyStepperStep {
+    width: 100%;
+  }
+}
+
 /* Next Step Action Ribbon */
 .shopifyNextStepBanner {
   background: #f8faf8;
