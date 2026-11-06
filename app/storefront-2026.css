@@ -2988,30 +2988,6 @@
   display: flex !important;
 }
 
-/* -------------------------------------------------------------
-   ROOT LOADING CHROME
-   A static stand-in for the header while the root segment
-   resolves. Deliberately neutral: the same boundary also covers
-   /admin, so this must not read as storefront branding.
-   ------------------------------------------------------------- */
-/* The root loading state is a 3px top progress bar (app/loading.js
-   sizes and positions the track inline). This is just the travelling
-   fill — an indeterminate sweep, since route transitions have no
-   measurable progress. */
-.bs-st-loadingChrome__bar {
-  height: 100%;
-  width: 40%;
-  background: var(--bs-st-accent);
-  animation: bs-st-progress 1.1s var(--bs-ease-standard) infinite;
-}
-@keyframes bs-st-progress {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(350%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .bs-st-loadingChrome__bar { animation: none; width: 100%; opacity: 0.5; }
-}
-
 /* =============================================================
    CART PAGE — full port
    Structure is the existing cart (admin pricing, advance split,

@@ -565,7 +565,7 @@ export default function Home({
                           src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                           alt={`${product.name} - ${product.category} by Bustaniya`}
                           fill
-                          priority={index < 4}
+                          loading={index < 2 ? "eager" : "lazy"}
                           sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                         />
                         {hoverImageOf(product) && (
@@ -706,7 +706,7 @@ export default function Home({
                       onTouchStart={() => preloadProductImage(product.image)}
                     >
                       <div className="productImage">
-                        <Image className="productImagePrimary" src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill priority={pIdx < 4} sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
+                        <Image className="productImagePrimary" src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)} alt={`${product.name} - bestseller by Bustaniya`} fill loading={pIdx < 2 ? "eager" : "lazy"} sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />
                         {hoverImageOf(product) && <Image className="productImageHover" src={optimizedImageUrl(hoverImageOf(product), CLOUDINARY_IMAGE_PRESETS.card)} alt="" aria-hidden="true" fill loading="lazy" sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw" />}
                         <Link className="productCardLink" href={`/product/${product.id}`} prefetch={true} aria-label={`View ${product.name}`} />
                         <span className="badge">Best seller</span>
@@ -944,7 +944,7 @@ export default function Home({
                           src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                           alt={`${product.name} - ${product.category} by Bustaniya`}
                           fill
-                          priority={pIdx < 4}
+                          loading={pIdx < 2 ? "eager" : "lazy"}
                           sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                         />
                         {hoverImageOf(product) && (

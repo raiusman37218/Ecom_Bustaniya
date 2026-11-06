@@ -559,7 +559,6 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                         width={120}
                         height={160}
                         sizes="120px"
-                        quality={70}
                       />
                     </button>
                   ))}

@@ -97,7 +97,7 @@
 .heroSlideHead b { display:block; color:#173d29; font-size:12px; line-height:1.3; }
 .heroSlideHead span { display:block; margin-top:4px; color:#65766a; font-size:10px; line-height:1.45; }
 .heroSlideHead small { flex:0 0 auto; padding:4px 7px; border-radius:999px; background:#edf5ee; color:#306044; font-size:9px; font-weight:800; white-space:nowrap; }
-.heroSlideGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+.heroSlideGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(150px, 100%),1fr)); gap:10px; }
 .heroSlideCard { min-width:0; overflow:hidden; border:1px solid #e1e8e1; border-radius:7px; background:#fbfcfa; }
 .heroSlideMedia { position:relative; width:100%; aspect-ratio:16 / 8; overflow:hidden; background:#edf1eb; }
 .heroSlideMedia img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; }

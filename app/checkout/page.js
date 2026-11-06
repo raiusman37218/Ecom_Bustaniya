@@ -963,6 +963,9 @@ export default function CheckoutPage() {
                   />
 
                   <div>
+                    {/* inputMode opens the number pad on a phone. `type`
+                        stays "text": type="number" adds spinners and drops a
+                        leading zero. */}
                     <div className="shopifyInputWrapper">
                       <input
                         type="text"
@@ -972,6 +975,7 @@ export default function CheckoutPage() {
                         value={form.postalCode}
                         onChange={updateField}
                         autoComplete="postal-code"
+                        inputMode="numeric"
                        aria-label="Postal code"/>
                     </div>
                   </div>

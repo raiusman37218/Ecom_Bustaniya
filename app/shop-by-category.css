@@ -173,7 +173,7 @@
    ------------------------------------------------------------- */
 @media (max-width: 1024px) {
   .bs-cat .bs-cat__grid {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: 12px;
   }
   .bs-cat .bs-cat__grid[data-count="2"],

@@ -13,6 +13,12 @@ import "./storefront-2026.css";
 // Homepage "Shop by Category" band. `bs-cat` scoped, loaded last.
 import "./shop-by-category.css";
 import "./wishlist.css";
+// Shimmering placeholders for photo slots. Imported last so it layers over
+// the per-page image rules it refines.
+import "./image-reveal.css";
+// Corrective phone behaviour (focus zoom, thumb targets, safe-area insets).
+// Last, so it can reach past the per-page mobile rules it corrects.
+import "./mobile-fixes.css";
 import Script from "next/script";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 
@@ -33,11 +39,9 @@ const manrope = Manrope({
   variable: "--font-manrope",
 });
 
-import { Suspense } from "react";
 import { buildMetadata, siteConfig } from "../lib/seo";
 import MetaPixel from "../components/MetaPixel";
 import RegionSwitcher from "../components/RegionSwitcher";
-import NavigationProgressBar from "../components/NavigationProgressBar";
 import PluginWidgetsHost from "../components/PluginWidgetsHost";
 import { getActiveStorefrontWidgets } from "../lib/plugins/engine";
 import { getStoreSettings } from "../lib/storeSettings";
@@ -84,7 +88,15 @@ export const metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // `viewport-fit: cover` is what makes env(safe-area-inset-*) report real
+  // numbers. Without it iOS reports 0 for all four, so the inset padding this
+  // stylesheet already applies to the bottom nav, the sticky buy bar and the
+  // drawers was never actually doing anything on a notched iPhone.
+  viewportFit: "cover",
+  // No maximumScale. Pinning it to 1 stops a customer pinching into a fabric
+  // or an embroidery detail — the one gesture a clothing store should never
+  // take away — and iOS ignores it on text inputs anyway while still counting
+  // it as an accessibility failure.
   themeColor: "#16452c",
 };
 
@@ -110,9 +122,6 @@ export default async function RootLayout({ children }) {
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
       </head>
       <body>
-        <Suspense fallback={null}>
-          <NavigationProgressBar />
-        </Suspense>
         <PluginWidgetsHost
           initialWidgets={pluginWidgets}
           defaultPhoneNumber={whatsappNumber}

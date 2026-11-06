@@ -1,0 +1,165 @@
+/* =============================================================
+   MOBILE FIXES
+   Imported last. Everything here is corrective: it changes how
+   the storefront *behaves* under a thumb on a real phone, not
+   how it looks. The desktop design is untouched — every rule is
+   either inside a phone media query, behind `hover: none`, or an
+   invisible hit area layered over an element that keeps its
+   exact drawn size.
+   ============================================================= */
+
+/* -------------------------------------------------------------
+   1. iOS text inflation
+   Safari grows text in landscape on its own ("text autosizing"),
+   which breaks carefully set line lengths and makes headings
+   wrap differently than on any other phone.
+   ------------------------------------------------------------- */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* -------------------------------------------------------------
+   2. The focus-zoom trap
+   iOS Safari zooms the whole page in when a text field smaller
+   than 16px takes focus, and it does not zoom back out. The
+   customer is then left on a checkout form scrolled sideways.
+   The newsletter field (13.5px) and the collection sort select
+   both triggered it. 16px on a phone is the correct size anyway.
+   Checkboxes, radios and ranges are excluded — they have no text
+   and sizing them would move the layout.
+   ------------------------------------------------------------- */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* -------------------------------------------------------------
+   3. Thumb targets
+   Apple and Google both ask for ~44px. These controls are drawn
+   smaller by design, and the design is right — a 44px heart would
+   dominate the card. So the drawn size stays and an invisible
+   pseudo-element carries the touch area outward instead. Nothing
+   moves; the tap just stops missing.
+   ------------------------------------------------------------- */
+@media (hover: none) {
+  /* Wishlist heart: drawn 30px, tapped 44px. */
+  .productCardWishBtn {
+    position: absolute;
+  }
+  .productCardWishBtn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Colour swatches on a card: drawn 12px, tapped 30px tall.
+     They sit in a row, so the hit area grows vertically and only
+     to the gap horizontally — neighbouring swatches must not
+     overlap each other's targets. */
+  .bs-st .productCard .colorSwatches a {
+    position: relative;
+  }
+  .bs-st .productCard .colorSwatches a::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 26px;
+    height: 30px;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Quick view sits at 36px on touch; 40px is still well short of
+     the card's photo and clears the minimum. */
+  .bs-st .productCard .quickViewButton {
+    min-height: 40px !important;
+  }
+}
+
+/* Drawer footer links were 32–34px tall in a panel with room to
+   spare. */
+@media (max-width: 1023px) {
+  .bs-st-menufoot-item {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+}
+
+/* -------------------------------------------------------------
+   4. Grey tap flash
+   iOS paints a translucent grey block over anything tappable.
+   On cards and image tiles it reads as a rendering glitch. A
+   quiet brand-tinted highlight replaces it; focus rings and
+   :active states are untouched, so nothing becomes less visible.
+   ------------------------------------------------------------- */
+a, button, [role="button"], input, select, textarea, summary {
+  -webkit-tap-highlight-color: rgba(200, 23, 90, 0.08);
+}
+
+/* -------------------------------------------------------------
+   5. Notch and home indicator
+   app/layout.js now sets viewport-fit: cover, so env(safe-area-*)
+   finally reports real numbers and the insets already written
+   against the bottom nav and the sticky buy bar start working.
+   The side drawers were written before any of that and run edge
+   to edge, so their contents need the insets stated here or the
+   close button lands under the notch in landscape and the last
+   menu row under the home indicator.
+   ------------------------------------------------------------- */
+.bs-st-drawer {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.bs-st-drawer--left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.bs-st-drawer--right {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* In landscape the notch eats one side of the page itself. */
+@media (orientation: landscape) {
+  body {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+}
+
+/* -------------------------------------------------------------
+   6. Horizontal rock
+   A single stray wide element turns the whole page into a
+   sideways-scrolling one, and on a phone that reads as broken
+   more than any other single fault. The audited pages are clean,
+   so this is a backstop, not a patch: `clip` (unlike `hidden`)
+   does not create a scroll container, so position: sticky inside
+   the page keeps working.
+   ------------------------------------------------------------- */
+@supports (overflow: clip) {
+  body {
+    overflow-x: clip;
+  }
+}
+
+/* -------------------------------------------------------------
+   7. The hero in landscape
+   A phone turned sideways is ~390px tall. The portrait hero's 4:5
+   crop is then taller than two of those screens, so the customer
+   scrolls past banner three times before seeing a garment. Capping
+   the height lets object-fit crop the artwork instead of letting
+   it set the page's height; the aspect-ratio stays, so nothing is
+   stretched.
+   ------------------------------------------------------------- */
+@media (orientation: landscape) and (max-height: 520px) {
+  .campaignHero {
+    max-height: 92vh !important;
+  }
+}

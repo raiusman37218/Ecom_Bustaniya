@@ -1,0 +1,66 @@
+/* =============================================================
+   IMAGE SLOTS — perceived image performance
+   Imported last, so it layers over the per-page image rules.
+
+   Every photo slot shimmers while it is empty. A grid of blank
+   rectangles reads as broken; a grid of shimmering ones reads as
+   loading, and on a phone over mobile data that difference is
+   most of what "slow" feels like.
+
+   Deliberately CSS only, and deliberately additive. The obvious
+   implementation — a script that marks each <img> as it loads and
+   fades it in — has to write to DOM that React renders, and Next
+   hydrates page segments after the root layout, so those writes
+   land mid-hydration. React answers a hydration mismatch by
+   throwing the server HTML away and re-rendering the whole page
+   on the client, which costs far more than a fade is worth. Here
+   nothing is scripted and nothing is ever hidden: the shimmer
+   sits *behind* the photo, and the photo covers it the moment it
+   paints. Each slot keeps its own background colour and its own
+   object-fit; only the sweep is added.
+
+   Selectors mirror the specificity of the rules that set each
+   slot's background, so the sweep is not reset by them.
+   ============================================================= */
+
+.productImage,
+.bs-st .productCard .productImage,
+.bs-cat .bs-cat__media,
+.bs-card__media,
+.instagramPostImageWrap,
+.bs-st .instagramPostImageWrap,
+.campaignHeroMedia {
+  background-image: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 18%,
+    rgba(255, 255, 255, 0.6) 42%,
+    rgba(255, 255, 255, 0) 66%
+  );
+  background-repeat: no-repeat;
+  background-size: 220% 100%;
+  /* Finite on purpose. The photo hides the sweep as soon as it
+     paints, but a covered element still composites every frame,
+     and a grid of them running forever is exactly the wasted work
+     the slower phones cannot spare. Twelve passes is far longer
+     than any photo should take; after that the slot settles to
+     its own calm tone rather than shimmering at nobody. */
+  animation: bs-imgShimmer 1.25s ease-in-out 12;
+}
+
+@keyframes bs-imgShimmer {
+  0% { background-position: 150% 0; }
+  100% { background-position: -70% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .productImage,
+  .bs-st .productCard .productImage,
+  .bs-cat .bs-cat__media,
+  .bs-card__media,
+  .instagramPostImageWrap,
+  .bs-st .instagramPostImageWrap,
+  .campaignHeroMedia {
+    animation: none;
+    background-image: none;
+  }
+}

@@ -16,8 +16,18 @@ const nextConfig = {
   images: {
     loader: "custom",
     loaderFile: "./lib/cloudinaryLoader.js",
-    deviceSizes: [480, 640, 750, 828, 1080, 1200, 1920],
-    imageSizes: [32, 48, 64, 96, 120, 240, 384],
+    // Deliberately short lists. Every distinct width is a distinct Cloudinary
+    // derivative, and the first request for one is generated on demand — slow,
+    // and slow again for the next device that asks for a width nobody has
+    // asked for yet. Four widths chosen to land on what real devices actually
+    // request keep the CDN warm, so the second visitor on a given phone gets a
+    // cache hit instead of a cold transform:
+    //   640  — 2-up grid on a 390pt iPhone at 3x, 33vw tablet at 2x
+    //   750  — 2-up grid on a 430pt iPhone at 3x, 25vw desktop at 2x
+    //   1080 — single-column phone hero, 50vw desktop
+    //   1920 — full-bleed desktop
+    deviceSizes: [640, 750, 1080, 1920],
+    imageSizes: [64, 128, 256, 384],
     formats: ["image/avif", "image/webp"],
     qualities: [75, 85],
     minimumCacheTTL: 31536000,

@@ -2427,7 +2427,7 @@ footer {
 
 /* Courier hub polish. */
 .courierMetricGrid {
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
 }
 
 .courierCommandCard {
@@ -10519,7 +10519,7 @@ body:has(.cartOpen) .whatsappSupportButton {
 /* Premium Executive Dashboard Styles */
 .premiumMetricGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -11633,7 +11633,7 @@ body:has(.cartOpen) .whatsappSupportButton {
 
 .settingsPermissionGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr));
   gap: 10px;
   padding: 12px;
   border: 1px solid #e3e8e3;
@@ -13407,7 +13407,7 @@ body:has(.cartOpen) .whatsappSupportButton {
 
 .financeAlertStrip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 10px;
   margin: 0 0 16px;
 }
@@ -18231,13 +18231,22 @@ body:has(.cartOpen) .whatsappSupportButton {
     padding-inline: clamp(1rem, 5vw, 2rem);
   }
 
-  .campaignHero {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 4 / 5 !important;
-    min-height: 0 !important;
-    height: auto !important;
-    max-height: none !important;
+  /* The 4:5 portrait crop is the phone artwork, and it belongs to
+     phones. This rule sat in the 900px block, so every device between
+     768px and 900px — iPad mini and iPad portrait among them, and any
+     phone turned sideways — got a hero taller than its own screen and
+     had to scroll past more than a full screen of banner before
+     reaching a product. Nested here so the surrounding 900px block,
+     which is about navigation and spacing, is untouched. */
+  @media (max-width: 767px) {
+    .campaignHero {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 5 !important;
+      min-height: 0 !important;
+      height: auto !important;
+      max-height: none !important;
+    }
   }
 
   .campaignHeroInner {
@@ -21501,7 +21510,7 @@ body:has(.cartOpen) .whatsappSupportButton {
 
 .categoryPage .subCollectionGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(110px, 100%), 1fr));
   justify-content: center;
   gap: clamp(18px, 2.4vw, 30px);
 }
@@ -21843,7 +21852,7 @@ body:has(.cartOpen) .whatsappSupportButton {
 
   .sizeOptions {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(46px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(46px, 100%), 1fr));
     gap: 8px;
   }
 
@@ -24424,7 +24433,7 @@ body {
 
 .deliveryHighlightsBar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr));
   gap: 12px;
   margin: 24px 0 20px;
   padding: 16px;
@@ -24495,7 +24504,7 @@ body {
 
 .deliverySpecsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
   gap: 10px;
   margin-bottom: 16px;
 }
@@ -24735,7 +24744,7 @@ body {
 
 .bottomOptionsList {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr));
   gap: 10px;
   margin-top: 8px;
 }
@@ -28368,7 +28377,7 @@ html {
 
 .orderExpandedGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
   gap: 14px;
   padding: 16px 18px;
 }
@@ -29233,7 +29242,7 @@ html {
 
 .drawerPhotosGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(110px, 100%), 1fr));
   gap: 12px;
 }
 
@@ -30525,7 +30534,7 @@ html {
 
 .trackDetailsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
   gap: 14px;
   padding: 16px;
   background: #ffffff;
@@ -30674,7 +30683,7 @@ html {
 
 .trackFaqGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: 18px;
 }
 
@@ -31497,7 +31506,7 @@ html {
 /* Media Grid */
 .shopifyMediaList {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(105px, 100%), 1fr));
   gap: 12px;
   margin-top: 4px;
 }
@@ -31936,7 +31945,7 @@ html {
 /* 4. Preset Grid */
 .pcpGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr));
   gap: 8px;
   max-height: 280px;
   overflow-y: auto;
@@ -32382,7 +32391,7 @@ html {
 /* KPI Summary Cards - Modern Executive Dashboard */
 .shopifyKpiGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 14px;
 }
 
@@ -33163,7 +33172,7 @@ html {
 
 .shopifyOrderTable .orderExpandedGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 12px;
   padding: 14px 18px;
 }
@@ -34157,7 +34166,7 @@ html {
 /* Visual Choice Card (for design presets like card styles) */
 .shopifyVisualChoiceGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 14px;
 }
 
@@ -34219,7 +34228,7 @@ html {
 /* Form inputs & grid */
 .shopifyFormRow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
   gap: 14px;
 }
 
@@ -34572,7 +34581,7 @@ html {
 /* 8 Modern High-Impact KPI Cards */
 .shopifyFinanceKpiGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: 14px;
 }
 
@@ -34656,7 +34665,7 @@ html {
 /* Account Cards Grid in Cash & Accounts */
 .shopifyAccountsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 14px;
 }
 
@@ -36521,7 +36530,7 @@ html {
 
 .dashboardWorkspaceActionGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
   gap: 14px;
 }
 
@@ -37430,7 +37439,7 @@ html {
 /* 2. Quick Metrics Strip */
 .pluginsWorkspaceMetrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
   gap: 14px;
 }
 
@@ -37530,7 +37539,7 @@ html {
 /* 4. Plugins Grid & Cards */
 .pluginsWorkspaceGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
   gap: 18px;
 }
 
@@ -38984,7 +38993,7 @@ html {
 
 .testimonialsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 20px;
   max-width: 1280px;
   margin: 0 auto;

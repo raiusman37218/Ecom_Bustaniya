@@ -112,12 +112,18 @@ export default function CategoryProductsGrid({
               onMouseEnter={() => preloadProductImage(product.image)}
               onTouchStart={() => preloadProductImage(product.image)}
             >
+              {/* The grid is the LCP on a collection page, so the first row
+                  is preloaded. Only two cards fit a phone's fold, and
+                  preloading four means the two the customer can actually see
+                  share bandwidth with two they cannot. The next four still
+                  load eagerly, just without jumping the queue. */}
               <Link href={`/product/${product.id}`} className="productImage" prefetch={true}>
                 <Image
                   src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                   alt={`${product.name} - ${displayCategory} by Bustaniya`}
                   fill
-                  priority={idx < 4}
+                  priority={idx < 2}
+                  loading={idx < 2 ? undefined : idx < 6 ? "eager" : "lazy"}
                   sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                 />
                 {product.badge && <span className="badge">{product.badge}</span>}
