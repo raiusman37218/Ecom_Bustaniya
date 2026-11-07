@@ -5605,6 +5605,7 @@ function createDraftOrderFromForm(form, products = []) {
     order_items: items,
     notes,
     internalNotes: notes,
+    tags: ["Custom order", source, deliveryMethod, pickupCity ? `Ship From: ${pickupCity}` : null].filter(Boolean),
     tags: [
       "Custom order",
       source,
