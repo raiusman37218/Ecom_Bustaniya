@@ -368,7 +368,7 @@ export async function POST(request) {
       customer_email: "",
       guest_email: "",
       items: customItems,
-      tags: ["Custom order", body?.source, body?.deliveryMethod].filter(Boolean),
+      tags: ["Custom order", body?.source, body?.deliveryMethod, selectedPickupCity ? `Ship From: ${selectedPickupCity}` : null].filter(Boolean),
       notes: body?.notes?.trim() ? limitText(body.notes.trim(), 2000) : null,
       internal_notes: body?.notes?.trim() ? limitText(body.notes.trim(), 2000) : null,
     };
@@ -427,6 +427,10 @@ export async function POST(request) {
       : 1;
 
     const courier = await getCourierAdapter("postex");
+    const selectedPickupCode = String(body?.pickupAddressCode || courier.pickupAddressCode || "").trim();
+    const selectedPickupCity = String(body?.pickupCity || "").trim();
+    const selectedPickupAddress = String(body?.pickupAddress || "").trim();
+
     const payload = {
       orderRefNumber: completedOrder.order_number || orderNumber,
       invoicePayment: String(postexCollectionAmount),
@@ -442,6 +446,7 @@ export async function POST(request) {
         `Payment status: ${paymentStatus}`,
         `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
         `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
+        selectedPickupCity ? `Ship from: ${selectedPickupCity} (${selectedPickupCode || "default"})` : "",
         body?.source ? `Source: ${body.source}` : "Source: Custom order",
         body?.notes ? `Notes: ${limitText(body.notes, 300)}` : "",
       ].filter(Boolean).join(" | "),
@@ -449,7 +454,7 @@ export async function POST(request) {
       invoiceDivision: 1,
       items: Math.max(1, totalItemsCount),
       orderType: "Normal",
-      pickupAddressCode: courier.pickupAddressCode,
+      ...(selectedPickupCode ? { pickupAddressCode: selectedPickupCode } : (courier.pickupAddressCode ? { pickupAddressCode: courier.pickupAddressCode } : {})),
     };
 
     let trackingNumber = null;
@@ -458,6 +463,9 @@ export async function POST(request) {
       manual: true,
       deliveryMethod: body?.deliveryMethod || "Manual",
       source: body?.source || "Custom order",
+      pickupAddressCode: selectedPickupCode || courier.pickupAddressCode || "",
+      pickupCity: selectedPickupCity || "",
+      pickupAddress: selectedPickupAddress || "",
     };
     let courierBooked = false;
     let courierMessage = "";
@@ -485,7 +493,12 @@ export async function POST(request) {
             trackingNumber = postexTrackingNumber;
             const rawTxStatus = result?.dist?.transactionStatus;
             courierStatus = (rawTxStatus && rawTxStatus.toLowerCase() !== "unbooked") ? rawTxStatus : "Booked";
-            postexResponse = result;
+            postexResponse = {
+              ...result,
+              pickupAddressCode: selectedPickupCode || courier.pickupAddressCode || "",
+              pickupCity: selectedPickupCity || "",
+              pickupAddress: selectedPickupAddress || "",
+            };
             courierBooked = true;
           } else {
             courierMessage = postexErrorMessage(result, 502);
@@ -546,7 +559,7 @@ export async function POST(request) {
       courier_normalized_status: courierBooked ? "booked" : "unassigned",
       status: courierBooked ? courierStatus : (body?.status || "Unbooked"),
       fulfillment_status: courierBooked ? "Booked with PostEx" : (body?.fulfillmentStatus || "Unfulfilled"),
-      tags: ["Custom order", body?.source, body?.deliveryMethod].filter(Boolean),
+      tags: ["Custom order", body?.source, body?.deliveryMethod, selectedPickupCity ? `Ship From: ${selectedPickupCity}` : null].filter(Boolean),
       notes: internalNotesFormatted,
       internal_notes: internalNotesFormatted,
     };
