@@ -1461,6 +1461,9 @@ export default function AdminDashboard() {
           pickupAddressCode: order.pickup_address_code || order.courier_response?.pickupAddressCode || "",
           pickupCity: order.pickup_city || order.courier_response?.pickupCity || "",
           pickupAddress: order.pickup_address || order.courier_response?.pickupAddress || "",
+          returnAddressCode: order.return_address_code || order.courier_response?.returnAddressCode || order.pickup_address_code || order.courier_response?.pickupAddressCode || "",
+          returnCity: order.return_city || order.courier_response?.returnCity || order.pickup_city || order.courier_response?.pickupCity || "",
+          returnAddress: order.return_address || order.courier_response?.returnAddress || order.pickup_address || order.courier_response?.pickupAddress || "",
           tags: tagsList,
           risk: order.risk || "Standard COD",
           operation: order.operation || null,
@@ -5562,6 +5565,9 @@ function createDraftOrderFromForm(form, products = []) {
   const pickupAddressCode = String(form.get("pickupAddressCode") || "001").trim();
   const pickupCity = String(form.get("pickupCity") || "").trim();
   const pickupAddress = String(form.get("pickupAddress") || "").trim();
+  const returnAddressCode = String(form.get("returnAddressCode") || pickupAddressCode).trim();
+  const returnCity = String(form.get("returnCity") || pickupCity).trim();
+  const returnAddress = String(form.get("returnAddress") || pickupAddress).trim();
   const status = String(form.get("status") || "Unbooked").trim();
   const source = String(form.get("source") || "Manual").trim();
   const now = new Date();
@@ -5587,6 +5593,9 @@ function createDraftOrderFromForm(form, products = []) {
     pickupAddressCode,
     pickupCity,
     pickupAddress,
+    returnAddressCode,
+    returnCity,
+    returnAddress,
     source,
     postexBooked: false,
     tracking: "",
@@ -5596,7 +5605,13 @@ function createDraftOrderFromForm(form, products = []) {
     order_items: items,
     notes,
     internalNotes: notes,
-    tags: ["Custom order", source, deliveryMethod, pickupCity ? `Ship From: ${pickupCity}` : null].filter(Boolean),
+    tags: [
+      "Custom order",
+      source,
+      deliveryMethod,
+      pickupCity ? `Ship From: ${pickupCity}` : null,
+      (returnCity && returnCity !== pickupCity) ? `Return To: ${returnCity}` : null,
+    ].filter(Boolean),
     risk: "Standard COD",
     createdAt: now.toISOString(),
     date: now.toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }),
@@ -5659,6 +5674,9 @@ function formatSavedCustomOrder(order, fallback = {}) {
     pickupAddressCode: order?.pickup_address_code || order?.pickupAddressCode || order?.courier_response?.pickupAddressCode || fallback.pickupAddressCode || "",
     pickupCity: order?.pickup_city || order?.pickupCity || order?.courier_response?.pickupCity || fallback.pickupCity || (tagsList.find((t) => typeof t === "string" && t.startsWith("Ship From: ")) || "").replace("Ship From: ", "") || "",
     pickupAddress: order?.pickup_address || order?.pickupAddress || order?.courier_response?.pickupAddress || fallback.pickupAddress || "",
+    returnAddressCode: order?.return_address_code || order?.returnAddressCode || order?.courier_response?.returnAddressCode || fallback.returnAddressCode || order?.pickup_address_code || order?.pickupAddressCode || order?.courier_response?.pickupAddressCode || fallback.pickupAddressCode || "",
+    returnCity: order?.return_city || order?.returnCity || order?.courier_response?.returnCity || fallback.returnCity || (tagsList.find((t) => typeof t === "string" && t.startsWith("Return To: ")) || "").replace("Return To: ", "") || order?.pickup_city || order?.pickupCity || order?.courier_response?.pickupCity || fallback.pickupCity || "",
+    returnAddress: order?.return_address || order?.returnAddress || order?.courier_response?.returnAddress || fallback.returnAddress || order?.pickup_address || order?.pickupAddress || order?.courier_response?.pickupAddress || fallback.pickupAddress || "",
     tags: tagsList,
     risk: fallback.risk || "Standard COD",
     createdAt: order?.created_at || fallback.createdAt || new Date().toISOString(),
@@ -6749,6 +6767,9 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
           pickupAddressCode: order.pickupAddressCode || "",
           pickupCity: order.pickupCity || "",
           pickupAddress: order.pickupAddress || "",
+          returnAddressCode: order.returnAddressCode || order.pickupAddressCode || "",
+          returnCity: order.returnCity || order.pickupCity || "",
+          returnAddress: order.returnAddress || order.pickupAddress || "",
           source: order.source,
           notes: order.notes,
           customer: {
@@ -9553,6 +9574,8 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
   const [citiesError, setCitiesError] = useState("");
   const [postexPickupAddresses, setPostexPickupAddresses] = useState([]);
   const [selectedPickupCode, setSelectedPickupCode] = useState("001");
+  const [sameReturnAddress, setSameReturnAddress] = useState(true);
+  const [selectedReturnCode, setSelectedReturnCode] = useState("001");
   const [pickupLoading, setPickupLoading] = useState(false);
   const preparedItems = draftItems.map((entry, index) => {
     const product = products.find((candidate) => String(candidate.id) === entry.productId);
@@ -9626,6 +9649,8 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
   }, []);
 
   const selectedPickupObj = postexPickupAddresses.find((a) => a.addressCode === selectedPickupCode) || postexPickupAddresses[0] || null;
+  const effectiveReturnCode = sameReturnAddress ? selectedPickupCode : selectedReturnCode;
+  const selectedReturnObj = postexPickupAddresses.find((a) => a.addressCode === effectiveReturnCode) || selectedPickupObj;
 
   return (
     <>
@@ -9735,22 +9760,26 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
           </label>
         </div>
 
-        <div className="formRow">
-          <label style={{ flex: 1 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+        <div className="adminCard" style={{ padding: "12px 14px", marginBottom: "12px", background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+          <label style={{ margin: 0 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
               <Warehouse size={14} color="#0f766e" />
-              <b>Ship From (PostEx Pickup City / Origin)</b>
+              <b>Ship From / Pickup Warehouse (PostEx Origin)</b>
               {pickupLoading && <span style={{ fontSize: "11px", color: "#64748b" }}>Loading saved addresses...</span>}
             </span>
             <select
               value={selectedPickupCode}
-              onChange={(e) => setSelectedPickupCode(e.target.value)}
-              style={{ fontWeight: 600, color: "#0f172a", background: "#f8fafc" }}
+              onChange={(e) => {
+                const newCode = e.target.value;
+                setSelectedPickupCode(newCode);
+                if (sameReturnAddress) setSelectedReturnCode(newCode);
+              }}
+              style={{ fontWeight: 600, color: "#0f172a", background: "#ffffff", border: "1px solid #cbd5e1" }}
             >
               {postexPickupAddresses.length > 0 ? (
                 postexPickupAddresses.map((addr) => (
                   <option key={addr.addressCode} value={addr.addressCode}>
-                    📍 {addr.cityName || addr.city} ({addr.addressCode}) — {addr.address ? (addr.address.length > 50 ? addr.address.slice(0, 50) + "..." : addr.address) : "Main Location"}
+                    📍 {addr.cityName || addr.city} ({addr.addressCode}) — {addr.address ? (addr.address.length > 45 ? addr.address.slice(0, 45) + "..." : addr.address) : "Main Location"}
                   </option>
                 ))
               ) : (
@@ -9764,15 +9793,76 @@ function DraftOrderDialog({ products = [], onClose, onCreate, saving = false }) 
             </select>
             {selectedPickupObj?.address && (
               <small style={{ color: "#475569", marginTop: "3px", display: "block" }}>
-                <b>Origin Address:</b> {selectedPickupObj.address}
+                <b>Pickup Address:</b> {selectedPickupObj.address}
               </small>
             )}
           </label>
+
+          <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "1px dashed #cbd5e1", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: "7px", cursor: "pointer", fontSize: "12.5px", fontWeight: 600, color: "#334155", margin: 0 }}>
+              <input
+                type="checkbox"
+                checked={sameReturnAddress}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setSameReturnAddress(checked);
+                  if (checked) setSelectedReturnCode(selectedPickupCode);
+                }}
+                style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "#0f766e" }}
+              />
+              <span>Return address is same as pickup address</span>
+            </label>
+            {sameReturnAddress && (
+              <span style={{ fontSize: "11px", color: "#059669", fontWeight: 600 }}>
+                ✓ Return to: {selectedPickupObj?.cityName || "same origin"} ({selectedPickupCode})
+              </span>
+            )}
+          </div>
+
+          {!sameReturnAddress && (
+            <div style={{ marginTop: "8px", padding: "8px 10px", background: "#fef3c7", borderRadius: "6px", border: "1px solid #fde68a" }}>
+              <label style={{ margin: 0 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#92400e", marginBottom: "4px", fontSize: "12px", fontWeight: 700 }}>
+                  <RotateCcw size={13} color="#b45309" />
+                  <b>Return Address (RTO Warehouse in case parcel returns)</b>
+                </span>
+                <select
+                  value={selectedReturnCode}
+                  onChange={(e) => setSelectedReturnCode(e.target.value)}
+                  style={{ fontWeight: 600, color: "#0f172a", background: "#ffffff", border: "1px solid #f59e0b" }}
+                >
+                  {postexPickupAddresses.length > 0 ? (
+                    postexPickupAddresses.map((addr) => (
+                      <option key={addr.addressCode} value={addr.addressCode}>
+                        ↩️ {addr.cityName || addr.city} ({addr.addressCode}) — {addr.address ? (addr.address.length > 45 ? addr.address.slice(0, 45) + "..." : addr.address) : "Main Location"}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="001">↩️ Lahore (001) — Default Warehouse</option>
+                      <option value="002">↩️ Lahore (002) — AZ Girls Hostel, Raiwind Rd</option>
+                      <option value="003">↩️ PAK PATTAN SHARIF (003) — Kalyana Hota Rd</option>
+                      <option value="005">↩️ PAK PATTAN SHARIF (005) — Rehman Town</option>
+                    </>
+                  )}
+                </select>
+                {selectedReturnObj?.address && (
+                  <small style={{ color: "#78350f", marginTop: "3px", display: "block" }}>
+                    <b>RTO Delivery Address:</b> {selectedReturnObj.address}
+                  </small>
+                )}
+              </label>
+            </div>
+          )}
         </div>
 
         <input type="hidden" name="pickupAddressCode" value={selectedPickupObj?.addressCode || selectedPickupCode || "001"} />
         <input type="hidden" name="pickupCity" value={selectedPickupObj?.cityName || selectedPickupObj?.city || "Lahore"} />
         <input type="hidden" name="pickupAddress" value={selectedPickupObj?.address || ""} />
+
+        <input type="hidden" name="returnAddressCode" value={selectedReturnObj?.addressCode || effectiveReturnCode || selectedPickupCode || "001"} />
+        <input type="hidden" name="returnCity" value={selectedReturnObj?.cityName || selectedReturnObj?.city || selectedPickupObj?.cityName || "Lahore"} />
+        <input type="hidden" name="returnAddress" value={selectedReturnObj?.address || selectedPickupObj?.address || ""} />
 
         <label>
           Full Shipping Address
@@ -9981,6 +10071,15 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
   const [drawerPickupCode, setDrawerPickupCode] = useState(() => {
     return order.pickupAddressCode || order.courier_response?.pickupAddressCode || "001";
   });
+  const [sameReturnAddress, setSameReturnAddress] = useState(() => {
+    const pCode = order.pickupAddressCode || order.courier_response?.pickupAddressCode;
+    const rCode = order.returnAddressCode || order.courier_response?.returnAddressCode;
+    if (rCode && pCode && rCode !== pCode) return false;
+    return true;
+  });
+  const [drawerReturnCode, setDrawerReturnCode] = useState(() => {
+    return order.returnAddressCode || order.courier_response?.returnAddressCode || order.pickupAddressCode || order.courier_response?.pickupAddressCode || "001";
+  });
   const [pickupLoading, setPickupLoading] = useState(false);
   const [orderItems, setOrderItems] = useState(() => normalizeOrderItems(order));
   const items = orderItems;
@@ -10003,6 +10102,10 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
             const defaultAddr = data.addresses.find((a) => a.addressCode === data.defaultAddressCode) || data.addresses[0];
             if (defaultAddr) setDrawerPickupCode(defaultAddr.addressCode);
           }
+          const currentRetCode = order.returnAddressCode || order.courier_response?.returnAddressCode;
+          if (currentRetCode) {
+            setDrawerReturnCode(currentRetCode);
+          }
         }
       })
       .catch((err) => {
@@ -10012,14 +10115,19 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
         if (active) setPickupLoading(false);
       });
     return () => { active = false; };
-  }, [order.pickupAddressCode, order.courier_response?.pickupAddressCode]);
+  }, [order.pickupAddressCode, order.courier_response?.pickupAddressCode, order.returnAddressCode, order.courier_response?.returnAddressCode]);
 
   const selectedPickupObj = postexPickupAddresses.find((a) => a.addressCode === drawerPickupCode)
     || postexPickupAddresses[0]
     || { addressCode: drawerPickupCode || "001", cityName: order.pickupCity || "Lahore", address: order.pickupAddress || "" };
 
+  const effectiveReturnCode = sameReturnAddress ? drawerPickupCode : drawerReturnCode;
+  const selectedReturnObj = postexPickupAddresses.find((a) => a.addressCode === effectiveReturnCode)
+    || selectedPickupObj;
+
   function handlePickupAddressChange(code) {
     setDrawerPickupCode(code);
+    if (sameReturnAddress) setDrawerReturnCode(code);
     const chosen = postexPickupAddresses.find((a) => a.addressCode === code);
     if (chosen) {
       const city = chosen.cityName || chosen.city || "";
@@ -10030,6 +10138,28 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
         pickupAddressCode: code,
         pickupCity: city,
         pickupAddress: chosen.address || "",
+        ...(sameReturnAddress ? {
+          returnAddressCode: code,
+          returnCity: city,
+          returnAddress: chosen.address || "",
+        } : {}),
+        tags: currentTags,
+      });
+    }
+  }
+
+  function handleReturnAddressChange(code) {
+    setDrawerReturnCode(code);
+    const chosen = postexPickupAddresses.find((a) => a.addressCode === code);
+    if (chosen) {
+      const city = chosen.cityName || chosen.city || "";
+      const currentTags = tags.split(",").map((t) => t.trim()).filter((t) => Boolean(t) && !t.startsWith("Return To:"));
+      if (city && city !== selectedPickupObj?.cityName) currentTags.push(`Return To: ${city}`);
+      setTags(currentTags.join(", "));
+      saveChanges({
+        returnAddressCode: code,
+        returnCity: city,
+        returnAddress: chosen.address || "",
         tags: currentTags,
       });
     }
@@ -10169,6 +10299,9 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
       pickupAddressCode: drawerPickupCode,
       pickupCity: selectedPickupObj?.cityName || selectedPickupObj?.city || "",
       pickupAddress: selectedPickupObj?.address || "",
+      returnAddressCode: effectiveReturnCode,
+      returnCity: selectedReturnObj?.cityName || selectedReturnObj?.city || "",
+      returnAddress: selectedReturnObj?.address || "",
       risk,
       tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
       notes,
@@ -10237,6 +10370,9 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
           pickupAddressCode: drawerPickupCode,
           pickupCity: selectedPickupObj?.cityName || selectedPickupObj?.city || "",
           pickupAddress: selectedPickupObj?.address || "",
+          returnAddressCode: effectiveReturnCode,
+          returnCity: selectedReturnObj?.cityName || selectedReturnObj?.city || "",
+          returnAddress: selectedReturnObj?.address || "",
           source: order.source,
           notes,
           customer: {
@@ -10256,9 +10392,11 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
       setFulfillmentStatus("Booked with PostEx");
       setDeliveryMethod("PostEx");
       const originCity = selectedPickupObj?.cityName || selectedPickupObj?.city || "";
+      const returnCity = selectedReturnObj?.cityName || selectedReturnObj?.city || "";
       const updatedTags = [...new Set([
-        ...tags.split(",").map((t) => t.trim()).filter((t) => Boolean(t) && !t.startsWith("Ship From:")),
+        ...tags.split(",").map((t) => t.trim()).filter((t) => Boolean(t) && !t.startsWith("Ship From:") && !t.startsWith("Return To:")),
         originCity ? `Ship From: ${originCity}` : null,
+        (returnCity && returnCity !== originCity) ? `Return To: ${returnCity}` : null,
       ].filter(Boolean))];
       setTags(updatedTags.join(", "));
 
@@ -10270,6 +10408,9 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
         pickupAddressCode: drawerPickupCode,
         pickupCity: originCity,
         pickupAddress: selectedPickupObj?.address || "",
+        returnAddressCode: effectiveReturnCode,
+        returnCity: returnCity,
+        returnAddress: selectedReturnObj?.address || "",
         tags: updatedTags,
       });
       setSaveMessage(`✅ Successfully booked with PostEx! Tracking: ${trackingNumber}`);
@@ -10922,7 +11063,7 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
                       {isDelivered
                         ? `· Delivery complete. Total Rs. ${currentCod.toLocaleString()} collected`
                         : isBooked
-                          ? `· Booked with PostEx (CN: ${tracking}). Dispatched from ${order.pickupCity || selectedPickupObj?.cityName || "Warehouse"}.`
+                          ? `· Booked with PostEx (CN: ${tracking}). Dispatched from ${order.pickupCity || selectedPickupObj?.cityName || "Warehouse"}${order.returnCity && order.returnCity !== (order.pickupCity || selectedPickupObj?.cityName) ? `, Returns to ${order.returnCity}` : ""}.`
                           : `· Create courier booking to generate PostEx tracking consignment.`}
                     </span>
                   </div>
@@ -11740,50 +11881,118 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
               </div>
 
               <div className="shopifySectionBody">
-                {/* Ship From Origin (PostEx Warehouse Address) */}
+                {/* Ship From & Return Address (PostEx Warehouse Locations) */}
                 <div style={{ marginBottom: "12px", padding: "10px 12px", background: tracking ? "#f0fdf4" : "#f8fafc", borderRadius: "8px", border: tracking ? "1px solid #bbf7d0" : "1px solid #e2e8f0" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
                     <span style={{ fontSize: "11px", fontWeight: 700, color: tracking ? "#166534" : "#475569", textTransform: "uppercase", display: "inline-flex", alignItems: "center", gap: "5px" }}>
                       <Warehouse size={13} color={tracking ? "#166534" : "#0f766e"} />
-                      {tracking ? "Dispatched From (Origin City)" : "Ship From (PostEx Pickup City / Warehouse)"}
+                      {tracking ? "Courier Warehouses" : "Ship From & Return Address"}
                     </span>
                     {!tracking && pickupLoading && <span style={{ fontSize: "10.5px", color: "#64748b" }}>Loading...</span>}
                   </div>
+
                   {!tracking ? (
                     <div>
-                      <select
-                        value={drawerPickupCode}
-                        onChange={(e) => handlePickupAddressChange(e.target.value)}
-                        disabled={saving || bookingPostex}
-                        style={{ width: "100%", padding: "7px 10px", fontSize: "12.5px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "#ffffff", fontWeight: 600, color: "#0f172a" }}
-                      >
-                        {postexPickupAddresses.length > 0 ? (
-                          postexPickupAddresses.map((addr) => (
-                            <option key={addr.addressCode} value={addr.addressCode}>
-                              📍 {addr.cityName || addr.city} ({addr.addressCode}) — {addr.address ? (addr.address.length > 38 ? addr.address.slice(0, 38) + "..." : addr.address) : "Main Location"}
-                            </option>
-                          ))
-                        ) : (
-                          <>
-                            <option value="001">📍 Lahore (001) — Default Warehouse</option>
-                            <option value="002">📍 Lahore (002) — AZ Girls Hostel, Raiwind Rd</option>
-                            <option value="003">📍 PAK PATTAN SHARIF (003) — Kalyana Hota Rd</option>
-                            <option value="005">📍 PAK PATTAN SHARIF (005) — Rehman Town</option>
-                          </>
-                        )}
-                      </select>
+                      {/* Pickup Address Selector */}
+                      <label style={{ display: "flex", flexDirection: "column", gap: "3px", margin: 0 }}>
+                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#334155" }}>Ship From (Pickup Origin)</span>
+                        <select
+                          value={drawerPickupCode}
+                          onChange={(e) => handlePickupAddressChange(e.target.value)}
+                          disabled={saving || bookingPostex}
+                          style={{ width: "100%", padding: "7px 10px", fontSize: "12.5px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "#ffffff", fontWeight: 600, color: "#0f172a" }}
+                        >
+                          {postexPickupAddresses.length > 0 ? (
+                            postexPickupAddresses.map((addr) => (
+                              <option key={addr.addressCode} value={addr.addressCode}>
+                                📍 {addr.cityName || addr.city} ({addr.addressCode}) — {addr.address ? (addr.address.length > 38 ? addr.address.slice(0, 38) + "..." : addr.address) : "Main Location"}
+                              </option>
+                            ))
+                          ) : (
+                            <>
+                              <option value="001">📍 Lahore (001) — Default Warehouse</option>
+                              <option value="002">📍 Lahore (002) — AZ Girls Hostel, Raiwind Rd</option>
+                              <option value="003">📍 PAK PATTAN SHARIF (003) — Kalyana Hota Rd</option>
+                              <option value="005">📍 PAK PATTAN SHARIF (005) — Rehman Town</option>
+                            </>
+                          )}
+                        </select>
+                      </label>
                       {selectedPickupObj?.address && (
-                        <div style={{ fontSize: "11px", color: "#475569", marginTop: "4px", lineHeight: 1.35 }}>
+                        <div style={{ fontSize: "11px", color: "#475569", marginTop: "3px", lineHeight: 1.35 }}>
                           <b>Pickup:</b> {selectedPickupObj.address}
+                        </div>
+                      )}
+
+                      {/* Same Return Address Toggle */}
+                      <div style={{ marginTop: "8px", paddingTop: "6px", borderTop: "1px dashed #cbd5e1", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "4px" }}>
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "11.5px", fontWeight: 600, color: "#334155", margin: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={sameReturnAddress}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setSameReturnAddress(checked);
+                              if (checked) handleReturnAddressChange(drawerPickupCode);
+                            }}
+                            style={{ width: "15px", height: "15px", cursor: "pointer", accentColor: "#0f766e" }}
+                          />
+                          <span>Return address same as pickup</span>
+                        </label>
+                        {sameReturnAddress && (
+                          <span style={{ fontSize: "10.5px", color: "#059669", fontWeight: 600 }}>
+                            ✓ Return: {selectedPickupObj?.cityName || "same"}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Different Return Address Dropdown */}
+                      {!sameReturnAddress && (
+                        <div style={{ marginTop: "6px", padding: "6px 8px", background: "#fef3c7", borderRadius: "6px", border: "1px solid #fde68a" }}>
+                          <label style={{ display: "flex", flexDirection: "column", gap: "3px", margin: 0 }}>
+                            <span style={{ fontSize: "11px", fontWeight: 700, color: "#92400e", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                              <RotateCcw size={11} color="#b45309" /> Return Address (RTO Warehouse)
+                            </span>
+                            <select
+                              value={drawerReturnCode}
+                              onChange={(e) => handleReturnAddressChange(e.target.value)}
+                              disabled={saving || bookingPostex}
+                              style={{ width: "100%", padding: "6px 8px", fontSize: "12px", borderRadius: "5px", border: "1px solid #f59e0b", background: "#ffffff", fontWeight: 600, color: "#0f172a" }}
+                            >
+                              {postexPickupAddresses.length > 0 ? (
+                                postexPickupAddresses.map((addr) => (
+                                  <option key={addr.addressCode} value={addr.addressCode}>
+                                    ↩️ {addr.cityName || addr.city} ({addr.addressCode}) — {addr.address ? (addr.address.length > 35 ? addr.address.slice(0, 35) + "..." : addr.address) : "Main Location"}
+                                  </option>
+                                ))
+                              ) : (
+                                <>
+                                  <option value="001">↩️ Lahore (001) — Default Warehouse</option>
+                                  <option value="002">↩️ Lahore (002) — AZ Girls Hostel, Raiwind Rd</option>
+                                  <option value="003">↩️ PAK PATTAN SHARIF (003) — Kalyana Hota Rd</option>
+                                  <option value="005">↩️ PAK PATTAN SHARIF (005) — Rehman Town</option>
+                                </>
+                              )}
+                            </select>
+                          </label>
+                          {selectedReturnObj?.address && (
+                            <div style={{ fontSize: "10.5px", color: "#78350f", marginTop: "3px", lineHeight: 1.3 }}>
+                              <b>Return To:</b> {selectedReturnObj.address}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div style={{ fontSize: "12.5px", color: "#166534", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span>📍 {order.pickupCity || selectedPickupObj?.cityName || "Warehouse"}</span>
-                      <span style={{ fontSize: "11.5px", color: "#15803d", fontWeight: 400 }}>
-                        (Code: {order.pickupAddressCode || drawerPickupCode || "001"})
-                      </span>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px" }}>
+                      <div style={{ color: "#166534", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }}>
+                        <span>📍 Shipped From: <b>{order.pickupCity || selectedPickupObj?.cityName || "Warehouse"}</b></span>
+                        <span style={{ fontSize: "11px", color: "#15803d", fontWeight: 400 }}>({order.pickupAddressCode || drawerPickupCode || "001"})</span>
+                      </div>
+                      <div style={{ color: "#065f46", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }}>
+                        <span>↩️ Return Warehouse: <b>{order.returnCity || selectedReturnObj?.cityName || order.pickupCity || "Same origin"}</b></span>
+                        <span style={{ fontSize: "11px", color: "#047857", fontWeight: 400 }}>({order.returnAddressCode || effectiveReturnCode || "001"})</span>
+                      </div>
                     </div>
                   )}
                 </div>
