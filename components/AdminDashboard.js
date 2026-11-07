@@ -7,7 +7,7 @@ import {
   Minus, MoreHorizontal, Package, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Save, Search, Settings,
   ShoppingBag, Sparkles, Star, Store, Tags, Trash2, TrendingUp, Truck, UploadCloud, User, Users, WalletCards, X, Scissors, Calculator
 } from "lucide-react";
-import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, products as initialProducts, slugifyCategory } from "../data/store";
+import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts, slugifyCategory } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, SECTION_TEMPLATES } from "../data/storeSettings";
 import FinanceWorkspace from "./FinanceWorkspace";
 import EventsWorkspace from "./EventsWorkspace";
@@ -1270,63 +1270,93 @@ export default function AdminDashboard() {
   }
 
   function openEditProductForm(product) {
-    setEditingProduct(product);
-    const primaryCat = product.category || "Kurtis";
-    setProductCategory(primaryCat);
-    const existingCats = Array.isArray(product.categories)
-      ? product.categories
-      : (Array.isArray(product.costBreakdown?.metadata?.categories || product.cost_breakdown?.metadata?.categories) ? (product.costBreakdown?.metadata?.categories || product.cost_breakdown?.metadata?.categories) : []);
-    setAdditionalCategories(existingCats.filter((c) => normalizeCategory(c).toLowerCase() !== normalizeCategory(primaryCat).toLowerCase()));
-    const existingPrices = (product.categoryPrices && typeof product.categoryPrices === "object" ? product.categoryPrices : null)
-      || (product.costBreakdown?.metadata?.categoryPrices && typeof product.costBreakdown.metadata.categoryPrices === "object" ? product.costBreakdown.metadata.categoryPrices : null)
-      || (product.cost_breakdown?.metadata?.categoryPrices && typeof product.cost_breakdown.metadata.categoryPrices === "object" ? product.cost_breakdown.metadata.categoryPrices : {});
-    setCategoryPrices(existingPrices || {});
-    setSelectedSizes(Array.isArray(product.sizes) && product.sizes.length ? product.sizes : ["XS", "S", "M", "L", "XL"]);
-    setSelectedColors(Array.isArray(product.colors) ? product.colors : []);
-    setDetectedColorsHint(detectColorsFromText(product.name || ""));
-    setColorHexMap(product.colorHexMap || {});
-    const explicitEnable = product.enableBottomOptions !== undefined ? product.enableBottomOptions : null;
-    const hasExplicitBottoms = Array.isArray(product.bottomOptions);
-    const hasBottoms = hasExplicitBottoms && product.bottomOptions.length > 0 && explicitEnable !== false;
-    const isExplicitlyDisabled = explicitEnable === false || (hasExplicitBottoms && product.bottomOptions.length === 0);
-    const isKurti = String(product.category || "").toLowerCase().includes("kurti");
-    if (isExplicitlyDisabled || !hasBottoms) {
-      setEnableBottomOptions(false);
-      setBottomOptions([]);
-    } else {
-      setEnableBottomOptions(true);
-      setBottomOptions(product.bottomOptions);
-    }
-    setNewBottomName("");
-    setNewBottomDelta(0);
-    const existingColorImages = product.colorImages || product.color_images || product.costBreakdown?.metadata?.colorImages || {};
-    setProductMedia((product.images || [product.image]).filter(Boolean).map((src, index) => {
-      let assignedColor = "";
-      for (const [col, imgs] of Object.entries(existingColorImages)) {
-        const arr = Array.isArray(imgs) ? imgs : [imgs];
-        if (arr.includes(src)) {
-          assignedColor = col;
-          break;
-        }
+    if (!product) return;
+    try {
+      setEditingProduct(product);
+      const primaryCat = product.category || "Kurtis";
+      setProductCategory(primaryCat);
+      const existingCats = Array.isArray(product.categories)
+        ? product.categories
+        : (Array.isArray(product.costBreakdown?.metadata?.categories || product.cost_breakdown?.metadata?.categories) ? (product.costBreakdown?.metadata?.categories || product.cost_breakdown?.metadata?.categories) : []);
+      setAdditionalCategories(existingCats.filter((c) => normalizeCategory(c).toLowerCase() !== normalizeCategory(primaryCat).toLowerCase()));
+      const existingPrices = (product.categoryPrices && typeof product.categoryPrices === "object" ? product.categoryPrices : null)
+        || (product.costBreakdown?.metadata?.categoryPrices && typeof product.costBreakdown.metadata.categoryPrices === "object" ? product.costBreakdown.metadata.categoryPrices : null)
+        || (product.cost_breakdown?.metadata?.categoryPrices && typeof product.cost_breakdown.metadata.categoryPrices === "object" ? product.cost_breakdown.metadata.categoryPrices : {});
+      setCategoryPrices(existingPrices || {});
+
+      const parsedSizes = Array.isArray(product.sizes) && product.sizes.length
+        ? product.sizes
+        : (typeof product.size === "string" ? (() => { try { const p = JSON.parse(product.size); return Array.isArray(p) ? p : ["XS", "S", "M", "L", "XL"]; } catch { return ["XS", "S", "M", "L", "XL"]; } })() : (Array.isArray(product.size) ? product.size : ["XS", "S", "M", "L", "XL"]));
+      setSelectedSizes(parsedSizes);
+
+      const parsedColors = Array.isArray(product.colors)
+        ? product.colors
+        : (Array.isArray(product.color) ? product.color : (typeof product.color === "string" ? (() => { try { const p = JSON.parse(product.color); return Array.isArray(p) ? p : [product.color]; } catch { return product.color ? [product.color] : []; } })() : []));
+      setSelectedColors(parsedColors);
+
+      setDetectedColorsHint(detectColorsFromText(product.name || ""));
+      setColorHexMap(product.colorHexMap || {});
+      const explicitEnable = product.enableBottomOptions !== undefined ? product.enableBottomOptions : null;
+      const hasExplicitBottoms = Array.isArray(product.bottomOptions);
+      const hasBottoms = hasExplicitBottoms && product.bottomOptions.length > 0 && explicitEnable !== false;
+      const isExplicitlyDisabled = explicitEnable === false || (hasExplicitBottoms && product.bottomOptions.length === 0);
+      if (isExplicitlyDisabled || !hasBottoms) {
+        setEnableBottomOptions(false);
+        setBottomOptions([]);
+      } else {
+        setEnableBottomOptions(true);
+        setBottomOptions(product.bottomOptions || []);
       }
-      return {
-        id: `existing-${product.id}-${index}`,
-        name: `Product image ${index + 1}`,
-        src,
-        colorTag: assignedColor,
-      };
-    }));
-    setProductImageUrl("");
-    setMediaError("");
-    setProductPrice(Number(product.price || 0));
-    setCostPerItem(Number(product.costTotalPkr || product.cost_total_pkr || product.costBreakdown?.fabric || 0));
-    setIsNewProduct(Boolean(product.isNew ?? product.new));
-    setIsBestsellerProduct(Boolean(product.isBestseller ?? product.bestsellere));
-    setProductStatus(product.status || "Active");
-    setShowUrlInput(false);
-    setShowExtendedSizes(false);
-    setCostBreakdown({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0, ...(product.costBreakdown || {}) });
-    setShowProductForm(true);
+      setNewBottomName("");
+      setNewBottomDelta(0);
+      const existingColorImages = product.colorImages || product.color_images || product.costBreakdown?.metadata?.colorImages || {};
+
+      let rawImages = [];
+      if (Array.isArray(product.images) && product.images.length) {
+        rawImages = product.images;
+      } else if (typeof product.images === "string") {
+        try { const p = JSON.parse(product.images); rawImages = Array.isArray(p) ? p : [product.images]; } catch { rawImages = [product.images]; }
+      } else if (product.image) {
+        rawImages = [product.image];
+      } else if (Array.isArray(product.img) && product.img.length) {
+        rawImages = product.img;
+      } else if (typeof product.img === "string") {
+        try { const p = JSON.parse(product.img); rawImages = Array.isArray(p) ? p : [product.img]; } catch { rawImages = [product.img]; }
+      }
+
+      setProductMedia(rawImages.filter(Boolean).map((src, index) => {
+        let assignedColor = "";
+        if (existingColorImages && typeof existingColorImages === "object") {
+          for (const [col, imgs] of Object.entries(existingColorImages)) {
+            const arr = Array.isArray(imgs) ? imgs : [imgs];
+            if (arr.includes(src)) {
+              assignedColor = col;
+              break;
+            }
+          }
+        }
+        return {
+          id: `existing-${product.id}-${index}`,
+          name: `Product image ${index + 1}`,
+          src,
+          colorTag: assignedColor,
+        };
+      }));
+      setProductImageUrl("");
+      setMediaError("");
+      setProductPrice(Number(product.price || 0));
+      setCostPerItem(Number(product.costTotalPkr || product.cost_total_pkr || product.costBreakdown?.fabric || 0));
+      setIsNewProduct(Boolean(product.isNew ?? product.new));
+      setIsBestsellerProduct(Boolean(product.isBestseller ?? product.bestsellere));
+      setProductStatus(product.status || (product.instock !== false ? "Active" : "Archived"));
+      setShowUrlInput(false);
+      setShowExtendedSizes(false);
+      setCostBreakdown({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0, ...(product.costBreakdown || {}) });
+      setShowProductForm(true);
+    } catch (err) {
+      console.error("Failed to open edit product form:", err);
+      setShowProductForm(true);
+    }
   }
 
   async function loadOrders({ page = 1 } = {}) {
