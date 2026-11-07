@@ -976,7 +976,6 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             <details className="productDetailsAccordion" open>
               <summary>Product details &amp; fabric</summary>
               <div className="productDetailsAccordionBody">
-                <h2 className="productDetailsTitle">Description &amp; Specifications</h2>
                 <StructuredProductDetails value={productDetails} />
                 <small className="productDetailsNote">Colours may vary slightly due to camera lighting and screen resolution.</small>
               </div>
