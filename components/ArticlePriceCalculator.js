@@ -210,21 +210,52 @@ export default function ArticlePriceCalculator({
   initialProduct = null,
 }) {
   const [selectedPreset, setSelectedPreset] = useState("suit_3pc");
+  const [selectedProductId, setSelectedProductId] = useState(() => initialProduct?.id ? String(initialProduct.id) : "");
   const [articleName, setArticleName] = useState(() => initialProduct?.name || "Luxury Festive Collection");
   const [articleCategory, setArticleCategory] = useState(() => initialProduct?.category || "3 Piece Suits");
 
   // Dynamic cost item states
-  const [fabricItems, setFabricItems] = useState(() => PRESET_TEMPLATES.suit_3pc.fabricItems);
-  const [trims, setTrims] = useState(() => PRESET_TEMPLATES.suit_3pc.trims);
-  const [labour, setLabour] = useState(() => PRESET_TEMPLATES.suit_3pc.labour);
-  const [packaging, setPackaging] = useState(() => PRESET_TEMPLATES.suit_3pc.packaging);
-  const [commercial, setCommercial] = useState(() => PRESET_TEMPLATES.suit_3pc.commercial);
+  const [fabricItems, setFabricItems] = useState(() => {
+    const savedFabric = Number(initialProduct?.costBreakdown?.fabric || 0);
+    if (savedFabric > 0) {
+      return [{ id: "fab-1", label: "Primary Garment Fabric (Saved Catalog Cost)", meters: 1, ratePerMeter: savedFabric }];
+    }
+    return PRESET_TEMPLATES.suit_3pc.fabricItems;
+  });
+  const [trims, setTrims] = useState(() => {
+    const savedTrims = Number(initialProduct?.costBreakdown?.embellishment || 0);
+    if (savedTrims > 0) {
+      return [{ id: "trim-1", label: "Trims, Laces & Accessories (Saved)", amount: savedTrims }];
+    }
+    return PRESET_TEMPLATES.suit_3pc.trims;
+  });
+  const [labour, setLabour] = useState(() => {
+    const savedStitching = Number(initialProduct?.costBreakdown?.stitching || 0);
+    if (savedStitching > 0) {
+      return [{ id: "lab-1", label: "Master Tailoring & Production Labor (Saved)", amount: savedStitching }];
+    }
+    return PRESET_TEMPLATES.suit_3pc.labour;
+  });
+  const [packaging, setPackaging] = useState(() => {
+    const savedPkg = Number(initialProduct?.costBreakdown?.packaging || 0);
+    if (savedPkg > 0) {
+      return [{ id: "pkg-1", label: "Packaging & Presentation (Saved)", amount: savedPkg }];
+    }
+    return PRESET_TEMPLATES.suit_3pc.packaging;
+  });
+  const [commercial, setCommercial] = useState(() => {
+    const savedComm = Number(initialProduct?.costBreakdown?.commercial || initialProduct?.costBreakdown?.other || 0);
+    if (savedComm > 0) {
+      return [{ id: "com-1", label: "Commercial CAC, Delivery & Return Provision", amount: savedComm }];
+    }
+    return PRESET_TEMPLATES.suit_3pc.commercial;
+  });
 
   // Pricing controls
-  const [pricingMode, setPricingMode] = useState("target_margin"); // 'target_margin' | 'target_profit' | 'manual_price'
+  const [pricingMode, setPricingMode] = useState(() => initialProduct?.price > 0 ? "manual_price" : "target_margin"); // 'target_margin' | 'target_profit' | 'manual_price'
   const [targetMargin, setTargetMargin] = useState(38); // %
   const [targetProfit, setTargetProfit] = useState(2000); // PKR
-  const [manualPrice, setManualPrice] = useState(7990); // PKR
+  const [manualPrice, setManualPrice] = useState(() => Number(initialProduct?.price || 7990)); // PKR
   const [charmPricing, setCharmPricing] = useState(true); // round to .990 or .490
   const [discountPercent, setDiscountPercent] = useState(20); // for compare-at MSRP
 
@@ -247,10 +278,14 @@ export default function ArticlePriceCalculator({
 
   // Load an existing product from the catalog
   function handleLoadProduct(productId) {
-    if (!productId) return;
+    if (!productId) {
+      setSelectedProductId("");
+      return;
+    }
     const prod = products.find((p) => String(p.id) === String(productId));
     if (!prod) return;
 
+    setSelectedProductId(String(prod.id));
     setArticleName(prod.name || "");
     setArticleCategory(prod.category || "Kurtis");
 
@@ -260,6 +295,31 @@ export default function ArticlePriceCalculator({
     else if (cat.includes("bottom")) handleSelectPreset("bottom_1pc");
     else if (cat.includes("formal") || cat.includes("pret")) handleSelectPreset("luxury_pret");
     else handleSelectPreset("suit_3pc");
+
+    const bd = prod.costBreakdown || prod.cost_breakdown || {};
+    const hasSavedBreakdown = Number(bd.fabric || 0) + Number(bd.stitching || 0) + Number(bd.embellishment || 0) + Number(bd.packaging || 0) > 0;
+    if (hasSavedBreakdown) {
+      if (Number(bd.fabric || 0) > 0) {
+        setFabricItems([{ id: "fab-1", label: "Primary Garment Fabric (Saved Catalog Cost)", meters: 1, ratePerMeter: Number(bd.fabric) }]);
+      }
+      if (Number(bd.embellishment || 0) > 0) {
+        setTrims([{ id: "trim-1", label: "Trims, Laces & Accessories (Saved)", amount: Number(bd.embellishment) }]);
+      }
+      if (Number(bd.stitching || 0) > 0) {
+        setLabour([{ id: "lab-1", label: "Master Tailoring & Production Labor (Saved)", amount: Number(bd.stitching) }]);
+      }
+      if (Number(bd.packaging || 0) > 0) {
+        setPackaging([{ id: "pkg-1", label: "Packaging & Presentation (Saved)", amount: Number(bd.packaging) }]);
+      }
+      if (Number(bd.commercial || bd.other || 0) > 0) {
+        setCommercial([{ id: "com-1", label: "Commercial CAC, Delivery & Return Provision", amount: Number(bd.commercial || bd.other) }]);
+      }
+    } else if (Number(prod.costTotalPkr || 0) > 0) {
+      setFabricItems([{ id: "fab-1", label: "Saved Unit Production Cost", meters: 1, ratePerMeter: Number(prod.costTotalPkr) }]);
+      setTrims([]);
+      setLabour([]);
+      setPackaging([]);
+    }
 
     if (prod.price) {
       setManualPrice(Number(prod.price));
@@ -455,9 +515,12 @@ Generated by Bustaniya Executive Pricing Engine`;
     setter((curr) => curr.filter((item) => item.id !== id));
   }
 
-  function handleApply() {
+  function handleApply(mode = "auto") {
     if (onApplyToProduct) {
+      const targetId = mode === "new" ? null : (selectedProductId || initialProduct?.id || null);
       onApplyToProduct({
+        productId: targetId,
+        mode,
         name: articleName,
         category: articleCategory,
         price: calculatedSellingPrice,
@@ -471,6 +534,7 @@ Generated by Bustaniya Executive Pricing Engine`;
           embellishment: totalTrimsCost,
           packaging: totalPackagingCost,
           commercial: totalCommercialCost,
+          other: totalCommercialCost,
           landedTotal: totalLandedCost,
         },
       });
@@ -515,14 +579,14 @@ Generated by Bustaniya Executive Pricing Engine`;
                 <Tag size={13} className="calcSelectIcon" />
                 <select
                   className="calcProductDropdown"
+                  value={selectedProductId}
                   onChange={(e) => handleLoadProduct(e.target.value)}
-                  defaultValue=""
                   aria-label="Load product from catalog"
                 >
-                  <option value="" disabled>Load from catalog...</option>
+                  <option value="">+ New Article / Custom Calculation</option>
                   {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.category}) — Rs. {Number(p.price || 0).toLocaleString()}
+                    <option key={p.id} value={String(p.id)}>
+                      {p.name} ({p.category}) — Rs. {Number(p.price || 0).toLocaleString()} {Number(p.costTotalPkr || 0) ? `[Cost: Rs. ${Number(p.costTotalPkr).toLocaleString()}]` : "[No Cost]"}
                     </option>
                   ))}
                 </select>
@@ -1177,13 +1241,27 @@ Generated by Bustaniya Executive Pricing Engine`;
             {/* Primary Action Buttons */}
             <div className="calcActionButtonsGroup">
               {onApplyToProduct && (
-                <button
-                  type="button"
-                  className="calcApplyBtn"
-                  onClick={handleApply}
-                >
-                  <Check size={16} /> Apply Pricing to Product
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="calcApplyBtn"
+                    onClick={() => handleApply("auto")}
+                  >
+                    <Check size={16} />
+                    {selectedProductId
+                      ? `Save Cost & Price to "${articleName.slice(0, 26)}${articleName.length > 26 ? "..." : ""}"`
+                      : "Apply Pricing to Product"}
+                  </button>
+                  {selectedProductId && !isOpenAsModal && (
+                    <button
+                      type="button"
+                      className="calcCopyBtn"
+                      onClick={() => handleApply("new")}
+                    >
+                      <Plus size={15} /> Create as New Catalog Product
+                    </button>
+                  )}
+                </>
               )}
 
               <button

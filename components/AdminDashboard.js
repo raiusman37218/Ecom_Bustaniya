@@ -930,6 +930,7 @@ export default function AdminDashboard() {
   const [showExtendedSizes, setShowExtendedSizes] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [showPriceCalcModal, setShowPriceCalcModal] = useState(false);
+  const [priceCalcTargetProduct, setPriceCalcTargetProduct] = useState(null);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
   const fileInputRef = useRef(null);
   const [costBreakdown, setCostBreakdown] = useState({ fabric: 0, stitching: 0, embellishment: 0, packaging: 0, delivery: 0, other: 0 });
@@ -1223,9 +1224,28 @@ export default function AdminDashboard() {
     window.history[options.replace ? "replaceState" : "pushState"]({}, "", url);
   }
 
-  const filteredProducts = useMemo(() => products.filter((product) =>
-    product.name.toLowerCase().includes(search.toLowerCase())
-  ), [products, search]);
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((product) =>
+      [
+        product.name,
+        product.sku,
+        product.articleNumber,
+        product.category,
+        product.subcategory,
+        product.collection,
+        ...(Array.isArray(product.categories) ? product.categories : []),
+      ]
+        .filter(Boolean)
+        .some((val) => String(val).toLowerCase().includes(q))
+    );
+  }, [products, search]);
+
+  function openPriceCalculatorForProduct(product = null) {
+    setPriceCalcTargetProduct(product || null);
+    setShowPriceCalcModal(true);
+  }
   const totalProductCost = PRODUCT_COST_KEYS.reduce((sum, key) => sum + Number(costBreakdown[key] || 0), 0);
   const productGst = 0;
   const productTax = Math.round(Number(productPrice || 0) * 0.04);
@@ -1590,7 +1610,10 @@ export default function AdminDashboard() {
       const existingBreakdown = editingProduct?.costBreakdown || editingProduct?.cost_breakdown || {};
       const existingMeta = existingBreakdown?.metadata || {};
       const existingCostTotal = Number(editingProduct?.costTotalPkr ?? editingProduct?.cost_total_pkr ?? 0);
-      const keepDetailedBreakdown = Boolean(editingProduct && Math.abs(costVal - existingCostTotal) < 0.01 && Object.keys(existingBreakdown).length > 0);
+      const stateBreakdownSum = Number(costBreakdown?.fabric || 0) + Number(costBreakdown?.stitching || 0) + Number(costBreakdown?.embellishment || 0) + Number(costBreakdown?.packaging || 0);
+      const useStateBreakdown = stateBreakdownSum > 0 && Math.abs(costVal - stateBreakdownSum) < 5;
+      const keepDetailedBreakdown = Boolean(!useStateBreakdown && editingProduct && Math.abs(costVal - existingCostTotal) < 0.01 && Object.keys(existingBreakdown).length > 0);
+      const activeBreakdownSource = useStateBreakdown ? costBreakdown : (keepDetailedBreakdown ? existingBreakdown : null);
 
       const productPayload = {
         name,
@@ -1632,13 +1655,13 @@ export default function AdminDashboard() {
         instagramVideoUrl: instagramUrl,
         cost_total_pkr: costVal,
         cost_breakdown: {
-          ...(keepDetailedBreakdown ? existingBreakdown : {}),
-          fabric: keepDetailedBreakdown ? Number(existingBreakdown.fabric ?? costVal) : costVal,
-          stitching: keepDetailedBreakdown ? Number(existingBreakdown.stitching || 0) : 0,
-          embellishment: keepDetailedBreakdown ? Number(existingBreakdown.embellishment || 0) : 0,
-          packaging: keepDetailedBreakdown ? Number(existingBreakdown.packaging || 0) : 0,
-          delivery: keepDetailedBreakdown ? Number(existingBreakdown.delivery || 0) : 0,
-          other: keepDetailedBreakdown ? Number(existingBreakdown.other || 0) : 0,
+          ...(activeBreakdownSource || {}),
+          fabric: activeBreakdownSource ? Number(activeBreakdownSource.fabric ?? costVal) : costVal,
+          stitching: activeBreakdownSource ? Number(activeBreakdownSource.stitching || 0) : 0,
+          embellishment: activeBreakdownSource ? Number(activeBreakdownSource.embellishment || 0) : 0,
+          packaging: activeBreakdownSource ? Number(activeBreakdownSource.packaging || 0) : 0,
+          delivery: activeBreakdownSource ? Number(activeBreakdownSource.delivery || 0) : 0,
+          other: activeBreakdownSource ? Number(activeBreakdownSource.other || activeBreakdownSource.commercial || 0) : 0,
           metadata: {
             ...existingMeta,
             fabricDetails: editingProduct?.fabricDetails || existingMeta.fabricDetails || "",
@@ -1889,13 +1912,21 @@ export default function AdminDashboard() {
     }
   }
 
-  async function adjustInventory(productId, change, reason) {
+  async function adjustInventory(productId, change, reason, options = {}) {
     const response = await fetch("/api/admin/catalog", {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ action: "adjust", productId, change, reason }),
+      body: JSON.stringify({
+        action: "adjust",
+        productId,
+        change,
+        reason,
+        ...(options.setStock !== undefined ? { setStock: options.setStock } : {}),
+        ...(options.lowStockThreshold !== undefined ? { lowStockThreshold: options.lowStockThreshold } : {}),
+        ...(options.variants !== undefined ? { variants: options.variants } : {}),
+      }),
     });
     const result = await response.json();
     if (!response.ok) {
@@ -1904,6 +1935,78 @@ export default function AdminDashboard() {
       throw error;
     }
     await loadAdminData();
+  }
+
+  async function updateProductQuick(productId, productUpdates = {}, options = {}) {
+    setCatalogLoading(true);
+    setOrdersError("");
+    try {
+      const response = await fetch("/api/admin/catalog", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId,
+          product: productUpdates,
+          ...(options.stock !== undefined ? { stock: options.stock } : {}),
+          ...(options.lowStockThreshold !== undefined ? { lowStockThreshold: options.lowStockThreshold } : {}),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to update product.");
+      await loadAdminData();
+      return true;
+    } catch (saveError) {
+      setOrdersError(saveError.message);
+      throw saveError;
+    } finally {
+      setCatalogLoading(false);
+    }
+  }
+
+  async function handleApplyCalculatorPricing(calcData) {
+    if (showProductForm) {
+      setProductPrice(calcData.price);
+      setCostPerItem(calcData.costPerItem);
+      setCostBreakdown(calcData.costBreakdown);
+      const compInput = document.querySelector('input[name="comparePrice"]');
+      if (compInput) compInput.value = calcData.compareAtPrice || "";
+      setShowPriceCalcModal(false);
+      setPriceCalcTargetProduct(null);
+      return;
+    }
+
+    const targetId = calcData.mode === "new" ? null : (calcData.productId || priceCalcTargetProduct?.id || null);
+    if (targetId) {
+      try {
+        await updateProductQuick(targetId, {
+          price: Number(calcData.price || 0),
+          compare_at_price: Number(calcData.compareAtPrice || 0) || null,
+          cost_total_pkr: Number(calcData.costPerItem || 0),
+          cost_breakdown: calcData.costBreakdown || {},
+        });
+        setShowPriceCalcModal(false);
+        setPriceCalcTargetProduct(null);
+      } catch (err) {
+        window.alert(err.message || "Unable to save calculated pricing to product.");
+      }
+      return;
+    }
+
+    setShowPriceCalcModal(false);
+    setPriceCalcTargetProduct(null);
+    openNewProductForm();
+    setProductPrice(calcData.price);
+    setCostPerItem(calcData.costPerItem);
+    setCostBreakdown(calcData.costBreakdown);
+    setProductCategory(calcData.category || "Kurtis");
+    setTimeout(() => {
+      const nameInput = document.querySelector('input[name="name"]');
+      if (nameInput) nameInput.value = calcData.name || "";
+      const compInput = document.querySelector('input[name="comparePrice"]');
+      if (compInput) compInput.value = calcData.compareAtPrice || "";
+    }, 50);
   }
 
   async function createCustomInventory(item) {
@@ -2107,23 +2210,33 @@ export default function AdminDashboard() {
             />
           )}
           {canAccessActive && active === "Events" && <EventsWorkspace onNavigateToSettings={() => navigateAdminSection("Settings", { focus: "Tracking" })} onNavigateToOrder={(orderId) => { setRequestedOrderId(orderId); navigateAdminSection("Orders"); }} />}
-          {canAccessActive && active === "Products" && <ProductsPanel products={filteredProducts} search={search} setSearch={setSearch} onAdd={openNewProductForm} onEdit={openEditProductForm} onDelete={deleteProduct} onDeliveryChange={updateProductDelivery} loading={catalogLoading} initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} />}
+          {canAccessActive && active === "Products" && (
+            <ProductsPanel
+              products={filteredProducts}
+              allProducts={products}
+              categories={catalogCategories}
+              orders={orders}
+              search={search}
+              setSearch={setSearch}
+              onAdd={openNewProductForm}
+              onEdit={openEditProductForm}
+              onDelete={deleteProduct}
+              onQuickUpdate={updateProductQuick}
+              onAdjustStock={adjustInventory}
+              onOpenCalculator={openPriceCalculatorForProduct}
+              onNavigateToInventory={(focus) => navigateAdminSection("Inventory", { focus: focus || "stock" })}
+              onNavigateToCategories={() => navigateAdminSection("Categories")}
+              onDeliveryChange={updateProductDelivery}
+              loading={catalogLoading}
+              initialView={requestedAdminFocus?.section === "Products" ? requestedAdminFocus.focus : ""}
+              tableDensity={tableDensity}
+              setTableDensity={handleTableDensityChange}
+            />
+          )}
           {canAccessActive && active === "Price Calculator" && (
             <ArticlePriceCalculator
               products={products}
-              onApplyToProduct={(calcData) => {
-                openNewProductForm();
-                setProductPrice(calcData.price);
-                setCostPerItem(calcData.costPerItem);
-                setCostBreakdown(calcData.costBreakdown);
-                setProductCategory(calcData.category || "Kurtis");
-                setTimeout(() => {
-                  const nameInput = document.querySelector('input[name="name"]');
-                  if (nameInput) nameInput.value = calcData.name || "";
-                  const compInput = document.querySelector('input[name="comparePrice"]');
-                  if (compInput) compInput.value = calcData.compareAtPrice || "";
-                }, 50);
-              }}
+              onApplyToProduct={handleApplyCalculatorPricing}
             />
           )}
           {canAccessActive && active === "Categories" && (
@@ -2150,7 +2263,30 @@ export default function AdminDashboard() {
             />
           )}
           {canAccessActive && active === "Orders" && <OrdersPanel rows={orders} products={products} pagination={ordersPagination} canExport={currentAdminUser?.role === "Owner" || currentAdminUser?.permissions?.includes("orders.export")} currentAdminUser={currentAdminUser} connected={ordersConnected} loading={ordersLoading} error={ordersError} onRetry={() => loadOrders()} onPageChange={(page) => loadOrders({ page })} initialSelectedId={requestedOrderId} onInitialSelectionHandled={() => setRequestedOrderId("")} tableDensity={tableDensity} setTableDensity={handleTableDensityChange} onNavigateToEvents={() => navigateAdminSection("Events")} />}
-          {canAccessActive && active === "Inventory" && <InventoryPanel products={products} movements={inventoryMovements} orders={orders} connected={ordersConnected} currentAdminUser={currentAdminUser} onAdjust={adjustInventory} onCreateCustomInventory={createCustomInventory} onCreateProductionBatch={createProductionBatch} onRefreshCatalog={loadAdminData} onOpenOrder={(order) => { setRequestedOrderId(order.id); navigateAdminSection("Orders"); }} initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""} />}
+          {canAccessActive && active === "Inventory" && (
+            <InventoryPanel
+              products={products}
+              movements={inventoryMovements}
+              orders={orders}
+              connected={ordersConnected}
+              currentAdminUser={currentAdminUser}
+              onAdjust={adjustInventory}
+              onQuickUpdateProduct={updateProductQuick}
+              onAddProduct={openNewProductForm}
+              onEditProduct={openEditProductForm}
+              onOpenCalculator={openPriceCalculatorForProduct}
+              onNavigateToProducts={(focus) => navigateAdminSection("Products", { focus })}
+              onNavigateToFinances={(focus) => navigateAdminSection("Finances", { focus })}
+              onCreateCustomInventory={createCustomInventory}
+              onCreateProductionBatch={createProductionBatch}
+              onRefreshCatalog={loadAdminData}
+              onOpenOrder={(order) => {
+                setRequestedOrderId(order.id);
+                navigateAdminSection("Orders");
+              }}
+              initialView={requestedAdminFocus?.section === "Inventory" ? requestedAdminFocus.focus : ""}
+            />
+          )}
           {canAccessActive && active === "Customers" && <CustomersPanel orders={orders} onOpen={setWorkspace} />}
           {canAccessActive && active === "Finances" && <FinancePanel orders={orders} products={products} connected={ordersConnected} currentAdminUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Finances" ? requestedAdminFocus.focus : ""} />}
           {canAccessActive && active === "Courier Ops" && <CourierOperationsPanel />}
@@ -3165,16 +3301,12 @@ export default function AdminDashboard() {
             <ArticlePriceCalculator
               isOpenAsModal
               products={products}
-              onClose={() => setShowPriceCalcModal(false)}
-              initialProduct={editingProduct || (productPrice ? { name: "", price: productPrice, category: productCategory } : null)}
-              onApplyToProduct={(calcData) => {
-                setProductPrice(calcData.price);
-                setCostPerItem(calcData.costPerItem);
-                setCostBreakdown(calcData.costBreakdown);
-                const compInput = document.querySelector('input[name="comparePrice"]');
-                if (compInput) compInput.value = calcData.compareAtPrice || "";
+              onClose={() => {
                 setShowPriceCalcModal(false);
+                setPriceCalcTargetProduct(null);
               }}
+              initialProduct={priceCalcTargetProduct || editingProduct || (productPrice ? { name: "", price: productPrice, category: productCategory } : null)}
+              onApplyToProduct={handleApplyCalculatorPricing}
             />
           </div>
         </div>
@@ -5013,61 +5145,202 @@ function productVariants(product) {
   const colors = Array.isArray(product.colors) && product.colors.length ? product.colors : ["Default"];
   const totalStock = Number(product.stock || 0);
   const count = Math.max(1, sizes.length * colors.length);
-  return sizes.flatMap((size, sizeIndex) => colors.map((color, colorIndex) => ({
-    id: `${product.id}-${size}-${color}`,
-    size,
-    color,
-    sku: `${product.sku || product.articleNumber || `BST-${product.id}`}-${size}-${color}`.replace(/\s+/g, "-").toUpperCase(),
-    stock: Math.max(0, Math.floor(totalStock / count) + (sizeIndex === 0 && colorIndex === 0 ? totalStock % count : 0)),
-    low: Number(product.lowStockThreshold || 5),
-  })));
+  const savedVariants = Array.isArray(product.variants) ? product.variants : [];
+  const savedSum = savedVariants.reduce((sum, v) => sum + Number(v?.stock || 0), 0);
+  const useSavedStock = savedVariants.length > 0 && savedSum === totalStock;
+
+  return sizes.flatMap((size, sizeIndex) =>
+    colors.map((color, colorIndex) => {
+      const matched = savedVariants.find(
+        (v) =>
+          String(v?.size || "").toLowerCase() === String(size).toLowerCase() &&
+          String(v?.color || "").toLowerCase() === String(color).toLowerCase()
+      );
+      const defaultStock = Math.max(
+        0,
+        Math.floor(totalStock / count) + (sizeIndex === 0 && colorIndex === 0 ? totalStock % count : 0)
+      );
+      return {
+        id: `${product.id}-${size}-${color}`,
+        size,
+        color,
+        sku:
+          matched?.sku ||
+          `${product.sku || product.articleNumber || `BST-${product.id}`}-${size}-${color}`
+            .replace(/\s+/g, "-")
+            .toUpperCase(),
+        stock: useSavedStock && matched ? Math.max(0, Number(matched.stock || 0)) : defaultStock,
+        low: Number(matched?.low ?? product.lowStockThreshold ?? 5),
+        image: matched?.image || product.colorImages?.[color]?.[0] || product.image || "",
+      };
+    })
+  );
 }
 
-function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, onDeliveryChange, loading, initialView, tableDensity = "comfortable", setTableDensity }) {
-  const [tab, setTab] = useState(initialView === "missing-cost" ? "Missing cost" : "All");
+function ProductsPanel({
+  products,
+  allProducts = [],
+  categories = [],
+  orders = [],
+  search,
+  setSearch,
+  onAdd,
+  onEdit,
+  onDelete,
+  onQuickUpdate,
+  onAdjustStock,
+  onOpenCalculator,
+  onNavigateToInventory,
+  onNavigateToCategories,
+  onDeliveryChange,
+  loading,
+  initialView,
+  tableDensity = "comfortable",
+  setTableDensity,
+}) {
+  const [tab, setTab] = useState(
+    initialView === "missing-cost"
+      ? "Missing cost"
+      : initialView === "low-stock"
+        ? "Low stock"
+        : "All"
+  );
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [sortBy, setSortBy] = useState("newest");
   const [variantProduct, setVariantProduct] = useState(null);
-  const visibleProducts = products.filter((product) => {
-    const status = productStatus(product);
-    if (tab === "Archived") return status === "Archived";
-    if (status === "Archived") return false;
-    return tab === "All" || status === tab || (tab === "Low stock" && Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)) || (tab === "Missing cost" && !Number(product.costTotalPkr || 0));
-  });
-  const nonArchivedProducts = products.filter((product) => productStatus(product) !== "Archived");
-  const collections = [...new Set(nonArchivedProducts.map(productCollection))].filter(Boolean);
-  const lowStockCount = nonArchivedProducts.filter((product) => Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)).length;
+
+  useEffect(() => {
+    if (initialView === "missing-cost") setTab("Missing cost");
+    else if (initialView === "low-stock") setTab("Low stock");
+  }, [initialView]);
+
+  const baseList = allProducts.length ? allProducts : products;
+  const nonArchivedProducts = baseList.filter((product) => productStatus(product) !== "Archived");
+  const collections = [...new Set(nonArchivedProducts.map((p) => p.category || productCollection(p)))].filter(Boolean);
+  const outOfStockCount = nonArchivedProducts.filter((product) => Number(product.stock || 0) <= 0).length;
+  const lowStockCount = nonArchivedProducts.filter((product) => {
+    const s = Number(product.stock || 0);
+    return s > 0 && s <= Number(product.lowStockThreshold || 5);
+  }).length;
   const missingCostCount = nonArchivedProducts.filter((product) => !Number(product.costTotalPkr || 0)).length;
   const activeCount = nonArchivedProducts.filter((p) => productStatus(p) === "Active").length;
-  const archivedCount = products.filter((p) => productStatus(p) === "Archived").length;
+  const draftCount = nonArchivedProducts.filter((p) => productStatus(p) === "Draft").length;
+  const archivedCount = baseList.filter((p) => productStatus(p) === "Archived").length;
+  const totalStockUnits = nonArchivedProducts.reduce((sum, p) => sum + Number(p.stock || 0), 0);
+  const totalRetailValue = nonArchivedProducts.reduce((sum, p) => sum + Number(p.price || 0) * Number(p.stock || 0), 0);
+
+  // Calculate units sold per product from active/delivered orders
+  const soldByProductId = useMemo(() => {
+    const map = {};
+    (orders || []).forEach((order) => {
+      if (!isRevenueOrder(order)) return;
+      const items = normalizeOrderItems(order.raw || order);
+      items.forEach((item) => {
+        const pid = String(item.productId || "");
+        if (pid) map[pid] = (map[pid] || 0) + Number(item.quantity || 0);
+      });
+    });
+    return map;
+  }, [orders]);
+
+  const visibleProducts = useMemo(() => {
+    const filtered = products.filter((product) => {
+      const status = productStatus(product);
+      if (tab === "Archived") return status === "Archived";
+      if (status === "Archived") return false;
+
+      if (categoryFilter !== "ALL") {
+        const prodCats = [
+          product.category,
+          ...(Array.isArray(product.categories) ? product.categories : []),
+          productCollection(product),
+        ]
+          .filter(Boolean)
+          .map((c) => String(c).toLowerCase());
+        if (!prodCats.includes(categoryFilter.toLowerCase())) return false;
+      }
+
+      if (tab === "All") return true;
+      if (tab === "Active") return status === "Active";
+      if (tab === "Draft") return status === "Draft";
+      if (tab === "Out of stock") return Number(product.stock || 0) <= 0;
+      if (tab === "Low stock") {
+        const s = Number(product.stock || 0);
+        return s <= Number(product.lowStockThreshold || 5);
+      }
+      if (tab === "Missing cost") return !Number(product.costTotalPkr || 0);
+      return status === tab;
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "price-desc") return Number(b.price || 0) - Number(a.price || 0);
+      if (sortBy === "price-asc") return Number(a.price || 0) - Number(b.price || 0);
+      if (sortBy === "stock-asc") return Number(a.stock || 0) - Number(b.stock || 0);
+      if (sortBy === "stock-desc") return Number(b.stock || 0) - Number(a.stock || 0);
+      if (sortBy === "margin-desc") {
+        const mA = Number(a.price || 0) > 0 && Number(a.costTotalPkr || 0) > 0 ? (a.price - a.costTotalPkr) / a.price : -1;
+        const mB = Number(b.price || 0) > 0 && Number(b.costTotalPkr || 0) > 0 ? (b.price - b.costTotalPkr) / b.price : -1;
+        return mB - mA;
+      }
+      return Number(b.id || 0) - Number(a.id || 0);
+    });
+  }, [products, tab, categoryFilter, sortBy]);
+
   const productStatusVisual = [
     { label: "Active", value: activeCount, color: "#1d6840" },
-    { label: "Low stock", value: lowStockCount, color: "#d08a18" },
+    { label: "Low / Out of stock", value: lowStockCount + outOfStockCount, color: "#d08a18" },
     { label: "Missing cost", value: missingCostCount, color: "#b73543" },
-    { label: "Archived", value: archivedCount, color: "#8aa08f" },
+    { label: "Draft / Archived", value: draftCount + archivedCount, color: "#8aa08f" },
   ].filter((item) => item.value > 0);
+
   const collectionVisual = collections.slice(0, 6).map((collection, index) => ({
     label: collection,
-    value: products.filter((product) => productCollection(product) === collection).length,
+    value: nonArchivedProducts.filter((product) => (product.category || productCollection(product)) === collection).length,
     color: ["#1d6840", "#4777a8", "#c78b2b", "#8d2449", "#6c7b43", "#7d5ba6"][index] || "#1d6840",
   }));
 
   function exportProducts() {
     const csv = [
-      ["Title", "Description", "Images", "Price", "Compare at price", "Category", "Collection", "Status", "Sizes", "Colors", "Stock", "Low stock threshold"],
-      ...products.map((product) => [
-        product.name,
-        product.description || "",
-        (product.images || [product.image]).filter(Boolean).join(" | "),
-        product.price,
-        product.compareAtPrice || product.compare_at_price || "",
-        product.category,
-        productCollection(product),
-        productStatus(product),
-        (product.sizes || []).join(" | "),
-        (product.colors || []).join(" | "),
-        product.stock || 0,
-        product.lowStockThreshold || 5,
-      ]),
-    ].map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
+      [
+        "Title",
+        "SKU",
+        "Category",
+        "Collection",
+        "Status",
+        "Price (PKR)",
+        "Compare at Price (PKR)",
+        "Unit Cost (PKR)",
+        "Gross Margin %",
+        "Stock",
+        "Low Stock Threshold",
+        "Sizes",
+        "Colors",
+        "Images",
+      ],
+      ...baseList.map((product) => {
+        const price = Number(product.price || 0);
+        const cost = Number(product.costTotalPkr || 0);
+        const margin = price > 0 && cost > 0 ? (((price - cost) / price) * 100).toFixed(1) : "";
+        return [
+          product.name,
+          product.sku || product.articleNumber || "",
+          product.category || "",
+          productCollection(product),
+          productStatus(product),
+          price,
+          product.compareAtPrice || product.compare_at_price || "",
+          cost || "",
+          margin,
+          product.stock || 0,
+          product.lowStockThreshold || 5,
+          (product.sizes || []).join(" | "),
+          (product.colors || []).join(" | "),
+          (product.images || [product.image]).filter(Boolean).join(" | "),
+        ];
+      }),
+    ]
+      .map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(","))
+      .join("\n");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     link.download = `bustaniya-products-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -5096,60 +5369,561 @@ function ProductsPanel({ products, search, setSearch, onAdd, onEdit, onDelete, o
     setCsvImportState({ isOpen: false, file: null, rows: [] });
   }
 
-  return <><div className="adminTitle"><div><p>CATALOGUE</p><h1>Products</h1><span>Add/edit products, variants, collections, inventory and private-drop status.</span></div><button onClick={onAdd} disabled={loading} aria-busy={loading}><Plus /> Add product</button></div>
-    <div className="miniMetricGrid productMetrics">
-      <article><Package /><span><b>{products.length}</b>Total products</span></article>
-      <article><Tags /><span><b>{collections.length}</b>Collections</span></article>
-      <article className={lowStockCount ? "alertMetric" : ""}><Boxes /><span><b>{lowStockCount}</b>Low stock</span></article>
-      <article><Store /><span><b>{activeCount}</b>Active</span></article>
-    </div>
-    <div className="adminVisualGrid">
-      <VisualDonut title="Product readiness" subtitle="Active vs draft, low stock risk and missing cost items." centerValue={activeCount} centerLabel="active" items={productStatusVisual} />
-      <VisualBars title="Collection breakdown" subtitle="Product distribution across top collections." items={collectionVisual} />
-    </div>
-    <section className="adminCard managementCard">
-      <div className="catalogToolbar">
-        <div className="orderTabs">{["All", "Active", "Draft", "Archived", "Unlisted", "Low stock", "Missing cost"].map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item}</button>)}</div>
-        <div className="catalogActions">
-          <TableDensityToggle density={tableDensity} onChange={setTableDensity} />
-          <div className="inlineSearch"><Search /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." /></div>
-          <label className="editProductButton" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-            Import CSV
-            <input type="file" accept=".csv" onChange={handleImportFileSelect} style={{ display: "none" }} />
-          </label>
-          <button type="button" onClick={exportProducts}>Export CSV</button>
+  const tabCounts = {
+    All: nonArchivedProducts.length,
+    Active: activeCount,
+    Draft: draftCount,
+    "Low stock": lowStockCount + outOfStockCount,
+    "Out of stock": outOfStockCount,
+    "Missing cost": missingCostCount,
+    Archived: archivedCount,
+  };
+
+  return (
+    <>
+      <div className="adminTitle">
+        <div>
+          <p>CATALOGUE &amp; MERCHANDISING</p>
+          <h1>Products</h1>
+          <span>
+            Single source of truth for your storefront catalog, pricing, variants, categories, and unit costs — synced directly with Inventory, Orders, and Finance.
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          {onNavigateToInventory && (
+            <button
+              type="button"
+              className="editProductButton"
+              style={{ padding: "10px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "6px" }}
+              onClick={() => onNavigateToInventory("stock")}
+            >
+              <Boxes size={15} /> Stock &amp; Batches
+            </button>
+          )}
+          <button onClick={onAdd} disabled={loading} aria-busy={loading}>
+            <Plus /> Add product
+          </button>
         </div>
       </div>
-      <div className="collectionStrip">{collections.map((collection) => <span key={collection}>{collection}</span>)}</div>
-      <div className={`adminTableWrap ${tableDensity === "compact" ? "compactTable" : ""}`}><table className="adminTable productAdminTable"><thead><tr><th>Product</th><th>Collection</th><th>Price</th><th>Unit cost</th><th>Variants</th><th>Inventory</th><th>Delivery</th><th>Status</th><th /></tr></thead><tbody>
-        {visibleProducts.map((product) => {
-          const variants = productVariants(product);
-          const status = productStatus(product);
-          return <tr key={product.id}>
-            <td><div className="tableProduct"><span style={{ backgroundImage: `url(${product.image})` }} /><div><b>{product.name}</b><small className="trackingNumber">{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4, "0")}`}</small></div></div></td>
-            <td>{productCollection(product)}</td>
-            <td><b>Rs. {Number(product.price || 0).toLocaleString()}</b></td>
-            <td>{Number(product.costTotalPkr || 0) ? `Rs. ${Number(product.costTotalPkr).toLocaleString()}` : <span className="expenseAmount">Missing cost</span>}</td>
-            <td><button type="button" className="editProductButton" onClick={() => setVariantProduct(product)} disabled={loading} aria-busy={loading}>{variants.length} variant{variants.length === 1 ? "" : "s"}</button></td>
-            <td><b className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)} units</b></td>
-            <td>Rs. {Number(product.deliveryCostPkr || 0).toLocaleString()}</td>
-            <td><span className={`statusBadge ${status.toLowerCase()}`}>{status}</span></td>
-            <td><div className="productRowActions"><button type="button" className="editProductButton" onClick={() => onEdit(product)} disabled={loading} aria-busy={loading}>Edit</button><button type="button" className="removeProductButton" onClick={() => onDelete(product)} disabled={loading} aria-busy={loading}><X /> Delete</button></div></td>
-          </tr>;
-        })}
-      </tbody></table>
-        {!visibleProducts.length && <EmptyState icon={Package} title="No products found" description="No products match your current search or filter criteria." actionText="Add Product" onAction={onAdd} />}
+
+      {/* 5-Card Executive KPI Strip */}
+      <div className="miniMetricGrid productMetrics" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(195px, 1fr))" }}>
+        <article style={{ cursor: "pointer" }} onClick={() => setTab("All")}>
+          <Package />
+          <span>
+            <b>{ nonArchivedProducts.length }</b>
+            Active Catalog ({activeCount} Live{draftCount ? ` · ${draftCount} Draft` : ""})
+          </span>
+        </article>
+        <article
+          style={{ cursor: onNavigateToInventory ? "pointer" : "default" }}
+          onClick={() => onNavigateToInventory && onNavigateToInventory("stock")}
+          title="Click to manage stock in Inventory"
+        >
+          <Boxes />
+          <span>
+            <b>{totalStockUnits.toLocaleString()} units</b>
+            Rs. {totalRetailValue.toLocaleString()} retail value
+          </span>
+        </article>
+        <article
+          style={{ cursor: onNavigateToCategories ? "pointer" : "default" }}
+          onClick={() => onNavigateToCategories && onNavigateToCategories()}
+          title="Click to manage Categories & Collections"
+        >
+          <Tags />
+          <span>
+            <b>{collections.length}</b>
+            Active Collections
+          </span>
+        </article>
+        <article
+          className={lowStockCount + outOfStockCount ? "alertMetric" : ""}
+          style={{ cursor: "pointer" }}
+          onClick={() => setTab("Low stock")}
+          title="Filter low or out-of-stock products"
+        >
+          <AlertTriangle />
+          <span>
+            <b>{lowStockCount + outOfStockCount}</b>
+            Low / Out of Stock ({outOfStockCount} out)
+          </span>
+        </article>
+        <article
+          className={missingCostCount ? "alertMetric" : ""}
+          style={{ cursor: "pointer" }}
+          onClick={() => setTab("Missing cost")}
+          title="Products without unit cost (COGS) affect Finance net profit"
+        >
+          <Calculator />
+          <span>
+            <b>{missingCostCount}</b>
+            {missingCostCount ? "Missing Unit Cost (COGS)" : "All Costs Configured ✓"}
+          </span>
+        </article>
       </div>
-    </section>
-    {variantProduct && <VariantInventoryDrawer product={variantProduct} onClose={() => setVariantProduct(null)} />}
-    <CSVImportModal
-      isOpen={csvImportState.isOpen}
-      file={csvImportState.file}
-      rows={csvImportState.rows}
-      onConfirmImport={handleCommitCSVImport}
-      onClose={() => setCsvImportState({ isOpen: false, file: null, rows: [] })}
-    />
-  </>;
+
+      {/* Missing Cost / Low Stock Quick Action Banner */}
+      {(missingCostCount > 0 || outOfStockCount > 0) && (
+        <div
+          className="inventoryAlert"
+          style={{
+            marginBottom: "16px",
+            background: missingCostCount > 0 ? "#fffbeb" : "#fef2f2",
+            borderColor: missingCostCount > 0 ? "#fde68a" : "#fecaca",
+          }}
+        >
+          <AlertTriangle color={missingCostCount > 0 ? "#d97706" : "#dc2626"} />
+          <div style={{ flex: 1 }}>
+            <b>
+              {missingCostCount > 0
+                ? `${missingCostCount} product${missingCostCount === 1 ? " is" : "s are"} missing unit production cost (COGS)`
+                : `${outOfStockCount} product${outOfStockCount === 1 ? " is" : "s are"} currently out of stock`}
+            </b>
+            <span>
+              {missingCostCount > 0
+                ? "Accurate unit costs ensure Finance P&L and Overview net profit margins are 100% accurate. Use the Price Calculator or Edit to set costs."
+                : "Out-of-stock items cannot be purchased by customers. Restock via Inventory or create a Production Batch."}
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {missingCostCount > 0 && (
+              <button type="button" onClick={() => setTab("Missing cost")}>
+                Filter Missing Cost ({missingCostCount})
+              </button>
+            )}
+            {outOfStockCount > 0 && (
+              <button
+                type="button"
+                onClick={() => (onNavigateToInventory ? onNavigateToInventory("low-stock") : setTab("Out of stock"))}
+              >
+                Restock in Inventory
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="adminVisualGrid">
+        <VisualDonut
+          title="Catalog health"
+          subtitle="Active vs draft, stock alerts and unit cost readiness."
+          centerValue={activeCount}
+          centerLabel="active"
+          items={productStatusVisual}
+        />
+        <VisualBars
+          title="Collection breakdown"
+          subtitle="Product distribution across your main collections."
+          items={collectionVisual}
+        />
+      </div>
+
+      <section className="adminCard managementCard">
+        <div className="catalogToolbar" style={{ flexWrap: "wrap", gap: "12px" }}>
+          <div className="orderTabs">
+            {["All", "Active", "Draft", "Low stock", "Out of stock", "Missing cost", "Archived"].map((item) => (
+              <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>
+                {item}
+                {tabCounts[item] !== undefined && (
+                  <span
+                    style={{
+                      marginLeft: "6px",
+                      fontSize: "11px",
+                      opacity: 0.85,
+                      padding: "1px 6px",
+                      borderRadius: "999px",
+                      background: tab === item ? "rgba(255,255,255,0.22)" : "rgba(18,42,30,0.08)",
+                    }}
+                  >
+                    {tabCounts[item]}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="catalogActions" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              style={{
+                padding: "7px 11px",
+                borderRadius: "8px",
+                border: "1px solid #d4e0d6",
+                fontSize: "12.5px",
+                fontWeight: 600,
+                color: "#163022",
+                background: "#fff",
+              }}
+              aria-label="Filter by category"
+            >
+              <option value="ALL">All Categories ({collections.length})</option>
+              {collections.map((col) => (
+                <option key={col} value={col}>
+                  {col}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                padding: "7px 11px",
+                borderRadius: "8px",
+                border: "1px solid #d4e0d6",
+                fontSize: "12.5px",
+                fontWeight: 600,
+                color: "#163022",
+                background: "#fff",
+              }}
+              aria-label="Sort products"
+            >
+              <option value="newest">Sort: Newest First</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="stock-asc">Stock: Low to High</option>
+              <option value="stock-desc">Stock: High to Low</option>
+              <option value="margin-desc">Margin %: High to Low</option>
+            </select>
+
+            <TableDensityToggle density={tableDensity} onChange={setTableDensity} />
+            <div className="inlineSearch">
+              <Search />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search title, SKU, category..." />
+            </div>
+            <label className="editProductButton" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              Import CSV
+              <input type="file" accept=".csv" onChange={handleImportFileSelect} style={{ display: "none" }} />
+            </label>
+            <button type="button" onClick={exportProducts}>
+              Export CSV
+            </button>
+          </div>
+        </div>
+
+        {/* Interactive Category Pills Strip */}
+        <div className="collectionStrip" style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "12px" }}>
+          <span
+            onClick={() => setCategoryFilter("ALL")}
+            style={{
+              cursor: "pointer",
+              background: categoryFilter === "ALL" ? "#16452c" : undefined,
+              color: categoryFilter === "ALL" ? "#fff" : undefined,
+              fontWeight: categoryFilter === "ALL" ? 700 : 500,
+            }}
+          >
+            All ({nonArchivedProducts.length})
+          </span>
+          {collections.map((collection) => {
+            const count = nonArchivedProducts.filter((p) => (p.category || productCollection(p)) === collection).length;
+            const activeCol = categoryFilter.toLowerCase() === collection.toLowerCase();
+            return (
+              <span
+                key={collection}
+                onClick={() => setCategoryFilter(activeCol ? "ALL" : collection)}
+                style={{
+                  cursor: "pointer",
+                  background: activeCol ? "#16452c" : undefined,
+                  color: activeCol ? "#fff" : undefined,
+                  fontWeight: activeCol ? 700 : 500,
+                }}
+              >
+                {collection} ({count})
+              </span>
+            );
+          })}
+        </div>
+
+        <div className={`adminTableWrap ${tableDensity === "compact" ? "compactTable" : ""}`}>
+          <table className="adminTable productAdminTable">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Status</th>
+                <th>Inventory &amp; Demand</th>
+                <th>Category &amp; Collection</th>
+                <th>Retail Price</th>
+                <th>Unit Cost &amp; Margin</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleProducts.map((product) => {
+                const variants = productVariants(product);
+                const status = productStatus(product);
+                const price = Number(product.price || 0);
+                const compareAt = Number(product.compareAtPrice || product.compare_at_price || 0);
+                const cost = Number(product.costTotalPkr || 0);
+                const profit = price - cost;
+                const marginPct = price > 0 && cost > 0 ? Math.round((profit / price) * 100) : null;
+                const stock = Number(product.stock || 0);
+                const threshold = Number(product.lowStockThreshold || 5);
+                const soldUnits = soldByProductId[String(product.id)] || 0;
+                const skuLabel = product.sku || product.articleNumber || `BST-${String(product.id).padStart(4, "0")}`;
+
+                return (
+                  <tr key={product.id}>
+                    <td>
+                      <div className="tableProduct">
+                        <span style={{ backgroundImage: `url(${product.image})` }} />
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                            <b>{product.name}</b>
+                            {product.isNew && (
+                              <span style={{ fontSize: "10px", fontWeight: 700, padding: "1px 6px", borderRadius: "4px", background: "#dcfce7", color: "#166534" }}>
+                                NEW
+                              </span>
+                            )}
+                            {product.isBestseller && (
+                              <span style={{ fontSize: "10px", fontWeight: 700, padding: "1px 6px", borderRadius: "4px", background: "#fef3c7", color: "#92400e" }}>
+                                BESTSELLER
+                              </span>
+                            )}
+                            <a
+                              href={`/product/${product.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="View on live storefront"
+                              style={{ color: "#64748b", display: "inline-flex", alignItems: "center" }}
+                            >
+                              <ExternalLink size={12} />
+                            </a>
+                          </div>
+                          <small className="trackingNumber">
+                            SKU: <b>{skuLabel}</b>
+                            {product.enableBottomOptions && Array.isArray(product.bottomOptions) && product.bottomOptions.length > 0
+                              ? ` · ${product.bottomOptions.length} pairing options`
+                              : ""}
+                          </small>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", alignItems: "flex-start" }}>
+                        <span className={`statusBadge ${status.toLowerCase().replace(/\s+/g, "-")}`}>{status}</span>
+                        {onQuickUpdate && (
+                          <select
+                            value={product.status || (status === "Archived" ? "Archived" : status === "Draft" ? "Draft" : "Active")}
+                            onChange={(e) => onQuickUpdate(product.id, { status: e.target.value })}
+                            disabled={loading}
+                            style={{
+                              fontSize: "11px",
+                              padding: "2px 6px",
+                              borderRadius: "6px",
+                              border: "1px solid #d4e0d6",
+                              background: "#f8faf8",
+                              color: "#334155",
+                              cursor: "pointer",
+                            }}
+                            title="Quick change product status"
+                          >
+                            <option value="Active">Active</option>
+                            <option value="Draft">Draft</option>
+                            <option value="Archived">Archived</option>
+                          </select>
+                        )}
+                      </div>
+                    </td>
+
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", alignItems: "flex-start" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <b className={stock <= threshold ? "stockLow" : ""} style={{ fontSize: "13.5px" }}>
+                            {stock} in stock
+                          </b>
+                          <button
+                            type="button"
+                            className="editProductButton"
+                            style={{ padding: "2px 8px", fontSize: "11px" }}
+                            onClick={() => setVariantProduct(product)}
+                            disabled={loading}
+                            title="Manage variant stock & threshold"
+                          >
+                            {variants.length} variant{variants.length === 1 ? "" : "s"}
+                          </button>
+                        </div>
+                        <small className="trackingNumber" style={{ fontSize: "11px" }}>
+                          {(product.sizes || []).length ? `Sizes: ${(product.sizes || []).join(", ")}` : "Standard sizes"}
+                          {soldUnits > 0 ? ` · ${soldUnits} sold` : ""}
+                        </small>
+                      </div>
+                    </td>
+
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <b style={{ fontSize: "13px", color: "#132a1e" }}>{product.category || productCollection(product)}</b>
+                        {product.subcategory && (
+                          <small className="trackingNumber" style={{ fontSize: "11px" }}>
+                            Sub: {product.subcategory}
+                          </small>
+                        )}
+                        {Array.isArray(product.categories) && product.categories.length > 1 && (
+                          <small style={{ fontSize: "11px", color: "#1d6840", fontWeight: 600 }}>
+                            +{product.categories.length - 1} more collection{product.categories.length > 2 ? "s" : ""}
+                          </small>
+                        )}
+                      </div>
+                    </td>
+
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <b style={{ fontSize: "14px", color: "#0f172a" }}>Rs. {price.toLocaleString()}</b>
+                        {compareAt > price && (
+                          <small style={{ fontSize: "11px", color: "#64748b" }}>
+                            <span style={{ textDecoration: "line-through" }}>Rs. {compareAt.toLocaleString()}</span>{" "}
+                            <span style={{ color: "#15803d", fontWeight: 700 }}>
+                              (-{Math.round(((compareAt - price) / compareAt) * 100)}%)
+                            </span>
+                          </small>
+                        )}
+                      </div>
+                    </td>
+
+                    <td>
+                      {cost > 0 ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "3px", alignItems: "flex-start" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <b style={{ fontSize: "13px", color: "#1e293b" }}>Rs. {cost.toLocaleString()}</b>
+                            {marginPct !== null && (
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                  padding: "1px 7px",
+                                  borderRadius: "999px",
+                                  background: marginPct >= 30 ? "#dcfce7" : marginPct >= 18 ? "#fef3c7" : "#fee2e2",
+                                  color: marginPct >= 30 ? "#166534" : marginPct >= 18 ? "#92400e" : "#991b1b",
+                                }}
+                              >
+                                {marginPct}% margin
+                              </span>
+                            )}
+                          </div>
+                          <small style={{ fontSize: "11px", color: profit >= 0 ? "#15803d" : "#dc2626", fontWeight: 600 }}>
+                            {profit >= 0 ? `+Rs. ${profit.toLocaleString()} profit/unit` : `-Rs. ${Math.abs(profit).toLocaleString()} loss/unit`}
+                          </small>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => (onOpenCalculator ? onOpenCalculator(product) : onEdit(product))}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            padding: "5px 10px",
+                            borderRadius: "7px",
+                            border: "1px dashed #dc2626",
+                            background: "#fef2f2",
+                            color: "#b91c1c",
+                            fontSize: "11.5px",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                          title="Calculate & save unit production cost for Finance COGS"
+                        >
+                          <Calculator size={12} /> Set Cost
+                        </button>
+                      )}
+                    </td>
+
+                    <td style={{ textAlign: "right" }}>
+                      <div className="productRowActions" style={{ justifyContent: "flex-end" }}>
+                        <button
+                          type="button"
+                          className="editProductButton"
+                          onClick={() => onEdit(product)}
+                          disabled={loading}
+                          aria-busy={loading}
+                        >
+                          Edit
+                        </button>
+                        {onOpenCalculator && (
+                          <button
+                            type="button"
+                            className="editProductButton"
+                            onClick={() => onOpenCalculator(product)}
+                            disabled={loading}
+                            title="Open Price & Cost Calculator for this product"
+                            style={{ padding: "6px 9px" }}
+                          >
+                            <Calculator size={13} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="editProductButton"
+                          onClick={() => setVariantProduct(product)}
+                          disabled={loading}
+                          title="Adjust stock & variants"
+                          style={{ padding: "6px 9px" }}
+                        >
+                          <Boxes size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          className="removeProductButton"
+                          onClick={() => onDelete(product)}
+                          disabled={loading}
+                          aria-busy={loading}
+                        >
+                          <X /> Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {!visibleProducts.length && (
+            <EmptyState
+              icon={Package}
+              title="No products found"
+              description="No products match your current search or filter criteria."
+              actionText="Add Product"
+              onAction={onAdd}
+            />
+          )}
+        </div>
+      </section>
+
+      {variantProduct && (
+        <VariantInventoryDrawer
+          product={products.find((p) => String(p.id) === String(variantProduct.id)) || variantProduct}
+          onClose={() => setVariantProduct(null)}
+          onSaveVariants={async ({ productId, totalStock, lowStockThreshold, variants, status, collection }) => {
+            if (onAdjustStock) {
+              await onAdjustStock(productId, 0, "Variant & stock plan updated", {
+                setStock: totalStock,
+                lowStockThreshold,
+                variants,
+              });
+            }
+            if (onQuickUpdate && (status || collection !== undefined)) {
+              await onQuickUpdate(productId, {
+                ...(status ? { status } : {}),
+                ...(collection !== undefined ? { collection } : {}),
+                variants,
+              });
+            }
+            setVariantProduct(null);
+          }}
+        />
+      )}
+
+      <CSVImportModal
+        isOpen={csvImportState.isOpen}
+        file={csvImportState.file}
+        rows={csvImportState.rows}
+        onConfirmImport={handleCommitCSVImport}
+        onClose={() => setCsvImportState({ isOpen: false, file: null, rows: [] })}
+      />
+    </>
+  );
 }
 
 function orderStatus(order) {
@@ -7181,7 +7955,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
               }}
             >
               <p style={{ margin: "0 0 10px 0", fontWeight: 700, fontSize: "13.5px" }}>
-                🚨 Ghalati se delete na ho, barah-e-karam tasdeeq karein:
+                🚨 To prevent accidental deletion, please confirm:
               </p>
               <div style={{ background: "#ffffff", padding: "12px 14px", borderRadius: "8px", border: "1px solid #fee2e2", marginBottom: "10px", display: "grid", gap: "4px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -7202,7 +7976,7 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
                 </div>
               </div>
               <p style={{ margin: 0, fontSize: "12px", color: "#b91c1c", fontWeight: 500 }}>
-                Yeh order <b>Supabase database</b> aur saare related order items se <b>permanent delete</b> ho jayega. Yeh action wapas nahi ho sakta!
+                This order will be <b>permanently deleted</b> from the database along with all related order items. This action cannot be undone!
               </p>
             </div>
 
@@ -7252,10 +8026,10 @@ function OrdersPanel({ rows, products, pagination, canExport, currentAdminUser, 
                 {deletingOrder ? (
                   <>
                     <Loader2 size={15} className="animate-spin" />
-                    <span>Supabase se delete ho raha hai...</span>
+                    <span>Deleting order from database...</span>
                   </>
                 ) : (
-                  "🗑️ Haan, Permanently Delete Karein"
+                  "🗑️ Yes, Permanently Delete Order"
                 )}
               </button>
             </div>
@@ -8266,7 +9040,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   return <div className={`financeSystem financeTab-${financeTab}`} data-legacy-finance-error={cashbookError || undefined}>
     {financeTab !== "engine" && (
       <div className="adminTitle">
-        <div><p>FINANCE MANAGER</p><h1>Finances</h1><span>Cash, supplier bills, customer payments aur profit — ek hi verified workspace mein.</span></div>
+        <div><p>FINANCE MANAGER</p><h1>Finances</h1><span>Cash, supplier bills, customer payments and profit — in one verified workspace.</span></div>
       </div>
     )}
 
@@ -8274,7 +9048,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
       <div className="financeSetupBanner financeSetupBannerPending">
         <div>
           <b>Finance database setup pending</b>
-          <span>Finance tables abhi Supabase mein nahi bane. <code>scripts/supabase-finance.sql</code> ko Supabase SQL editor mein run karein, phir ye page refresh karein.</span>
+          <span>Finance tables are not set up in Supabase yet. Run <code>scripts/supabase-finance.sql</code> in the Supabase SQL editor, then refresh this page.</span>
         </div>
       </div>
     )}
@@ -8282,8 +9056,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
     {financeSetup?.tablesReady && !financeSetup.legacyMigratedAt && (
       <div className="financeSetupBanner">
         <div>
-          <b>Purana finance data import karein</b>
-          <span>Aap ka finance data abhi purane storage mein hai. Import karne se har entry nayi tables mein chali jayegi — purana data delete nahi hota, aur dobara import karne se duplicate nahi bante.</span>
+          <b>Import previous finance data</b>
+          <span>Your finance data is stored in legacy settings. Importing moves each entry into modern database tables without duplicates or data loss.</span>
         </div>
         <button type="button" onClick={runFinanceMigration} disabled={migratingFinance} aria-busy={migratingFinance}>
           {migratingFinance ? "Importing..." : "Import old finance data"}
@@ -8298,9 +9072,9 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
           <b>Import complete</b>
           <span>
             {migrationResult.migrated
-              ? `${migrationResult.counts?.transactions || 0} cash movements, ${migrationResult.counts?.supplierBills || 0} supplier bills aur ${migrationResult.counts?.marketingCampaigns || 0} campaigns import ho gaye.`
-              : "Ye data pehle hi import ho chuka tha."}
-            {migrationResult.skipped?.length ? ` ${migrationResult.skipped.length} entries skip hui — check karein: ${migrationResult.skipped.slice(0, 3).map((item) => item.legacyId).join(", ")}.` : ""}
+              ? `${migrationResult.counts?.transactions || 0} cash movements, ${migrationResult.counts?.supplierBills || 0} supplier bills, and ${migrationResult.counts?.marketingCampaigns || 0} campaigns imported successfully.`
+              : "This data was already imported previously."}
+            {migrationResult.skipped?.length ? ` ${migrationResult.skipped.length} entries skipped — review: ${migrationResult.skipped.slice(0, 3).map((item) => item.legacyId).join(", ")}.` : ""}
           </span>
         </div>
       </div>
@@ -8313,7 +9087,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
         <div>
           <p>POSTEX WALLET</p>
           <h2>PostEx money — simple weekly view</h2>
-          <span>Sirf teen cheezein dekhein: delivered orders ka net amount, PostEx ne settle kiya ya nahi, aur bank mein actual payment receive hui ya nahi.</span>
+          <span>Track three key metrics: net revenue from delivered orders, courier settlement status, and actual deposits received in your bank.</span>
         </div>
         <button type="button" className="dashboardPrimaryAction" onClick={syncPostexSettlementData} disabled={postexSyncing}>
           <RefreshCw className={postexSyncing ? "spinIcon" : ""} /> {postexSyncing ? "Refreshing..." : "Refresh PostEx status"}
@@ -8334,8 +9108,8 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
 
       <div className="financeGrid financeGridWide postexWalletWorkspace">
         <form className="adminCard financeExpenseForm postexWalletForm" onSubmit={addPostexWalletReceipt}>
-          <h2>Bank mein PostEx payment aayi?</h2>
-          <p className="trackingNumber">Jab PostEx ki payment aapke bank/JazzCash mein nazar aaye, yahan us ka exact amount aur bank reference enter kar dein. Is ke baad woh amount Available Cash mein aa jayegi. PostEx ka “settled” status akela bank receipt nahi hota.</p>
+          <h2>Record PostEx bank receipt</h2>
+          <p className="trackingNumber">When PostEx deposits funds into your bank account or JazzCash wallet, record the exact received amount and bank reference here. This credits your Available Cash. Note that courier settled status alone does not create cash until verified in your bank.</p>
           <div className="formRow"><label>Amount received<input name="amount" type="number" min="1" step="0.01" required placeholder="e.g. 18500" /></label><label>Receipt date<input name="date" type="date" defaultValue={today} /></label></div>
           <div className="formRow"><label>Bank / wallet<input name="bank" placeholder="Meezan, HBL, JazzCash..." /></label><label>Reference / CPR<input name="reference" required placeholder="Bank ref, CPR no, week no..." /></label></div>
           <label>Note<input name="note" placeholder="Short payment, carry forward, adjustment..." /></label>
@@ -8733,7 +9507,7 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
 
         <form className="adminCard financeExpenseForm" onSubmit={addCashbookTransaction}>
           <h2>Add cash movement</h2>
-          <p className="trackingNumber">Har real cash movement yahan record karein. Expense, supplier/tailor payment aur withdrawal Available Cash se minus honge; income aur owner funds plus honge. PostEx settlement status khud cash nahi banata.</p>
+          <p className="trackingNumber">Record every real cash movement here. Expenses, supplier/tailor payments, and withdrawals deduct from Available Cash; income and owner investments add to it. PostEx settlement status does not create cash until settled.</p>
           <div className="formRow"><label>Money direction<select name="type"><option value="business_expense">Money paid / expense</option><option value="other_income">Other business income</option><option value="owner_investment">Owner funds added</option><option value="owner_withdrawal">Owner withdrawal</option></select></label><label>Category<select name="category" value={cashbookCategory} onChange={(event) => setCashbookCategory(event.target.value)}><option>Fabric / stock</option><option>Tailoring / stitching</option><option>Lace / embellishment</option><option>Packaging</option><option>Marketing</option><option>Courier / delivery</option><option>Rent &amp; utilities</option><option>Salaries &amp; labour</option><option>Operations</option><option>Other</option></select></label></div>
           {cashbookCategory === "Other" && <label>Custom category name<input name="otherCategory" required maxLength="120" placeholder="e.g. Photography, repairs, samples" /></label>}
           <label>What was it for?<input name="title" required placeholder="e.g. Stitching payment for Farshi suits" /></label>
@@ -8770,152 +9544,779 @@ function FinancePanel({ orders, products, connected, currentAdminUser }) {
   </div>;
 }
 
-function ProductionBatchModal({ isOpen, onClose, onSubmit, products, saving }) {
+function ProductionBatchModal({ isOpen, onClose, onSubmit, products = [], saving }) {
+  const [mode, setMode] = useState("single"); // "single" | "multi"
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState(25);
-  const [fabric, setFabric] = useState(0);
-  const [stitching, setStitching] = useState(0);
-  const [stitchingMaterial, setStitchingMaterial] = useState(0);
-  const [packaging, setPackaging] = useState(0);
-  const [travel, setTravel] = useState(0);
-  const [other, setOther] = useState(0);
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [note, setNote] = useState("");
+
+  // New design fields if productId === "__new__"
+  const [newSku, setNewSku] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+  const [newCategory, setNewCategory] = useState("Kurtis");
+  const [newImage, setNewImage] = useState("");
+
+  // Costs for single batch
+  const [costs, setCosts] = useState({
+    fabric: 0,
+    stitching: 0,
+    stitchingMaterial: 0,
+    packaging: 0,
+    travel: 0,
+    other: 0,
+  });
+
+  // Multi-item batch state
+  const emptyCosts = () => ({ fabric: 0, stitching: 0, stitchingMaterial: 0, packaging: 0, travel: 0, other: 0 });
+  const newMultiItem = () => ({
+    key: `batch-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    productId: "",
+    quantity: 25,
+    newProductName: "",
+    newProductArticleNumber: "",
+    newProductPrice: "",
+    newProductCategory: "Kurtis",
+    newProductImage: "",
+    directCostBreakdown: emptyCosts(),
+  });
+  const [multiItems, setMultiItems] = useState(() => [newMultiItem()]);
+  const [sharedCosts, setSharedCosts] = useState(emptyCosts());
 
   if (!isOpen) return null;
 
-  const totalCost = Number(fabric || 0) + Number(stitching || 0) + Number(stitchingMaterial || 0) + Number(packaging || 0) + Number(travel || 0) + Number(other || 0);
-  const qtyNum = Math.max(1, Number(quantity || 1));
-  const unitCost = Math.round(totalCost / qtyNum);
+  const totalSingleCost = Object.values(costs).reduce((sum, v) => sum + Number(v || 0), 0);
+  const singleQty = Math.max(1, Number(quantity || 1));
+  const singleUnitCost = Math.round(totalSingleCost / singleQty);
+
+  const totalMultiSharedCost = Object.values(sharedCosts).reduce((sum, v) => sum + Number(v || 0), 0);
+  const totalMultiDirectCost = multiItems.reduce(
+    (sum, item) => sum + Object.values(item.directCostBreakdown).reduce((s, v) => s + Number(v || 0), 0),
+    0
+  );
+  const totalMultiCost = totalMultiSharedCost + totalMultiDirectCost;
+  const totalMultiQty = multiItems.reduce((sum, item) => sum + Math.max(1, Number(item.quantity || 1)), 0);
+  const multiAvgUnitCost = Math.round(totalMultiCost / Math.max(1, totalMultiQty));
+
+  function updateCost(key, val) {
+    setCosts((prev) => ({ ...prev, [key]: Math.max(0, Number(val || 0)) }));
+  }
+
+  function updateSharedCost(key, val) {
+    setSharedCosts((prev) => ({ ...prev, [key]: Math.max(0, Number(val || 0)) }));
+  }
+
+  function updateMultiItem(key, patch) {
+    setMultiItems((curr) => curr.map((it) => (it.key === key ? { ...it, ...patch } : it)));
+  }
+
+  function updateMultiItemCost(key, costKey, val) {
+    setMultiItems((curr) =>
+      curr.map((it) =>
+        it.key === key
+          ? { ...it, directCostBreakdown: { ...it.directCostBreakdown, [costKey]: Math.max(0, Number(val || 0)) } }
+          : it
+      )
+    );
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (mode === "single") {
+      if (!productId) {
+        window.alert("Please select a product or choose to create a new design.");
+        return;
+      }
+      if (productId === "__new__" && !newName.trim() && !newSku.trim()) {
+        window.alert("Please provide at least a Product Name or Design Code / SKU.");
+        return;
+      }
+      if (totalSingleCost <= 0) {
+        window.alert("Please enter production costs for this batch.");
+        return;
+      }
+
+      const payload = {
+        productId,
+        quantity: singleQty,
+        date,
+        note,
+        costBreakdown: costs,
+        ...(productId === "__new__"
+          ? {
+              newProductName: newName.trim(),
+              newProductArticleNumber: newSku.trim(),
+              newProductPrice: Math.max(0, Number(newPrice || 0)),
+              newProductCategory: newCategory.trim() || "Kurtis",
+              newProductImage: newImage.trim(),
+            }
+          : {}),
+      };
+      await onSubmit(payload);
+    } else {
+      if (totalMultiCost <= 0) {
+        window.alert("Please enter production costs before saving the batch.");
+        return;
+      }
+      for (const item of multiItems) {
+        if (!item.productId) {
+          window.alert("Please select a product for every design in this production run.");
+          return;
+        }
+        if (item.productId === "__new__" && !item.newProductName.trim() && !item.newProductArticleNumber.trim()) {
+          window.alert("Please provide a name or SKU for all new designs.");
+          return;
+        }
+      }
+
+      const payload = {
+        items: multiItems.map(({ key, ...it }) => ({
+          ...it,
+          quantity: Math.max(1, Number(it.quantity || 1)),
+          directCostBreakdown: it.directCostBreakdown,
+        })),
+        sharedCostBreakdown: sharedCosts,
+        date,
+        note,
+      };
+      await onSubmit(payload);
+    }
+  }
 
   return (
     <>
       <div className="adminOverlay" onClick={onClose} />
-      <form className="inventoryDialog" onSubmit={onSubmit}>
-        <DialogHead title="Create production batch" onClose={onClose} />
-        <p className="trackingNumber">Add one design at a time. Stock, per-suit cost and Finance expense will update together.</p>
+      <div className="inventoryDialog" style={{ maxWidth: "760px", maxHeight: "90vh", overflowY: "auto" }}>
+        <DialogHead title="Create Production Batch" onClose={onClose} />
+        <p className="trackingNumber" style={{ margin: "4px 0 16px", color: "#546e5f", fontSize: "13px" }}>
+          Record finished production runs. Stock is automatically added to inventory, unit cost COGS is updated in the catalog, and linked expenses are logged in Finance Cashbook.
+        </p>
 
-        <label>Design / product
-          <select name="productId" required value={productId} onChange={(e) => setProductId(e.target.value)}>
-            <option value="">Select product</option>
-            <option value="__new__">+ Create new product/design</option>
-            {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
-          </select>
-        </label>
-
-        {productId === "__new__" && (
-          <section className="adminCard" style={{ padding: "14px", marginBottom: "12px", background: "#f9fcfa", border: "1px solid #dce7dd" }}>
-            <p className="fieldTitle" style={{ fontWeight: "700", color: "#132f22" }}>New product / design details</p>
-            <div className="formRow">
-              <label>Design Code / SKU (e.g. BST-301)
-                <input name="newProductArticleNumber" placeholder="e.g. BST-301" />
-                <small style={{ color: "#546e5f", fontSize: "11px", display: "block", marginTop: "2px" }}>Same code dubara use karne par stock &amp; cost update hogi (no duplicates).</small>
-              </label>
-              <label>Product / design name
-                <input name="newProductName" placeholder="e.g. Blue Arora – Design 4" />
-              </label>
-            </div>
-            <div className="formRow">
-              <label>Selling price (PKR)
-                <input name="newProductPrice" type="number" min="0" placeholder="0" />
-              </label>
-              <label>Category
-                <input name="newProductCategory" placeholder="e.g. Kurtis" defaultValue="Kurtis" />
-              </label>
-            </div>
-            <label>Image URL (optional)
-              <input name="newProductImage" placeholder="https://... or uploaded image URL" />
-            </label>
-          </section>
-        )}
-
-        <div className="formRow">
-          <label>Finished suits (Quantity)
-            <input name="quantity" type="number" min="1" required value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="25" />
-          </label>
-          <label>Date
-            <input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
-          </label>
+        <div style={{ display: "flex", gap: "8px", marginBottom: "16px", background: "#f0f4f1", padding: "4px", borderRadius: "8px" }}>
+          <button
+            type="button"
+            onClick={() => setMode("single")}
+            style={{
+              flex: 1,
+              padding: "7px 12px",
+              borderRadius: "6px",
+              border: "none",
+              fontSize: "13px",
+              fontWeight: 700,
+              cursor: "pointer",
+              background: mode === "single" ? "#164e32" : "transparent",
+              color: mode === "single" ? "#fff" : "#4a6353",
+            }}
+          >
+            Single Design Batch
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("multi")}
+            style={{
+              flex: 1,
+              padding: "7px 12px",
+              borderRadius: "6px",
+              border: "none",
+              fontSize: "13px",
+              fontWeight: 700,
+              cursor: "pointer",
+              background: mode === "multi" ? "#164e32" : "transparent",
+              color: mode === "multi" ? "#fff" : "#4a6353",
+            }}
+          >
+            Multi-Design Production Run
+          </button>
         </div>
 
-        <p className="fieldTitle" style={{ fontWeight: "700", color: "#132f22", marginTop: "12px" }}>Costs for this design batch (PKR)</p>
-        <div className="formRow">
-          <label>Fabric cost
-            <input name="fabric" type="number" min="0" value={fabric} onChange={(e) => setFabric(e.target.value)} />
-          </label>
-          <label>Stitching cost
-            <input name="stitching" type="number" min="0" value={stitching} onChange={(e) => setStitching(e.target.value)} />
-          </label>
-        </div>
-        <div className="formRow">
-          <label>Stitching material (Laces/Buttons)
-            <input name="stitchingMaterial" type="number" min="0" value={stitchingMaterial} onChange={(e) => setStitchingMaterial(e.target.value)} />
-          </label>
-          <label>Packaging
-            <input name="packaging" type="number" min="0" value={packaging} onChange={(e) => setPackaging(e.target.value)} />
-          </label>
-        </div>
-        <div className="formRow">
-          <label>Travel / Transport
-            <input name="travel" type="number" min="0" value={travel} onChange={(e) => setTravel(e.target.value)} />
-          </label>
-          <label>Other expenses
-            <input name="other" type="number" min="0" value={other} onChange={(e) => setOther(e.target.value)} />
-          </label>
-        </div>
-
-        <div className="adminCard" style={{ padding: "12px 16px", margin: "14px 0", background: "linear-gradient(135deg, #173d29, #245d3f)", color: "#fff", borderRadius: "12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-            <span style={{ fontSize: "12px", opacity: 0.9 }}>Total Batch Cost:</span>
-            <b style={{ fontSize: "15px" }}>Rs. {totalCost.toLocaleString()}</b>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.2)", paddingTop: "6px" }}>
-            <span style={{ fontSize: "13px", fontWeight: "700" }}>Unit Cost per Suit:</span>
-            <b style={{ fontSize: "18px", color: "#aef3c7" }}>Rs. {unitCost.toLocaleString()} / suit</b>
-          </div>
-        </div>
-
-        <label>Note
-          <textarea name="note" rows="2" placeholder="Supplier, stitching unit or batch reference" />
-        </label>
-
-        <button
-          type="submit"
-          className="dialogSave"
-          disabled={saving}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "8px",
-            width: "100%",
-            cursor: saving ? "not-allowed" : "pointer"
-          }}
-        >
-          {saving ? (
+        <form onSubmit={handleSubmit}>
+          {mode === "single" ? (
             <>
-              <Loader2 size={16} className="animate-spin" />
-              <span>Saving batch, adding stock &amp; recording cost...</span>
+              <label>
+                Design / Product
+                <select
+                  name="productId"
+                  required
+                  value={productId}
+                  onChange={(e) => setProductId(e.target.value)}
+                  style={{ fontWeight: 600 }}
+                >
+                  <option value="">Select product from catalog...</option>
+                  <option value="__new__">+ Create new product / design</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.sku || p.articleNumber ? `(${p.sku || p.articleNumber})` : ""} · Current Stock: {p.stock || 0}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {productId === "__new__" && (
+                <section
+                  className="adminCard"
+                  style={{
+                    padding: "16px",
+                    margin: "12px 0",
+                    background: "#f8fbf9",
+                    border: "1.5px dashed #2d8a57",
+                    borderRadius: "10px",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+                    <Sparkles size={16} color="#166534" />
+                    <b style={{ fontSize: "13px", color: "#166534" }}>New Product &amp; Design Details</b>
+                  </div>
+                  <div className="formRow">
+                    <label>
+                      Design Code / SKU (e.g. BST-301)
+                      <input
+                        value={newSku}
+                        onChange={(e) => setNewSku(e.target.value)}
+                        placeholder="e.g. BST-301"
+                      />
+                      <small style={{ color: "#546e5f", fontSize: "11px", display: "block", marginTop: "2px" }}>
+                        Entering an existing SKU updates its stock &amp; cost without creating duplicate products.
+                      </small>
+                    </label>
+                    <label>
+                      Product / Design Name
+                      <input
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        placeholder="e.g. Aqua Co-Ord Set"
+                      />
+                    </label>
+                  </div>
+                  <div className="formRow">
+                    <label>
+                      Selling Price (PKR)
+                      <input
+                        type="number"
+                        min="0"
+                        value={newPrice}
+                        onChange={(e) => setNewPrice(e.target.value)}
+                        placeholder="0"
+                      />
+                    </label>
+                    <label>
+                      Category
+                      <input
+                        value={newCategory}
+                        onChange={(e) => setNewCategory(e.target.value)}
+                        placeholder="Kurtis, Co-ord Sets, etc."
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    Image URL (Optional)
+                    <input
+                      value={newImage}
+                      onChange={(e) => setNewImage(e.target.value)}
+                      placeholder="https://... or Cloudinary link"
+                    />
+                  </label>
+                </section>
+              )}
+
+              <div className="formRow">
+                <label>
+                  Finished Suits (Quantity)
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    placeholder="25"
+                  />
+                </label>
+                <label>
+                  Production Date
+                  <input
+                    type="date"
+                    required
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div style={{ marginTop: "16px", marginBottom: "8px" }}>
+                <b style={{ fontSize: "13px", color: "#163022" }}>Production Costs for this Batch (PKR)</b>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#657e6f" }}>
+                  All costs are summed into Total Batch Cost and divided by finished quantity to calculate unit cost COGS.
+                </p>
+              </div>
+
+              <div className="formRow">
+                <label>
+                  Fabric Cost (PKR)
+                  <input
+                    type="number"
+                    min="0"
+                    value={costs.fabric || ""}
+                    onChange={(e) => updateCost("fabric", e.target.value)}
+                    placeholder="0"
+                  />
+                </label>
+                <label>
+                  Stitching / Tailoring (PKR)
+                  <input
+                    type="number"
+                    min="0"
+                    value={costs.stitching || ""}
+                    onChange={(e) => updateCost("stitching", e.target.value)}
+                    placeholder="0"
+                  />
+                </label>
+              </div>
+
+              <div className="formRow">
+                <label>
+                  Laces, Buttons &amp; Trims (PKR)
+                  <input
+                    type="number"
+                    min="0"
+                    value={costs.stitchingMaterial || ""}
+                    onChange={(e) => updateCost("stitchingMaterial", e.target.value)}
+                    placeholder="0"
+                  />
+                </label>
+                <label>
+                  Packaging &amp; Tags (PKR)
+                  <input
+                    type="number"
+                    min="0"
+                    value={costs.packaging || ""}
+                    onChange={(e) => updateCost("packaging", e.target.value)}
+                    placeholder="0"
+                  />
+                </label>
+              </div>
+
+              <div className="formRow">
+                <label>
+                  Travel &amp; Transport (PKR)
+                  <input
+                    type="number"
+                    min="0"
+                    value={costs.travel || ""}
+                    onChange={(e) => updateCost("travel", e.target.value)}
+                    placeholder="0"
+                  />
+                </label>
+                <label>
+                  Other Production Expenses (PKR)
+                  <input
+                    type="number"
+                    min="0"
+                    value={costs.other || ""}
+                    onChange={(e) => updateCost("other", e.target.value)}
+                    placeholder="0"
+                  />
+                </label>
+              </div>
+
+              <div
+                style={{
+                  padding: "14px 18px",
+                  margin: "16px 0",
+                  background: "linear-gradient(135deg, #133924, #1d5a39)",
+                  color: "#fff",
+                  borderRadius: "12px",
+                  boxShadow: "0 4px 12px rgba(22, 78, 50, 0.15)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "12.5px", opacity: 0.9 }}>Finished Suits Quantity:</span>
+                  <b style={{ fontSize: "15px" }}>{singleQty.toLocaleString()} units</b>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "12.5px", opacity: 0.9 }}>Total Batch Investment:</span>
+                  <b style={{ fontSize: "16px" }}>Rs. {totalSingleCost.toLocaleString()}</b>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    borderTop: "1px solid rgba(255,255,255,0.2)",
+                    paddingTop: "8px",
+                    marginTop: "6px",
+                  }}
+                >
+                  <span style={{ fontSize: "13.5px", fontWeight: 700 }}>Unit Cost per Suit (COGS):</span>
+                  <b style={{ fontSize: "19px", color: "#aef3c7" }}>Rs. {singleUnitCost.toLocaleString()} / suit</b>
+                </div>
+              </div>
+
+              <label>
+                Batch Notes &amp; Workshop Reference
+                <textarea
+                  rows="2"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="e.g. Amina Stitching Unit, Summer Lawn Lot 1"
+                />
+              </label>
             </>
           ) : (
-            "Save batch, add stock & record cost"
+            <>
+              <p className="trackingNumber" style={{ marginBottom: "14px", color: "#546e5f" }}>
+                Add every design in this production run. Shared costs (such as transport or lot fabric) are divided across suits by quantity; direct costs remain with their selected design.
+              </p>
+
+              {multiItems.map((item, index) => {
+                const itemDirectCost = Object.values(item.directCostBreakdown).reduce((s, v) => s + Number(v || 0), 0);
+                const itemQty = Math.max(1, Number(item.quantity || 1));
+                const itemSharedShare = totalMultiQty > 0 ? (totalMultiSharedCost * itemQty) / totalMultiQty : 0;
+                const itemTotalCost = itemDirectCost + itemSharedShare;
+                const itemUnitCost = Math.round(itemTotalCost / itemQty);
+
+                return (
+                  <section
+                    key={item.key}
+                    className="adminCard"
+                    style={{
+                      padding: "14px",
+                      marginBottom: "14px",
+                      background: "#fafcfb",
+                      border: "1px solid #d8e5dc",
+                      borderRadius: "10px",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                      <b style={{ fontSize: "13.5px", color: "#163022" }}>Design #{index + 1}</b>
+                      {multiItems.length > 1 && (
+                        <button
+                          type="button"
+                          className="removeProductButton"
+                          onClick={() => setMultiItems((curr) => curr.filter((it) => it.key !== item.key))}
+                          style={{ padding: "3px 8px", fontSize: "11px" }}
+                        >
+                          Remove design
+                        </button>
+                      )}
+                    </div>
+
+                    <label>
+                      Design / Product
+                      <select
+                        required
+                        value={item.productId}
+                        onChange={(e) => updateMultiItem(item.key, { productId: e.target.value })}
+                      >
+                        <option value="">Select product...</option>
+                        <option value="__new__">+ Create new product / design</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} {p.sku || p.articleNumber ? `(${p.sku || p.articleNumber})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    {item.productId === "__new__" && (
+                      <div style={{ background: "#fff", padding: "10px", borderRadius: "8px", border: "1px solid #d4e2d7", margin: "8px 0" }}>
+                        <div className="formRow">
+                          <label>
+                            Design Code / SKU
+                            <input
+                              value={item.newProductArticleNumber}
+                              onChange={(e) => updateMultiItem(item.key, { newProductArticleNumber: e.target.value })}
+                              placeholder="e.g. BST-302"
+                            />
+                          </label>
+                          <label>
+                            Product Name
+                            <input
+                              value={item.newProductName}
+                              onChange={(e) => updateMultiItem(item.key, { newProductName: e.target.value })}
+                              placeholder="e.g. Emerald Co-Ord"
+                            />
+                          </label>
+                        </div>
+                        <div className="formRow">
+                          <label>
+                            Selling Price
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.newProductPrice}
+                              onChange={(e) => updateMultiItem(item.key, { newProductPrice: e.target.value })}
+                              placeholder="0"
+                            />
+                          </label>
+                          <label>
+                            Category
+                            <input
+                              value={item.newProductCategory}
+                              onChange={(e) => updateMultiItem(item.key, { newProductCategory: e.target.value })}
+                              placeholder="Kurtis"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="formRow">
+                      <label>
+                        Finished Suits for this Design
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={item.quantity}
+                          onChange={(e) => updateMultiItem(item.key, { quantity: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                          placeholder="25"
+                        />
+                      </label>
+                      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                        <span style={{ fontSize: "11.5px", color: "#657e6f" }}>Est. Unit Cost (with shared):</span>
+                        <b style={{ fontSize: "15px", color: "#166534" }}>Rs. {itemUnitCost.toLocaleString()} / suit</b>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: "12px", fontWeight: 600, color: "#163022", marginTop: "8px", marginBottom: "4px" }}>
+                      Direct Costs for this Design (PKR)
+                    </div>
+                    <div className="formRow">
+                      <label>
+                        Fabric
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.directCostBreakdown.fabric || ""}
+                          onChange={(e) => updateMultiItemCost(item.key, "fabric", e.target.value)}
+                          placeholder="0"
+                        />
+                      </label>
+                      <label>
+                        Stitching
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.directCostBreakdown.stitching || ""}
+                          onChange={(e) => updateMultiItemCost(item.key, "stitching", e.target.value)}
+                          placeholder="0"
+                        />
+                      </label>
+                    </div>
+                    <div className="formRow">
+                      <label>
+                        Trims / Buttons
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.directCostBreakdown.stitchingMaterial || ""}
+                          onChange={(e) => updateMultiItemCost(item.key, "stitchingMaterial", e.target.value)}
+                          placeholder="0"
+                        />
+                      </label>
+                      <label>
+                        Packaging
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.directCostBreakdown.packaging || ""}
+                          onChange={(e) => updateMultiItemCost(item.key, "packaging", e.target.value)}
+                          placeholder="0"
+                        />
+                      </label>
+                    </div>
+                  </section>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => setMultiItems((curr) => [...curr, newMultiItem()])}
+                className="editProductButton"
+                style={{ marginBottom: "16px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+              >
+                <Plus size={14} /> Add another design to this run
+              </button>
+
+              <section
+                className="adminCard"
+                style={{
+                  padding: "14px",
+                  marginBottom: "16px",
+                  background: "#fdf8ee",
+                  border: "1px solid #ebd9b5",
+                  borderRadius: "10px",
+                }}
+              >
+                <div style={{ fontSize: "13px", fontWeight: 700, color: "#8a5814", marginBottom: "4px" }}>
+                  Shared Costs for All Designs (PKR)
+                </div>
+                <p style={{ margin: "0 0 10px", fontSize: "11.5px", color: "#8a6d3b" }}>
+                  These expenses are divided proportionally across every suit by quantity.
+                </p>
+                <div className="formRow">
+                  <label>
+                    Shared Fabric
+                    <input
+                      type="number"
+                      min="0"
+                      value={sharedCosts.fabric || ""}
+                      onChange={(e) => updateSharedCost("fabric", e.target.value)}
+                      placeholder="0"
+                    />
+                  </label>
+                  <label>
+                    Shared Stitching
+                    <input
+                      type="number"
+                      min="0"
+                      value={sharedCosts.stitching || ""}
+                      onChange={(e) => updateSharedCost("stitching", e.target.value)}
+                      placeholder="0"
+                    />
+                  </label>
+                </div>
+                <div className="formRow">
+                  <label>
+                    Shared Packaging
+                    <input
+                      type="number"
+                      min="0"
+                      value={sharedCosts.packaging || ""}
+                      onChange={(e) => updateSharedCost("packaging", e.target.value)}
+                      placeholder="0"
+                    />
+                  </label>
+                  <label>
+                    Shared Travel &amp; Transport
+                    <input
+                      type="number"
+                      min="0"
+                      value={sharedCosts.travel || ""}
+                      onChange={(e) => updateSharedCost("travel", e.target.value)}
+                      placeholder="0"
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <div
+                style={{
+                  padding: "14px 18px",
+                  marginBottom: "16px",
+                  background: "linear-gradient(135deg, #133924, #1d5a39)",
+                  color: "#fff",
+                  borderRadius: "12px",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "12.5px", opacity: 0.9 }}>Total Finished Suits ({multiItems.length} designs):</span>
+                  <b style={{ fontSize: "15px" }}>{totalMultiQty.toLocaleString()} units</b>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "12.5px", opacity: 0.9 }}>Total Run Investment:</span>
+                  <b style={{ fontSize: "16px" }}>Rs. {totalMultiCost.toLocaleString()}</b>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    borderTop: "1px solid rgba(255,255,255,0.2)",
+                    paddingTop: "8px",
+                    marginTop: "6px",
+                  }}
+                >
+                  <span style={{ fontSize: "13.5px", fontWeight: 700 }}>Weighted Avg Unit Cost:</span>
+                  <b style={{ fontSize: "19px", color: "#aef3c7" }}>Rs. {multiAvgUnitCost.toLocaleString()} / suit</b>
+                </div>
+              </div>
+
+              <div className="formRow">
+                <label>
+                  Production Date
+                  <input
+                    type="date"
+                    required
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Batch Note
+                  <input
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="e.g. Master run with Amina Tailors"
+                  />
+                </label>
+              </div>
+            </>
           )}
-        </button>
-      </form>
+
+          <button
+            type="submit"
+            className="dialogSave"
+            disabled={saving}
+            style={{
+              marginTop: "16px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              width: "100%",
+              padding: "12px",
+              fontSize: "14px",
+              fontWeight: 700,
+              background: "#164e32",
+              color: "#fff",
+              borderRadius: "8px",
+              cursor: saving ? "not-allowed" : "pointer",
+            }}
+          >
+            {saving ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Saving batch, updating stock &amp; recording cost...</span>
+              </>
+            ) : (
+              "Save Production Batch & Update Inventory"
+            )}
+          </button>
+        </form>
+      </div>
     </>
   );
 }
 
-function InventoryPanel({ products, movements, orders, connected, currentAdminUser, onAdjust, onCreateCustomInventory, onCreateProductionBatch, onRefreshCatalog, onOpenOrder, initialView }) {
-  const emptyProductionCosts = () => ({ fabric: 0, stitching: 0, stitchingMaterial: 0, packaging: 0, travel: 0, other: 0 });
+function InventoryPanel({
+  products = [],
+  movements = [],
+  orders = [],
+  connected,
+  currentAdminUser,
+  onAdjust,
+  onQuickUpdateProduct,
+  onAddProduct,
+  onEditProduct,
+  onOpenCalculator,
+  onNavigateToProducts,
+  onNavigateToFinances,
+  onCreateCustomInventory,
+  onCreateProductionBatch,
+  onRefreshCatalog,
+  onOpenOrder,
+  initialView,
+}) {
   const inventoryMoney = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
-  const newProductionItem = () => ({ key: `batch-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, productId: "", quantity: "", newProductName: "", newProductPrice: "", newProductCategory: "Kurtis", newProductImage: "", directCostBreakdown: emptyProductionCosts() });
-  const [tab, setTab] = useState("Stock");
+
+  const [tab, setTab] = useState(() => (initialView === "batches" ? "Batches" : initialView === "sources" ? "Sources" : "Stock"));
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogProductId, setDialogProductId] = useState("");
   const [productionOpen, setProductionOpen] = useState(false);
   const [productionSaving, setProductionSaving] = useState(false);
-  // Kept for the legacy dialog markup below; multi-product batches use productionItems.
-  const [productionProductId, setProductionProductId] = useState("");
-  const [productionItems, setProductionItems] = useState(() => [newProductionItem()]);
+  const [variantDrawerProduct, setVariantDrawerProduct] = useState(null);
+
   const [productionBatches, setProductionBatches] = useState([]);
   const [productionBatchesLoading, setProductionBatchesLoading] = useState(true);
   const [voidingBatchId, setVoidingBatchId] = useState("");
@@ -8923,17 +10324,21 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
   const [voidConfirmation, setVoidConfirmation] = useState("");
   const [batchCostBatch, setBatchCostBatch] = useState(null);
   const [batchCostSaving, setBatchCostSaving] = useState(false);
-  const [inventoryView, setInventoryView] = useState(initialView === "low-stock" ? "Low stock" : "All");
+
+  const [inventoryView, setInventoryView] = useState(() => (initialView === "low-stock" ? "Low stock" : initialView === "missing-cost" ? "Missing cost" : "All"));
   const [inventorySearch, setInventorySearch] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
   const [localHistory, setLocalHistory] = useState([]);
   const [sourceSearch, setSourceSearch] = useState("");
   const [resourcesSaving, setResourcesSaving] = useState(false);
+
   const [profitProjectionView, setProfitProjectionView] = useState("product");
   const [expectedItemsPerOrder, setExpectedItemsPerOrder] = useState("");
   const [projectionTransactions, setProjectionTransactions] = useState([]);
   const [projectionPostex, setProjectionPostex] = useState({ setupAvailable: false, payments: [], batches: [], items: [], summary: {} });
   const [projectionFinanceLoaded, setProjectionFinanceLoaded] = useState(false);
   const [projectionFinanceAvailable, setProjectionFinanceAvailable] = useState(false);
+
   const [inventorySources, setInventorySources] = useState([
     { id: "stitching-main", name: "Main stitching unit", type: "Stitching unit", contact: "", location: "Pakistan", notes: "Primary production source", status: "Active" },
     { id: "materials-general", name: "General trims supplier", type: "Material supplier", contact: "", location: "Pakistan", notes: "Buttons, laces and finishing items", status: "Active" },
@@ -8944,30 +10349,23 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
   ]);
 
   useEffect(() => {
-    if (initialView !== "returns-inspection") return;
-    const timer = window.setTimeout(() => document.getElementById("returned-order-inspection")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
-    return () => window.clearTimeout(timer);
+    if (initialView === "returns-inspection") {
+      const timer = window.setTimeout(() => document.getElementById("returned-order-inspection")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+      return () => window.clearTimeout(timer);
+    }
   }, [initialView]);
 
-  async function saveProductionBatch(event) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const sharedCostBreakdown = Object.fromEntries(["fabric", "stitching", "stitchingMaterial", "packaging", "travel", "other"].map((key) => [key, Number(form.get(`shared-${key}`) || 0)]));
+  async function handleCreateBatch(batchPayload) {
     setProductionSaving(true);
     try {
-      await onCreateProductionBatch({ items: productionItems.map(({ key, ...item }) => ({ ...item, quantity: Number(item.quantity || 0), directCostBreakdown: Object.fromEntries(Object.entries(item.directCostBreakdown).map(([name, value]) => [name, Number(value || 0)])) })), sharedCostBreakdown, date: form.get("date"), note: form.get("note") });
+      await onCreateProductionBatch(batchPayload);
       await loadProductionBatches();
       setProductionOpen(false);
-      setProductionItems([newProductionItem()]);
-    } catch (error) { window.alert(error.message || "Unable to save production batch."); } finally { setProductionSaving(false); }
-  }
-
-  function updateProductionItem(key, patch) {
-    setProductionItems((current) => current.map((item) => item.key === key ? { ...item, ...patch } : item));
-  }
-
-  function updateProductionItemCost(key, costKey, value) {
-    setProductionItems((current) => current.map((item) => item.key === key ? { ...item, directCostBreakdown: { ...item.directCostBreakdown, [costKey]: value } } : item));
+    } catch (error) {
+      window.alert(error.message || "Unable to save production batch.");
+    } finally {
+      setProductionSaving(false);
+    }
   }
 
   async function loadProductionBatches() {
@@ -8977,7 +10375,7 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to load production batches.");
       setProductionBatches(result.batches || []);
-    } catch (error) {
+    } catch {
       setProductionBatches([]);
     } finally {
       setProductionBatchesLoading(false);
@@ -9004,12 +10402,16 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       requestVoidBatch(event);
       return;
     }
-    event.preventDefault();
+    if (event?.preventDefault) event.preventDefault();
     const batch = voidBatch;
     if (!batch || voidConfirmation.trim() !== `VOID ${batch.id}`) return;
     setVoidingBatchId(batch.id);
     try {
-      const response = await fetch("/api/admin/production-batches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "void", batchId: batch.id, confirmation: voidConfirmation.trim() }) });
+      const response = await fetch("/api/admin/production-batches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "void", batchId: batch.id, confirmation: voidConfirmation.trim() }),
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to void production batch.");
       setProductionBatches(result.batches || []);
@@ -9032,7 +10434,21 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     if (!amount) return;
     setBatchCostSaving(true);
     try {
-      const response = await fetch("/api/admin/production-batches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "add_cost", batchId: batchCostBatch.id, entryId: `batch-cost-${Date.now()}`, costKey: form.get("costKey"), amount, date: form.get("date"), counterparty: form.get("counterparty"), reference: form.get("reference"), note: form.get("note") }) });
+      const response = await fetch("/api/admin/production-batches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add_cost",
+          batchId: batchCostBatch.id,
+          entryId: `batch-cost-${Date.now()}`,
+          costKey: form.get("costKey"),
+          amount,
+          date: form.get("date"),
+          counterparty: form.get("counterparty"),
+          reference: form.get("reference"),
+          note: form.get("note"),
+        }),
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to add production cost.");
       setProductionBatches(result.batches || []);
@@ -9045,7 +10461,9 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     }
   }
 
-  useEffect(() => { loadProductionBatches(); }, []);
+  useEffect(() => {
+    loadProductionBatches();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -9059,9 +10477,13 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
           setProjectionFinanceAvailable(true);
         }
       })
-      .catch(() => { })
-      .finally(() => { if (active) setProjectionFinanceLoaded(true); });
-    return () => { active = false; };
+      .catch(() => {})
+      .finally(() => {
+        if (active) setProjectionFinanceLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function saveInventoryResources(nextSources, nextMaterials) {
@@ -9069,7 +10491,11 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     setMaterials(nextMaterials);
     setResourcesSaving(true);
     try {
-      const response = await fetch("/api/admin/inventory-resources", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sources: nextSources, materials: nextMaterials }) });
+      const response = await fetch("/api/admin/inventory-resources", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sources: nextSources, materials: nextMaterials }),
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to save sources and materials.");
       setInventorySources(result.sources || nextSources);
@@ -9077,12 +10503,20 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
       localStorage.removeItem("bustaniya-inventory-sources");
     } catch (error) {
       window.alert(error.message || "Unable to save sources and materials.");
-    } finally { setResourcesSaving(false); }
+    } finally {
+      setResourcesSaving(false);
+    }
   }
 
   useEffect(() => {
     let active = true;
-    const localFallback = (() => { try { return JSON.parse(localStorage.getItem("bustaniya-inventory-sources") || "{}"); } catch { return {}; } })();
+    const localFallback = (() => {
+      try {
+        return JSON.parse(localStorage.getItem("bustaniya-inventory-sources") || "{}");
+      } catch {
+        return {};
+      }
+    })();
     fetch("/api/admin/inventory-resources", { cache: "no-store" })
       .then((response) => response.json().then((result) => ({ ok: response.ok, result })))
       .then(({ ok, result }) => {
@@ -9097,15 +10531,16 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
           setMaterials(remoteMaterials);
           localStorage.removeItem("bustaniya-inventory-sources");
         } else {
-          // One-time migration for records created before Supabase persistence.
           saveInventoryResources(
             fallbackSources.length ? fallbackSources : inventorySources,
-            fallbackMaterials.length ? fallbackMaterials : materials,
+            fallbackMaterials.length ? fallbackMaterials : materials
           );
         }
       })
-      .catch(() => { })
-    return () => { active = false; };
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
 
   const history = useMemo(() => {
@@ -9123,57 +10558,122 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     return [...localHistory, ...remoteHistory];
   }, [localHistory, movements, products]);
 
-  const total = products.reduce((sum, product) => sum + Number(product.stock || 0), 0);
-  const out = products.filter((product) => Number(product.stock || 0) === 0).length;
-  const low = products.filter((product) => {
-    const stock = Number(product.stock || 0);
-    return stock > 0 && stock <= Number(product.lowStockThreshold || 5);
+  // Aggregate metrics
+  const total = products.reduce((sum, p) => sum + Number(p.stock || 0), 0);
+  const out = products.filter((p) => Number(p.stock || 0) === 0).length;
+  const low = products.filter((p) => {
+    const stock = Number(p.stock || 0);
+    return stock > 0 && stock <= Number(p.lowStockThreshold || 5);
   }).length;
-  const value = products.reduce((sum, product) => sum + Number(product.price || 0) * Number(product.stock || 0), 0);
-  const stockCostValue = products.reduce((sum, product) => sum + Number(product.costTotalPkr || 0) * Number(product.stock || 0), 0);
+  const inStockCount = products.filter((p) => Number(p.stock || 0) > Number(p.lowStockThreshold || 5)).length;
+  const missingCostCount = products.filter((p) => !p.costTotalPkr || Number(p.costTotalPkr) <= 0).length;
+
+  const value = products.reduce((sum, p) => sum + Number(p.price || 0) * Number(p.stock || 0), 0);
+  const stockCostValue = products.reduce((sum, p) => sum + Number(p.costTotalPkr || 0) * Number(p.stock || 0), 0);
+  const stockGrossProfit = value - stockCostValue;
+  const stockMarginPct = value > 0 ? Math.round((stockGrossProfit / value) * 100) : 0;
   const stockSalesTax = Math.round(value * 0.05);
   const potentialStockProfit = value - stockCostValue - stockSalesTax;
-  const historicalOrders = connected ? (orders || []) : [];
+
+  const historicalOrders = connected ? orders || [] : [];
   const deliveredHistoricalOrders = historicalOrders.filter(isDeliveredOrder);
   const returnedHistoricalOrders = historicalOrders.filter(isReturnedOrder);
-  const historicalSoldUnits = deliveredHistoricalOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order)
-    .reduce((itemTotal, item) => itemTotal + Number(item.quantity || 0), 0), 0);
-  const cogsSold = deliveredHistoricalOrders.reduce((sum, order) => sum + normalizeOrderItems(order.raw || order).reduce((itemsTotal, item) => {
-    const product = products.find((entry) => String(entry.id) === String(item.productId));
-    return itemsTotal + Number(item.quantity || 0) * Number(product?.costTotalPkr || 0);
-  }, 0), 0);
-  const stockPurchaseCash = projectionTransactions.filter((entry) => entry.type === "business_expense" && (entry.productionBatchId || entry.category === "Inventory production" || String(entry.title || "").startsWith("Production batch "))).reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const historicalSoldUnits = deliveredHistoricalOrders.reduce(
+    (sum, order) => sum + normalizeOrderItems(order.raw || order).reduce((t, i) => t + Number(i.quantity || 0), 0),
+    0
+  );
+  const cogsSold = deliveredHistoricalOrders.reduce(
+    (sum, order) =>
+      sum +
+      normalizeOrderItems(order.raw || order).reduce((itemsTotal, item) => {
+        const product = products.find((entry) => String(entry.id) === String(item.productId));
+        return itemsTotal + Number(item.quantity || 0) * Number(product?.costTotalPkr || 0);
+      }, 0),
+    0
+  );
+
+  const stockPurchaseCash = projectionTransactions
+    .filter(
+      (entry) =>
+        entry.type === "business_expense" &&
+        (entry.productionBatchId ||
+          entry.category === "Inventory production" ||
+          String(entry.title || "").startsWith("Production batch "))
+    )
+    .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+
   const restockCashRequired = products.reduce((sum, product) => {
     const target = Math.max(Number(product.lowStockThreshold || 5) * 2, 10);
     return sum + Math.max(0, target - Number(product.stock || 0)) * Number(product.costTotalPkr || 0);
   }, 0);
-  const healthyStockCount = products.filter((product) => Number(product.stock || 0) > Number(product.lowStockThreshold || 5)).length;
+
   const inventoryStockVisual = [
-    { label: "Healthy", value: healthyStockCount, color: "#1d6840" },
-    { label: "Low", value: low, color: "#d08a18" },
-    { label: "Out", value: out, color: "#b73543" },
+    { label: "Healthy", value: inStockCount, color: "#1d6840" },
+    { label: "Low stock", value: low, color: "#d08a18" },
+    { label: "Out of stock", value: out, color: "#b73543" },
   ].filter((item) => item.value > 0);
+
   const inventoryValueVisual = [
     { label: "Stock cost value", value: stockCostValue, color: "#1d6840" },
     { label: "COGS sold", value: cogsSold, color: "#4777a8" },
     { label: "Stock purchase cash", value: stockPurchaseCash, color: "#c78b2b" },
     { label: "Restock cash required", value: restockCashRequired, color: "#b73543" },
   ].filter((item) => item.value > 0);
-  const skuProfitRows = products.map((product) => {
-    const soldItems = deliveredHistoricalOrders.flatMap((order) => normalizeOrderItems(order.raw || order)).filter((item) => String(item.productId) === String(product.id));
-    const unitsSold = soldItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-    const sales = soldItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || product.price || 0), 0);
-    const cost = unitsSold * Number(product.costTotalPkr || 0);
-    const margin = sales ? Math.round(((sales - cost - Math.round(sales * .05)) / sales) * 100) : 0;
-    return { product, unitsSold, sales, cost, margin };
-  }).filter((row) => row.unitsSold > 0).sort((a, b) => b.sales - a.sales);
-  const stockAgeRows = products.map((product) => {
-    const receipts = (movements || []).filter((movement) => String(movement.product_id) === String(product.id) && Number(movement.quantity_change || 0) > 0 && movement.created_at).map((movement) => new Date(movement.created_at)).filter((date) => !Number.isNaN(date.getTime()));
-    const oldestReceipt = receipts.length ? new Date(Math.min(...receipts.map((date) => date.getTime()))) : null;
-    const days = oldestReceipt ? Math.max(0, Math.floor((Date.now() - oldestReceipt.getTime()) / 86400000)) : null;
-    return { product, days };
-  }).filter((row) => Number(row.product.stock || 0) > 0);
-  const stockAgeCounts = { fresh: stockAgeRows.filter((row) => row.days !== null && row.days <= 30).length, normal: stockAgeRows.filter((row) => row.days > 30 && row.days <= 60).length, slow: stockAgeRows.filter((row) => row.days > 60 && row.days <= 90).length, dead: stockAgeRows.filter((row) => row.days > 90).length, legacy: stockAgeRows.filter((row) => row.days === null).length };
+
+  // Sold count map for fast lookup
+  const soldByProductId = useMemo(() => {
+    const map = new Map();
+    for (const order of deliveredHistoricalOrders) {
+      for (const item of normalizeOrderItems(order.raw || order)) {
+        const pid = String(item.productId || "");
+        if (pid) map.set(pid, (map.get(pid) || 0) + Number(item.quantity || 0));
+      }
+    }
+    return map;
+  }, [deliveredHistoricalOrders]);
+
+  const skuProfitRows = products
+    .map((product) => {
+      const soldItems = deliveredHistoricalOrders
+        .flatMap((order) => normalizeOrderItems(order.raw || order))
+        .filter((item) => String(item.productId) === String(product.id));
+      const unitsSold = soldItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      const sales = soldItems.reduce(
+        (sum, item) => sum + Number(item.quantity || 0) * Number(item.price || product.price || 0),
+        0
+      );
+      const cost = unitsSold * Number(product.costTotalPkr || 0);
+      const margin = sales ? Math.round(((sales - cost - Math.round(sales * 0.05)) / sales) * 100) : 0;
+      return { product, unitsSold, sales, cost, margin };
+    })
+    .filter((row) => row.unitsSold > 0)
+    .sort((a, b) => b.sales - a.sales);
+
+  const stockAgeRows = products
+    .map((product) => {
+      const receipts = (movements || [])
+        .filter(
+          (m) =>
+            String(m.product_id) === String(product.id) &&
+            Number(m.quantity_change || 0) > 0 &&
+            m.created_at
+        )
+        .map((m) => new Date(m.created_at))
+        .filter((date) => !Number.isNaN(date.getTime()));
+      const oldestReceipt = receipts.length ? new Date(Math.min(...receipts.map((d) => d.getTime()))) : null;
+      const days = oldestReceipt ? Math.max(0, Math.floor((Date.now() - oldestReceipt.getTime()) / 86400000)) : null;
+      return { product, days };
+    })
+    .filter((row) => Number(row.product.stock || 0) > 0);
+
+  const stockAgeCounts = {
+    fresh: stockAgeRows.filter((row) => row.days !== null && row.days <= 30).length,
+    normal: stockAgeRows.filter((row) => row.days > 30 && row.days <= 60).length,
+    slow: stockAgeRows.filter((row) => row.days > 60 && row.days <= 90).length,
+    dead: stockAgeRows.filter((row) => row.days > 90).length,
+    legacy: stockAgeRows.filter((row) => row.days === null).length,
+  };
+
   const historicalItemsPerOrder = deliveredHistoricalOrders.length ? historicalSoldUnits / deliveredHistoricalOrders.length : 1;
   const projectionItemsPerOrder = Math.max(1, Number(expectedItemsPerOrder || historicalItemsPerOrder || 1));
   const projectedOrderCount = total ? Math.ceil(total / projectionItemsPerOrder) : 0;
@@ -9190,35 +10690,63 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
   const projectedMarketingCost = historicalSoldUnits ? Math.round((marketingSpend / historicalSoldUnits) * total) : 0;
   const allCostsProjectedProfit = potentialStockProfit - projectedReturnCourierLoss - projectedMarketingCost;
-  const displayedStockProfit = profitProjectionView === "all" ? allCostsProjectedProfit : potentialStockProfit;
+
   const materialValue = materials.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitCost || 0), 0);
   const lowMaterialCount = materials.filter((item) => Number(item.quantity || 0) <= Number(item.reorderAt || 0)).length;
+  const activeBatchesCount = productionBatches.filter((b) => b.status !== "voided").length;
 
-  const visibleInventoryRows = products.filter((product) => {
-    const stock = Number(product.stock || 0);
-    const threshold = Number(product.lowStockThreshold || 5);
-    const query = inventorySearch.toLowerCase();
-    const matchesSearch =
-      product.name.toLowerCase().includes(query) ||
-      String(product.sku || product.articleNumber || "").toLowerCase().includes(query);
-    const matchesView =
-      inventoryView === "All" ||
-      (inventoryView === "Low stock" && stock > 0 && stock <= threshold) ||
-      (inventoryView === "Out of stock" && stock === 0);
-    return matchesSearch && matchesView;
-  });
+  // Filtered & sorted products
+  const visibleInventoryRows = useMemo(() => {
+    let result = products.filter((product) => {
+      const stock = Number(product.stock || 0);
+      const threshold = Number(product.lowStockThreshold || 5);
+      const query = inventorySearch.toLowerCase();
+      const matchesSearch =
+        !query ||
+        product.name.toLowerCase().includes(query) ||
+        String(product.sku || product.articleNumber || "").toLowerCase().includes(query) ||
+        String(product.category || "").toLowerCase().includes(query);
+
+      const matchesView =
+        inventoryView === "All" ||
+        (inventoryView === "In stock" && stock > threshold) ||
+        (inventoryView === "Low stock" && stock > 0 && stock <= threshold) ||
+        (inventoryView === "Out of stock" && stock === 0) ||
+        (inventoryView === "Missing cost" && (!product.costTotalPkr || Number(product.costTotalPkr) <= 0));
+
+      return matchesSearch && matchesView;
+    });
+
+    result.sort((a, b) => {
+      if (sortBy === "stock-asc") return Number(a.stock || 0) - Number(b.stock || 0);
+      if (sortBy === "stock-desc") return Number(b.stock || 0) - Number(a.stock || 0);
+      if (sortBy === "price-desc") return Number(b.price || 0) - Number(a.price || 0);
+      if (sortBy === "value-desc") {
+        return Number(b.price || 0) * Number(b.stock || 0) - Number(a.price || 0) * Number(a.stock || 0);
+      }
+      if (sortBy === "cost-desc") return Number(b.costTotalPkr || 0) - Number(a.costTotalPkr || 0);
+      if (sortBy === "margin-desc") {
+        const ma = a.price ? (Number(a.price) - Number(a.costTotalPkr || 0)) / Number(a.price) : 0;
+        const mb = b.price ? (Number(b.price) - Number(b.costTotalPkr || 0)) / Number(b.price) : 0;
+        return mb - ma;
+      }
+      return 0; // "newest" / default order preserved
+    });
+
+    return result;
+  }, [products, inventorySearch, inventoryView, sortBy]);
 
   const filteredSources = inventorySources.filter((source) => {
     const query = sourceSearch.toLowerCase();
     return [source.name, source.type, source.contact, source.location, source.notes]
-      .some((value) => String(value || "").toLowerCase().includes(query));
+      .some((val) => String(val || "").toLowerCase().includes(query));
   });
 
   const filteredMaterials = materials.filter((item) => {
     const source = inventorySources.find((entry) => entry.id === item.sourceId);
     const query = sourceSearch.toLowerCase();
     return [item.item, item.category, item.unit, item.notes, source?.name]
-      .some((value) => String(value || "").toLowerCase().includes(query));
+      .some((val) => String(val || "").toLowerCase().includes(query));
   });
 
   function inventoryStatus(product) {
@@ -9229,71 +10757,20 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
   }
 
   function openAdjust(productId = "") {
-    setDialogProductId(productId || products[0]?.id || "__custom__");
+    setDialogProductId(productId || products[0]?.id || "");
     setDialogOpen(true);
   }
 
-  async function adjustStock(event) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const id = data.get("product");
-    const amount = Number(data.get("amount"));
-    const reason = data.get("reason");
-
-    if (!Number.isFinite(amount) || amount === 0) {
-      window.alert("Please enter a non-zero quantity, for example +10 or -2.");
-      return;
-    }
-
-    if (id === "__custom__") {
-      const name = String(data.get("customName") || "").trim();
-      const sku = String(data.get("customSku") || "").trim() || `CUSTOM-${Date.now().toString().slice(-5)}`;
-      if (!name) {
-        window.alert("Please enter a product name.");
-        return;
-      }
-      if (amount < 0) {
-        window.alert("Opening stock cannot be negative.");
-        return;
-      }
-      try {
-        await onCreateCustomInventory({ name, sku, stock: amount });
-        setLocalHistory((current) => [{
-          id: `local-${Date.now()}`,
-          product: name,
-          change: amount,
-          reason: "New product",
-          date: new Date().toLocaleString("en-PK"),
-          user: "Admin",
-        }, ...current]);
-        setDialogOpen(false);
-        setTab("Stock");
-      } catch (error) {
-        window.alert(error.message || "Unable to add product.");
-      }
-      return;
-    }
-
-    const product = products.find((item) => String(item.id) === String(id));
-    if (!product) {
-      window.alert("Please select a valid product.");
-      return;
-    }
-
+  async function quickAdjustRowStock(productId, delta) {
+    const prod = products.find((p) => String(p.id) === String(productId));
+    if (!prod) return;
+    const current = Number(prod.stock || 0);
+    const next = current + delta;
+    if (next < 0) return;
     try {
-      await onAdjust(id, amount, reason);
-      setLocalHistory((current) => [{
-        id: `local-${Date.now()}`,
-        product: product.name,
-        change: amount,
-        reason,
-        date: new Date().toLocaleString("en-PK"),
-        user: "Admin",
-      }, ...current]);
-      setDialogOpen(false);
-      setTab("Stock");
-    } catch (error) {
-      window.alert(error.message || "Unable to adjust inventory.");
+      await onAdjust(productId, delta, delta > 0 ? "Quick restock (+1)" : "Quick deduction (-1)");
+    } catch (err) {
+      window.alert(err.message || "Unable to adjust stock.");
     }
   }
 
@@ -9302,15 +10779,18 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     const data = new FormData(event.currentTarget);
     const name = String(data.get("name") || "").trim();
     if (!name) return;
-    const nextSources = [{
-      id: `source-${Date.now()}`,
-      name,
-      type: data.get("type") || "Material supplier",
-      contact: data.get("contact") || "",
-      location: data.get("location") || "",
-      notes: data.get("notes") || "",
-      status: data.get("status") || "Active",
-    }, ...inventorySources];
+    const nextSources = [
+      {
+        id: `source-${Date.now()}`,
+        name,
+        type: data.get("type") || "Material supplier",
+        contact: data.get("contact") || "",
+        location: data.get("location") || "",
+        notes: data.get("notes") || "",
+        status: data.get("status") || "Active",
+      },
+      ...inventorySources,
+    ];
     saveInventoryResources(nextSources, materials);
     event.currentTarget.reset();
   }
@@ -9320,18 +10800,21 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     const data = new FormData(event.currentTarget);
     const item = String(data.get("item") || "").trim();
     if (!item) return;
-    const nextMaterials = [{
-      id: `material-${Date.now()}`,
-      item,
-      category: data.get("category") || "Other material",
-      sourceId: data.get("sourceId") || inventorySources[0]?.id || "",
-      quantity: Number(data.get("quantity") || 0),
-      unit: data.get("unit") || "pcs",
-      unitCost: Number(data.get("unitCost") || 0),
-      reorderAt: Number(data.get("reorderAt") || 0),
-      notes: data.get("notes") || "",
-      status: "Tracked",
-    }, ...materials];
+    const nextMaterials = [
+      {
+        id: `material-${Date.now()}`,
+        item,
+        category: data.get("category") || "Other material",
+        sourceId: data.get("sourceId") || inventorySources[0]?.id || "",
+        quantity: Number(data.get("quantity") || 0),
+        unit: data.get("unit") || "pcs",
+        unitCost: Number(data.get("unitCost") || 0),
+        reorderAt: Number(data.get("reorderAt") || 0),
+        notes: data.get("notes") || "",
+        status: "Tracked",
+      },
+      ...materials,
+    ];
     saveInventoryResources(inventorySources, nextMaterials);
     event.currentTarget.reset();
   }
@@ -9345,135 +10828,1020 @@ function InventoryPanel({ products, movements, orders, connected, currentAdminUs
     saveInventoryResources(inventorySources, nextMaterials);
   }
 
-  if (productionOpen) {
-    return <div className="inventorySystem"><div className="adminOverlay" onClick={() => setProductionOpen(false)} /><form className="inventoryDialog" onSubmit={saveProductionBatch}>
-      <DialogHead title="Create multi-product production batch" onClose={() => setProductionOpen(false)} />
-      <p className="trackingNumber">Add every design in this production run. Shared costs are divided by total finished-suit quantity; direct costs remain with their selected design.</p>
-      {productionItems.map((item, index) => <section className="adminCard" style={{ padding: "14px", marginBottom: "12px" }} key={item.key}>
-        <div className="editorHeading"><p className="fieldTitle">Design {index + 1}</p>{productionItems.length > 1 && <button type="button" className="removeProductButton" onClick={() => setProductionItems((current) => current.filter((entry) => entry.key !== item.key))}>Remove</button>}</div>
-        <label>Design / product<select required value={item.productId} onChange={(event) => updateProductionItem(item.key, { productId: event.target.value })}><option value="">Select product</option><option value="__new__">+ Create new product/design</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
-        {item.productId === "__new__" && <><label>Product / design name<input required value={item.newProductName} onChange={(event) => updateProductionItem(item.key, { newProductName: event.target.value })} placeholder="e.g. Blue Arora – Design 4" /></label><div className="formRow"><label>Selling price<input type="number" min="0" required value={item.newProductPrice} onChange={(event) => updateProductionItem(item.key, { newProductPrice: event.target.value })} placeholder="0" /></label><label>Category<input value={item.newProductCategory} onChange={(event) => updateProductionItem(item.key, { newProductCategory: event.target.value })} placeholder="Kurtis" /></label></div><label>Image URL (optional)<input value={item.newProductImage} onChange={(event) => updateProductionItem(item.key, { newProductImage: event.target.value })} placeholder="https://..." /></label></>}
-        <label>Finished suits for this design<input type="number" min="1" required value={item.quantity} onChange={(event) => updateProductionItem(item.key, { quantity: event.target.value })} placeholder="25" /></label>
-        <p className="fieldTitle">Direct costs for this design (PKR)</p>
-        <div className="formRow"><label>Fabric<input type="number" min="0" value={item.directCostBreakdown.fabric || ""} onChange={(event) => updateProductionItemCost(item.key, "fabric", event.target.value)} /></label><label>Stitching<input type="number" min="0" value={item.directCostBreakdown.stitching || ""} onChange={(event) => updateProductionItemCost(item.key, "stitching", event.target.value)} /></label></div>
-        <div className="formRow"><label>Stitching material<input type="number" min="0" value={item.directCostBreakdown.stitchingMaterial || ""} onChange={(event) => updateProductionItemCost(item.key, "stitchingMaterial", event.target.value)} /></label><label>Packaging<input type="number" min="0" value={item.directCostBreakdown.packaging || ""} onChange={(event) => updateProductionItemCost(item.key, "packaging", event.target.value)} /></label></div>
-        <div className="formRow"><label>Travel / transport<input type="number" min="0" value={item.directCostBreakdown.travel || ""} onChange={(event) => updateProductionItemCost(item.key, "travel", event.target.value)} /></label><label>Other<input type="number" min="0" value={item.directCostBreakdown.other || ""} onChange={(event) => updateProductionItemCost(item.key, "other", event.target.value)} /></label></div>
-      </section>)}
-      <button type="button" onClick={() => setProductionItems((current) => [...current, newProductionItem()])}><Plus /> Add another design</button>
-      <section className="adminCard" style={{ padding: "14px", marginTop: "12px" }}><p className="fieldTitle">Shared costs for all designs (PKR)</p><p className="trackingNumber">These costs are divided across every suit by quantity.</p><div className="formRow"><label>Shared fabric<input name="shared-fabric" type="number" min="0" defaultValue="0" /></label><label>Shared stitching<input name="shared-stitching" type="number" min="0" defaultValue="0" /></label></div><div className="formRow"><label>Shared stitching material<input name="shared-stitchingMaterial" type="number" min="0" defaultValue="0" /></label><label>Shared packaging<input name="shared-packaging" type="number" min="0" defaultValue="0" /></label></div><div className="formRow"><label>Shared travel / transport<input name="shared-travel" type="number" min="0" defaultValue="0" /></label><label>Shared other<input name="shared-other" type="number" min="0" defaultValue="0" /></label></div></section>
-      <label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label><label>Batch note<textarea name="note" rows="2" placeholder="Supplier, stitching unit or batch reference" /></label><button className="dialogSave" disabled={productionSaving}>{productionSaving ? "Saving batch..." : "Save batch, allocate costs & add stock"}</button>
-    </form></div>;
-  }
-
-  return <div className="inventorySystem">
-    <div className="adminTitle"><div><p>OPERATIONS</p><h1>Inventory</h1><span>Track finished products, stitching units, suppliers and materials like buttons, laces and trims.</span></div><button onClick={() => tab === "Sources" ? setTab("Sources") : openAdjust()}><Plus /> {tab === "Sources" ? "Add source below" : "Adjust stock"}</button></div>
-    <div className="miniMetricGrid">
-      <article><Boxes /><span><b>{total}</b>Available units</span></article>
-      <article><WalletCards /><span><b>{inventoryMoney(stockCostValue)}</b>Stock value on hand</span></article>
-      <article><CircleDollarSign /><span><b>{inventoryMoney(cogsSold)}</b>COGS sold</span></article>
-      <article><Landmark /><span><b>{inventoryMoney(stockPurchaseCash)}</b>Stock purchase cash</span></article>
-      <article className={restockCashRequired ? "alertMetric" : ""}><TrendingUp /><span><b>{inventoryMoney(restockCashRequired)}</b>Restock cash required</span></article>
-      <article className={low ? "alertMetric" : ""}><TrendingUp /><span><b>{low}</b>Low stock</span></article>
-      <article><Store /><span><b>{inventorySources.length}</b>Sources</span></article>
-      <article><WalletCards /><span><b>Rs. {stockCostValue.toLocaleString()}</b>Stock cost value</span></article>
-      <article><TrendingUp /><span><b>Rs. {value.toLocaleString()}</b>Potential sales value</span></article>
-      <article className={displayedStockProfit < 0 ? "alertMetric" : ""}><CircleDollarSign /><span><b>Rs. {displayedStockProfit.toLocaleString()}</b>{profitProjectionView === "all" ? "All-cost projected profit" : "Product-only stock profit"}</span></article>
-      <article className={lowMaterialCount ? "alertMetric" : ""}><Tags /><span><b>Rs. {materialValue.toLocaleString()}</b>Material value</span></article>
-    </div>
-    <div className="adminVisualGrid">
-      <VisualDonut title="Stock health" subtitle="Healthy, low and out-of-stock product split at a glance." centerValue={products.filter(p => Number(p.stock || 0) > Number(p.lowStockThreshold || 5)).length} centerLabel="healthy" items={inventoryStockVisual} />
-      <VisualBars title="Capital allocation" subtitle="Stock value on hand, COGS sold, purchase cost and restock investment needed." format={(value) => inventoryMoney(value)} items={inventoryValueVisual} />
-    </div>
-
-    {low + out > 0 && <div className="inventoryAlert"><Bell /><div><b>{low + out} products need attention</b><span>Out-of-stock products cannot be ordered, and low stock is highlighted here.</span></div><button onClick={() => setInventoryView(low ? "Low stock" : "Out of stock")}>Review items</button></div>}
-    {returnedHistoricalOrders.length > 0 && <section id="returned-order-inspection" className="adminCard managementCard inventoryLedger"><div className="inventoryListHead"><div><h2>Returned-order inspection queue</h2><span>Inspect the physical parcel, then confirm stock restoration from its order workflow.</span></div><b>{returnedHistoricalOrders.length} pending</b></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Finance impact</th><th>Required action</th></tr></thead><tbody>{returnedHistoricalOrders.slice(0, 10).map((order) => <tr key={order.id}><td><b>{order.id}</b></td><td>{order.customer || "—"}</td><td>{normalizeOrderItems(order.raw || order).map((item) => `${item.name} × ${item.quantity}`).join(", ")}</td><td className="expenseAmount">Actual PostEx loss</td><td><button type="button" onClick={() => onOpenOrder?.(order)}>Inspect &amp; restore stock</button></td></tr>)}</tbody></table></div><p className="trackingNumber">Finance deducts the actual PostEx return, shipping, GST and tax loss from synced CPR/payment data. After inspection, select <b>Return received</b> and confirm the stock restoration once; the system records a movement and prevents a second restore.</p></section>}
-    {lowMaterialCount > 0 && <div className="inventoryAlert materialAlert"><Bell /><div><b>{lowMaterialCount} material items need reorder review</b><span>Buttons, laces, trims and other raw materials are tracked separately from finished product stock.</span></div><button onClick={() => setTab("Sources")}>Review materials</button></div>}
-
-    <section className="adminCard managementCard inventoryLedger">
-      <div className="inventoryListHead"><div><h2>Inventory profit projection</h2><span>Estimate only — actual profit remains in Finance after orders are delivered.</span></div></div>
-      <div className="inventoryViewBar"><button type="button" className={profitProjectionView === "product" ? "active" : ""} onClick={() => setProfitProjectionView("product")}>Product-only</button><button type="button" className={profitProjectionView === "all" ? "active" : ""} onClick={() => setProfitProjectionView("all")}>All costs included</button><HelpHint text="Estimated stock profit after expected return-courier loss and saved marketing spend. Actual profit remains in Finance." /></div>
-      {profitProjectionView === "product" ? <div className="inventoryAlert materialAlert"><CircleDollarSign /><div><b>Product-only stock profit: Rs. {potentialStockProfit.toLocaleString()}</b><span>Potential sales minus saved per-item product cost and synced PostEx GST/4% deduction estimate where available. Delivery, returns and marketing stay in the all-cost estimate.</span></div></div> : <><div className="financeControls"><label>Expected items per order<input type="number" min="1" step="0.1" value={expectedItemsPerOrder || historicalItemsPerOrder.toFixed(1)} onChange={(event) => setExpectedItemsPerOrder(event.target.value)} /></label><label>Projected orders<input readOnly value={projectedOrderCount} /></label><label>Historical return rate<input readOnly value={`${Math.round(returnRate * 100)}%`} /></label></div><div className="financeStatement"><div><span>Product-only stock profit</span><b>{inventoryMoney(potentialStockProfit)}</b></div><div><span>Customer delivery fee collected</span><b>Rs. 200 / order</b></div><div><span>Expected returned-order PostEx loss</span><b>- {inventoryMoney(projectedReturnCourierLoss)}</b></div><div><span>Actual marketing spend allocated per sold item</span><b>- {inventoryMoney(projectedMarketingCost)}</b></div><div className="statementTotal"><span>All-cost projected inventory profit</span><b>{inventoryMoney(allCostsProjectedProfit)}</b></div></div><p className="trackingNumber">{!projectionFinanceLoaded ? "Loading Finance-linked assumptions..." : projectionFinanceAvailable ? "Marketing uses saved Cashbook entries in the Marketing category. Return loss uses actual synced PostEx history when available; change expected items per order if needed." : "Finance marketing data is unavailable for this account, so marketing is shown as Rs. 0. Product-only calculation remains accurate."}</p></>}
-    </section>
-
-    <section className="financeGrid financeGridWide">
-      <div className="adminCard managementCard"><div className="inventoryListHead"><div><h2>SKU profitability</h2><span>Delivered sales less saved unit cost and synced PostEx GST/4% deduction estimate. Finance remains the final source of truth.</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Product / SKU</th><th>Units sold</th><th>Sales</th><th>COGS</th><th>Net margin</th></tr></thead><tbody>{skuProfitRows.slice(0, 12).map((row) => <tr key={row.product.id}><td><b>{row.product.name}</b><br /><small>{row.product.sku || row.product.articleNumber || "—"}</small></td><td>{row.unitsSold}</td><td>Rs. {row.sales.toLocaleString()}</td><td>Rs. {row.cost.toLocaleString()}</td><td className={row.margin < 15 ? "expenseAmount" : "incomeAmount"}>{row.margin}%</td></tr>)}{!skuProfitRows.length && <tr><td colSpan="5" className="emptyFinanceCell">No delivered SKU sales yet.</td></tr>}</tbody></table></div></div>
-      <div className="adminCard financeSummaryCard"><div className="cardHeading"><div><h2>Stock ageing</h2><p>Based on the oldest dated positive inventory receipt. Legacy stock without receipt date is kept separate.</p></div></div><div className="financeStatement"><div><span>Fresh stock (0–30 days)</span><b>{stockAgeCounts.fresh}</b></div><div><span>Normal stock (31–60 days)</span><b>{stockAgeCounts.normal}</b></div><div><span>Slow-moving (61–90 days)</span><b>{stockAgeCounts.slow}</b></div><div><span>Legacy stock — no dated receipt</span><b>{stockAgeCounts.legacy}</b></div><div className="statementTotal"><span>Dead-stock risk (90+ days)</span><b>{stockAgeCounts.dead}</b></div></div></div>
-    </section>
-
-    <div className="inventoryTabs">
-      {["Stock", "Sources", "History"].map(item => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item === "Sources" ? "Sources & Materials" : item}</button>)}
-    </div>
-
-    {tab === "Stock" && <section className="adminCard managementCard inventoryLedger">
-      <div className="inventoryViewBar">
-        {["All", "Low stock", "Out of stock"].map(item => <button type="button" key={item} className={inventoryView === item ? "active" : ""} onClick={() => setInventoryView(item)}>{item}</button>)}
+  return (
+    <div className="inventorySystem">
+      {/* Title & Primary Toolbar */}
+      <div className="adminTitle">
+        <div>
+          <p>OPERATIONS &amp; LOGISTICS</p>
+          <h1>Inventory Operations</h1>
+          <span>Unified stock control, production runs, raw materials, and cross-channel inventory health.</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          <button type="button" onClick={() => openAdjust()} style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <Plus size={15} /> Adjust stock
+          </button>
+          <button type="button" onClick={() => setProductionOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <Scissors size={15} /> Production batch
+          </button>
+          <button
+            type="button"
+            onClick={onAddProduct}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "#164e32",
+              color: "#fff",
+              fontWeight: 700,
+            }}
+          >
+            <Plus size={15} /> Add product
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenCalculator?.()}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "#fff",
+              border: "1px solid #c9d8ce",
+              color: "#164e32",
+              fontWeight: 600,
+            }}
+            title="Open Article Price Calculator"
+          >
+            <Calculator size={15} /> Price Calculator
+          </button>
+        </div>
       </div>
-      <div className="inventoryControlBar simpleInventoryControls">
-        <div className="inlineSearch"><Search /><input value={inventorySearch} onChange={(event) => setInventorySearch(event.target.value)} placeholder="Search products or SKU..." /></div>
-        <button type="button" onClick={() => setProductionOpen(true)}><Plus /> Create production batch</button>
-        <button type="button" onClick={() => openAdjust("__custom__")}><Plus /> Add product with stock</button>
+
+      {/* 5-Card Executive KPI Strip (Zero duplicates!) */}
+      <div className="miniMetricGrid" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
+        <article>
+          <Boxes />
+          <span>
+            <b>{total.toLocaleString()}</b>Available stock units
+          </span>
+        </article>
+        <article>
+          <WalletCards />
+          <span>
+            <b>{inventoryMoney(stockCostValue)}</b>Inventory cost (COGS)
+          </span>
+        </article>
+        <article>
+          <CircleDollarSign />
+          <span>
+            <b>{inventoryMoney(value)}</b>Retail value ({stockMarginPct}% margin)
+          </span>
+        </article>
+        <article className={out + low > 0 ? "alertMetric" : ""}>
+          <TrendingUp />
+          <span>
+            <b>{out + low}</b>{out > 0 ? `${out} Out / ${low} Low` : `${low} Low stock` }
+          </span>
+        </article>
+        <article>
+          <Store />
+          <span>
+            <b>{activeBatchesCount}</b>Batches · {inventoryMoney(materialValue)} trims
+          </span>
+        </article>
       </div>
-      <div className="adminTableWrap"><table className="adminTable inventoryTable simpleInventoryTable"><thead><tr><th>Product</th><th>SKU</th><th>Available</th><th>Threshold</th><th>Retail value</th><th>Status</th><th /></tr></thead><tbody>{visibleInventoryRows.map(product => { const status = inventoryStatus(product); return <tr key={product.id}><td><div className="tableProduct"><span style={{ backgroundImage: `url(${product.image})` }} /><b>{product.name}</b></div></td><td>{product.sku || product.articleNumber || `BST-${String(product.id).padStart(4, "0")}`}</td><td><b className={Number(product.stock || 0) <= Number(product.lowStockThreshold || 5) ? "stockLow" : ""}>{Number(product.stock || 0)}</b></td><td>{Number(product.lowStockThreshold || 5)}</td><td>Rs. {(Number(product.price || 0) * Number(product.stock || 0)).toLocaleString()}</td><td><span className={`statusBadge ${status.className}`}>{status.label}</span></td><td><button className="adjustStockButton" onClick={() => openAdjust(product.id)}>Adjust</button></td></tr> })}</tbody></table>{!visibleInventoryRows.length && <div className="inventoryEmpty">No products match this view.</div>}</div>
-    </section>}
 
-    {tab === "Stock" && <section className="adminCard managementCard inventoryLedger">
-      <div className="editorHeading"><div><h2>Production batches</h2><p>Start a batch with the costs you know today, then add stitching, lace, packing or travel later. Every new cost updates the same batch and its per-suit cost once.</p></div></div>
-      <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Batch</th><th>Product</th><th>Quantity</th><th>Total cost</th><th>Unit cost</th><th>Date</th><th>Status</th><th /></tr></thead><tbody>
-        {productionBatches.map((batch) => <tr key={batch.id}><td><b>{batch.id}</b><small className="trackingNumber"><br />{Array.isArray(batch.costEntries) ? batch.costEntries.length : 0} cost entries</small></td><td>{batch.productName}</td><td>{Number(batch.quantity || 0).toLocaleString()}</td><td>Rs. {Number(batch.totalCost || 0).toLocaleString()}</td><td>Rs. {Number(batch.unitCost || 0).toLocaleString()}</td><td>{batch.date || "—"}</td><td><span className={`statusBadge ${batch.status === "voided" ? "cancelled" : "delivered"}`}>{batch.status === "voided" ? "Voided" : "Active"}</span></td><td>{batch.status !== "voided" && <div className="tableActionButtons"><button className="editProductButton" type="button" onClick={() => setBatchCostBatch(batch)}>Add cost</button><button className="removeProductButton" type="button" disabled={voidingBatchId === batch.id} onClick={() => voidProductionBatch(batch)}>{voidingBatchId === batch.id ? "Voiding..." : "Void test batch"}</button></div>}</td></tr>)}
-        {!productionBatchesLoading && !productionBatches.length && <tr><td colSpan="8"><div className="inventoryEmpty">No production batches yet.</div></td></tr>}
-        {productionBatchesLoading && <tr><td colSpan="8"><div className="inventoryEmpty">Loading production batches...</div></td></tr>}
-      </tbody></table></div>
-    </section>}
+      {/* Actionable Alerts */}
+      {out + low > 0 && (
+        <div className="inventoryAlert">
+          <Bell />
+          <div>
+            <b>{out + low} product{out + low === 1 ? "" : "s"} need attention</b>
+            <span>
+              {out > 0 ? `${out} product${out === 1 ? " is" : "s are"} out of stock and cannot be ordered. ` : ""}
+              {low > 0 ? `${low} product${low === 1 ? " is" : "s are"} below low-stock alert threshold.` : ""}
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: "6px" }}>
+            {out > 0 && (
+              <button type="button" onClick={() => { setTab("Stock"); setInventoryView("Out of stock"); }}>
+                Out of stock ({out})
+              </button>
+            )}
+            {low > 0 && (
+              <button type="button" onClick={() => { setTab("Stock"); setInventoryView("Low stock"); }}>
+                Low stock ({low})
+              </button>
+            )}
+            <button type="button" onClick={() => { setTab("Stock"); setInventoryView("All"); }}>
+              View all
+            </button>
+          </div>
+        </div>
+      )}
 
-    {tab === "Sources" && <InventorySourcesPanel
-      sources={filteredSources}
-      allSources={inventorySources}
-      materials={filteredMaterials}
-      sourceSearch={sourceSearch}
-      setSourceSearch={setSourceSearch}
-      onAddSource={addInventorySource}
-      onAddMaterial={addMaterial}
-      onUpdateMaterialQuantity={updateMaterialQuantity}
-      saving={resourcesSaving}
-    />}
+      {missingCostCount > 0 && (
+        <div className="inventoryAlert" style={{ background: "#fef8f0", borderColor: "#f6cf97" }}>
+          <AlertCircle color="#d08a18" />
+          <div>
+            <b style={{ color: "#9a6108" }}>{missingCostCount} product{missingCostCount === 1 ? "" : "s"} missing unit cost (COGS)</b>
+            <span>
+              Accurate gross margins, inventory valuation, and net profit calculations require a unit cost for every product.
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: "6px" }}>
+            <button
+              type="button"
+              onClick={() => { setTab("Stock"); setInventoryView("Missing cost"); }}
+              style={{ background: "#9a6108", color: "#fff" }}
+            >
+              Filter missing cost ({missingCostCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenCalculator?.()}
+              style={{ background: "#fff", color: "#9a6108", border: "1px solid #f6cf97" }}
+            >
+              Open Calculator
+            </button>
+          </div>
+        </div>
+      )}
 
-    {tab === "History" && <InventoryList title="Stock adjustment history" headers={["Product", "Change", "Reason", "Date", "User"]} rows={history.map(x => [x.product, x.change > 0 ? `+${x.change}` : x.change, x.reason, x.date, x.user])} empty="No stock adjustments yet." />}
+      {returnedHistoricalOrders.length > 0 && (
+        <section id="returned-order-inspection" className="adminCard managementCard inventoryLedger">
+          <div className="inventoryListHead">
+            <div>
+              <h2>Returned-order inspection queue</h2>
+              <span>Inspect the physical parcel, then confirm stock restoration from its order workflow.</span>
+            </div>
+            <b>{returnedHistoricalOrders.length} pending inspection</b>
+          </div>
+          <div className="adminTableWrap">
+            <table className="adminTable">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Customer</th>
+                  <th>Items</th>
+                  <th>Finance impact</th>
+                  <th>Required action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {returnedHistoricalOrders.slice(0, 10).map((order) => (
+                  <tr key={order.id}>
+                    <td><b>{order.id}</b></td>
+                    <td>{order.customer || "—"}</td>
+                    <td>{normalizeOrderItems(order.raw || order).map((item) => `${item.name} × ${item.quantity}`).join(", ")}</td>
+                    <td className="expenseAmount">Actual PostEx loss</td>
+                    <td>
+                      <button type="button" onClick={() => onOpenOrder?.(order)}>
+                        Inspect &amp; restore stock
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="trackingNumber">
+            Finance deducts the actual PostEx return, shipping, GST and tax loss from synced CPR/payment data. After inspection, select <b>Return received</b> and confirm stock restoration once; the system records a movement and prevents duplicate restores.
+          </p>
+        </section>
+      )}
 
-    {dialogOpen && <InventoryDialog products={products} productChoice={dialogProductId} setProductChoice={setDialogProductId} onClose={() => setDialogOpen(false)} onAdjust={adjustStock} />}
-    {voidBatch && <><div className="adminOverlay" onClick={closeVoidBatch} /><form className="inventoryDialog" onSubmit={voidProductionBatch}>
-      <DialogHead title={`Void ${voidBatch.id}`} onClose={closeVoidBatch} />
-      <p className="trackingNumber">Owner-only action. It reverses the batch stock, removes its linked Finance production expense and keeps a voided audit record. Do not void a batch that has customer orders.</p>
-      <label>Type <b>{`VOID ${voidBatch.id}`}</b> exactly to confirm<input value={voidConfirmation} onChange={(event) => setVoidConfirmation(event.target.value)} autoComplete="off" autoFocus /></label>
-      <button className="removeProductButton" type="submit" disabled={voidingBatchId === voidBatch.id || voidConfirmation.trim() !== `VOID ${voidBatch.id}`}>{voidingBatchId === voidBatch.id ? "Voiding batch..." : "Void batch permanently"}</button>
-    </form></>}
-    {batchCostBatch && <><div className="adminOverlay" onClick={() => !batchCostSaving && setBatchCostBatch(null)} /><form className="inventoryDialog" onSubmit={addProductionBatchCost}>
-      <DialogHead title={`Add cost to ${batchCostBatch.id}`} onClose={() => !batchCostSaving && setBatchCostBatch(null)} />
-      <p className="trackingNumber">Batch: {batchCostBatch.productName} · {Number(batchCostBatch.quantity || 0)} suits. Yeh amount isi batch ke total aur per-suit cost mein add hogi; Finance Cashbook mein bhi ek hi linked entry banegi.</p>
-      <div className="formRow"><label>Cost type<select name="costKey" defaultValue="stitching"><option value="fabric">Fabric</option><option value="stitching">Stitching / tailor</option><option value="stitchingMaterial">Lace / embellishment</option><option value="packaging">Packaging</option><option value="travel">Travel / transport</option><option value="other">Other production cost</option></select></label><label>Amount<input name="amount" type="number" min="0.01" step="0.01" required autoFocus /></label></div>
-      <div className="formRow"><label>Date<input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label><label>Tailor / supplier<input name="counterparty" placeholder="e.g. Amina Tailors" /></label></div>
-      <button
-        type="submit"
-        disabled={batchCostSaving}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "8px",
-          cursor: batchCostSaving ? "not-allowed" : "pointer"
-        }}
-      >
-        {batchCostSaving ? (
-          <>
-            <Loader2 size={16} className="animate-spin" />
-            <span>Adding cost...</span>
-          </>
-        ) : (
-          "Add to this batch"
-        )}
-      </button>
-    </form></>}
-    <ProductionBatchModal isOpen={productionOpen} onClose={() => setProductionOpen(false)} onSubmit={saveProductionBatch} products={products} saving={productionSaving} />
-  </div>;
+      {lowMaterialCount > 0 && (
+        <div className="inventoryAlert materialAlert">
+          <Bell />
+          <div>
+            <b>{lowMaterialCount} material item{lowMaterialCount === 1 ? "" : "s"} need reorder review</b>
+            <span>Buttons, laces, trims and packaging materials are tracked separately from finished product stock.</span>
+          </div>
+          <button type="button" onClick={() => setTab("Sources")}>
+            Review materials
+          </button>
+        </div>
+      )}
+
+      {/* Main Sub-Tabs */}
+      <div className="inventoryTabs" style={{ marginTop: "20px", marginBottom: "16px" }}>
+        {[
+          { id: "Stock", label: `Stock Levels (${products.length})` },
+          { id: "Batches", label: `Production Batches (${activeBatchesCount})` },
+          { id: "Sources", label: "Sources & Materials" },
+          { id: "Analytics", label: "Stock Analytics" },
+          { id: "History", label: "Adjustment History" },
+        ].map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={tab === item.id ? "active" : ""}
+            onClick={() => setTab(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {/* TAB 1: STOCK LEVELS */}
+      {tab === "Stock" && (
+        <section className="adminCard managementCard inventoryLedger">
+          {/* Sub-filter tabs */}
+          <div className="inventoryViewBar">
+            {[
+              { id: "All", label: `All (${products.length})` },
+              { id: "In stock", label: `In stock (${inStockCount})` },
+              { id: "Low stock", label: `Low stock (${low})` },
+              { id: "Out of stock", label: `Out of stock (${out})` },
+              { id: "Missing cost", label: `Missing cost (${missingCostCount})` },
+            ].map((v) => (
+              <button
+                type="button"
+                key={v.id}
+                className={inventoryView === v.id ? "active" : ""}
+                onClick={() => setInventoryView(v.id)}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Search, Sort, and Action Bar */}
+          <div className="inventoryControlBar simpleInventoryControls" style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+            <div className="inlineSearch" style={{ flex: "1 1 240px" }}>
+              <Search />
+              <input
+                value={inventorySearch}
+                onChange={(e) => setInventorySearch(e.target.value)}
+                placeholder="Search products by title, SKU, or category..."
+              />
+            </div>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: "8px",
+                border: "1px solid #d4e0d6",
+                fontSize: "12.5px",
+                fontWeight: 600,
+                color: "#163022",
+                background: "#fff",
+              }}
+            >
+              <option value="newest">Sort: Default catalog order</option>
+              <option value="stock-asc">Sort: Stock Low to High (Attention)</option>
+              <option value="stock-desc">Sort: Stock High to Low</option>
+              <option value="value-desc">Sort: Highest Retail Value</option>
+              <option value="cost-desc">Sort: Highest Unit Cost</option>
+              <option value="margin-desc">Sort: Highest Margin %</option>
+            </select>
+
+            <button type="button" onClick={() => openAdjust()}>
+              <Plus size={14} /> Adjust stock
+            </button>
+            <button type="button" onClick={() => setProductionOpen(true)}>
+              <Scissors size={14} /> Production batch
+            </button>
+            <button type="button" onClick={onAddProduct} style={{ background: "#164e32", color: "#fff" }}>
+              <Plus size={14} /> New product
+            </button>
+          </div>
+
+          {/* Shopify-Standard Inventory Table */}
+          <div className="adminTableWrap">
+            <table className="adminTable inventoryTable simpleInventoryTable">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>SKU</th>
+                  <th style={{ minWidth: "135px" }}>Available</th>
+                  <th>Threshold</th>
+                  <th>Sold</th>
+                  <th>Unit Cost (COGS)</th>
+                  <th>Retail Price &amp; Value</th>
+                  <th>Gross Margin</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleInventoryRows.map((product) => {
+                  const status = inventoryStatus(product);
+                  const st = Number(product.stock || 0);
+                  const th = Number(product.lowStockThreshold || 5);
+                  const price = Number(product.price || 0);
+                  const cost = Number(product.costTotalPkr || 0);
+                  const totalVal = price * st;
+                  const sold = soldByProductId.get(String(product.id)) || 0;
+                  const marginPct = price > 0 && cost > 0 ? Math.round(((price - cost) / price) * 100) : null;
+                  const hasVariants = (product.sizes && product.sizes.length > 0) || (product.colors && product.colors.length > 0);
+
+                  return (
+                    <tr key={product.id}>
+                      {/* Product details */}
+                      <td>
+                        <div className="tableProduct">
+                          <span style={{ backgroundImage: `url(${product.image || "/bustaniya-campaign-hero-v4.webp"})` }} />
+                          <div>
+                            <b style={{ color: "#163022" }}>{product.name}</b>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#657e6f", marginTop: "2px" }}>
+                              <span>{product.category || "Apparel"}</span>
+                              <a
+                                href={`/product/${product.id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="View live on store"
+                                style={{ color: "#166534", display: "inline-flex", alignItems: "center" }}
+                              >
+                                <ExternalLink size={11} />
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* SKU */}
+                      <td>
+                        <small style={{ fontFamily: "monospace", color: "#476352", fontSize: "12px", fontWeight: 600 }}>
+                          {product.sku || product.articleNumber || `BST-${String(product.id).padStart(4, "0")}`}
+                        </small>
+                      </td>
+
+                      {/* Available with instant quick -1/+1 buttons */}
+                      <td>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                          <button
+                            type="button"
+                            onClick={() => quickAdjustRowStock(product.id, -1)}
+                            disabled={st <= 0}
+                            style={{
+                              width: "22px",
+                              height: "22px",
+                              borderRadius: "4px",
+                              border: "1px solid #c9d8ce",
+                              background: "#fff",
+                              color: "#163022",
+                              fontSize: "13px",
+                              fontWeight: 700,
+                              cursor: st <= 0 ? "not-allowed" : "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              padding: 0,
+                            }}
+                            title="Quickly deduct 1 unit"
+                          >
+                            −
+                          </button>
+                          <b
+                            style={{
+                              fontSize: "14px",
+                              minWidth: "28px",
+                              textAlign: "center",
+                              color: st === 0 ? "#d9534f" : st <= th ? "#e09f3e" : "#166534",
+                            }}
+                          >
+                            {st}
+                          </b>
+                          <button
+                            type="button"
+                            onClick={() => quickAdjustRowStock(product.id, 1)}
+                            style={{
+                              width: "22px",
+                              height: "22px",
+                              borderRadius: "4px",
+                              border: "1px solid #c9d8ce",
+                              background: "#fff",
+                              color: "#163022",
+                              fontSize: "13px",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              padding: 0,
+                            }}
+                            title="Quickly add 1 unit"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Reorder Threshold */}
+                      <td>
+                        <span style={{ fontSize: "12px", color: "#657e6f" }}>{th}</span>
+                      </td>
+
+                      {/* Units sold */}
+                      <td>
+                        <span style={{ fontSize: "12px", fontWeight: sold > 0 ? 600 : 400, color: sold > 0 ? "#163022" : "#9ca3af" }}>
+                          {sold}
+                        </span>
+                      </td>
+
+                      {/* Unit Cost COGS */}
+                      <td>
+                        {cost > 0 ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#163022" }}>
+                              Rs. {cost.toLocaleString()}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => onOpenCalculator?.(product)}
+                              style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", color: "#657e6f" }}
+                              title="Recalculate unit cost in Price Calculator"
+                            >
+                              <Calculator size={13} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="editProductButton"
+                            onClick={() => onOpenCalculator?.(product)}
+                            style={{
+                              padding: "2px 7px",
+                              fontSize: "11px",
+                              color: "#b91c1c",
+                              borderColor: "#fca5a5",
+                              background: "#fff5f5",
+                              fontWeight: 700,
+                            }}
+                            title="Open Price Calculator to set unit cost"
+                          >
+                            + Set Cost
+                          </button>
+                        )}
+                      </td>
+
+                      {/* Price & Potential Stock Value */}
+                      <td>
+                        <div style={{ fontSize: "12.5px", fontWeight: 600, color: "#163022" }}>
+                          Rs. {price.toLocaleString()}
+                        </div>
+                        <small style={{ color: "#657e6f", fontSize: "11px" }}>
+                          Total: Rs. {totalVal.toLocaleString()}
+                        </small>
+                      </td>
+
+                      {/* Margin % badge */}
+                      <td>
+                        {marginPct !== null ? (
+                          <span
+                            className={`statusBadge ${
+                              marginPct >= 35 ? "delivered" : marginPct >= 15 ? "processing" : "cancelled"
+                            }`}
+                            style={{ fontSize: "11px", padding: "2px 7px" }}
+                          >
+                            {marginPct}%
+                          </span>
+                        ) : (
+                          <span style={{ color: "#9ca3af", fontSize: "12px" }}>—</span>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td>
+                        <span className={`statusBadge ${status.className}`}>{status.label}</span>
+                      </td>
+
+                      {/* Row Actions */}
+                      <td style={{ textAlign: "right" }}>
+                        <div className="tableActionButtons" style={{ justifyContent: "flex-end" }}>
+                          <button
+                            type="button"
+                            className="adjustStockButton"
+                            onClick={() => openAdjust(product.id)}
+                            title="Adjust quantity or set exact stock count"
+                          >
+                            Adjust
+                          </button>
+                          {hasVariants && (
+                            <button
+                              type="button"
+                              className="editProductButton"
+                              onClick={() => setVariantDrawerProduct(product)}
+                              title="Manage variant-level stock by size & color"
+                            >
+                              Variants
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="editProductButton"
+                            onClick={() => onEditProduct?.(product)}
+                            title="Edit product details in Shopify product editor"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="editProductButton"
+                            onClick={() => onOpenCalculator?.(product)}
+                            title="Open Price Calculator for this product"
+                            style={{ padding: "4px 8px" }}
+                          >
+                            <Calculator size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {!visibleInventoryRows.length && (
+              <div className="inventoryEmpty" style={{ padding: "32px", textAlign: "center" }}>
+                <Boxes size={36} color="#8a9e91" style={{ margin: "0 auto 8px" }} />
+                <b style={{ fontSize: "14px", color: "#163022", display: "block" }}>No products match this filter.</b>
+                <span style={{ fontSize: "12.5px", color: "#657e6f" }}>
+                  Try resetting your search or switching to "All" products.
+                </span>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* TAB 2: PRODUCTION BATCHES */}
+      {tab === "Batches" && (
+        <section className="adminCard managementCard inventoryLedger">
+          <div className="editorHeading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+            <div>
+              <h2>Production Batches</h2>
+              <p>
+                Start a batch with initial costs, then record stitching, lace, packaging, or travel expenses later. Every new cost automatically recalculates unit cost COGS and updates Finance Cashbook.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setProductionOpen(true)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "#164e32",
+                color: "#fff",
+                fontWeight: 700,
+                padding: "8px 14px",
+                borderRadius: "8px",
+              }}
+            >
+              <Plus size={15} /> Create production batch
+            </button>
+          </div>
+
+          <div className="adminTableWrap">
+            <table className="adminTable">
+              <thead>
+                <tr>
+                  <th>Batch ID</th>
+                  <th>Product / Design</th>
+                  <th>Quantity</th>
+                  <th>Total Cost</th>
+                  <th>Unit Cost (COGS)</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productionBatches.map((batch) => (
+                  <tr key={batch.id}>
+                    <td>
+                      <b>{batch.id}</b>
+                      <small className="trackingNumber" style={{ display: "block" }}>
+                        {Array.isArray(batch.costEntries) ? batch.costEntries.length : 0} cost entries
+                      </small>
+                    </td>
+                    <td><b>{batch.productName}</b></td>
+                    <td>{Number(batch.quantity || 0).toLocaleString()} suits</td>
+                    <td><b>Rs. {Number(batch.totalCost || 0).toLocaleString()}</b></td>
+                    <td>
+                      <b style={{ color: "#166534" }}>Rs. {Number(batch.unitCost || 0).toLocaleString()} / suit</b>
+                    </td>
+                    <td>{batch.date || "—"}</td>
+                    <td>
+                      <span className={`statusBadge ${batch.status === "voided" ? "cancelled" : "delivered"}`}>
+                        {batch.status === "voided" ? "Voided" : "Active"}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {batch.status !== "voided" && (
+                        <div className="tableActionButtons" style={{ justifyContent: "flex-end" }}>
+                          <button
+                            className="editProductButton"
+                            type="button"
+                            onClick={() => setBatchCostBatch(batch)}
+                            title="Add stitching, lace, or transport costs to this batch"
+                          >
+                            Add cost
+                          </button>
+                          <button
+                            className="removeProductButton"
+                            type="button"
+                            disabled={voidingBatchId === batch.id}
+                            onClick={() => voidProductionBatch(batch)}
+                            title="Void test or erroneous batch (Owner only)"
+                          >
+                            {voidingBatchId === batch.id ? "Voiding..." : "Void batch"}
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {!productionBatchesLoading && !productionBatches.length && (
+                  <tr>
+                    <td colSpan="8">
+                      <div className="inventoryEmpty">No production batches created yet. Click "+ Create production batch" above to begin.</div>
+                    </td>
+                  </tr>
+                )}
+                {productionBatchesLoading && (
+                  <tr>
+                    <td colSpan="8">
+                      <div className="inventoryEmpty">Loading production batches...</div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* TAB 3: SOURCES & MATERIALS */}
+      {tab === "Sources" && (
+        <InventorySourcesPanel
+          sources={filteredSources}
+          allSources={inventorySources}
+          materials={filteredMaterials}
+          sourceSearch={sourceSearch}
+          setSourceSearch={setSourceSearch}
+          onAddSource={addInventorySource}
+          onAddMaterial={addMaterial}
+          onUpdateMaterialQuantity={updateMaterialQuantity}
+          saving={resourcesSaving}
+        />
+      )}
+
+      {/* TAB 4: ANALYTICS & PROFIT PROJECTION */}
+      {tab === "Analytics" && (
+        <>
+          <div className="adminVisualGrid" style={{ marginBottom: "16px" }}>
+            <VisualDonut
+              title="Stock Health"
+              subtitle="Healthy, low and out-of-stock product split at a glance."
+              centerValue={inStockCount}
+              centerLabel="healthy"
+              items={inventoryStockVisual}
+            />
+            <VisualBars
+              title="Capital Allocation"
+              subtitle="Stock cost value on hand, COGS sold, purchase cost and restock investment needed."
+              format={(v) => inventoryMoney(v)}
+              items={inventoryValueVisual}
+            />
+          </div>
+
+          <section className="adminCard managementCard inventoryLedger" style={{ marginBottom: "16px" }}>
+            <div className="inventoryListHead">
+              <div>
+                <h2>Inventory Profit Projection</h2>
+                <span>Estimated potential profit from on-hand stock. Actual realized profit remains in Finance upon delivery.</span>
+              </div>
+            </div>
+            <div className="inventoryViewBar">
+              <button
+                type="button"
+                className={profitProjectionView === "product" ? "active" : ""}
+                onClick={() => setProfitProjectionView("product")}
+              >
+                Product-only
+              </button>
+              <button
+                type="button"
+                className={profitProjectionView === "all" ? "active" : ""}
+                onClick={() => setProfitProjectionView("all")}
+              >
+                All costs included
+              </button>
+              <HelpHint text="Estimated stock profit after expected return-courier loss and saved marketing spend. Actual profit remains in Finance." />
+            </div>
+
+            {profitProjectionView === "product" ? (
+              <div className="inventoryAlert materialAlert">
+                <CircleDollarSign />
+                <div>
+                  <b>Product-only stock profit: Rs. {potentialStockProfit.toLocaleString()}</b>
+                  <span>
+                    Potential retail sales minus saved per-item product cost and estimated 5% sales tax. Delivery fees, return losses, and marketing stay in the all-cost model.
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="financeControls">
+                  <label>
+                    Expected items per order
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.1"
+                      value={expectedItemsPerOrder || historicalItemsPerOrder.toFixed(1)}
+                      onChange={(e) => setExpectedItemsPerOrder(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Projected orders
+                    <input readOnly value={projectedOrderCount} />
+                  </label>
+                  <label>
+                    Historical return rate
+                    <input readOnly value={`${Math.round(returnRate * 100)}%`} />
+                  </label>
+                </div>
+                <div className="financeStatement">
+                  <div>
+                    <span>Product-only stock profit</span>
+                    <b>{inventoryMoney(potentialStockProfit)}</b>
+                  </div>
+                  <div>
+                    <span>Customer delivery fee collected</span>
+                    <b>Rs. 200 / order</b>
+                  </div>
+                  <div>
+                    <span>Expected returned-order PostEx loss</span>
+                    <b>- {inventoryMoney(projectedReturnCourierLoss)}</b>
+                  </div>
+                  <div>
+                    <span>Actual marketing spend allocated per sold item</span>
+                    <b>- {inventoryMoney(projectedMarketingCost)}</b>
+                  </div>
+                  <div className="statementTotal">
+                    <span>All-cost projected inventory profit</span>
+                    <b>{inventoryMoney(allCostsProjectedProfit)}</b>
+                  </div>
+                </div>
+                <p className="trackingNumber">
+                  {!projectionFinanceLoaded
+                    ? "Loading Finance-linked assumptions..."
+                    : projectionFinanceAvailable
+                    ? "Marketing uses saved Cashbook entries in the Marketing category. Return loss uses actual synced PostEx history when available."
+                    : "Finance marketing data is unavailable for this account, so marketing is shown as Rs. 0. Product-only calculation remains accurate."}
+                </p>
+              </>
+            )}
+          </section>
+
+          <section className="financeGrid financeGridWide">
+            <div className="adminCard managementCard">
+              <div className="inventoryListHead">
+                <div>
+                  <h2>SKU Profitability</h2>
+                  <span>Delivered sales less saved unit cost and synced courier deductions.</span>
+                </div>
+              </div>
+              <div className="adminTableWrap">
+                <table className="adminTable">
+                  <thead>
+                    <tr>
+                      <th>Product / SKU</th>
+                      <th>Units sold</th>
+                      <th>Sales</th>
+                      <th>COGS</th>
+                      <th>Net margin</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {skuProfitRows.slice(0, 12).map((row) => (
+                      <tr key={row.product.id}>
+                        <td>
+                          <b>{row.product.name}</b>
+                          <br />
+                          <small>{row.product.sku || row.product.articleNumber || "—"}</small>
+                        </td>
+                        <td>{row.unitsSold}</td>
+                        <td>Rs. {row.sales.toLocaleString()}</td>
+                        <td>Rs. {row.cost.toLocaleString()}</td>
+                        <td className={row.margin < 15 ? "expenseAmount" : "incomeAmount"}>{row.margin}%</td>
+                      </tr>
+                    ))}
+                    {!skuProfitRows.length && (
+                      <tr>
+                        <td colSpan="5" className="emptyFinanceCell">
+                          No delivered SKU sales yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="adminCard financeSummaryCard">
+              <div className="cardHeading">
+                <div>
+                  <h2>Stock Ageing</h2>
+                  <p>Based on the oldest dated positive inventory receipt.</p>
+                </div>
+              </div>
+              <div className="financeStatement">
+                <div>
+                  <span>Fresh stock (0–30 days)</span>
+                  <b>{stockAgeCounts.fresh}</b>
+                </div>
+                <div>
+                  <span>Normal stock (31–60 days)</span>
+                  <b>{stockAgeCounts.normal}</b>
+                </div>
+                <div>
+                  <span>Slow-moving (61–90 days)</span>
+                  <b>{stockAgeCounts.slow}</b>
+                </div>
+                <div>
+                  <span>Legacy stock — no dated receipt</span>
+                  <b>{stockAgeCounts.legacy}</b>
+                </div>
+                <div className="statementTotal">
+                  <span>Dead-stock risk (90+ days)</span>
+                  <b>{stockAgeCounts.dead}</b>
+                </div>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* TAB 5: ADJUSTMENT HISTORY */}
+      {tab === "History" && (
+        <InventoryList
+          title="Stock Adjustment History"
+          headers={["Product", "Change", "Reason", "Date", "User"]}
+          rows={history.map((x) => [x.product, x.change > 0 ? `+${x.change}` : x.change, x.reason, x.date, x.user])}
+          empty="No stock adjustments recorded yet."
+        />
+      )}
+
+      {/* Inventory Adjust / Set Modal */}
+      {dialogOpen && (
+        <InventoryDialog
+          products={products}
+          productChoice={dialogProductId}
+          setProductChoice={setDialogProductId}
+          onClose={() => setDialogOpen(false)}
+          onAdjust={async (id, delta, reason, opts) => {
+            await onAdjust(id, delta, reason, opts);
+            setLocalHistory((curr) => [
+              {
+                id: `local-${Date.now()}`,
+                product: products.find((p) => String(p.id) === String(id))?.name || id,
+                change: delta,
+                reason,
+                date: new Date().toLocaleString("en-PK"),
+                user: "Admin",
+              },
+              ...curr,
+            ]);
+          }}
+          onAddNewProduct={onAddProduct}
+        />
+      )}
+
+      {/* Production Batch Modal */}
+      <ProductionBatchModal
+        isOpen={productionOpen}
+        onClose={() => setProductionOpen(false)}
+        onSubmit={handleCreateBatch}
+        products={products}
+        saving={productionSaving}
+      />
+
+      {/* Variant Inventory Drawer */}
+      {variantDrawerProduct && (
+        <VariantInventoryDrawer
+          product={products.find((p) => String(p.id) === String(variantDrawerProduct.id)) || variantDrawerProduct}
+          onClose={() => setVariantDrawerProduct(null)}
+          onSaveVariants={async ({ productId, totalStock, lowStockThreshold, variants, status, collection }) => {
+            if (onAdjust) {
+              await onAdjust(productId, 0, "Variant inventory plan update", {
+                setStock: totalStock,
+                lowStockThreshold,
+                variants,
+              });
+            }
+            if (onQuickUpdateProduct && (status || collection)) {
+              await onQuickUpdateProduct(productId, {
+                ...(status ? { status } : {}),
+                ...(collection ? { collection } : {}),
+              });
+            }
+            setVariantDrawerProduct(null);
+          }}
+        />
+      )}
+
+      {/* Void Batch Confirmation Modal */}
+      {voidBatch && (
+        <>
+          <div className="adminOverlay" onClick={closeVoidBatch} />
+          <form className="inventoryDialog" onSubmit={voidProductionBatch}>
+            <DialogHead title={`Void ${voidBatch.id}`} onClose={closeVoidBatch} />
+            <p className="trackingNumber">
+              Owner-only action. It reverses the batch stock, removes its linked Finance production expense and keeps a voided audit record. Do not void a batch that has customer orders.
+            </p>
+            <label>
+              Type <b>{`VOID ${voidBatch.id}`}</b> exactly to confirm
+              <input
+                value={voidConfirmation}
+                onChange={(event) => setVoidConfirmation(event.target.value)}
+                autoComplete="off"
+                autoFocus
+              />
+            </label>
+            <button
+              className="removeProductButton"
+              type="submit"
+              disabled={voidingBatchId === voidBatch.id || voidConfirmation.trim() !== `VOID ${voidBatch.id}`}
+            >
+              {voidingBatchId === voidBatch.id ? "Voiding batch..." : "Void batch permanently"}
+            </button>
+          </form>
+        </>
+      )}
+
+      {/* Add Cost to Batch Modal (100% English) */}
+      {batchCostBatch && (
+        <>
+          <div className="adminOverlay" onClick={() => !batchCostSaving && setBatchCostBatch(null)} />
+          <form className="inventoryDialog" onSubmit={addProductionBatchCost}>
+            <DialogHead title={`Add Cost to ${batchCostBatch.id}`} onClose={() => !batchCostSaving && setBatchCostBatch(null)} />
+            <p className="trackingNumber">
+              Batch: {batchCostBatch.productName} · {Number(batchCostBatch.quantity || 0)} suits. This amount will be added to this batch's total and per-suit unit cost; a linked expense will also be recorded in Finance Cashbook.
+            </p>
+            <div className="formRow">
+              <label>
+                Cost type
+                <select name="costKey" defaultValue="stitching">
+                  <option value="fabric">Fabric</option>
+                  <option value="stitching">Stitching / tailor</option>
+                  <option value="stitchingMaterial">Lace / embellishment</option>
+                  <option value="packaging">Packaging</option>
+                  <option value="travel">Travel / transport</option>
+                  <option value="other">Other production cost</option>
+                </select>
+              </label>
+              <label>
+                Amount (PKR)
+                <input name="amount" type="number" min="0.01" step="0.01" required autoFocus placeholder="0" />
+              </label>
+            </div>
+            <div className="formRow">
+              <label>
+                Date
+                <input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+              </label>
+              <label>
+                Tailor / supplier
+                <input name="counterparty" placeholder="e.g. Amina Tailors" />
+              </label>
+            </div>
+            <button
+              type="submit"
+              disabled={batchCostSaving}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                cursor: batchCostSaving ? "not-allowed" : "pointer",
+                padding: "10px",
+                background: "#164e32",
+                color: "#fff",
+                borderRadius: "8px",
+                fontWeight: 700,
+              }}
+            >
+              {batchCostSaving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Adding cost...</span>
+                </>
+              ) : (
+                "Add to this batch & update COGS"
+              )}
+            </button>
+          </form>
+        </>
+      )}
+    </div>
+  );
 }
 
 function InventorySourcesPanel({
@@ -9490,76 +11858,851 @@ function InventorySourcesPanel({
   const sourceName = (sourceId) => allSources.find((source) => source.id === sourceId)?.name || "Unassigned";
   const materialValue = materials.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitCost || 0), 0);
 
-  return <div className="inventorySourcesGrid">
-    <section className="adminCard managementCard inventorySourcesMain">
-      <div className="inventoryListHead"><div><h2>Sources and units</h2><span>Stitching units, vendors and material suppliers</span></div></div>
-      <div className="inventoryControlBar simpleInventoryControls sourceSearchBar">
-        <div className="inlineSearch"><Search /><input value={sourceSearch} onChange={(event) => setSourceSearch(event.target.value)} placeholder="Search sources, material, supplier, contact..." /></div>
-      </div>
-      <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Source</th><th>Type</th><th>Contact</th><th>Location</th><th>Status</th></tr></thead><tbody>
-        {sources.map((source) => <tr key={source.id}><td><b>{source.name}</b><small className="trackingNumber">{source.notes || "No notes"}</small></td><td>{source.type}</td><td>{source.contact || "-"}</td><td>{source.location || "-"}</td><td><span className={`statusBadge ${source.status === "Active" ? "activeStatus" : "processing"}`}>{source.status}</span></td></tr>)}
-        {!sources.length && <tr><td colSpan="5"><div className="inventoryEmpty">No sources match this search.</div></td></tr>}
-      </tbody></table></div>
-    </section>
+  return (
+    <div className="inventorySourcesGrid">
+      <section className="adminCard managementCard inventorySourcesMain">
+        <div className="inventoryListHead">
+          <div>
+            <h2>Sources and Units</h2>
+            <span>Stitching units, workshops and material suppliers</span>
+          </div>
+        </div>
+        <div className="inventoryControlBar simpleInventoryControls sourceSearchBar">
+          <div className="inlineSearch">
+            <Search />
+            <input
+              value={sourceSearch}
+              onChange={(event) => setSourceSearch(event.target.value)}
+              placeholder="Search sources, materials, supplier, contact..."
+            />
+          </div>
+        </div>
+        <div className="adminTableWrap">
+          <table className="adminTable">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Type</th>
+                <th>Contact</th>
+                <th>Location</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sources.map((source) => (
+                <tr key={source.id}>
+                  <td>
+                    <b>{source.name}</b>
+                    <small className="trackingNumber">{source.notes || "No notes"}</small>
+                  </td>
+                  <td>{source.type}</td>
+                  <td>{source.contact || "-"}</td>
+                  <td>{source.location || "-"}</td>
+                  <td>
+                    <span className={`statusBadge ${source.status === "Active" ? "activeStatus" : "processing"}`}>
+                      {source.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {!sources.length && (
+                <tr>
+                  <td colSpan="5">
+                    <div className="inventoryEmpty">No sources match this search.</div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-    <form className="adminCard sourceFormCard" onSubmit={onAddSource}>
-      <h2>Add source</h2>
-      <label>Name<input name="name" required placeholder="e.g. Lahore stitching unit" /></label>
-      <div className="formRow"><label>Type<select name="type"><option>Stitching unit</option><option>Fabric supplier</option><option>Material supplier</option><option>Embroidery unit</option><option>Packaging supplier</option><option>Other source</option></select></label><label>Status<select name="status"><option>Active</option><option>Paused</option></select></label></div>
-      <div className="formRow"><label>Contact<input name="contact" placeholder="Phone / WhatsApp" /></label><label>Location<input name="location" placeholder="City or area" /></label></div>
-      <label>Notes<textarea name="notes" rows="3" placeholder="Capacity, rates, lead time..." /></label>
-      <button disabled={saving}>{saving ? "Saving..." : "Add source"}</button>
-    </form>
+      <form className="adminCard sourceFormCard" onSubmit={onAddSource}>
+        <h2>Add Source</h2>
+        <label>
+          Name
+          <input name="name" required placeholder="e.g. Lahore Stitching Workshop" />
+        </label>
+        <div className="formRow">
+          <label>
+            Type
+            <select name="type">
+              <option>Stitching unit</option>
+              <option>Fabric supplier</option>
+              <option>Material supplier</option>
+              <option>Embroidery unit</option>
+              <option>Packaging supplier</option>
+              <option>Other source</option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select name="status">
+              <option>Active</option>
+              <option>Paused</option>
+            </select>
+          </label>
+        </div>
+        <div className="formRow">
+          <label>
+            Contact
+            <input name="contact" placeholder="Phone / WhatsApp" />
+          </label>
+          <label>
+            Location
+            <input name="location" placeholder="City or area" />
+          </label>
+        </div>
+        <label>
+          Notes
+          <textarea name="notes" rows="3" placeholder="Capacity, rates, lead time..." />
+        </label>
+        <button disabled={saving}>{saving ? "Saving..." : "Add source"}</button>
+      </form>
 
-    <section className="adminCard managementCard inventoryMaterialsMain">
-      <div className="inventoryListHead"><div><h2>Materials</h2><span>Buttons, laces, fabric, trims and packaging. Value: Rs. {materialValue.toLocaleString()}</span></div></div>
-      <div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Material</th><th>Category</th><th>Source</th><th>Qty</th><th>Reorder</th><th>Value</th><th /></tr></thead><tbody>
-        {materials.map((item) => {
-          const low = Number(item.quantity || 0) <= Number(item.reorderAt || 0);
-          return <tr key={item.id}><td><b>{item.item}</b><small className="trackingNumber">{item.notes || item.unit}</small></td><td>{item.category}</td><td>{sourceName(item.sourceId)}</td><td><b className={low ? "stockLow" : ""}>{Number(item.quantity || 0).toLocaleString()} {item.unit}</b></td><td>{Number(item.reorderAt || 0).toLocaleString()} {item.unit}</td><td>Rs. {(Number(item.quantity || 0) * Number(item.unitCost || 0)).toLocaleString()}</td><td><div className="materialQtyActions"><button type="button" disabled={saving} aria-busy={saving} onClick={() => onUpdateMaterialQuantity(item.id, -1)}><Minus /></button><button type="button" disabled={saving} aria-busy={saving} onClick={() => onUpdateMaterialQuantity(item.id, 1)}><Plus /></button></div></td></tr>;
-        })}
-        {!materials.length && <tr><td colSpan="7"><div className="inventoryEmpty">No materials match this search.</div></td></tr>}
-      </tbody></table></div>
-    </section>
+      <section className="adminCard managementCard inventoryMaterialsMain">
+        <div className="inventoryListHead">
+          <div>
+            <h2>Materials &amp; Trims</h2>
+            <span>Buttons, laces, fabric, trims and packaging. Total Value: Rs. {materialValue.toLocaleString()}</span>
+          </div>
+        </div>
+        <div className="adminTableWrap">
+          <table className="adminTable">
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Category</th>
+                <th>Source</th>
+                <th>Qty</th>
+                <th>Reorder</th>
+                <th>Value</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {materials.map((item) => {
+                const isLow = Number(item.quantity || 0) <= Number(item.reorderAt || 0);
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      <b>{item.item}</b>
+                      <small className="trackingNumber">{item.notes || item.unit}</small>
+                    </td>
+                    <td>{item.category}</td>
+                    <td>{sourceName(item.sourceId)}</td>
+                    <td>
+                      <b className={isLow ? "stockLow" : ""}>
+                        {Number(item.quantity || 0).toLocaleString()} {item.unit}
+                      </b>
+                    </td>
+                    <td>
+                      {Number(item.reorderAt || 0).toLocaleString()} {item.unit}
+                    </td>
+                    <td>Rs. {(Number(item.quantity || 0) * Number(item.unitCost || 0)).toLocaleString()}</td>
+                    <td>
+                      <div className="materialQtyActions">
+                        <button
+                          type="button"
+                          disabled={saving}
+                          aria-busy={saving}
+                          onClick={() => onUpdateMaterialQuantity(item.id, -1)}
+                        >
+                          <Minus />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={saving}
+                          aria-busy={saving}
+                          onClick={() => onUpdateMaterialQuantity(item.id, 1)}
+                        >
+                          <Plus />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!materials.length && (
+                <tr>
+                  <td colSpan="7">
+                    <div className="inventoryEmpty">No materials match this search.</div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-    <form className="adminCard sourceFormCard" onSubmit={onAddMaterial}>
-      <h2>Add material</h2>
-      <label>Material item<input name="item" required placeholder="e.g. Pearl buttons, cotton lace" /></label>
-      <div className="formRow"><label>Category<select name="category"><option>Buttons</option><option>Laces</option><option>Fabric</option><option>Thread</option><option>Embroidery</option><option>Labels</option><option>Packaging</option><option>Other material</option></select></label><label>Source<select name="sourceId">{allSources.map((source) => <option value={source.id} key={source.id}>{source.name}</option>)}</select></label></div>
-      <div className="formRow"><label>Quantity<input name="quantity" type="number" min="0" step="0.01" defaultValue="0" /></label><label>Unit<select name="unit"><option>pcs</option><option>meters</option><option>yards</option><option>rolls</option><option>kg</option><option>packs</option></select></label></div>
-      <div className="formRow"><label>Unit cost<input name="unitCost" type="number" min="0" step="0.01" defaultValue="0" /></label><label>Reorder at<input name="reorderAt" type="number" min="0" step="0.01" defaultValue="0" /></label></div>
-      <label>Notes<textarea name="notes" rows="3" placeholder="Color, size, use in product, supplier rate..." /></label>
-      <button disabled={saving}>{saving ? "Saving..." : "Add material"}</button>
-    </form>
-  </div>;
+      <form className="adminCard sourceFormCard" onSubmit={onAddMaterial}>
+        <h2>Add Material</h2>
+        <label>
+          Material item
+          <input name="item" required placeholder="e.g. Pearl buttons, Cotton lace" />
+        </label>
+        <div className="formRow">
+          <label>
+            Category
+            <select name="category">
+              <option>Buttons</option>
+              <option>Laces</option>
+              <option>Fabric</option>
+              <option>Thread</option>
+              <option>Embroidery</option>
+              <option>Labels</option>
+              <option>Packaging</option>
+              <option>Other material</option>
+            </select>
+          </label>
+          <label>
+            Source
+            <select name="sourceId">
+              {allSources.map((source) => (
+                <option value={source.id} key={source.id}>
+                  {source.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="formRow">
+          <label>
+            Quantity
+            <input name="quantity" type="number" min="0" step="0.01" defaultValue="0" />
+          </label>
+          <label>
+            Unit
+            <select name="unit">
+              <option>pcs</option>
+              <option>meters</option>
+              <option>yards</option>
+              <option>rolls</option>
+              <option>kg</option>
+              <option>packs</option>
+            </select>
+          </label>
+        </div>
+        <div className="formRow">
+          <label>
+            Unit cost (PKR)
+            <input name="unitCost" type="number" min="0" step="0.01" defaultValue="0" />
+          </label>
+          <label>
+            Reorder threshold
+            <input name="reorderAt" type="number" min="0" step="0.01" defaultValue="0" />
+          </label>
+        </div>
+        <label>
+          Notes
+          <textarea name="notes" rows="3" placeholder="Color, size, use in design, supplier rate..." />
+        </label>
+        <button disabled={saving}>{saving ? "Saving..." : "Add material"}</button>
+      </form>
+    </div>
+  );
 }
 
 function InventoryList({ title, action, onAction, headers, rows, empty }) {
-  return <section className="adminCard managementCard"><div className="inventoryListHead"><div><h2>{title}</h2><span>{rows.length} records</span></div>{action && <button onClick={onAction}><Plus />{action}</button>}</div><div className="adminTableWrap"><table className="adminTable"><thead><tr>{headers.map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{rows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j}>{j === 0 ? <b>{cell}</b> : cell}</td>)}</tr>)}</tbody></table>{!rows.length && <div className="inventoryEmpty">{empty || "No records found."}</div>}</div></section>;
+  return (
+    <section className="adminCard managementCard">
+      <div className="inventoryListHead">
+        <div>
+          <h2>{title}</h2>
+          <span>{rows.length} records</span>
+        </div>
+        {action && (
+          <button onClick={onAction}>
+            <Plus />
+            {action}
+          </button>
+        )}
+      </div>
+      <div className="adminTableWrap">
+        <table className="adminTable">
+          <thead>
+            <tr>
+              {headers.map((h) => (
+                <th key={h}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={i}>
+                {row.map((cell, j) => (
+                  <td key={j}>{j === 0 ? <b>{cell}</b> : cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!rows.length && <div className="inventoryEmpty">{empty || "No records found."}</div>}
+      </div>
+    </section>
+  );
 }
 
-function VariantInventoryDrawer({ product, onClose }) {
-  const variants = productVariants(product);
-  const total = variants.reduce((sum, variant) => sum + Number(variant.stock || 0), 0);
-  const low = variants.filter((variant) => Number(variant.stock || 0) <= Number(variant.low || 5)).length;
-  return <><div className="adminOverlay" onClick={onClose} /><aside className="orderDetailDrawer">
-    <header><div><p>VARIANT INVENTORY</p><h2>{product.name}</h2><span>{variants.length} size/color combinations - {total} units</span></div><button onClick={onClose}><X /></button></header>
-    <div className="orderDetailBody">
-      <div className="miniMetricGrid productMetrics"><article><Boxes /><span><b>{total}</b>Total units</span></article><article className={low ? "alertMetric" : ""}><TrendingUp /><span><b>{low}</b>Low variants</span></article><article><Tags /><span><b>{new Set(variants.map((variant) => variant.size)).size}</b>Sizes</span></article><article><Store /><span><b>{new Set(variants.map((variant) => variant.color)).size}</b>Colors</span></article></div>
-      <section className="adminCard orderItemsCard"><div className="inventoryListHead"><div><h2>Variant stock</h2><span>Manage size and colour-level availability</span></div></div><div className="adminTableWrap"><table className="adminTable"><thead><tr><th>Size</th><th>Color</th><th>SKU</th><th>Available</th><th>Alert</th><th>Status</th></tr></thead><tbody>{variants.map((variant) => <tr key={variant.id}><td><b>{variant.size}</b></td><td>{variant.color}</td><td>{variant.sku}</td><td><input className="variantStockInput" type="number" min="0" defaultValue={variant.stock} /></td><td><input className="variantStockInput" type="number" min="0" defaultValue={variant.low} /></td><td><span className={`statusBadge ${variant.stock <= variant.low ? "processing" : "activeStatus"}`}>{variant.stock <= variant.low ? "Low stock" : "In stock"}</span></td></tr>)}</tbody></table></div></section>
-      <section className="adminCard orderOpsCard"><h3>Private drops</h3><div className="formRow"><label>Status<select defaultValue={productStatus(product)}><option>Active</option><option>Draft</option><option>Archived</option><option>Unlisted</option></select></label><label>Collection<input defaultValue={productCollection(product)} /></label></div><button>Save variant plan</button></section>
-    </div>
-  </aside></>;
+function VariantInventoryDrawer({ product, onClose, onSaveVariants }) {
+  const initialVariants = useMemo(() => productVariants(product), [product]);
+  const [variantList, setVariantList] = useState(initialVariants);
+  const [globalThreshold, setGlobalThreshold] = useState(Number(product.lowStockThreshold || 5));
+  const [status, setStatus] = useState(productStatus(product));
+  const [collection, setCollection] = useState(productCollection(product));
+  const [saving, setSaving] = useState(false);
+  const [distributeQty, setDistributeQty] = useState("");
+
+  const total = variantList.reduce((sum, v) => sum + Number(v.stock || 0), 0);
+  const lowCount = variantList.filter((v) => Number(v.stock || 0) <= Number(v.low || globalThreshold)).length;
+  const outCount = variantList.filter((v) => Number(v.stock || 0) === 0).length;
+
+  function updateVariant(idx, patch) {
+    setVariantList((curr) => curr.map((v, i) => (i === idx ? { ...v, ...patch } : v)));
+  }
+
+  function handleDistributeEqually() {
+    const qty = Number(distributeQty);
+    if (!Number.isFinite(qty) || qty < 0) return;
+    const perVariant = Math.floor(qty / Math.max(1, variantList.length));
+    const remainder = qty % Math.max(1, variantList.length);
+    setVariantList((curr) =>
+      curr.map((v, i) => ({
+        ...v,
+        stock: perVariant + (i < remainder ? 1 : 0),
+      }))
+    );
+  }
+
+  function applyThresholdToAll(val) {
+    const num = Math.max(0, Number(val || 0));
+    setGlobalThreshold(num);
+    setVariantList((curr) => curr.map((v) => ({ ...v, low: num })));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      if (typeof onSaveVariants === "function") {
+        await onSaveVariants({
+          productId: product.id,
+          totalStock: total,
+          lowStockThreshold: globalThreshold,
+          variants: variantList.map((v) => ({
+            size: v.size,
+            color: v.color,
+            sku: v.sku,
+            stock: Math.max(0, Number(v.stock || 0)),
+            low: Math.max(0, Number(v.low || globalThreshold)),
+            image: v.image || "",
+          })),
+          status,
+          collection,
+        });
+      }
+      onClose();
+    } catch (err) {
+      window.alert(err.message || "Unable to save variant inventory.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="adminOverlay" onClick={onClose} />
+      <aside className="orderDetailDrawer" style={{ maxWidth: "680px", width: "100%" }}>
+        <header>
+          <div>
+            <p>SHOPIFY VARIANT INVENTORY</p>
+            <h2>{product.name}</h2>
+            <span>
+              {variantList.length} variant combination{variantList.length === 1 ? "" : "s"} · {total} units in stock
+            </span>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close variant inventory">
+            <X />
+          </button>
+        </header>
+
+        <div className="orderDetailBody">
+          <div className="miniMetricGrid productMetrics" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+            <article>
+              <Boxes />
+              <span>
+                <b>{total}</b>Total stock units
+              </span>
+            </article>
+            <article className={outCount > 0 ? "alertMetric" : ""}>
+              <TrendingUp />
+              <span>
+                <b>{outCount}</b>Out of stock
+              </span>
+            </article>
+            <article className={lowCount > 0 ? "alertMetric" : ""}>
+              <TrendingUp />
+              <span>
+                <b>{lowCount}</b>Low variants
+              </span>
+            </article>
+            <article>
+              <Tags />
+              <span>
+                <b>Rs. {(total * Number(product.price || 0)).toLocaleString()}</b>Retail value
+              </span>
+            </article>
+          </div>
+
+          {/* Quick Distribution Helper */}
+          <section
+            className="adminCard"
+            style={{
+              padding: "12px 16px",
+              background: "#f8faf9",
+              border: "1px solid #dbe6de",
+              borderRadius: "10px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#163022" }}>Bulk distribute total stock:</span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Total units (e.g. 100)"
+                  value={distributeQty}
+                  onChange={(e) => setDistributeQty(e.target.value)}
+                  style={{ width: "120px", padding: "5px 9px", fontSize: "12.5px", borderRadius: "6px", border: "1px solid #c9d8ce" }}
+                />
+                <button
+                  type="button"
+                  onClick={handleDistributeEqually}
+                  className="editProductButton"
+                  style={{ padding: "5px 11px", fontSize: "12px" }}
+                >
+                  Distribute evenly
+                </button>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#163022" }}>All variants alert threshold:</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={globalThreshold}
+                  onChange={(e) => applyThresholdToAll(e.target.value)}
+                  style={{ width: "70px", padding: "5px 9px", fontSize: "12.5px", borderRadius: "6px", border: "1px solid #c9d8ce" }}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Variants Table */}
+          <section className="adminCard orderItemsCard">
+            <div className="inventoryListHead">
+              <div>
+                <h2>Variant stock breakdown</h2>
+                <span>Set available inventory and reorder alert levels per size &amp; color.</span>
+              </div>
+            </div>
+            <div className="adminTableWrap">
+              <table className="adminTable">
+                <thead>
+                  <tr>
+                    <th>Size</th>
+                    <th>Color</th>
+                    <th>SKU</th>
+                    <th style={{ width: "95px" }}>Available</th>
+                    <th style={{ width: "85px" }}>Low alert</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {variantList.map((variant, idx) => {
+                    const st = Number(variant.stock || 0);
+                    const lt = Number(variant.low ?? globalThreshold);
+                    const isOut = st === 0;
+                    const isLow = !isOut && st <= lt;
+                    return (
+                      <tr key={variant.id || `${variant.size}-${variant.color}-${idx}`}>
+                        <td>
+                          <b>{variant.size || "Standard"}</b>
+                        </td>
+                        <td>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                            {variant.colorHex && (
+                              <span
+                                style={{
+                                  width: 10,
+                                  height: 10,
+                                  borderRadius: "50%",
+                                  background: variant.colorHex,
+                                  border: "1px solid rgba(0,0,0,0.15)",
+                                }}
+                              />
+                            )}
+                            {variant.color || "Standard"}
+                          </span>
+                        </td>
+                        <td>
+                          <small style={{ fontFamily: "monospace", color: "#546e5f" }}>{variant.sku}</small>
+                        </td>
+                        <td>
+                          <input
+                            className="variantStockInput"
+                            type="number"
+                            min="0"
+                            value={variant.stock ?? 0}
+                            onChange={(e) =>
+                              updateVariant(idx, { stock: Math.max(0, parseInt(e.target.value, 10) || 0) })
+                            }
+                            style={{
+                              width: "70px",
+                              padding: "4px 8px",
+                              borderRadius: "6px",
+                              border: isOut ? "1.5px solid #d9534f" : isLow ? "1.5px solid #e09f3e" : "1px solid #c9d8ce",
+                              background: isOut ? "#fff5f5" : isLow ? "#fffaf0" : "#fff",
+                              fontWeight: 700,
+                              textAlign: "center",
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className="variantStockInput"
+                            type="number"
+                            min="0"
+                            value={variant.low ?? globalThreshold}
+                            onChange={(e) =>
+                              updateVariant(idx, { low: Math.max(0, parseInt(e.target.value, 10) || 0) })
+                            }
+                            style={{ width: "60px", padding: "4px 6px", borderRadius: "6px", border: "1px solid #c9d8ce", textAlign: "center" }}
+                          />
+                        </td>
+                        <td>
+                          <span className={`statusBadge ${isOut ? "cancelled" : isLow ? "processing" : "activeStatus"}`}>
+                            {isOut ? "Out of stock" : isLow ? "Low stock" : "In stock"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* Product publishing options */}
+          <section className="adminCard orderOpsCard">
+            <h3>Publishing &amp; collection</h3>
+            <div className="formRow">
+              <label>
+                Status
+                <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                  <option value="Active">Active</option>
+                  <option value="Draft">Draft</option>
+                  <option value="Archived">Archived</option>
+                </select>
+              </label>
+              <label>
+                Collection
+                <input
+                  value={collection}
+                  onChange={(e) => setCollection(e.target.value)}
+                  placeholder="e.g. Summer Lawn 2026"
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              className="shopifyBtnPrimary"
+              onClick={handleSave}
+              disabled={saving}
+              style={{
+                marginTop: "12px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                width: "100%",
+                padding: "10px",
+                borderRadius: "8px",
+                background: "#164e32",
+                color: "#fff",
+                fontWeight: 700,
+                cursor: saving ? "not-allowed" : "pointer",
+              }}
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  <span>Saving variant inventory...</span>
+                </>
+              ) : (
+                `Save variant inventory (${total} total units)`
+              )}
+            </button>
+          </section>
+        </div>
+      </aside>
+    </>
+  );
 }
 
-function InventoryDialog({ products, productChoice, setProductChoice, onClose, onAdjust }) {
-  return <><div className="adminOverlay" onClick={onClose} /><form className="inventoryDialog" onSubmit={onAdjust}><DialogHead title="Adjust inventory" onClose={onClose} />
-    <label>Product<select name="product" value={productChoice} onChange={(event) => setProductChoice(event.target.value)}><option value="__custom__">Add new product</option>{products.map(p => <option value={p.id} key={p.id}>{p.name} - {p.stock} available</option>)}</select></label>
-    {productChoice === "__custom__" && <div className="formRow"><label>Product name<input name="customName" required placeholder="e.g. Embroidered Dupatta" /></label><label>SKU<input name="customSku" placeholder="Optional" /></label></div>}
-    <label>{productChoice === "__custom__" ? "Opening stock" : "Stock change"}<input name="amount" required type="number" placeholder={productChoice === "__custom__" ? "10" : "+10 or -2"} /></label>
-    <label>Reason<select name="reason"><option>Stock count correction</option><option>Received stock</option><option>Damaged</option><option>Returned</option><option>Promotion</option></select></label>
-    <button className="dialogSave">Save stock</button>
-  </form></>;
+function InventoryDialog({ products = [], productChoice, setProductChoice, onClose, onAdjust, onAddNewProduct }) {
+  const [mode, setMode] = useState("adjust"); // "adjust" | "set"
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("Physical stock count correction");
+  const [saving, setSaving] = useState(false);
+
+  const selectedProduct = useMemo(
+    () => products.find((p) => String(p.id) === String(productChoice)) || products[0] || null,
+    [products, productChoice]
+  );
+
+  const currentStock = Number(selectedProduct?.stock || 0);
+  const currentThreshold = Number(selectedProduct?.lowStockThreshold || 5);
+  const [threshold, setThreshold] = useState(currentThreshold);
+
+  useEffect(() => {
+    setThreshold(Number(selectedProduct?.lowStockThreshold || 5));
+    setAmount("");
+  }, [selectedProduct]);
+
+  const numVal = parseInt(amount, 10);
+  const validNum = Number.isFinite(numVal);
+  const newStock = mode === "set" ? (validNum ? Math.max(0, numVal) : currentStock) : currentStock + (validNum ? numVal : 0);
+  const changeDelta = mode === "set" ? newStock - currentStock : validNum ? numVal : 0;
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!selectedProduct) return;
+    if (!validNum || (mode === "adjust" && numVal === 0)) {
+      window.alert(
+        mode === "set"
+          ? "Please enter a valid stock quantity (e.g. 50)."
+          : "Please enter a non-zero adjustment (e.g. +10 or -3)."
+      );
+      return;
+    }
+    if (newStock < 0) {
+      window.alert("Resulting stock quantity cannot be negative.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onAdjust(selectedProduct.id, changeDelta, reason, {
+        ...(mode === "set" ? { setStock: newStock } : {}),
+        lowStockThreshold: Math.max(0, Number(threshold || 0)),
+      });
+      onClose();
+    } catch (err) {
+      window.alert(err.message || "Unable to adjust inventory.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="adminOverlay" onClick={onClose} />
+      <div className="inventoryDialog" style={{ maxWidth: "540px" }}>
+        <DialogHead title="Adjust Inventory Stock" onClose={onClose} />
+        <p className="trackingNumber" style={{ margin: "4px 0 16px", color: "#546e5f", fontSize: "13px" }}>
+          Update physical stock count, set audited inventory, or change reorder alert thresholds.
+        </p>
+
+        <form onSubmit={handleSubmit}>
+          <label>
+            Select Product
+            <select
+              value={selectedProduct?.id || ""}
+              onChange={(e) => setProductChoice(e.target.value)}
+              style={{ fontWeight: 600 }}
+            >
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} · Available: {p.stock || 0} units {p.sku ? `(${p.sku})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {selectedProduct && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: "8px",
+                background: "#f6faf7",
+                padding: "12px",
+                borderRadius: "8px",
+                border: "1px solid #d8e5dc",
+                margin: "12px 0",
+              }}
+            >
+              <div>
+                <span style={{ fontSize: "11px", color: "#657e6f", display: "block" }}>Current Available:</span>
+                <b style={{ fontSize: "15px", color: currentStock === 0 ? "#d9534f" : currentStock <= currentThreshold ? "#e09f3e" : "#166534" }}>
+                  {currentStock} units
+                </b>
+              </div>
+              <div>
+                <span style={{ fontSize: "11px", color: "#657e6f", display: "block" }}>Alert Point:</span>
+                <b style={{ fontSize: "15px", color: "#163022" }}>{currentThreshold} units</b>
+              </div>
+              <div>
+                <span style={{ fontSize: "11px", color: "#657e6f", display: "block" }}>Unit Cost (COGS):</span>
+                <b style={{ fontSize: "15px", color: "#163022" }}>
+                  {selectedProduct.costTotalPkr ? `Rs. ${Number(selectedProduct.costTotalPkr).toLocaleString()}` : "Not set"}
+                </b>
+              </div>
+            </div>
+          )}
+
+          {/* Mode Switcher */}
+          <div style={{ display: "flex", gap: "8px", margin: "14px 0 10px", background: "#edf3ee", padding: "3px", borderRadius: "8px" }}>
+            <button
+              type="button"
+              onClick={() => setMode("adjust")}
+              style={{
+                flex: 1,
+                padding: "6px 10px",
+                borderRadius: "6px",
+                border: "none",
+                fontSize: "12.5px",
+                fontWeight: 700,
+                cursor: "pointer",
+                background: mode === "adjust" ? "#164e32" : "transparent",
+                color: mode === "adjust" ? "#fff" : "#4a6353",
+              }}
+            >
+              Adjust Quantity (+ / −)
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("set")}
+              style={{
+                flex: 1,
+                padding: "6px 10px",
+                borderRadius: "6px",
+                border: "none",
+                fontSize: "12.5px",
+                fontWeight: 700,
+                cursor: "pointer",
+                background: mode === "set" ? "#164e32" : "transparent",
+                color: mode === "set" ? "#fff" : "#4a6353",
+              }}
+            >
+              Set Exact Stock Count
+            </button>
+          </div>
+
+          <div className="formRow">
+            <label>
+              {mode === "adjust" ? "Stock Change (+ or −)" : "New Exact Stock Count"}
+              <input
+                type="number"
+                required
+                autoFocus
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder={mode === "adjust" ? "e.g. +10 or -3" : "e.g. 45"}
+                style={{ fontWeight: 700, fontSize: "15px" }}
+              />
+            </label>
+            <label>
+              Low-Stock Alert Threshold
+              <input
+                type="number"
+                min="0"
+                value={threshold}
+                onChange={(e) => setThreshold(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                placeholder="5"
+              />
+            </label>
+          </div>
+
+          <label>
+            Reason for Adjustment
+            <select value={reason} onChange={(e) => setReason(e.target.value)}>
+              <option value="Physical stock count correction">Physical stock count correction / audit</option>
+              <option value="Restock received from workshop">Restock received from workshop</option>
+              <option value="Damaged / defective item write-off">Damaged / defective item write-off</option>
+              <option value="Customer return inspected & restocked">Customer return inspected &amp; restocked</option>
+              <option value="Marketing / photoshoot sample">Marketing / photoshoot sample</option>
+              <option value="Internal transfer">Internal transfer</option>
+              <option value="Other adjustment">Other adjustment</option>
+            </select>
+          </label>
+
+          <div
+            style={{
+              padding: "10px 14px",
+              margin: "12px 0 16px",
+              background: "#eef6f0",
+              border: "1px solid #cce5d4",
+              borderRadius: "8px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span style={{ fontSize: "12.5px", color: "#164e32" }}>
+              Stock level after update:
+            </span>
+            <span style={{ fontSize: "14px", fontWeight: 700, color: "#164e32" }}>
+              {currentStock} units → <span style={{ textDecoration: "underline" }}>{newStock} units</span> ({changeDelta > 0 ? `+${changeDelta}` : changeDelta})
+            </span>
+          </div>
+
+          {onAddNewProduct && (
+            <div style={{ textAlign: "center", marginBottom: "12px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onAddNewProduct();
+                }}
+                className="shopifyTextLinkBtn"
+                style={{ fontSize: "12px", color: "#166534" }}
+              >
+                + Need to add a new design instead? Create new product in catalog
+              </button>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="dialogSave"
+            disabled={saving}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              width: "100%",
+              padding: "10px",
+              background: "#164e32",
+              color: "#fff",
+              borderRadius: "8px",
+              fontWeight: 700,
+              cursor: saving ? "not-allowed" : "pointer",
+            }}
+          >
+            {saving ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                <span>Saving stock adjustment...</span>
+              </>
+            ) : (
+              `Save stock adjustment (${newStock} units)`
+            )}
+          </button>
+        </form>
+      </div>
+    </>
+  );
 }
 
 function DialogHead({ title, onClose }) { return <div className="dialogHead"><h2>{title}</h2><button type="button" onClick={onClose}><X /></button></div>; }

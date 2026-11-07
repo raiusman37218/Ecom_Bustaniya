@@ -382,7 +382,21 @@ async function updateProductDirect(body) {
   }
 
   if (body.stock !== undefined && body.stock !== null) {
-    await upsertInventoryStock(body.productId, normalizeNonNegativeNumber(body.stock, "Stock quantity", 1000000), updates.article_number);
+    await upsertInventoryStock(
+      body.productId,
+      normalizeNonNegativeNumber(body.stock, "Stock quantity", 1000000),
+      updates.article_number,
+      body.lowStockThreshold ?? body.product?.lowStockThreshold ?? body.product?.low_stock_threshold
+    );
+  } else if (body.lowStockThreshold !== undefined || body.product?.lowStockThreshold !== undefined || body.product?.low_stock_threshold !== undefined) {
+    const existingInv = await getInventory(body.productId);
+    const currentStock = Number(existingInv?.stock_quantity || 0);
+    await upsertInventoryStock(
+      body.productId,
+      currentStock,
+      updates.article_number || existingInv?.sku || "",
+      body.lowStockThreshold ?? body.product?.lowStockThreshold ?? body.product?.low_stock_threshold
+    );
   }
 }
 
@@ -393,8 +407,11 @@ async function getInventory(productId) {
   return rows?.[0] || null;
 }
 
-async function upsertInventoryStock(productId, stock, sku = "") {
+async function upsertInventoryStock(productId, stock, sku = "", lowStockThreshold = undefined) {
   const normalizedStock = normalizeNonNegativeNumber(stock, "Stock quantity", 1000000);
+  const thresholdVal = lowStockThreshold !== undefined && lowStockThreshold !== null && Number.isFinite(Number(lowStockThreshold))
+    ? Math.max(0, Number(lowStockThreshold))
+    : undefined;
   const existing = await getInventory(productId);
   if (existing) {
     await supabaseAdminRequest(`inventory?product_id=eq.${encodeURIComponent(productId)}`, {
@@ -403,6 +420,7 @@ async function upsertInventoryStock(productId, stock, sku = "") {
       body: {
         stock_quantity: normalizedStock,
         ...(sku ? { sku } : {}),
+        ...(thresholdVal !== undefined ? { low_stock_threshold: thresholdVal } : {}),
       },
     });
     return;
@@ -414,7 +432,7 @@ async function upsertInventoryStock(productId, stock, sku = "") {
     body: {
       product_id: productId,
       stock_quantity: normalizedStock,
-      low_stock_threshold: 5,
+      low_stock_threshold: thresholdVal !== undefined ? thresholdVal : 5,
       sku,
     },
   });
@@ -422,27 +440,33 @@ async function upsertInventoryStock(productId, stock, sku = "") {
 
 async function adjustInventoryDirect(body) {
   const productId = body.productId;
-  const change = Number(body.change || 0);
   if (!productId) throw new Error("Product is required for inventory adjustment.");
-  if (!Number.isFinite(change)) throw new Error("Inventory adjustment must be a valid number.");
-  if (Math.abs(change) > 1000000) throw validationError("Inventory adjustment is too large.");
 
   const existing = await getInventory(productId);
   const before = Number(existing?.stock_quantity || 0);
-  const after = Math.max(0, before + change);
-  await upsertInventoryStock(productId, after, existing?.sku || "");
+  const change = body.setStock !== undefined && body.setStock !== null
+    ? Number(body.setStock) - before
+    : Number(body.change || 0);
 
-  await supabaseAdminRequest("inventory_movements", {
-    method: "POST",
-    prefer: "return=minimal",
-    body: {
-      product_id: productId,
-      quantity_change: after - before,
-      reason: body.reason || "Stock count correction",
-      stock_before: before,
-      stock_after: after,
-    },
-  }).catch(() => { });
+  if (!Number.isFinite(change)) throw new Error("Inventory adjustment must be a valid number.");
+  if (Math.abs(change) > 1000000) throw validationError("Inventory adjustment is too large.");
+
+  const after = Math.max(0, before + change);
+  await upsertInventoryStock(productId, after, existing?.sku || "", body.lowStockThreshold);
+
+  if (after !== before) {
+    await supabaseAdminRequest("inventory_movements", {
+      method: "POST",
+      prefer: "return=minimal",
+      body: {
+        product_id: productId,
+        quantity_change: after - before,
+        reason: body.reason || "Stock count correction",
+        stock_before: before,
+        stock_after: after,
+      },
+    }).catch(() => { });
+  }
 
   return { stock_before: before, stock_after: after };
 }
@@ -610,15 +634,37 @@ export async function PATCH(request) {
     if (body.action === "adjust") {
       await authorizeAdminRequest(request, "inventory");
       let result;
-      try {
-        result = await supabaseAdminRpc("admin_adjust_inventory_v2", {
-          p_product_id: body.productId,
-          p_change: Number(body.change),
-          p_reason: body.reason,
-        });
-      } catch (error) {
-        if (!isRpcUnavailableError(error)) throw error;
+      if (body.setStock !== undefined || body.lowStockThreshold !== undefined) {
         result = await adjustInventoryDirect(body);
+      } else {
+        try {
+          result = await supabaseAdminRpc("admin_adjust_inventory_v2", {
+            p_product_id: body.productId,
+            p_change: Number(body.change),
+            p_reason: body.reason,
+          });
+        } catch (error) {
+          if (!isRpcUnavailableError(error)) throw error;
+          result = await adjustInventoryDirect(body);
+        }
+      }
+      if (Array.isArray(body.variants)) {
+        const existingRows = await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(body.productId)}&select=cost_breakdown`).catch(() => []);
+        const existingBreakdown = parseJsonObject(existingRows?.[0]?.cost_breakdown);
+        const existingMetadata = parseJsonObject(existingBreakdown.metadata);
+        await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(body.productId)}`, {
+          method: "PATCH",
+          prefer: "return=minimal",
+          body: {
+            cost_breakdown: {
+              ...existingBreakdown,
+              metadata: {
+                ...existingMetadata,
+                variants: body.variants,
+              },
+            },
+          },
+        }).catch(() => {});
       }
       invalidateCatalogCache();
       revalidateCatalogPaths(body.productId);
@@ -652,42 +698,74 @@ export async function PATCH(request) {
       if (!isRpcUnavailableError(error)) throw error;
       result = await updateProductDirect(body);
     }
+    if (body.lowStockThreshold !== undefined || body.product?.lowStockThreshold !== undefined) {
+      const existingInv = await getInventory(body.productId);
+      if (existingInv) {
+        await supabaseAdminRequest(`inventory?product_id=eq.${encodeURIComponent(body.productId)}`, {
+          method: "PATCH",
+          prefer: "return=minimal",
+          body: {
+            low_stock_threshold: Math.max(0, Number(body.lowStockThreshold ?? body.product?.lowStockThreshold ?? 5)),
+          },
+        }).catch(() => {});
+      }
+    }
     if (
       body.product?.cost_total_pkr !== undefined ||
+      body.product?.costTotalPkr !== undefined ||
       body.product?.cost_breakdown !== undefined ||
+      body.product?.costBreakdown !== undefined ||
       body.product?.status !== undefined ||
-      body.product?.compare_at_price !== undefined
+      body.product?.compare_at_price !== undefined ||
+      body.product?.compareAtPrice !== undefined ||
+      body.product?.variants !== undefined
     ) {
+      const existingRows = await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(body.productId)}&select=cost_total_pkr,cost_breakdown`).catch(() => []);
+      const existingBreakdown = parseJsonObject(existingRows?.[0]?.cost_breakdown);
+      const existingMetadata = parseJsonObject(existingBreakdown.metadata);
+      const incomingBreakdown = parseJsonObject(body.product?.cost_breakdown ?? body.product?.costBreakdown ?? {});
+      const incomingMetadata = parseJsonObject(incomingBreakdown.metadata);
+      const targetBottomOptions = Array.isArray(body.product?.bottomOptions)
+        ? body.product.bottomOptions
+        : (Array.isArray(incomingMetadata.bottomOptions) ? incomingMetadata.bottomOptions : existingMetadata.bottomOptions);
+      const targetEnableBottoms = body.product?.enableBottomOptions !== undefined
+        ? Boolean(body.product.enableBottomOptions)
+        : (incomingMetadata.enableBottomOptions !== undefined ? Boolean(incomingMetadata.enableBottomOptions) : existingMetadata.enableBottomOptions);
+      const targetCompareAt = body.product?.compare_at_price !== undefined || body.product?.compareAtPrice !== undefined
+        ? (Number(body.product.compare_at_price ?? body.product.compareAtPrice ?? 0) || null)
+        : (incomingMetadata.compareAtPrice !== undefined ? incomingMetadata.compareAtPrice : existingMetadata.compareAtPrice);
+      const targetStatus = body.product?.status !== undefined
+        ? body.product.status
+        : (incomingMetadata.status !== undefined ? incomingMetadata.status : existingMetadata.status);
+      const targetVariants = Array.isArray(body.product?.variants)
+        ? body.product.variants
+        : (Array.isArray(incomingMetadata.variants) ? incomingMetadata.variants : existingMetadata.variants);
+
+      const hasExplicitCost = body.product?.cost_total_pkr !== undefined || body.product?.costTotalPkr !== undefined;
+      const nextCostTotal = hasExplicitCost
+        ? Number(body.product.cost_total_pkr ?? body.product.costTotalPkr ?? 0)
+        : Number(existingRows?.[0]?.cost_total_pkr || 0);
+
       await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(body.productId)}`, {
         method: "PATCH",
         prefer: "return=minimal",
         body: {
-          cost_total_pkr: Number(body.product.cost_total_pkr || 0),
-          cost_breakdown: await (async () => {
-            const targetId = typeof rows !== "undefined" && rows?.[0]?.id ? rows[0].id : body.productId;
-            const existingRows = await supabaseAdminRequest(`products?id=eq.${encodeURIComponent(targetId)}&select=cost_breakdown`).catch(() => []);
-            const existingBreakdown = parseJsonObject(existingRows?.[0]?.cost_breakdown);
-            const existingMetadata = parseJsonObject(existingBreakdown.metadata);
-            const incomingBreakdown = parseJsonObject(body.product?.cost_breakdown || {});
-            const incomingMetadata = parseJsonObject(incomingBreakdown.metadata);
-            const targetBottomOptions = Array.isArray(body.product?.bottomOptions)
-              ? body.product.bottomOptions
-              : (Array.isArray(incomingMetadata.bottomOptions) ? incomingMetadata.bottomOptions : existingMetadata.bottomOptions);
-            const targetEnableBottoms = body.product?.enableBottomOptions !== undefined
-              ? Boolean(body.product.enableBottomOptions)
-              : (incomingMetadata.enableBottomOptions !== undefined ? Boolean(incomingMetadata.enableBottomOptions) : existingMetadata.enableBottomOptions);
-            return {
-              ...existingBreakdown,
-              ...incomingBreakdown,
-              metadata: {
-                ...existingMetadata,
-                ...incomingMetadata,
-                ...(targetBottomOptions !== undefined ? { bottomOptions: targetBottomOptions } : {}),
-                ...(targetEnableBottoms !== undefined ? { enableBottomOptions: targetEnableBottoms } : {}),
-              },
-            };
-          })(),
-          ...(body.product.status !== undefined ? { instock: body.product.status === "Active" } : {}),
+          ...(hasExplicitCost ? { cost_total_pkr: nextCostTotal } : {}),
+          ...(body.product?.price !== undefined ? { price: Number(body.product.price || 0) } : {}),
+          cost_breakdown: {
+            ...existingBreakdown,
+            ...incomingBreakdown,
+            metadata: {
+              ...existingMetadata,
+              ...incomingMetadata,
+              ...(targetBottomOptions !== undefined ? { bottomOptions: targetBottomOptions } : {}),
+              ...(targetEnableBottoms !== undefined ? { enableBottomOptions: targetEnableBottoms } : {}),
+              ...(targetCompareAt !== undefined ? { compareAtPrice: targetCompareAt } : {}),
+              ...(targetStatus !== undefined ? { status: targetStatus } : {}),
+              ...(targetVariants !== undefined ? { variants: targetVariants } : {}),
+            },
+          },
+          ...(body.product?.status !== undefined ? { instock: body.product.status === "Active" } : {}),
         },
       });
     }
