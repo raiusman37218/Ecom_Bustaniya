@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowLeftRight, CheckCircle2, CircleDollarSign,
   Download, Edit3, FileSpreadsheet, Filter, Landmark, Loader2, Package,
   Plus, ReceiptText, RefreshCw, Search, Settings2, ShoppingBag, SlidersHorizontal,
   Trash2, TrendingUp, WalletCards, X,
 } from "lucide-react";
+import FinanceOverview from "./finance/FinanceOverview";
+import "../app/finance-overview.css";
 
 const PERIODS = [
   ["all", "All time"],
@@ -215,6 +217,56 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
   useEffect(() => {
     if (tab === "reports" && !trend.length && report) load({ withTrend: true });
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Overview shows a 6-month growth chart. Fetch the trend quietly in the
+  // background so the main numbers never wait on it.
+  const trendRequestedRef = useRef(false);
+  const [trendLoading, setTrendLoading] = useState(false);
+  useEffect(() => {
+    if (tab !== "overview" || !report || trend.length || trendRequestedRef.current) return;
+    trendRequestedRef.current = true;
+    setTrendLoading(true);
+    fetch("/api/admin/finance?period=all&trend=1", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result) => { if (result?.trend) setTrend(result.trend); })
+      .catch(() => {})
+      .finally(() => setTrendLoading(false));
+  }, [tab, report, trend.length]);
+
+  function goTo(target, options = {}) {
+    if (target === "cash") {
+      setLedgerAccountFilter(options.account || "all");
+      setTab("cash");
+    } else if (target === "verify") {
+      setAdvanceFilter("needs_action");
+      setTab("payments");
+    } else if (target === "advances") {
+      setAdvanceFilter(options.filter || "all");
+      setTab("payments");
+    } else if (target === "bills") {
+      setBillFilter(options.filter || "open");
+      setTab("payments");
+    } else if (target === "lossOrders") {
+      setOrderProfitFilter("loss");
+      setTab("pnl");
+    } else if (target === "pnl") {
+      setOrderProfitFilter("all");
+      setTab("pnl");
+    } else {
+      setTab(target);
+    }
+    if (typeof document !== "undefined") {
+      document.querySelector(".shopifyFinanceWorkspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  function openModal(modal, { account = "", incomeType, expenseType, balanceAccount } = {}) {
+    setModalDefaultAccount(account);
+    if (incomeType) setModalDefaultIncomeType(incomeType);
+    if (expenseType) setModalDefaultExpenseType(expenseType);
+    if (balanceAccount) setSelectedAccountForBalance(balanceAccount);
+    setActiveModal(modal);
+  }
 
   async function post(body, successMessage) {
     setBusy(true);
@@ -563,8 +615,8 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
         </div>
       )}
 
-      {/* Critical Alerts */}
-      {alerts.length > 0 && (
+      {/* Critical Alerts (Overview shows these inside its own "Abhi ye karein" list) */}
+      {alerts.length > 0 && tab !== "overview" && (
         <div className="financeAlertStrip">
           {alerts.map((alert) => (
             <div key={alert.id} className={`financeAlert financeAlert-${alert.level}`}>
@@ -579,392 +631,22 @@ export default function FinanceWorkspace({ currentAdminUser, showTitle = true })
           TAB 1: OVERVIEW
           ========================================================================= */}
       {tab === "overview" && (
-        <>
-          {/* Smart Quick-Fix Action Center if anything needs 1-click attention */}
-          {(paymentScenarios.needsVerificationCount > 0 || pnl.estimatedCogsOrderCount > 0 || advances.notInCashCount > 0 || unassignedCount > 0 || suppliers.overdue.length > 0 || postex.receivablePkr > 0) && (
-            <div className="shopifySectionCard" style={{ padding: "14px 18px", background: "#fafcfa", border: "1.5px solid #d4ded6" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <SlidersHorizontal size={16} className="text-[#173d29]" />
-                  <b style={{ fontSize: "13.5px", color: "#122a1e" }}>Easy Finance Shortcuts — 1-Click Actions:</b>
-                </div>
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  {paymentScenarios.needsVerificationCount > 0 && (
-                    <button
-                      type="button"
-                      className="shopifyAccountQuickBtn"
-                      style={{ background: "#fffbeb", borderColor: "#fde68a", color: "#92400e", fontWeight: 700 }}
-                      onClick={() => {
-                        setAdvanceFilter("needs_action");
-                        setTab("payments");
-                      }}
-                    >
-                      <CheckCircle2 size={12} /> Verify {paymentScenarios.needsVerificationCount} Payment{paymentScenarios.needsVerificationCount === 1 ? "" : "s"} ({money(paymentScenarios.needsVerificationPkr)}) →
-                    </button>
-                  )}
-                  {(pnl.estimatedCogsOrderCount > 0 || advances.notInCashCount > 0) && (
-                    <button
-                      type="button"
-                      className="shopifyAccountQuickBtn"
-                      style={{ background: "#fffbeb", borderColor: "#fde68a", color: "#92400e", fontWeight: 700 }}
-                      disabled={busy}
-                      onClick={() => post(
-                        { action: "backfill" },
-                        (res) => `Synced: ${res.cogs?.snapshotted || 0} order costs locked, ${res.advances?.recorded || 0} advances posted to NayaPay.`
-                      )}
-                    >
-                      <RefreshCw size={12} /> Sync &amp; Lock ({pnl.estimatedCogsOrderCount + advances.notInCashCount} pending)
-                    </button>
-                  )}
-                  {postex.receivablePkr > 0 && (
-                    <button
-                      type="button"
-                      className="shopifyAccountQuickBtn"
-                      style={{ background: "#f0fdf4", borderColor: "#bbf7d0", color: "#166534", fontWeight: 700 }}
-                      onClick={() => {
-                        setModalDefaultAccount(alfalahAccount?.id || "");
-                        setModalDefaultIncomeType("postex_bank_receipt");
-                        setActiveModal("income");
-                      }}
-                    >
-                      <Plus size={12} /> Record PostEx Receipt ({money(postex.receivablePkr)} due)
-                    </button>
-                  )}
-                  {unassignedCount > 0 && (
-                    <button
-                      type="button"
-                      className="shopifyAccountQuickBtn"
-                      style={{ background: "#eff6ff", borderColor: "#bfdbfe", color: "#1e40af", fontWeight: 700 }}
-                      onClick={() => {
-                        setLedgerAccountFilter("unassigned");
-                        setTab("cash");
-                      }}
-                    >
-                      Assign {unassignedCount} Unassigned Entries →
-                    </button>
-                  )}
-                  {suppliers.overdue.length > 0 && (
-                    <button
-                      type="button"
-                      className="shopifyAccountQuickBtn"
-                      style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b", fontWeight: 700 }}
-                      onClick={() => {
-                        setBillFilter("overdue");
-                        setTab("payments");
-                      }}
-                    >
-                      Pay {suppliers.overdue.length} Overdue Bill{suppliers.overdue.length === 1 ? "" : "s"} →
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+        <FinanceOverview
+          report={report}
+          trend={trend}
+          trendLoading={trendLoading}
+          paymentScenarios={paymentScenarios}
+          sortedAccounts={sortedAccounts}
+          unassignedCount={unassignedCount}
+          postexReceiptAccountId={alfalahAccount?.id || ""}
+          busy={busy}
+          onNavigate={goTo}
+          onOpenModal={openModal}
+          onBackfill={() => post(
+            { action: "backfill" },
+            (res) => `Synced: ${res.cogs?.snapshotted || 0} order costs locked, ${res.advances?.recorded || 0} advances posted to NayaPay.`
           )}
-
-          {/* 8 Modern High-Impact KPI Cards (Interactive) */}
-          <div className="shopifyFinanceKpiGrid">
-            <div className="shopifyFinanceKpiCard" style={{ cursor: "pointer" }} onClick={() => setTab("cash")} title="Click to manage accounts & cash ledger">
-              <div className="shopifyFinanceKpiIcon cash"><WalletCards size={20} /></div>
-              <div className="shopifyFinanceKpiInfo">
-                <span className="shopifyFinanceKpiLabel">Available Cash</span>
-                <span className={`shopifyFinanceKpiValue ${cash.availableCashPkr < 0 ? "negative" : ""}`}>{money(cash.availableCashPkr)}</span>
-                <span className="shopifyFinanceKpiHelp">Jo paisa abhi kharch kar sakte hain</span>
-              </div>
-            </div>
-
-            <div className="shopifyFinanceKpiCard" style={{ cursor: "pointer" }} onClick={() => setTab("pnl")} title="Click to view Profit & Loss">
-              <div className="shopifyFinanceKpiIcon sales"><ShoppingBag size={20} /></div>
-              <div className="shopifyFinanceKpiInfo">
-                <span className="shopifyFinanceKpiLabel">Sales (Delivered)</span>
-                <span className="shopifyFinanceKpiValue">{money(sales.grossRevenuePkr)}</span>
-                <span className="shopifyFinanceKpiHelp">
-                  {sales.deliveredOrders} delivered orders
-                  {paymentScenarios.verifiedAdvanceInPipelinePkr > 0 ? ` · Confirmed + Adv: ${money(sales.totalConfirmedRevenuePkr || (sales.grossRevenuePkr + paymentScenarios.verifiedAdvanceInPipelinePkr))}` : ""}
-                </span>
-              </div>
-            </div>
-
-            <div className="shopifyFinanceKpiCard" style={{ cursor: "pointer" }} onClick={() => setTab("pnl")} title="Click to view Profit & Loss">
-              <div className="shopifyFinanceKpiIcon profit"><TrendingUp size={20} /></div>
-              <div className="shopifyFinanceKpiInfo">
-                <span className="shopifyFinanceKpiLabel">Net Profit</span>
-                <span className={`shopifyFinanceKpiValue ${pnl.netProfitPkr < 0 ? "negative" : ""}`}>{money(pnl.netProfitPkr)}</span>
-                <span className="shopifyFinanceKpiHelp">{percent(pnl.marginPercent)} profit margin</span>
-              </div>
-            </div>
-
-            <div className="shopifyFinanceKpiCard" style={{ cursor: "pointer" }} onClick={() => setTab("payments")} title="Click to manage PostEx settlements">
-              <div className="shopifyFinanceKpiIcon postex"><Landmark size={20} /></div>
-              <div className="shopifyFinanceKpiInfo">
-                <span className="shopifyFinanceKpiLabel">PostEx Receivable</span>
-                <span className={`shopifyFinanceKpiValue ${postex.receivablePkr ? "text-amber-700" : ""}`}>{money(postex.receivablePkr)}</span>
-                <span className="shopifyFinanceKpiHelp">Delivered, awaiting courier payout</span>
-              </div>
-            </div>
-
-            <div className="shopifyFinanceKpiCard" style={{ cursor: "pointer" }} onClick={() => setTab("payments")} title="Click to view Customer Advances">
-              <div className="shopifyFinanceKpiIcon advance"><CircleDollarSign size={20} /></div>
-              <div className="shopifyFinanceKpiInfo">
-                <span className="shopifyFinanceKpiLabel">Advance Received</span>
-                <span className="shopifyFinanceKpiValue">{money(advances.cashPostedPkr || 0)}</span>
-                <span className="shopifyFinanceKpiHelp">
-                  {paymentScenarios.needsVerificationCount > 0
-                    ? `${paymentScenarios.needsVerificationCount} awaiting verification (${money(paymentScenarios.needsVerificationPkr)})`
-                    : `${money(advances.verifiedPkr)} verified (${advances.notInCashCount ? `${advances.notInCashCount} pending post` : "all posted"})`}
-                </span>
-              </div>
-            </div>
-
-            <div className="shopifyFinanceKpiCard">
-              <div className="shopifyFinanceKpiIcon units"><Package size={20} /></div>
-              <div className="shopifyFinanceKpiInfo">
-                <span className="shopifyFinanceKpiLabel">Units Sold</span>
-                <span className="shopifyFinanceKpiValue">{sales.unitsSold}</span>
-                <span className="shopifyFinanceKpiHelp">{money(sales.averageOrderValuePkr)} average order</span>
-              </div>
-            </div>
-
-            <div className="shopifyFinanceKpiCard">
-              <div className="shopifyFinanceKpiIcon returns"><ShoppingBag size={20} /></div>
-              <div className="shopifyFinanceKpiInfo">
-                <span className="shopifyFinanceKpiLabel">Returned Orders</span>
-                <span className={`shopifyFinanceKpiValue ${sales.returnedOrders ? "negative" : ""}`}>{sales.returnedOrders}</span>
-                <span className="shopifyFinanceKpiHelp">{percent(sales.returnRatePercent)} return rate ({money(pnl.returnLossPkr)} loss)</span>
-              </div>
-            </div>
-
-            <div className="shopifyFinanceKpiCard" style={{ cursor: "pointer" }} onClick={() => setTab("payments")} title="Click to manage Supplier Payables">
-              <div className="shopifyFinanceKpiIcon payable"><Landmark size={20} /></div>
-              <div className="shopifyFinanceKpiInfo">
-                <span className="shopifyFinanceKpiLabel">Supplier Payable</span>
-                <span className={`shopifyFinanceKpiValue ${suppliers.payablePkr > 0 ? "text-orange-700" : ""}`}>{money(suppliers.payablePkr)}</span>
-                <span className="shopifyFinanceKpiHelp">{suppliers.overdue.length ? `${suppliers.overdue.length} overdue bills` : "No overdue bills"}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Payment Scenarios & Pipeline Health Card */}
-          <div className="shopifySectionCard" style={{ padding: "18px 20px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "8px" }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "750", color: "#122a1e" }}>Payment Scenarios &amp; Order Cashflow Status</h3>
-                <p style={{ margin: "2px 0 0", fontSize: "12.5px", color: "#667a6e" }}>
-                  Full Advance (100%), Delivery Advance + COD, aur Pure COD orders ka mukammal hisaab.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="shopifySecondaryButton"
-                style={{ fontSize: "12px", padding: "6px 12px" }}
-                onClick={() => { setAdvanceFilter("all"); setTab("payments"); }}
-              >
-                Manage All Order Payments →
-              </button>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
-              <div style={{ background: "#f8faf8", border: "1.5px solid #d4ded6", borderRadius: "10px", padding: "12px 14px" }}>
-                <div style={{ fontSize: "12px", fontWeight: 700, color: "#166534", marginBottom: "4px" }}>100% Full Advance (Prepaid)</div>
-                <div style={{ fontSize: "18px", fontWeight: 800, color: "#122a1e" }}>{money(paymentScenarios.fullAdvanceTotalPkr)}</div>
-                <div style={{ fontSize: "11.5px", color: "#667a6e", marginTop: "4px" }}>
-                  {paymentScenarios.fullAdvanceCount} orders · Verified: <b>{money(paymentScenarios.fullAdvanceVerifiedPkr)}</b> · Pending: <b>{money(paymentScenarios.fullAdvancePendingPkr)}</b>
-                </div>
-              </div>
-
-              <div style={{ background: "#f8faf8", border: "1.5px solid #d4ded6", borderRadius: "10px", padding: "12px 14px" }}>
-                <div style={{ fontSize: "12px", fontWeight: 700, color: "#0369a1", marginBottom: "4px" }}>Delivery Advance + COD</div>
-                <div style={{ fontSize: "18px", fontWeight: 800, color: "#122a1e" }}>{money(paymentScenarios.deliveryAdvanceVerifiedPkr)} <span style={{ fontSize: "12px", fontWeight: 500, color: "#64748b" }}>Adv</span></div>
-                <div style={{ fontSize: "11.5px", color: "#667a6e", marginTop: "4px" }}>
-                  {paymentScenarios.deliveryAdvanceCount} orders · COD Due on Delivery: <b>{money(paymentScenarios.deliveryAdvanceCodRemainingPkr)}</b>
-                </div>
-              </div>
-
-              <div style={{ background: "#f8faf8", border: "1.5px solid #d4ded6", borderRadius: "10px", padding: "12px 14px" }}>
-                <div style={{ fontSize: "12px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>Pure Cash On Delivery (COD)</div>
-                <div style={{ fontSize: "18px", fontWeight: 800, color: "#122a1e" }}>{money(paymentScenarios.codOnlyTotalPkr)}</div>
-                <div style={{ fontSize: "11.5px", color: "#667a6e", marginTop: "4px" }}>
-                  {paymentScenarios.codOnlyCount} orders · Delivered: <b>{money(paymentScenarios.codOnlyDeliveredPkr)}</b> · In Transit: <b>{money(paymentScenarios.codOnlyInPipelinePkr)}</b>
-                </div>
-              </div>
-
-              <div style={{ background: paymentScenarios.needsVerificationCount > 0 ? "#fffbeb" : "#f0fdf4", border: `1.5px solid ${paymentScenarios.needsVerificationCount > 0 ? "#fde68a" : "#bbf7d0"}`, borderRadius: "10px", padding: "12px 14px" }}>
-                <div style={{ fontSize: "12px", fontWeight: 700, color: paymentScenarios.needsVerificationCount > 0 ? "#92400e" : "#166534", marginBottom: "4px" }}>Awaiting Manual Verification</div>
-                <div style={{ fontSize: "18px", fontWeight: 800, color: paymentScenarios.needsVerificationCount > 0 ? "#b45309" : "#15803d" }}>
-                  {paymentScenarios.needsVerificationCount} Orders
-                </div>
-                <div style={{ fontSize: "11.5px", color: "#667a6e", marginTop: "4px" }}>
-                  {paymentScenarios.needsVerificationCount > 0
-                    ? `Rs. ${money(paymentScenarios.needsVerificationPkr)} verify karna baqi hai`
-                    : "All advances verified and posted!"}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Account Balances Snapshot Bar */}
-          <div className="shopifySectionCard" style={{ padding: "18px 20px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "8px" }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "750", color: "#122a1e" }}>Operating Accounts &amp; Wallets</h3>
-                <p style={{ margin: "2px 0 0", fontSize: "12.5px", color: "#667a6e" }}>Har account ka live balance — direct kharcha, transfer ya balance reconcile karein.</p>
-              </div>
-              <button
-                type="button"
-                className="shopifySecondaryButton"
-                style={{ fontSize: "12px", padding: "6px 12px" }}
-                onClick={() => { setLedgerAccountFilter("all"); setTab("cash"); }}
-              >
-                Open Full Cashbook →
-              </button>
-            </div>
-            <div className="shopifyAccountsGrid">
-              {sortedAccounts.map((acc) => (
-                <div key={acc.id} className="shopifyAccountCard">
-                  <div className="shopifyAccountCardHead">
-                    <div>
-                      <b>{acc.name}</b>
-                      <div style={{ fontSize: "11px", color: "#667a6e" }}>
-                        {acc.holder || (acc.kind === "cash" ? "Physical Cash" : "Digital Account")}
-                        {acc.openingBalancePkr ? ` · Opening: ${money(acc.openingBalancePkr)}` : ""}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => { setLedgerAccountFilter(acc.id); setTab("cash"); }}
-                      style={{ fontSize: "11px", fontWeight: "600", padding: "2px 8px", borderRadius: "4px", background: "#f0fdf4", color: "#166534", border: "none", cursor: "pointer" }}
-                      title="Filter cash ledger by this account"
-                    >
-                      {acc.movementCount} entries →
-                    </button>
-                  </div>
-                  <div className="shopifyAccountBalance">
-                    {money(acc.balancePkr)}
-                  </div>
-                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", borderTop: "1px solid #f1f5f2", paddingTop: "10px" }}>
-                    <button
-                      type="button"
-                      className="shopifyAccountQuickBtn"
-                      onClick={() => { setModalDefaultAccount(acc.id); setModalDefaultExpenseType("business_expense"); setActiveModal("expense"); }}
-                    >
-                      <Plus size={12} /> Expense
-                    </button>
-                    <button
-                      type="button"
-                      className="shopifyAccountQuickBtn"
-                      onClick={() => { setModalDefaultAccount(acc.id); setModalDefaultIncomeType("other_income"); setActiveModal("income"); }}
-                    >
-                      <Plus size={12} /> Income
-                    </button>
-                    <button
-                      type="button"
-                      className="shopifyAccountQuickBtn"
-                      onClick={() => { setModalDefaultAccount(acc.id); setActiveModal("transfer"); }}
-                    >
-                      <ArrowLeftRight size={12} /> Transfer
-                    </button>
-                    <button
-                      type="button"
-                      className="shopifyAccountQuickBtn"
-                      onClick={() => { setSelectedAccountForBalance(acc); setActiveModal("adjust_balance"); }}
-                      title="Match actual bank/wallet balance or set opening balance"
-                    >
-                      <Settings2 size={12} /> Balance
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Money In vs Money Out Statement */}
-          <section className="financeGrid financeGridWide">
-            <Card title="Money in" subtitle="Sirf woh paisa jo asal mein mila — is period mein.">
-              <div className="financeStatement">
-                <StatementRow label="PostEx bank receipts" value={money(cash.postexReceiptsPkr)} sign="+" help="Aap ne bank mein confirm kiye" />
-                <StatementRow label="Customer advances" value={money(cash.advanceReceiptsPkr)} sign="+" help="Verified advance, NayaPay mein" />
-                <StatementRow label="Other income" value={money(cash.otherIncomePkr)} sign="+" />
-                <StatementRow label="Owner funds added" value={money(cash.ownerInvestmentsPkr)} sign="+" />
-                <StatementRow label="Total in" value={money(cash.inPkr)} strong sign="+" />
-              </div>
-            </Card>
-            <Card title="Money out" subtitle="Stock ka kharcha abhi cash kam karta hai; profit mein tab ginta hai jab woh maal bikta hai.">
-              <div className="financeStatement">
-                <StatementRow label="Stock / production" value={money(cash.inventorySpendPkr)} sign="-" help="Fabric, stitching, lace" />
-                <StatementRow label="Operating expenses" value={money(cash.operatingExpensesPkr)} sign="-" />
-                <StatementRow label="Supplier payments" value={money(cash.supplierPaymentsPkr)} sign="-" />
-                <StatementRow label="Owner withdrawals" value={money(cash.ownerWithdrawalsPkr)} sign="-" />
-                <StatementRow label="Total out" value={money(cash.outPkr)} strong sign="-" />
-              </div>
-            </Card>
-          </section>
-
-          {/* Products & Categories Breakdown */}
-          <section className="financeGrid financeGridWide">
-            <Card title="Best & worst products" subtitle="Delivered units par profit — cost sale ke waqt wali use hoti hai.">
-              <Table head={["Product", "Units", "Revenue", "Profit", "Margin"]} empty="Is period mein koi delivered sale nahi.">
-                {products.slice(0, 8).map((row) => (
-                  <tr key={row.productId || row.name}>
-                    <td style={{ minWidth: "160px", maxWidth: "260px" }}><div style={{ display: "flex", flexDirection: "column" }}><b>{row.name}</b>{row.sku ? <small style={{ display: "block", fontSize: "11px", color: "#667a6e" }}>{row.sku}</small> : null}</div></td>
-                    <td>{row.units}</td>
-                    <td>{money(row.revenuePkr)}</td>
-                    <td className={row.profitPkr < 0 ? "expenseAmount font-bold" : "incomeAmount font-bold"}>{money(row.profitPkr)}</td>
-                    <td><span className="shopifyStatusBadge active">{percent(row.marginPercent)}</span></td>
-                  </tr>
-                ))}
-              </Table>
-            </Card>
-            <Card title="Category profit" subtitle="Kaun si category sab se zyada kamati hai.">
-              <Table head={["Category", "Units", "Revenue", "Profit", "Margin"]} empty="Koi data nahi.">
-                {categories.map((row) => (
-                  <tr key={row.category}>
-                    <td><b>{row.category}</b></td>
-                    <td>{row.units}</td>
-                    <td>{money(row.revenuePkr)}</td>
-                    <td className={row.profitPkr < 0 ? "expenseAmount font-bold" : "incomeAmount font-bold"}>{money(row.profitPkr)}</td>
-                    <td><span className="shopifyStatusBadge active">{percent(row.marginPercent)}</span></td>
-                  </tr>
-                ))}
-              </Table>
-            </Card>
-          </section>
-
-          {/* Forecast & Stock Cards */}
-          <section className="financeGrid financeGridWide">
-            <Card title="Inventory mein phansa paisa" subtitle="Stock ki purchase value aur jo bilkul nahi bik raha.">
-              <div className="financeStatement">
-                <StatementRow label="Purchase value on hand" value={money(inventory.costValuePkr)} help="Itna paisa stock mein phansa hai" />
-                <StatementRow label="Retail value on hand" value={money(inventory.retailValuePkr)} />
-                <StatementRow label="Dead stock (is period mein 0 bika)" value={money(inventory.deadStockValuePkr)} help={`${inventory.deadStock.length} products`} />
-                <StatementRow label="Low stock products" value={inventory.lowStockCount} strong />
-              </div>
-            </Card>
-            <Card title="30-day cash forecast" subtitle="Abhi ka cash + aane wala PostEx paisa − 30 din mein due supplier bills.">
-              <div className="financeStatement">
-                <StatementRow label="Available cash" value={money(cash.availableCashPkr)} />
-                <StatementRow label="PostEx receivable" value={money(postex.receivablePkr)} sign="+" />
-                <StatementRow label="Supplier bills due (30 days)" value={money(suppliers.dueIn30DaysPkr)} sign="-" />
-                <StatementRow label="Expected closing cash" value={money(cash.expectedClosingCashPkr)} strong />
-              </div>
-            </Card>
-          </section>
-
-          {/* Orders Pipeline Breakdown */}
-          <Card
-            title="Orders kis status par hain"
-            subtitle="Sale tab ginti hai jab order 'Delivered' ho jaye. Agar sales kam lag rahi hain, wajah yahan dikhegi."
-          >
-            <Table head={["Status", "Orders"]} empty="Koi order nahi.">
-              {sales.statusBreakdown.map((row) => (
-                <tr key={row.status} className={row.status === "Delivered" ? "bg-[#f0fdf4]" : ""}>
-                  <td>
-                    <b>{row.status}</b>
-                    {row.status === "Delivered" ? <small className="block text-xs text-[#166534] font-semibold">Yehi delivered revenue mein ginte hain</small> : null}
-                  </td>
-                  <td><b>{row.count}</b></td>
-                </tr>
-              ))}
-            </Table>
-          </Card>
-        </>
+        />
       )}
 
       {/* =========================================================================
