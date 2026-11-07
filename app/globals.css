@@ -4910,62 +4910,181 @@ footer {
 
 .quickViewModal {
   position: relative !important;
-  z-index: 10002 !important;
+  z-index: 100002 !important;
   left: auto !important;
   top: auto !important;
   transform: none !important;
-  width: min(840px, 100%) !important;
-  max-height: min(650px, calc(100vh - 36px)) !important;
+  width: min(920px, 100%) !important;
+  max-height: min(670px, calc(100vh - 36px)) !important;
   background: #ffffff !important;
-  border-radius: 14px !important;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.35) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 30px 90px -15px rgba(10, 28, 18, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 1.1fr) !important;
+  grid-template-columns: minmax(0, 46%) minmax(0, 54%) !important;
   overflow: hidden !important;
-  animation: qvSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  animation: qvSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
+/* Left Column: Image & Gallery */
 .quickViewImage {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 440px;
-  background: #f7f6f2;
+  min-height: 480px;
+  background: #fbfaf8;
+  overflow: hidden;
 }
 
 .quickViewImage img {
   object-fit: cover !important;
   object-position: top center !important;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.quickViewClose {
+.quickViewImage:hover img {
+  transform: scale(1.035);
+}
+
+/* Floating Luxury Badges */
+.qvBadgeContainer {
   position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   z-index: 10;
-  right: 14px;
-  top: 14px;
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+}
+
+.qvBadgeNew {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: rgba(18, 42, 30, 0.88);
+  color: #ffffff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.qvBadgeDiscount {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.1);
+}
+
+/* Gallery Navigation Arrows */
+.qvGalleryArrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  color: #111111;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #1f2937;
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.quickViewImage:hover .qvGalleryArrow {
+  opacity: 1;
+}
+
+.qvGalleryArrow.prev {
+  left: 12px;
+}
+
+.qvGalleryArrow.next {
+  right: 12px;
+}
+
+.qvGalleryArrow:hover {
+  background: #ffffff;
+  color: #173d29;
+  transform: translateY(-50%) scale(1.1);
+}
+
+/* Gallery Pagination Dots */
+.qvDots {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  z-index: 10;
+}
+
+.qvDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  border: 0;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.qvDot.active {
+  width: 20px;
+  background: #ffffff;
+}
+
+/* Close Button */
+.quickViewClose {
+  position: absolute;
+  z-index: 25;
+  right: 16px;
+  top: 16px;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 50%;
+  background: #ffffff;
+  color: #1f2937;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 
 .quickViewClose:hover {
-  background: #ffffff;
-  transform: scale(1.08);
-  color: #c8175a;
+  background: #173d29;
+  color: #ffffff;
+  transform: rotate(90deg) scale(1.08);
+  box-shadow: 0 6px 20px rgba(23, 61, 41, 0.25);
 }
 
+/* Right Column: Details & Purchasing */
 .quickViewDetails {
-  padding: 32px 28px 28px !important;
+  padding: 30px 28px 26px !important;
   overflow-y: auto !important;
-  max-height: min(650px, calc(100vh - 36px)) !important;
+  max-height: min(670px, calc(100vh - 36px)) !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 14px !important;
@@ -4973,52 +5092,127 @@ footer {
   background: #ffffff !important;
 }
 
+/* Custom Scrollbar */
+.quickViewDetails::-webkit-scrollbar {
+  width: 5px;
+}
+.quickViewDetails::-webkit-scrollbar-track {
+  background: #fbfbfb;
+}
+.quickViewDetails::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 999px;
+}
+.quickViewDetails::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
+
+/* Meta Bar (Category + Stock/Rating) */
+.qvTopMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .quickViewCategory {
   margin: 0;
-  color: var(--berry, #c8175a);
-  font-size: 10px;
-  font-weight: 700;
+  color: #173d29;
+  font-size: 11px;
+  font-weight: 750;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
-.quickViewTitle {
-  margin: 0;
-  color: #111111;
-  font-family: var(--bs-font-sans, sans-serif);
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.015em;
-}
-
-.quickViewPrice {
+.qvStockRatingRow {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+
+.qvStockPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #15803d;
+  background: #f0fdf4;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #bbf7d0;
+}
+
+.qvStockDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16a34a;
+  animation: qvPulse 1.8s infinite;
+}
+
+@keyframes qvPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.qvRatingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #4b5563;
+  background: #f9fafb;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+/* Luxury Editorial Title */
+.quickViewTitle {
+  margin: 0;
+  color: #111827;
+  font-family: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.22;
+  letter-spacing: -0.01em;
+}
+
+/* Price Section */
+.quickViewPrice {
+  display: flex;
+  align-items: baseline;
   gap: 10px;
   flex-wrap: wrap;
 }
 
 .quickViewPrice .currentPrice {
-  color: #16452c;
-  font-size: 18px;
-  font-weight: 700;
+  color: #122a1e;
+  font-size: 22px;
+  font-weight: 800;
+  font-family: var(--font-manrope), sans-serif;
+  letter-spacing: -0.01em;
 }
 
 .quickViewPrice .comparePrice {
-  color: #888888;
-  font-size: 14px;
+  color: #9ca3af;
+  font-size: 15px;
   font-weight: 400;
+  text-decoration: line-through;
 }
 
 .quickViewPrice .discountPill {
-  background: #fee2e2;
-  color: #dc2626;
+  background: #ecfdf3;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
   font-size: 11px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 4px;
-  letter-spacing: 0.04em;
+  font-weight: 750;
+  padding: 3px 9px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
 }
 
 .quickViewDesc {
@@ -5028,6 +5222,7 @@ footer {
   color: #4b5563;
 }
 
+/* Sections */
 .quickViewSection {
   display: flex;
   flex-direction: column;
@@ -5041,31 +5236,46 @@ footer {
   font-size: 12px;
 }
 
+.sectionLabelGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .quickViewSectionHeader .sectionLabel {
   color: #6b7280;
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
 }
 
 .quickViewSectionHeader .sectionValue {
-  color: #111111;
-  font-weight: 600;
-  margin-left: 6px;
+  color: #111827;
+  font-weight: 700;
 }
 
 .quickViewSizeGuideLink {
   background: transparent;
   border: 0;
-  color: #16452c;
+  color: #173d29;
   cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 11.5px;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  text-decoration: underline;
-  padding: 0;
+  padding: 3px 7px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
 }
 
+.quickViewSizeGuideLink:hover {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+/* Color Swatches */
 .quickViewColorOptions {
   display: flex;
   flex-wrap: wrap;
@@ -5073,16 +5283,16 @@ footer {
 }
 
 .quickViewColorBtn {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: 2px solid transparent;
-  padding: 2px;
+  padding: 2.5px;
   background: transparent;
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.18s ease, border-color 0.18s ease;
 }
 
 .quickViewColorBtn:hover {
@@ -5090,7 +5300,8 @@ footer {
 }
 
 .quickViewColorBtn.selected {
-  border-color: #16452c;
+  border-color: #173d29;
+  transform: scale(1.08);
 }
 
 .quickViewColorBtn .colorDot {
@@ -5098,9 +5309,10 @@ footer {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
 }
 
+/* Size Chips */
 .quickViewSizeOptions {
   display: flex;
   flex-wrap: wrap;
@@ -5108,15 +5320,15 @@ footer {
 }
 
 .quickViewSizeBtn {
-  min-width: 48px;
+  min-width: 50px;
   height: 40px;
   padding: 0 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
   background: #ffffff;
   color: #1f2937;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -5125,15 +5337,19 @@ footer {
 }
 
 .quickViewSizeBtn:hover {
-  border-color: #111111;
+  border-color: #173d29;
+  background: #fbfdfc;
+  transform: translateY(-1px);
 }
 
 .quickViewSizeBtn.selected {
-  border-color: #16452c !important;
-  background: #16452c !important;
+  border-color: #173d29 !important;
+  background: #173d29 !important;
   color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(23, 61, 41, 0.22) !important;
 }
 
+/* Quantity Row */
 .quickViewQtyRow {
   display: flex;
   align-items: center;
@@ -5143,30 +5359,31 @@ footer {
 .quickViewQtyBox {
   display: inline-flex;
   align-items: center;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 9px;
   overflow: hidden;
-  background: #ffffff;
+  background: #fafafa;
 }
 
 .quickViewQtyBox button {
   width: 36px;
-  height: 36px;
+  height: 38px;
   border: 0;
-  background: #f9fafb;
+  background: transparent;
   color: #374151;
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .quickViewQtyBox button:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: #f3f4f6;
+  color: #111827;
 }
 
 .quickViewQtyBox button:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -5174,44 +5391,50 @@ footer {
   width: 40px;
   text-align: center;
   font-size: 14px;
-  font-weight: 600;
-  color: #111111;
+  font-weight: 750;
+  color: #111827;
 }
 
 .quickViewLowStock {
-  color: #dc2626;
-  font-size: 11px;
-  font-weight: 600;
+  color: #b91c1c;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: #fef2f2;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid #fecaca;
 }
 
+/* Actions */
 .quickViewActions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .quickViewAddBagBtn {
   width: 100%;
-  min-height: 48px;
+  min-height: 50px;
   border: 0;
-  border-radius: 8px;
-  background: #16452c;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #173d29, #0e2a1b);
   color: #ffffff;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 13.5px;
+  font-weight: 750;
   letter-spacing: 0.04em;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(22, 69, 44, 0.25);
+  box-shadow: 0 6px 20px rgba(23, 61, 41, 0.25);
 }
 
 .quickViewAddBagBtn:hover:not(:disabled) {
-  background: #0e2f1d;
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, #1f4f35, #123422);
+  transform: translateY(-1.5px);
+  box-shadow: 0 10px 25px rgba(23, 61, 41, 0.35);
 }
 
 .quickViewAddBagBtn:disabled {
@@ -5232,34 +5455,66 @@ footer {
   justify-content: center;
   gap: 6px;
   color: #4b5563;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   text-decoration: none;
   padding: 6px 0;
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, transform 0.15s ease;
 }
 
 .quickViewFullDetailsLink:hover {
-  color: #16452c;
+  color: #173d29;
+  transform: translateX(2px);
 }
 
+/* Trust Assurance Strip */
+.qvTrustStrip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f2;
+}
+
+.qvTrustItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #55675c;
+  line-height: 1.3;
+}
+
+.qvTrustItem svg {
+  flex-shrink: 0;
+  color: #173d29;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
   .quickViewModal {
     grid-template-columns: 1fr !important;
-    max-height: calc(100dvh - 32px) !important;
+    max-height: calc(100dvh - 28px) !important;
     overflow-y: auto !important;
+    border-radius: 16px !important;
   }
   .quickViewImage {
-    height: 250px !important;
-    min-height: 250px !important;
+    height: 320px !important;
+    min-height: 320px !important;
   }
   .quickViewDetails {
-    padding: 20px 18px 24px !important;
+    padding: 22px 18px 24px !important;
     max-height: none !important;
     overflow-y: visible !important;
   }
   .quickViewTitle {
-    font-size: 19px !important;
+    font-size: 22px !important;
+  }
+  .qvTrustStrip {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 }
 
