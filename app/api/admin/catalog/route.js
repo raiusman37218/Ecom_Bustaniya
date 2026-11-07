@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { DEFAULT_KURTI_BOTTOM_OPTIONS, formatCategorySelection, parseCategorySelection } from "../../../../data/store";
+import { authorizeAdminRequest } from "../../../../lib/adminAuth";
+import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabaseRest";
+import { invalidateCatalogCache } from "../../../../lib/catalog";
 
 function revalidateCatalogPaths(productId) {
   try {
@@ -18,17 +22,9 @@ function revalidateCatalogPaths(productId) {
     revalidatePath("/category/[slug]/[subcategory]", "page");
     revalidatePath("/uk/category/[slug]", "page");
     revalidatePath("/uk/category/[slug]/[subcategory]", "page");
-    revalidatePath("/uk/product/[id]", "page");
-    revalidatePath("/category/[slug]", "page");
-    revalidatePath("/", "page");
-    revalidatePath("/uk", "page");
     revalidatePath("/admin", "page");
-  } catch {}
+  } catch { }
 }
-import { DEFAULT_KURTI_BOTTOM_OPTIONS, formatCategorySelection, parseCategorySelection } from "../../../../data/store";
-import { authorizeAdminRequest } from "../../../../lib/adminAuth";
-import { supabaseAdminRequest, supabaseAdminRpc } from "../../../../lib/supabaseRest";
-import { invalidateCatalogCache } from "../../../../lib/catalog";
 
 
 const DEFAULT_ACTIVE_STOCK = 10;
@@ -664,7 +660,7 @@ export async function PATCH(request) {
               },
             },
           },
-        }).catch(() => {});
+        }).catch(() => { });
       }
       invalidateCatalogCache();
       revalidateCatalogPaths(body.productId);
@@ -707,7 +703,7 @@ export async function PATCH(request) {
           body: {
             low_stock_threshold: Math.max(0, Number(body.lowStockThreshold ?? body.product?.lowStockThreshold ?? 5)),
           },
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
     if (

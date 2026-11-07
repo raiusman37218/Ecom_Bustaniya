@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, AlertCircle, Archive, ArrowDown, ArrowLeft, ArrowUp, BarChart3, Bell, Boxes, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleDollarSign,
+  Activity, AlertCircle, AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowUp, BarChart3, Bell, Boxes, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleDollarSign,
   Clock, Copy, CreditCard, Edit, ExternalLink, Eye, FileText, Folder, FolderPlus, FolderTree, Globe, Grid, HelpCircle, Info, Landmark, Layers, LayoutDashboard, List, Loader2, LogOut, MapPin, Menu, MessageSquare,
   Minus, MoreHorizontal, Package, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Save, Search, Settings,
   ShoppingBag, Sparkles, Star, Store, Tags, Trash2, TrendingUp, Truck, UploadCloud, User, Users, WalletCards, X, Scissors, Calculator, Warehouse
@@ -937,6 +937,7 @@ export default function AdminDashboard() {
   const [productSaving, setProductSaving] = useState(false);
   const productDetailsEditorRef = useRef(null);
   const [workspace, setWorkspace] = useState(null);
+  const [activity, setActivity] = useState([]);
   const [tableDensity, setTableDensity] = useState(() => (typeof window !== "undefined" && localStorage.getItem("bustaniya-admin-table-density")) || "comfortable");
   const [confirmModalState, setConfirmModalState] = useState({
     isOpen: false,
@@ -989,49 +990,6 @@ export default function AdminDashboard() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [confirmModalState.isOpen]);
-
-  async function deleteProduct(product) {
-    const targetProduct = typeof product === "object" ? product : products.find((p) => String(p.id) === String(product));
-    const productName = targetProduct?.name || "this product";
-    const productId = targetProduct?.id || product;
-
-    requestConfirm({
-      title: "Remove Product",
-      message: `Are you sure you want to remove "${productName}"? If it has order history, it will be archived and hidden from the store.`,
-      confirmText: "Delete Product",
-      isDanger: true,
-      onConfirm: async () => {
-        setCatalogLoading(true);
-        setOrdersError("");
-        setProducts((current) => current.filter((item) => String(item.id) !== String(productId)));
-        try {
-          const response = await fetch("/api/admin/catalog", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ productId }),
-          });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || "Unable to remove product.");
-          await loadAdminData();
-          if (result.archived) {
-            setOrdersError(`${productName} was archived because it may be linked to existing order history.`);
-          }
-        } catch (error) {
-          setOrdersError(error.message || "Product deletion failed.");
-          await loadAdminData();
-        } finally {
-          setCatalogLoading(false);
-        }
-      },
-    });
-  }
-
-  function handleTableDensityChange(newDensity) {
-    setTableDensity(newDensity);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("bustaniya-admin-table-density", newDensity);
-    }
-  }
 
   const [products, setProducts] = useState(() => {
     if (typeof window !== "undefined") {
@@ -1116,6 +1074,49 @@ export default function AdminDashboard() {
       lowStock: 0,
     };
   });
+
+  async function deleteProduct(product) {
+    const targetProduct = typeof product === "object" ? product : products.find((p) => String(p.id) === String(product));
+    const productName = targetProduct?.name || "this product";
+    const productId = targetProduct?.id || product;
+
+    requestConfirm({
+      title: "Remove Product",
+      message: `Are you sure you want to remove "${productName}"? If it has order history, it will be archived and hidden from the store.`,
+      confirmText: "Delete Product",
+      isDanger: true,
+      onConfirm: async () => {
+        setCatalogLoading(true);
+        setOrdersError("");
+        setProducts((current) => current.filter((item) => String(item.id) !== String(productId)));
+        try {
+          const response = await fetch("/api/admin/catalog", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productId }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Unable to remove product.");
+          await loadAdminData();
+          if (result.archived) {
+            setOrdersError(`${productName} was archived because it may be linked to existing order history.`);
+          }
+        } catch (error) {
+          setOrdersError(error.message || "Product deletion failed.");
+          await loadAdminData();
+        } finally {
+          setCatalogLoading(false);
+        }
+      },
+    });
+  }
+
+  function handleTableDensityChange(newDensity) {
+    setTableDensity(newDensity);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("bustaniya-admin-table-density", newDensity);
+    }
+  }
 
   // Keep every async admin action visibly busy without duplicating spinner logic
   // in each panel. Existing loading labels/icons remain the source of truth;
@@ -2292,7 +2293,7 @@ export default function AdminDashboard() {
           {canAccessActive && active === "Courier Ops" && <CourierOperationsPanel />}
           {canAccessActive && active === "Couriers" && <CouriersPanel />}
           {canAccessActive && active === "Apps & Plugins" && <PluginsWorkspace currentAdminUser={currentAdminUser} />}
-          {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} signedInUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Settings" ? requestedAdminFocus.focus : ""} categories={catalogCategories} />}
+          {canAccessActive && active === "Settings" && <SettingsPanel onOpen={setWorkspace} onConfirmAction={requestConfirm} signedInUser={currentAdminUser} initialTab={requestedAdminFocus?.section === "Settings" ? requestedAdminFocus.focus : ""} categories={catalogCategories} />}
         </div>
       </section>
 
@@ -10703,7 +10704,7 @@ function InventoryPanel({
       const query = inventorySearch.toLowerCase();
       const matchesSearch =
         !query ||
-        product.name.toLowerCase().includes(query) ||
+        String(product.name || "").toLowerCase().includes(query) ||
         String(product.sku || product.articleNumber || "").toLowerCase().includes(query) ||
         String(product.category || "").toLowerCase().includes(query);
 
@@ -13422,6 +13423,15 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
     }
   }
 
+  const savedMoney = orderMoney(order);
+  const preview = orderMoney(order, { items: orderItems, advance: Number(advancePaidAmount || 0) });
+  const calculatedItemsTotal = preview.subtotal;
+  const deliveryChargeVal = preview.delivery;
+  const calculatedOrderTotal = preview.total;
+  const currentAdvance = preview.advance;
+  const currentCod = preview.cod;
+  const unsavedTotalChange = Math.abs(preview.total - savedMoney.total) >= 1 || Math.abs(preview.advance - savedMoney.advance) >= 1;
+
   function changes(overrides = {}) {
     const adv = Number(advancePaidAmount || 0);
     const tot = calculatedOrderTotal;
@@ -13697,15 +13707,6 @@ function OrderDetailDrawer({ order, catalogProducts = [], onClose, onUpdate, can
       compact: true,
     });
   }
-
-  const savedMoney = orderMoney(order);
-  const preview = orderMoney(order, { items: orderItems, advance: Number(advancePaidAmount || 0) });
-  const calculatedItemsTotal = preview.subtotal;
-  const deliveryChargeVal = preview.delivery;
-  const calculatedOrderTotal = preview.total;
-  const currentAdvance = preview.advance;
-  const currentCod = preview.cod;
-  const unsavedTotalChange = Math.abs(preview.total - savedMoney.total) >= 1 || Math.abs(preview.advance - savedMoney.advance) >= 1;
 
   const rawStatusLower = String(orderStage || "").toLowerCase();
   const isDelivered = rawStatusLower.includes("deliver") && !rawStatusLower.includes("out for delivery");
@@ -16440,7 +16441,7 @@ function BackendHealthPanel() {
   </div>;
 }
 
-function SettingsPanel({ onOpen, signedInUser, initialTab = "", categories: passedCategories = [] }) {
+function SettingsPanel({ onOpen, onConfirmAction, signedInUser, initialTab = "", categories: passedCategories = [] }) {
   const [activeTab, setActiveTab] = useState(initialTab || "Store");
   const [savedAt, setSavedAt] = useState("");
   const [storeSettings, setStoreSettings] = useState(DEFAULT_STORE_SETTINGS);
@@ -16802,32 +16803,38 @@ function SettingsPanel({ onOpen, signedInUser, initialTab = "", categories: pass
 
   async function deleteStaffUser(userId) {
     const user = staff.find((u) => u.id === userId);
-    requestConfirm({
-      title: "Remove Admin User",
-      message: `Are you sure you want to remove admin user "${user?.name || "this user"}"? They will lose access to the admin portal.`,
-      confirmText: "Remove User",
-      isDanger: true,
-      onConfirm: async () => {
-        setStaffError("");
-        setStaffSaved("");
-        setStaffLoading(true);
-        try {
-          const response = await fetch("/api/admin/users", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId }),
-          });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || "Unable to remove admin user.");
-          setStaffSaved("Admin user removed.");
-          await loadAdminUsers();
-        } catch (error) {
-          setStaffError(error.message);
-        } finally {
-          setStaffLoading(false);
-        }
-      },
-    });
+    const runDelete = async () => {
+      setStaffError("");
+      setStaffSaved("");
+      setStaffLoading(true);
+      try {
+        const response = await fetch("/api/admin/users", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Unable to remove admin user.");
+        setStaffSaved("Admin user removed.");
+        await loadAdminUsers();
+      } catch (error) {
+        setStaffError(error.message);
+      } finally {
+        setStaffLoading(false);
+      }
+    };
+    const confirmMsg = `Are you sure you want to remove admin user "${user?.name || "this user"}"? They will lose access to the admin portal.`;
+    if (onConfirmAction) {
+      onConfirmAction({
+        title: "Remove Admin User",
+        message: confirmMsg,
+        confirmText: "Remove User",
+        isDanger: true,
+        onConfirm: runDelete,
+      });
+    } else if (window.confirm(confirmMsg)) {
+      await runDelete();
+    }
   }
 
   function addShippingZone(event) {

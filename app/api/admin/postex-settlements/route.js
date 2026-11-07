@@ -34,7 +34,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    await authorizeAdminSession(request, "finance");
+    const { user } = await authorizeAdminSession(request, "finance");
     const body = await request.json().catch(() => ({}));
     if (body.action === "sync") {
       return NextResponse.json({ success: true, ...(await syncPostexPayments()) });
