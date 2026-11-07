@@ -213,6 +213,9 @@ export async function POST(request) {
     await authorizeAdminRequest(request, "orders");
 
     const body = await request.json().catch(() => null);
+    const selectedPickupCode = String(body?.pickupAddressCode || "").trim();
+    const selectedPickupCity = String(body?.pickupCity || "").trim();
+    const selectedPickupAddress = String(body?.pickupAddress || "").trim();
     const rawCustomer = body?.customer || {};
     const customer = {
       ...rawCustomer,
@@ -427,9 +430,7 @@ export async function POST(request) {
       : 1;
 
     const courier = await getCourierAdapter("postex");
-    const selectedPickupCode = String(body?.pickupAddressCode || courier.pickupAddressCode || "").trim();
-    const selectedPickupCity = String(body?.pickupCity || "").trim();
-    const selectedPickupAddress = String(body?.pickupAddress || "").trim();
+    const effectivePickupCode = selectedPickupCode || courier.pickupAddressCode || "";
 
     const payload = {
       orderRefNumber: completedOrder.order_number || orderNumber,
@@ -446,7 +447,7 @@ export async function POST(request) {
         `Payment status: ${paymentStatus}`,
         `Advance received: Rs. ${advancePaidPkr.toLocaleString("en-PK")}`,
         `Pay on delivery: Rs. ${amountPayableOnDeliveryPkr.toLocaleString("en-PK")}`,
-        selectedPickupCity ? `Ship from: ${selectedPickupCity} (${selectedPickupCode || "default"})` : "",
+        selectedPickupCity ? `Ship from: ${selectedPickupCity} (${effectivePickupCode || "default"})` : "",
         body?.source ? `Source: ${body.source}` : "Source: Custom order",
         body?.notes ? `Notes: ${limitText(body.notes, 300)}` : "",
       ].filter(Boolean).join(" | "),
@@ -454,7 +455,7 @@ export async function POST(request) {
       invoiceDivision: 1,
       items: Math.max(1, totalItemsCount),
       orderType: "Normal",
-      ...(selectedPickupCode ? { pickupAddressCode: selectedPickupCode } : (courier.pickupAddressCode ? { pickupAddressCode: courier.pickupAddressCode } : {})),
+      ...(effectivePickupCode ? { pickupAddressCode: effectivePickupCode } : {}),
     };
 
     let trackingNumber = null;
@@ -463,7 +464,7 @@ export async function POST(request) {
       manual: true,
       deliveryMethod: body?.deliveryMethod || "Manual",
       source: body?.source || "Custom order",
-      pickupAddressCode: selectedPickupCode || courier.pickupAddressCode || "",
+      pickupAddressCode: effectivePickupCode,
       pickupCity: selectedPickupCity || "",
       pickupAddress: selectedPickupAddress || "",
     };
@@ -495,7 +496,7 @@ export async function POST(request) {
             courierStatus = (rawTxStatus && rawTxStatus.toLowerCase() !== "unbooked") ? rawTxStatus : "Booked";
             postexResponse = {
               ...result,
-              pickupAddressCode: selectedPickupCode || courier.pickupAddressCode || "",
+              pickupAddressCode: effectivePickupCode,
               pickupCity: selectedPickupCity || "",
               pickupAddress: selectedPickupAddress || "",
             };
