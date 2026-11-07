@@ -808,39 +808,7 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
               </div>
             )}
 
-            {/* WearAroha Style / Bottom Pairing Selector */}
-            {!!bottomOptions.length && (
-              <div className="productOptionSection bottomSelectorSection">
-                <div className="selectorHeading">
-                  <div className="selectorLabelGroup">
-                    <span className="selectorLabelTitle">Style / Bottom:</span> <span className="selectedOptionValue">{selectedBottom || "Select style"}</span>
-                  </div>
-                </div>
-                <div className="bottomOptionsList" role="radiogroup" aria-label="Style and bottom options">
-                  {bottomOptions.map((opt) => {
-                    const isSelected = selectedBottom === opt.name;
-                    return (
-                      <button
-                        key={opt.name}
-                        type="button"
-                        role="radio"
-                        aria-checked={isSelected}
-                        className={`bottomOptionBtn ${isSelected ? "selected" : ""}`}
-                        onClick={() => setSelectedBottom(opt.name)}
-                      >
-                        <span className="bottomOptionName">{opt.name}</span>
-                        {opt.priceDelta > 0 ? (
-                          <span className="bottomOptionDelta">+Rs. {Number(opt.priceDelta).toLocaleString()}</span>
-                        ) : (
-                          <span className="bottomOptionBase">Shirt only</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
+            {/* Size Selector */}
             <div className="productOptionSection sizeSelectorSection">
               <div className="selectorHeading sizeSelectorHeading">
                 <div className="selectorLabelGroup">
@@ -876,6 +844,39 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                 })}
               </div>
             </div>
+
+            {/* WearAroha Style / Bottom Pairing Selector */}
+            {!!bottomOptions.length && (
+              <div className="productOptionSection bottomSelectorSection">
+                <div className="selectorHeading">
+                  <div className="selectorLabelGroup">
+                    <span className="selectorLabelTitle">Style / Bottom:</span> <span className="selectedOptionValue">{selectedBottom || "Select style"}</span>
+                  </div>
+                </div>
+                <div className="bottomOptionsList" role="radiogroup" aria-label="Style and bottom options">
+                  {bottomOptions.map((opt) => {
+                    const isSelected = selectedBottom === opt.name;
+                    return (
+                      <button
+                        key={opt.name}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        className={`bottomOptionBtn ${isSelected ? "selected" : ""}`}
+                        onClick={() => setSelectedBottom(opt.name)}
+                      >
+                        <span className="bottomOptionName">{opt.name}</span>
+                        {opt.priceDelta > 0 ? (
+                          <span className="bottomOptionDelta">+Rs. {Number(opt.priceDelta).toLocaleString()}</span>
+                        ) : (
+                          <span className="bottomOptionBase">Shirt only</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="purchaseControls">
               <div className="purchaseRowMain">
@@ -969,31 +970,6 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                   </div>
                 </a>
               ) : null}
-            </div>
-
-            {/* Luxury Reassurance Trust Pillars */}
-            <div className="productTrustBar">
-              <div className="productTrustItem">
-                <ShieldCheck size={18} className="trustIcon" />
-                <div className="trustText">
-                  <strong>Pure Fabric &amp; Tailoring</strong>
-                  <span>Carefully inspected before dispatch</span>
-                </div>
-              </div>
-              <div className="productTrustItem">
-                <Truck size={18} className="trustIcon" />
-                <div className="trustText">
-                  <strong>Tracked Shipping</strong>
-                  <span>PostEx Courier · 3-5 Working Days</span>
-                </div>
-              </div>
-              <div className="productTrustItem">
-                <RotateCcw size={18} className="trustIcon" />
-                <div className="trustText">
-                  <strong>Easy 7-Day Exchange</strong>
-                  <span>Quick WhatsApp support for sizes</span>
-                </div>
-              </div>
             </div>
 
             {/* 1. Product details & fabric (Open by default) */}

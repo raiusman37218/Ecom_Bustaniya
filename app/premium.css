@@ -1829,21 +1829,21 @@ html, body {
   box-shadow: none;
 }
 
-/* Option groups: space, not rules */
+/* Option groups: compact professional rhythm */
 .productPage .productOptionSection {
-  margin: 30px 0 0;
+  margin: 0;
   padding-top: 0;
   border-top: 0;
 }
-.productPage .purchaseControls { margin-top: 30px; }
-.productPage .productSocialActions { margin-top: 22px; }
+.productPage .purchaseControls { margin-top: 4px; }
+.productPage .productSocialActions { margin-top: 2px; }
 
-.productPage .detailPriceRow { margin-top: 22px; }
-.productPage .taxNote { margin: 8px 0 0; }
+.productPage .detailPriceRow { margin-top: 0; }
+.productPage .taxNote { margin: 4px 0 0; }
 
 /* Selector labels sit flush with their controls */
 .productPage .selectorHeading {
-  margin: 0 0 12px;
+  margin: 0 0 6px;
   align-items: center;
 }
 

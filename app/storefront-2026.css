@@ -2264,7 +2264,7 @@
 .bs-st .productPurchase {
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: 14px;
   min-width: 0;
   background: none;
   border: 0;
@@ -2290,7 +2290,7 @@
   padding: 0;
 }
 .bs-st .productPurchase h1 {
-  margin: 0 0 10px;
+  margin: 0 0 4px;
   font-family: var(--bs-font-sans, var(--font-manrope), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif) !important;
   font-weight: 700 !important;
   font-size: clamp(22px, 2.4vw, 32px) !important;
@@ -2302,10 +2302,10 @@
 
 .bs-st .detailPriceRow {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: baseline;
   flex-wrap: wrap;
-  margin: 0 0 16px 0;
+  margin: 0;
 }
 .bs-st .detailPriceMain {
   display: inline-flex;
@@ -2369,20 +2369,20 @@
 .bs-st .productOptionSection {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   background: none;
   border: 0;
   padding: 0;
-  margin-top: 18px;
+  margin-top: 0;
 }
 
 /* Colour swatches — luxury circular swatches with active selection ring */
 .bs-st .colorSwatchesList {
   display: flex !important;
-  gap: 12px !important;
+  gap: 10px !important;
   flex-wrap: wrap !important;
   align-items: center !important;
-  margin-top: 10px !important;
+  margin-top: 6px !important;
 }
 .bs-st .colorSwatchesList button,
 .bs-st .colorSwatchBtn {
@@ -2457,8 +2457,8 @@
   display: flex !important;
   flex-wrap: wrap !important;
   align-items: center !important;
-  gap: 10px !important;
-  margin-top: 10px !important;
+  gap: 8px !important;
+  margin-top: 6px !important;
 }
 .bs-st .sizeBtn {
   min-width: 58px;
@@ -2525,11 +2525,11 @@
 .bs-st .purchaseControls {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   background: none;
   border: 0;
   padding: 0;
-  margin-top: 22px;
+  margin-top: 6px;
   width: 100%;
 }
 .bs-st .purchaseRowMain {
@@ -4277,7 +4277,7 @@
 .bs-st .productOptionSection + .productOptionSection {
   padding-top: 0;
   border-top: 0;
-  margin-top: 22px;
+  margin-top: 0 !important;
 }
 .bs-st .selectorHeading,
 .bs-st .selectorLabelGroup {
@@ -4310,11 +4310,11 @@
 .bs-st.productPage .productPurchase h1 {
   font-family: var(--bs-font-display) !important;
   font-weight: var(--bs-weight-semibold) !important;
-  font-size: clamp(30px, 3.2vw, 44px) !important;
-  line-height: 1.08 !important;
+  font-size: clamp(28px, 3.2vw, 42px) !important;
+  line-height: 1.1 !important;
   letter-spacing: -0.01em !important;
   text-transform: none !important;
-  margin: 0 0 10px 0 !important;
+  margin: 0 0 2px 0 !important;
 }
 
 /* Row 1: quantity + add-to-bag. Row 2: buy-now + wishlist.
@@ -4402,26 +4402,82 @@
   justify-content: center !important;
 }
 
-/* Trust block is a 2x2 grid of icon + label under hairlines,
-   not a stacked list. */
-.bs-st .productTrustBar {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 20px;
-  padding: 18px 0;
-  border-top: var(--bs-st-hairline);
-  border-bottom: var(--bs-st-hairline);
+/* Product Trust Bar removed per user request */
+.bs-st .productTrustBar,
+.productTrustBar {
+  display: none !important;
 }
-.bs-st .productTrustItem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  font-weight: var(--bs-weight-regular);
-  letter-spacing: 0;
-  color: color-mix(in srgb, var(--bs-st-ink) 85%, transparent);
+
+/* =============================================================
+   PRODUCT DETAIL PAGE — PROFESSIONAL COMPACT RHYTHM
+   Tightens vertical spacing so Title -> Price -> Color -> Sizes ->
+   Controls feel unified, elegant and close together without large gaps.
+   ============================================================= */
+.bs-st .productPurchase,
+.productPage .productPurchase {
+  gap: 14px !important;
 }
-.bs-st .productTrustItem svg { flex: none; opacity: 0.8; }
+
+.bs-st .productPurchase > h1,
+.productPage .productPurchase > h1 {
+  margin: 0 0 2px 0 !important;
+}
+
+.bs-st .detailPriceRow,
+.productPage .detailPriceRow {
+  margin: 0 !important;
+  gap: 10px 14px !important;
+}
+
+.bs-st .productOptionSection,
+.productPage .productOptionSection {
+  margin: 0 !important;
+  padding: 0 !important;
+  gap: 6px !important;
+}
+
+.bs-st .productOptionSection + .productOptionSection,
+.productPage .productOptionSection + .productOptionSection {
+  margin-top: 0 !important;
+}
+
+.bs-st .colorSwatchesList {
+  margin-top: 4px !important;
+  gap: 10px !important;
+}
+
+.bs-st .sizeOptions {
+  margin-top: 4px !important;
+  gap: 8px !important;
+}
+
+.bs-st .bottomOptionsList,
+.bottomOptionsList {
+  margin-top: 4px !important;
+  gap: 8px !important;
+}
+
+.bs-st .bottomSelectorSection,
+.bottomSelectorSection {
+  margin: 0 !important;
+}
+
+.bs-st .purchaseControls,
+.productPage .purchaseControls {
+  margin-top: 4px !important;
+  gap: 8px !important;
+}
+
+.bs-st .productSocialActions,
+.productPage .productSocialActions {
+  margin-top: 2px !important;
+  gap: 8px !important;
+}
+
+.bs-st .productDetailsAccordion,
+.productPage .productDetailsAccordion {
+  margin-top: 4px !important;
+}
 
 /* =============================================================
    PRODUCT PAGE — REMOVE THE NESTED CONTAINER
