@@ -7,7 +7,7 @@ import {
   Minus, MoreHorizontal, Package, Phone, Plus, Printer, ReceiptText, RefreshCw, RotateCcw, Save, Search, Settings,
   ShoppingBag, Sparkles, Star, Store, Tags, Trash2, TrendingUp, Truck, UploadCloud, User, Users, WalletCards, X, Scissors, Calculator, Warehouse
 } from "lucide-react";
-import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts, slugifyCategory } from "../data/store";
+import { categories as fallbackCategoryNames, categoryDetails, categoryToSlug, normalizeCategory, products as initialProducts, slugifyCategory, DEFAULT_KURTI_BOTTOM_OPTIONS, DEFAULT_COORD_BOTTOM_OPTIONS, DEFAULT_SUIT_3PC_OPTIONS } from "../data/store";
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_STORE_SETTINGS, SECTION_TEMPLATES } from "../data/storeSettings";
 import FinanceWorkspace from "./FinanceWorkspace";
 import EventsWorkspace from "./EventsWorkspace";
@@ -1268,12 +1268,7 @@ export default function AdminDashboard() {
     setDetectedColorsHint([]);
     setColorHexMap({});
     setEnableBottomOptions(true);
-    setBottomOptions([
-      { name: "Shirt Only", priceDelta: 0 },
-      { name: "With Plazo", priceDelta: 1500 },
-      { name: "With Shalwar", priceDelta: 1500 },
-      { name: "With Trouser", priceDelta: 1500 },
-    ]);
+    setBottomOptions(DEFAULT_KURTI_BOTTOM_OPTIONS);
     setNewBottomName("");
     setNewBottomDelta(0);
     setProductMedia([]);
@@ -2777,225 +2772,267 @@ export default function AdminDashboard() {
                       )}
                     </div>
 
-                    {/* Bottom & Style Pairing Options (WearAroha Style) */}
-                    <div className="shopifyVariantSection" style={{ marginTop: "24px", paddingTop: "20px", borderTop: "1px solid #e5e7eb" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
-                        <div>
-                          <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#111827" }}>
-                            Bottom & Pairing Options (WearAroha Style)
-                          </h4>
-                          <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#6b7280" }}>
-                            Sell as Shirt Only or let customers add matching bottoms (Plazo, Shalwar, Trouser, etc.) with price deltas.
-                          </p>
-                        </div>
-                        <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600, color: "#1f2937", background: "#f3f4f6", padding: "6px 12px", borderRadius: "6px" }}>
-                          <input
-                            type="checkbox"
-                            checked={enableBottomOptions}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setEnableBottomOptions(checked);
-                              if (checked && (!bottomOptions || !bottomOptions.length)) {
-                                setBottomOptions([
-                                  { name: "Shirt Only", priceDelta: 0 },
-                                  { name: "With Plazo", priceDelta: 1500 },
-                                  { name: "With Shalwar", priceDelta: 1500 },
-                                  { name: "With Trouser", priceDelta: 1500 },
-                                ]);
-                              }
-                            }}
-                            style={{ width: "16px", height: "16px", accentColor: "#1d6840" }}
-                          />
-                          Enable pairing options
-                        </label>
-                      </div>
+                    {/* Outfit, Bottom & Style Pairing Options (Adaptive by Category) */}
+                    {(() => {
+                      const isCoordCategory = (productCategory || "").toLowerCase().includes("coord") || (productCategory || "").toLowerCase().includes("co-ord");
+                      const isSuit3pcCategory = (productCategory || "").toLowerCase().includes("3 piece") || (productCategory || "").toLowerCase().includes("suit");
+                      const currentPresets = isCoordCategory
+                        ? [
+                            { name: "Complete 2-Piece Set", priceDelta: 0 },
+                            { name: "Shirt / Top Only", priceDelta: -2500 },
+                            { name: "With Matching Dupatta", priceDelta: 1500 },
+                            { name: "With Organza Dupatta", priceDelta: 1800 },
+                          ]
+                        : isSuit3pcCategory
+                        ? [
+                            { name: "Complete 3-Piece Suit", priceDelta: 0 },
+                            { name: "2-Piece (Shirt + Trouser)", priceDelta: -1500 },
+                            { name: "Shirt Only", priceDelta: -3500 },
+                            { name: "With Organza Dupatta", priceDelta: 0 },
+                          ]
+                        : [
+                            { name: "Shirt Only", priceDelta: 0 },
+                            { name: "With Plazo", priceDelta: 1500 },
+                            { name: "With Shalwar", priceDelta: 1500 },
+                            { name: "With Trouser", priceDelta: 1500 },
+                            { name: "With Tulip Shalwar", priceDelta: 1800 },
+                            { name: "With Straight Pants", priceDelta: 1500 },
+                            { name: "With Dupatta", priceDelta: 1200 },
+                          ];
 
-                      {enableBottomOptions && (
-                        <div style={{ background: "#f9fafb", borderRadius: "8px", padding: "16px", border: "1px solid #e5e7eb" }}>
-                          {/* Quick Preset Buttons */}
-                          <div style={{ marginBottom: "14px" }}>
-                            <div style={{ fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
-                              ⚡ Quick Add Presets:
+                      return (
+                        <div className="shopifyVariantSection" style={{ marginTop: "24px", paddingTop: "20px", borderTop: "1px solid #e5e7eb" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
+                            <div>
+                              <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#111827" }}>
+                                {isCoordCategory ? "Outfit & Piece Options (Co-ord Sets)" : isSuit3pcCategory ? "Outfit & Piece Options (3-Piece Suits)" : "Bottom & Pairing Options (Kurtis / Shirts)"}
+                              </h4>
+                              <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#6b7280" }}>
+                                {isCoordCategory
+                                  ? "Sell as Complete 2-Piece Set or let customers buy Shirt / Top Only (with deduction) or add matching Dupatta."
+                                  : isSuit3pcCategory
+                                  ? "Sell as Complete 3-Piece Suit or offer 2-Piece (Shirt + Trouser) / Shirt Only options."
+                                  : "Sell as Shirt Only or let customers add matching bottoms (Plazo, Shalwar, Trouser, etc.) with price deltas."}
+                              </p>
                             </div>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                              {[
-                                { name: "Shirt Only", priceDelta: 0 },
-                                { name: "With Plazo", priceDelta: 1500 },
-                                { name: "With Shalwar", priceDelta: 1500 },
-                                { name: "With Trouser", priceDelta: 1500 },
-                                { name: "With Tulip Shalwar", priceDelta: 1800 },
-                                { name: "With Straight Pants", priceDelta: 1500 },
-                                { name: "With Gharara", priceDelta: 2500 },
-                                { name: "With Dupatta", priceDelta: 1200 },
-                              ].map((preset) => {
-                                const exists = bottomOptions.some((o) => o.name.toLowerCase() === preset.name.toLowerCase());
-                                return (
-                                  <button
-                                    key={preset.name}
-                                    type="button"
-                                    onClick={() => {
-                                      if (exists) {
-                                        setBottomOptions(bottomOptions.filter((o) => o.name.toLowerCase() !== preset.name.toLowerCase()));
-                                      } else {
-                                        setBottomOptions([...bottomOptions, preset]);
-                                      }
-                                    }}
-                                    style={{
-                                      fontSize: "12px",
-                                      padding: "5px 11px",
-                                      borderRadius: "6px",
-                                      border: exists ? "1.5px solid #1d6840" : "1px solid #d1d5db",
-                                      background: exists ? "#e8f5e9" : "#fff",
-                                      color: exists ? "#1d6840" : "#374151",
-                                      fontWeight: exists ? 600 : 400,
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    {exists ? "✓ " : "+ "}
-                                    {preset.name} {preset.priceDelta > 0 ? `(+Rs. ${preset.priceDelta.toLocaleString()})` : "(Base)"}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                            <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600, color: "#1f2937", background: "#f3f4f6", padding: "6px 12px", borderRadius: "6px" }}>
+                              <input
+                                type="checkbox"
+                                checked={enableBottomOptions}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setEnableBottomOptions(checked);
+                                  if (checked && (!bottomOptions || !bottomOptions.length)) {
+                                    setBottomOptions(isCoordCategory ? DEFAULT_COORD_BOTTOM_OPTIONS : isSuit3pcCategory ? DEFAULT_SUIT_3PC_OPTIONS : DEFAULT_KURTI_BOTTOM_OPTIONS);
+                                  }
+                                }}
+                                style={{ width: "16px", height: "16px", accentColor: "#1d6840" }}
+                              />
+                              Enable pairing options
+                            </label>
                           </div>
 
-                          {/* List of Configured Bottom Options */}
-                          <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
-                            {bottomOptions.map((opt, idx) => (
-                              <div
-                                key={idx}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "10px",
-                                  background: "#fff",
-                                  padding: "8px 12px",
-                                  borderRadius: "6px",
-                                  border: "1px solid #e5e7eb",
-                                }}
-                              >
-                                <span style={{ fontSize: "12px", color: "#9ca3af", fontWeight: 600, width: "20px" }}>
-                                  #{idx + 1}
-                                </span>
+                          {enableBottomOptions && (
+                            <div style={{ background: "#f9fafb", borderRadius: "8px", padding: "16px", border: "1px solid #e5e7eb" }}>
+                              {/* Quick Preset Buttons */}
+                              <div style={{ marginBottom: "14px" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                                  <div style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>
+                                    ⚡ Quick Add Presets ({isCoordCategory ? "Co-ord Set" : isSuit3pcCategory ? "3-Piece Suit" : "Kurti"}):
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setBottomOptions(isCoordCategory ? DEFAULT_COORD_BOTTOM_OPTIONS : isSuit3pcCategory ? DEFAULT_SUIT_3PC_OPTIONS : DEFAULT_KURTI_BOTTOM_OPTIONS)}
+                                    style={{ fontSize: "11px", color: "#1d6840", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontWeight: 600 }}
+                                  >
+                                    Reset to Category Defaults
+                                  </button>
+                                </div>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                                  {currentPresets.map((preset) => {
+                                    const exists = bottomOptions.some((o) => o.name.toLowerCase() === preset.name.toLowerCase());
+                                    const isNeg = Number(preset.priceDelta || 0) < 0;
+                                    const isPos = Number(preset.priceDelta || 0) > 0;
+                                    return (
+                                      <button
+                                        key={preset.name}
+                                        type="button"
+                                        onClick={() => {
+                                          if (exists) {
+                                            setBottomOptions(bottomOptions.filter((o) => o.name.toLowerCase() !== preset.name.toLowerCase()));
+                                          } else {
+                                            setBottomOptions([...bottomOptions, preset]);
+                                          }
+                                        }}
+                                        style={{
+                                          fontSize: "12px",
+                                          padding: "5px 11px",
+                                          borderRadius: "6px",
+                                          border: exists ? "1.5px solid #1d6840" : "1px solid #d1d5db",
+                                          background: exists ? "#e8f5e9" : "#fff",
+                                          color: exists ? "#1d6840" : "#374151",
+                                          fontWeight: exists ? 600 : 400,
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        {exists ? "✓ " : "+ "}
+                                        {preset.name} {isPos ? `(+Rs. ${preset.priceDelta.toLocaleString()})` : isNeg ? `(-Rs. ${Math.abs(preset.priceDelta).toLocaleString()})` : "(Base)"}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* List of Configured Bottom Options */}
+                              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
+                                {bottomOptions.map((opt, idx) => {
+                                  const delta = Number(opt.priceDelta || 0);
+                                  const effectivePrice = Math.max(0, Number(productPrice || 0) + delta);
+                                  return (
+                                    <div
+                                      key={idx}
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "10px",
+                                        background: "#fff",
+                                        padding: "8px 12px",
+                                        borderRadius: "6px",
+                                        border: "1px solid #e5e7eb",
+                                        flexWrap: "wrap",
+                                      }}
+                                    >
+                                      <span style={{ fontSize: "12px", color: "#9ca3af", fontWeight: 600, width: "20px" }}>
+                                        #{idx + 1}
+                                      </span>
+                                      <input
+                                        type="text"
+                                        value={opt.name}
+                                        placeholder="Option name (e.g. Complete 2-Piece Set, Shirt Only)"
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setBottomOptions(bottomOptions.map((o, i) => (i === idx ? { ...o, name: val } : o)));
+                                        }}
+                                        style={{
+                                          flex: 2,
+                                          minWidth: "160px",
+                                          padding: "6px 10px",
+                                          border: "1px solid #d1d5db",
+                                          borderRadius: "4px",
+                                          fontSize: "13px",
+                                        }}
+                                      />
+                                      <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: 1.2, minWidth: "130px" }}>
+                                        <span style={{ fontSize: "12px", color: delta < 0 ? "#16a34a" : "#6b7280", fontWeight: 600 }}>
+                                          {delta > 0 ? "+Rs." : delta < 0 ? "-Rs." : "±Rs."}
+                                        </span>
+                                        <input
+                                          type="number"
+                                          step="50"
+                                          value={delta}
+                                          placeholder="0"
+                                          onChange={(e) => {
+                                            const val = Number(e.target.value) || 0;
+                                            setBottomOptions(bottomOptions.map((o, i) => (i === idx ? { ...o, priceDelta: val } : o)));
+                                          }}
+                                          style={{
+                                            width: "100%",
+                                            padding: "6px 8px",
+                                            border: "1px solid #d1d5db",
+                                            borderRadius: "4px",
+                                            fontSize: "13px",
+                                          }}
+                                        />
+                                      </div>
+                                      <div style={{ fontSize: "11px", color: "#166534", fontWeight: 600, minWidth: "110px", background: "#f0fdf4", padding: "4px 8px", borderRadius: "4px" }}>
+                                        Price: Rs. {effectivePrice.toLocaleString()}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setBottomOptions(bottomOptions.filter((_, i) => i !== idx))}
+                                        style={{
+                                          background: "none",
+                                          border: "none",
+                                          color: "#ef4444",
+                                          cursor: "pointer",
+                                          padding: "4px 8px",
+                                          fontSize: "16px",
+                                          fontWeight: "bold",
+                                        }}
+                                        title="Remove option"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                                {!bottomOptions.length && (
+                                  <p style={{ margin: "4px 0", fontSize: "12px", color: "#9ca3af", fontStyle: "italic" }}>
+                                    No pairing options added yet. Click a preset above or add a custom option below.
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Add Custom Option Row */}
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px", borderTop: "1px dashed #d1d5db", paddingTop: "12px", flexWrap: "wrap" }}>
                                 <input
                                   type="text"
-                                  value={opt.name}
-                                  placeholder="Option name (e.g. With Plazo)"
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setBottomOptions(bottomOptions.map((o, i) => (i === idx ? { ...o, name: val } : o)));
-                                  }}
-                                  style={{
-                                    flex: 2,
-                                    padding: "6px 10px",
-                                    border: "1px solid #d1d5db",
-                                    borderRadius: "4px",
-                                    fontSize: "13px",
+                                  value={newBottomName}
+                                  onChange={(e) => setNewBottomName(e.target.value)}
+                                  placeholder="Add custom option (e.g. With Plazo, Shirt Only)"
+                                  style={{ flex: 2, minWidth: "160px", padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "13px" }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && newBottomName.trim()) {
+                                      e.preventDefault();
+                                      setBottomOptions([...bottomOptions, { name: newBottomName.trim(), priceDelta: Number(newBottomDelta) || 0 }]);
+                                      setNewBottomName("");
+                                      setNewBottomDelta(0);
+                                    }
                                   }}
                                 />
-                                <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: 1.2 }}>
-                                  <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: 500 }}>+Rs.</span>
+                                <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: 1.2, minWidth: "110px" }}>
+                                  <span style={{ fontSize: "12px", color: Number(newBottomDelta) < 0 ? "#16a34a" : "#6b7280", fontWeight: 600 }}>
+                                    {Number(newBottomDelta) > 0 ? "+Rs." : Number(newBottomDelta) < 0 ? "-Rs." : "±Rs."}
+                                  </span>
                                   <input
                                     type="number"
-                                    min="0"
                                     step="50"
-                                    value={opt.priceDelta}
+                                    value={newBottomDelta}
+                                    onChange={(e) => setNewBottomDelta(Number(e.target.value) || 0)}
                                     placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Math.max(0, Number(e.target.value) || 0);
-                                      setBottomOptions(bottomOptions.map((o, i) => (i === idx ? { ...o, priceDelta: val } : o)));
-                                    }}
-                                    style={{
-                                      width: "100%",
-                                      padding: "6px 8px",
-                                      border: "1px solid #d1d5db",
-                                      borderRadius: "4px",
-                                      fontSize: "13px",
-                                    }}
+                                    style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "13px" }}
                                   />
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => setBottomOptions(bottomOptions.filter((_, i) => i !== idx))}
-                                  style={{
-                                    background: "none",
-                                    border: "none",
-                                    color: "#ef4444",
-                                    cursor: "pointer",
-                                    padding: "4px 8px",
-                                    fontSize: "16px",
-                                    fontWeight: "bold",
+                                  onClick={() => {
+                                    if (newBottomName.trim()) {
+                                      setBottomOptions([...bottomOptions, { name: newBottomName.trim(), priceDelta: Number(newBottomDelta) || 0 }]);
+                                      setNewBottomName("");
+                                      setNewBottomDelta(0);
+                                    }
                                   }}
-                                  title="Remove option"
+                                  disabled={!newBottomName.trim()}
+                                  style={{
+                                    padding: "6px 14px",
+                                    background: newBottomName.trim() ? "#1d6840" : "#d1d5db",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: "4px",
+                                    fontSize: "12px",
+                                    fontWeight: 600,
+                                    cursor: newBottomName.trim() ? "pointer" : "not-allowed",
+                                    whiteSpace: "nowrap",
+                                  }}
                                 >
-                                  ✕
+                                  + Add Option
                                 </button>
                               </div>
-                            ))}
-                            {!bottomOptions.length && (
-                              <p style={{ margin: "4px 0", fontSize: "12px", color: "#9ca3af", fontStyle: "italic" }}>
-                                No pairing options added yet. Click a preset above or add a custom option below.
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Add Custom Option Row */}
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px", borderTop: "1px dashed #d1d5db", paddingTop: "12px", flexWrap: "wrap" }}>
-                            <input
-                              type="text"
-                              value={newBottomName}
-                              onChange={(e) => setNewBottomName(e.target.value)}
-                              placeholder="Add custom option (e.g. With Straight Trouser)"
-                              style={{ flex: 2, minWidth: "160px", padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "13px" }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && newBottomName.trim()) {
-                                  e.preventDefault();
-                                  setBottomOptions([...bottomOptions, { name: newBottomName.trim(), priceDelta: Number(newBottomDelta) || 0 }]);
-                                  setNewBottomName("");
-                                  setNewBottomDelta(0);
-                                }
-                              }}
-                            />
-                            <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: 1.2, minWidth: "110px" }}>
-                              <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: 500 }}>+Rs.</span>
-                              <input
-                                type="number"
-                                min="0"
-                                step="50"
-                                value={newBottomDelta}
-                                onChange={(e) => setNewBottomDelta(Math.max(0, Number(e.target.value) || 0))}
-                                placeholder="0"
-                                style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "13px" }}
-                              />
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (newBottomName.trim()) {
-                                  setBottomOptions([...bottomOptions, { name: newBottomName.trim(), priceDelta: Number(newBottomDelta) || 0 }]);
-                                  setNewBottomName("");
-                                  setNewBottomDelta(0);
-                                }
-                              }}
-                              disabled={!newBottomName.trim()}
-                              style={{
-                                padding: "6px 14px",
-                                background: newBottomName.trim() ? "#1d6840" : "#d1d5db",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "4px",
-                                fontSize: "12px",
-                                fontWeight: 600,
-                                cursor: newBottomName.trim() ? "pointer" : "not-allowed",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              + Add Option
-                            </button>
-                          </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      );
+                    })()}
 
                     {/* Colors & Variants Section */}
                     <div className="shopifyVariantSection" style={{ marginTop: "18px" }}>
@@ -3046,6 +3083,19 @@ export default function AdminDashboard() {
                           const newPrimary = e.target.value;
                           setProductCategory(newPrimary);
                           setAdditionalCategories((prev) => prev.filter((c) => normalizeCategory(c).toLowerCase() !== normalizeCategory(newPrimary).toLowerCase()));
+                          const isCoord = newPrimary.toLowerCase().includes("coord") || newPrimary.toLowerCase().includes("co-ord");
+                          const isKurti = newPrimary.toLowerCase().includes("kurti");
+                          const isSuit3pc = newPrimary.toLowerCase().includes("3 piece") || newPrimary.toLowerCase().includes("suit");
+                          if (isCoord && (!bottomOptions.length || bottomOptions.some((o) => o.name === "Shirt Only" || o.name === "With Plazo"))) {
+                            setBottomOptions(DEFAULT_COORD_BOTTOM_OPTIONS);
+                            setEnableBottomOptions(true);
+                          } else if (isKurti && (!bottomOptions.length || bottomOptions.some((o) => o.name === "Complete 2-Piece Set"))) {
+                            setBottomOptions(DEFAULT_KURTI_BOTTOM_OPTIONS);
+                            setEnableBottomOptions(true);
+                          } else if (isSuit3pc && (!bottomOptions.length || bottomOptions.some((o) => o.name === "Shirt Only" || o.name === "Complete 2-Piece Set"))) {
+                            setBottomOptions(DEFAULT_SUIT_3PC_OPTIONS);
+                            setEnableBottomOptions(true);
+                          }
                         }}
                       >
                         {mainCategoryOptions.map((cat) => (

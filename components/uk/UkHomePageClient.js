@@ -250,9 +250,10 @@ export default function UkHomePageClient({
     rail.scrollBy({ left: direction * rail.clientWidth * 0.78, behavior: "smooth" });
   }
 
-  function addToCart(product, size = "S", qty = 1) {
+  function addToCart(product, size = "S", qty = 1, color = null, bottom = null) {
     if (Number(product.stock || 0) <= 0) return;
-    const selectedColor = Array.isArray(product.colors) && product.colors.length ? product.colors[0] : "";
+    const selectedColor = color || (Array.isArray(product.colors) && product.colors.length ? product.colors[0] : "");
+    const itemBottom = bottom || product.bottom || "";
     const cartItem = {
       id: product.id,
       name: product.name,
@@ -264,15 +265,16 @@ export default function UkHomePageClient({
       sku: product.sku || product.articleNumber || `BST-${String(product.id).padStart(4, "0")}`,
       size: size || "S",
       color: selectedColor,
+      bottom: itemBottom,
       quantity: Math.max(1, qty),
       currency: "GBP",
     };
 
     setCart((current) => {
-      const existing = current.find((item) => item.id === product.id && item.size === cartItem.size && item.color === cartItem.color);
+      const existing = current.find((item) => item.id === product.id && item.size === cartItem.size && item.color === cartItem.color && (item.bottom || "") === itemBottom);
       if (existing) {
         return current.map((item) =>
-          item.id === product.id && item.size === cartItem.size && item.color === cartItem.color
+          item.id === product.id && item.size === cartItem.size && item.color === cartItem.color && (item.bottom || "") === itemBottom
             ? { ...item, quantity: item.quantity + cartItem.quantity }
             : item
         );
@@ -929,8 +931,8 @@ export default function UkHomePageClient({
         <QuickViewModal
           product={quickViewProduct}
           onClose={() => setQuickViewProduct(null)}
-          onAddToCart={(prod, size, qty, color) => {
-            addToCart(prod, size, qty, color);
+          onAddToCart={(prod, size, qty, color, bottom) => {
+            addToCart(prod, size, qty, color, bottom);
           }}
           onOpenSizeChart={() => setSizeChartOpen(true)}
           currency="£"

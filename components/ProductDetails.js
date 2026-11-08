@@ -10,7 +10,7 @@ import { productDescription } from "../lib/seo";
 import { DEFAULT_STORE_SETTINGS } from "../data/storeSettings";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl, preloadProductImage } from "../lib/images";
 import { trackEvent } from "../lib/trackEvent";
-import { categoryToSlug } from "../data/store";
+import { categoryToSlug, getProductCategoryComparePrice, getProductCategoryPrice, normalizeCategory } from "../data/store";
 import { getColorHex } from "../data/variantOptions";
 import SizeChartModal, { SizeTable } from "./SizeChartModal";
 import SiteHeader from "./SiteHeader";
@@ -125,7 +125,64 @@ function InstagramIcon({ size = 18, className = "" }) {
   );
 }
 
-export default function ProductDetails({ product, related, storeSettings = DEFAULT_STORE_SETTINGS, categories = [] }) {
+export default function ProductDetails({
+  product,
+  related,
+  storeSettings = DEFAULT_STORE_SETTINGS,
+  categories = [],
+  initialCategory = "",
+}) {
+  const [activeCategory, setActiveCategory] = useState(() => {
+    if (initialCategory) return normalizeCategory(initialCategory);
+    if (typeof window !== "undefined") {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryCat = urlParams.get("category") || urlParams.get("cat");
+        if (queryCat) return normalizeCategory(queryCat);
+        if (document.referrer) {
+          const ref = new URL(document.referrer);
+          const match = ref.pathname.match(/\/category\/([^/?#]+)/i);
+          if (match && match[1]) {
+            const slug = match[1].toLowerCase();
+            if (slug.includes("kurti")) return "Kurtis";
+            if (slug.includes("bottom")) return "Bottoms";
+            if (slug.includes("suit")) return "3 Piece Suits";
+            if (slug.includes("coord")) return "Co-ord Sets";
+          }
+        }
+      } catch {}
+    }
+    return normalizeCategory(product?.category || "");
+  });
+
+  useEffect(() => {
+    if (initialCategory) {
+      setActiveCategory(normalizeCategory(initialCategory));
+    }
+  }, [initialCategory]);
+
+  const availableCategoryOptions = useMemo(() => {
+    if (!product) return [];
+    const allCats = Array.from(
+      new Set([
+        product?.category,
+        ...(Array.isArray(product?.categories) ? product.categories : []),
+      ].filter(Boolean))
+    );
+    if (allCats.length <= 1) return [];
+    const hasCategoryPrices = (product?.categoryPrices && Object.keys(product.categoryPrices).length > 0) ||
+      (product?.cost_breakdown?.metadata?.categoryPrices && Object.keys(product.cost_breakdown.metadata.categoryPrices).length > 0) ||
+      (product?.costBreakdown?.metadata?.categoryPrices && Object.keys(product.costBreakdown.metadata.categoryPrices).length > 0);
+    const hasPriceVariance = allCats.some(
+      (c) => getProductCategoryPrice(product, c) !== Number(product?.price || 0)
+    );
+    if (!hasCategoryPrices && !hasPriceVariance) return [];
+    return allCats.map((catName) => ({
+      name: normalizeCategory(catName),
+      price: getProductCategoryPrice(product, catName),
+      compareAtPrice: getProductCategoryComparePrice(product, catName),
+    }));
+  }, [product]);
 
 
   const colors = useMemo(() => Array.isArray(product.colors) && product.colors.length ? product.colors : [], [product.colors]);
@@ -237,15 +294,21 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
 
   const outOfStock = availableStock <= 0;
 
-  // Breadcrumb / back link followed a hardcoded three-way check, so any
-  // category beyond Kurtis and Bottoms was sent to Co-ord Sets.
-  const categoryHref = `/category/${categoryToSlug(product.category || "")}`;
+  const displayCategory = activeCategory || product.category || "Collection";
+  const categoryHref = `/category/${categoryToSlug(displayCategory)}`;
 
-  const compareAtPrice = Number(product.compareAtPrice || product.compare_at_price || 0);
+  const baseProductPrice = useMemo(() => {
+    return product ? getProductCategoryPrice(product, activeCategory) : 0;
+  }, [product, activeCategory]);
+
+  const baseCompareAtPrice = useMemo(() => {
+    return product ? getProductCategoryComparePrice(product, activeCategory) : 0;
+  }, [product, activeCategory]);
+
   const activeBottomOption = useMemo(() => bottomOptions.find((o) => o.name === selectedBottom) || null, [bottomOptions, selectedBottom]);
   const bottomPriceDelta = activeBottomOption?.priceDelta || 0;
-  const activePrice = Number(product.price || 0) + bottomPriceDelta;
-  const activeCompareAtPrice = compareAtPrice > 0 ? compareAtPrice + bottomPriceDelta : 0;
+  const activePrice = baseProductPrice + bottomPriceDelta;
+  const activeCompareAtPrice = baseCompareAtPrice > 0 ? baseCompareAtPrice + bottomPriceDelta : 0;
   const discountPercent = activeCompareAtPrice > activePrice && activePrice > 0
     ? Math.round(((activeCompareAtPrice - activePrice) / activeCompareAtPrice) * 100)
     : 0;
@@ -490,25 +553,59 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
         value: activePrice * quantity,
         contentName: product.name,
         contentIds: [String(product.article_number || product.articleNumber || product.id || "")],
-        contents: [{ id: String(product.article_number || product.articleNumber || product.id || ""), quantity }],
+        contents: [{ id: String(product.article_number || product.articleNumber || product.id || ""), quantity, item_price: activePrice }],
         numItems: quantity,
       },
     });
     setCart((current) => {
-      const existing = current.find((item) => item.id === product.id && item.size === size && (item.color || "") === (color || "") && (item.bottom || "") === (selectedBottom || ""));
+      const existing = current.find((item) =>
+        item.id === product.id &&
+        item.size === size &&
+        (item.color || "") === (color || "") &&
+        (item.bottom || "") === (selectedBottom || "") &&
+        (item.category || "") === (activeCategory || product.category || "")
+      );
       if (existing) {
-        return current.map((item) => item.id === product.id && item.size === size && (item.color || "") === (color || "") && (item.bottom || "") === (selectedBottom || "") ? { ...item, quantity: Math.min(availableStock, item.quantity + quantity) } : item);
+        return current.map((item) =>
+          item.id === product.id &&
+          item.size === size &&
+          (item.color || "") === (color || "") &&
+          (item.bottom || "") === (selectedBottom || "") &&
+          (item.category || "") === (activeCategory || product.category || "")
+            ? { ...item, quantity: Math.min(availableStock, item.quantity + quantity) }
+            : item
+        );
       }
-      return [...current, { ...product, price: activePrice, compareAtPrice: activeCompareAtPrice, size, color, bottom: selectedBottom, quantity: Math.min(quantity, availableStock) }];
+      return [
+        ...current,
+        {
+          ...product,
+          price: activePrice,
+          compareAtPrice: activeCompareAtPrice,
+          category: activeCategory || product.category,
+          size,
+          color,
+          bottom: selectedBottom,
+          quantity: Math.min(quantity, availableStock),
+        },
+      ];
     });
     setAdded(true);
     if (openDrawer) setCartOpen(true);
     setTimeout(() => setAdded(false), 2200);
   }
 
-  function updateQuantity(id, itemSize, itemColor, itemBottom, change) {
+  function updateQuantity(id, itemSize, itemColor, itemBottom, change, itemCategory) {
     setCart((current) => current
-      .map((item) => item.id === id && item.size === itemSize && (item.color || "") === (itemColor || "") && (item.bottom || "") === (itemBottom || "") ? { ...item, quantity: Math.max(0, item.quantity + change) } : item)
+      .map((item) =>
+        item.id === id &&
+        item.size === itemSize &&
+        (item.color || "") === (itemColor || "") &&
+        (item.bottom || "") === (itemBottom || "") &&
+        (itemCategory ? (item.category || "") === itemCategory : true)
+          ? { ...item, quantity: Math.max(0, item.quantity + change) }
+          : item
+      )
       .filter((item) => item.quantity > 0));
   }
 
@@ -528,12 +625,12 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             <nav className="productBreadcrumb" aria-label="Breadcrumb">
               <Link href="/">Home</Link>
               <span aria-hidden="true">/</span>
-              <Link href={categoryHref}>{product.category}</Link>
+              <Link href={categoryHref}>{displayCategory}</Link>
               <span aria-hidden="true">/</span>
               <span className="productBreadcrumbCurrent">{product.name}</span>
             </nav>
             <Link className="productBack" href={categoryHref}>
-              <ArrowLeft size={16} /> Back to {product.category}
+              <ArrowLeft size={16} /> Back to {displayCategory}
             </Link>
 
             <div className={`galleryWorkspace ${productImages.length > 1 ? "hasThumbnails" : "singleImage"}`}>
@@ -761,6 +858,45 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                 </div>
               )}
             </div>
+
+            {/* Multi-Category Edition Selector (if different prices exist across categories, e.g. Kurti vs Co-ord Set) */}
+            {availableCategoryOptions.length > 1 && (
+              <div className="productOptionSection editionSelectorSection">
+                <div className="selectorHeading">
+                  <div className="selectorLabelGroup">
+                    <span className="selectorLabelTitle">Edition / Category:</span>{" "}
+                    <span className="selectedOptionValue">{activeCategory}</span>
+                  </div>
+                </div>
+                <div className="editionOptionsList" role="radiogroup" aria-label="Product editions">
+                  {availableCategoryOptions.map((opt) => {
+                    const isSelected = normalizeCategory(activeCategory).toLowerCase() === normalizeCategory(opt.name).toLowerCase();
+                    return (
+                      <button
+                        key={opt.name}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        className={`editionOptionBtn ${isSelected ? "selected" : ""}`}
+                        onClick={() => {
+                          setActiveCategory(opt.name);
+                          if (typeof window !== "undefined") {
+                            try {
+                              const url = new URL(window.location.href);
+                              url.searchParams.set("category", opt.name);
+                              window.history.replaceState({}, "", url.toString());
+                            } catch {}
+                          }
+                        }}
+                      >
+                        <span className="editionName">{opt.name}</span>
+                        <span className="editionPrice">Rs. {Number(opt.price).toLocaleString()}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Color Selector */}
             {colors.length > 0 && (
@@ -1191,11 +1327,12 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
             const itemTotalSaving = unitSaving * item.quantity;
 
             return (
-              <div className="cartItem" key={`${item.id}-${item.size || "default"}-${item.color || "default"}-${item.bottom || "default"}`}>
+              <div className="cartItem" key={`${item.id}-${item.size || "default"}-${item.color || "default"}-${item.bottom || "default"}-${item.category || "default"}`}>
                 <div style={{ backgroundImage: `url(${optimizedImageUrl(item.image, CLOUDINARY_IMAGE_PRESETS.thumbnail)})` }} />
                 <section>
                   <h3>{item.name}</h3>
                   <div className="cartItemMeta">
+                    {item.category && <small className="cartItemCategory">Edition: {item.category}</small>}
                     {item.size && <small>Size: {item.size}</small>}
                     {item.color && <small className="cartItemColor">Color: {item.color}</small>}
                     {item.bottom && <small className="cartItemBottom">Style: {item.bottom}</small>}
@@ -1212,9 +1349,9 @@ export default function ProductDetails({ product, related, storeSettings = DEFAU
                     </span>
                   )}
                   <span className="quantity">
-                    <button onClick={() => updateQuantity(item.id, item.size, item.color, item.bottom, -1)}><Minus size={14} /></button>
+                    <button onClick={() => updateQuantity(item.id, item.size, item.color, item.bottom, -1, item.category)}><Minus size={14} /></button>
                     {item.quantity}
-                    <button onClick={() => updateQuantity(item.id, item.size, item.color, item.bottom, 1)}><Plus size={14} /></button>
+                    <button onClick={() => updateQuantity(item.id, item.size, item.color, item.bottom, 1, item.category)}><Plus size={14} /></button>
                   </span>
                 </section>
               </div>

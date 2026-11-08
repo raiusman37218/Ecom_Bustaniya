@@ -19,24 +19,32 @@ export default function CategoryProductsGrid({
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const { isInWishlist, toggle: toggleWishlist } = useWishlist();
 
-  function handleAddToCart(product, size = "S", qty = 1, color = null) {
+  function handleAddToCart(product, size = "S", qty = 1, color = null, bottom = null) {
     try {
       const stored = localStorage.getItem("bustaniya-cart") || localStorage.getItem("bustaniya_cart");
       const current = stored ? JSON.parse(stored) : [];
       const itemColor = color || product.color || (Array.isArray(product.colors) ? product.colors[0] : null);
+      const itemCategory = product.category || categoryName || "";
+      const itemBottom = bottom || product.bottom || null;
+      const effectivePrice = typeof product.price === "number" && product.price > 0
+        ? product.price
+        : getProductCategoryPrice(product, itemCategory);
+      const effectiveCompare = typeof product.compareAtPrice === "number" && product.compareAtPrice > 0
+        ? product.compareAtPrice
+        : getProductCategoryComparePrice(product, itemCategory);
 
       const found = current.find(
-        (item) => item.id === product.id && item.size === size && (item.color || "") === (itemColor || "")
+        (item) => item.id === product.id && item.size === size && (item.color || "") === (itemColor || "") && (item.category || "") === (itemCategory || "") && (item.bottom || "") === (itemBottom || "")
       );
       let nextCart;
       if (found) {
         nextCart = current.map((item) =>
-          item.id === product.id && item.size === size && (item.color || "") === (itemColor || "")
+          item.id === product.id && item.size === size && (item.color || "") === (itemColor || "") && (item.category || "") === (itemCategory || "") && (item.bottom || "") === (itemBottom || "")
             ? { ...item, quantity: item.quantity + qty }
             : item
         );
       } else {
-        nextCart = [...current, { ...product, size, color: itemColor, quantity: qty }];
+        nextCart = [...current, { ...product, size, color: itemColor, bottom: itemBottom, category: itemCategory, price: effectivePrice, compareAtPrice: effectiveCompare, quantity: qty }];
       }
       localStorage.setItem("bustaniya-cart", JSON.stringify(nextCart));
       window.dispatchEvent(new Event("cart-updated"));
@@ -117,7 +125,7 @@ export default function CategoryProductsGrid({
                   preloading four means the two the customer can actually see
                   share bandwidth with two they cannot. The next four still
                   load eagerly, just without jumping the queue. */}
-              <Link href={`/product/${product.id}`} className="productImage" prefetch={true}>
+              <Link href={`/product/${product.id}${categoryName ? `?category=${encodeURIComponent(categoryName)}` : ""}`} className="productImage" prefetch={true}>
                 <Image
                   src={optimizedImageUrl(product.image, CLOUDINARY_IMAGE_PRESETS.card)}
                   alt={`${product.name} - ${displayCategory} by Bustaniya`}
@@ -164,7 +172,7 @@ export default function CategoryProductsGrid({
                 <div>
                   <p>{displayCategory}</p>
                   <h3>
-                    <Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link>
+                    <Link href={`/product/${product.id}${categoryName ? `?category=${encodeURIComponent(categoryName)}` : ""}`} prefetch={true}>{product.name}</Link>
                   </h3>
                   {Array.isArray(product.colors) && product.colors.length > 0 && (
                     <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
@@ -173,7 +181,7 @@ export default function CategoryProductsGrid({
                         return (
                           <Link
                             key={color}
-                            href={`/product/${product.id}?color=${encodeURIComponent(color)}`}
+                            href={`/product/${product.id}?color=${encodeURIComponent(color)}${categoryName ? `&category=${encodeURIComponent(categoryName)}` : ""}`}
                             onClick={(e) => e.stopPropagation()}
                             title={color}
                             aria-label={`View in ${color}`}
@@ -214,6 +222,7 @@ export default function CategoryProductsGrid({
       {quickViewProduct && (
         <QuickViewModal
           product={quickViewProduct}
+          categoryName={categoryName}
           onClose={() => setQuickViewProduct(null)}
           onAddToCart={handleAddToCart}
           currency="Rs."

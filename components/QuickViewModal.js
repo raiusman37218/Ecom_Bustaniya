@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { CLOUDINARY_IMAGE_PRESETS, optimizedImageUrl } from "../lib/images";
 import { getColorHex } from "../data/variantOptions";
+import { DEFAULT_COORD_BOTTOM_OPTIONS, DEFAULT_KURTI_BOTTOM_OPTIONS, DEFAULT_SUIT_3PC_OPTIONS, getProductCategoryComparePrice, getProductCategoryPrice, normalizeCategory } from "../data/store";
 import SizeChartModal from "./SizeChartModal";
 
 function formatProductTitle(title) {
@@ -30,6 +31,7 @@ function formatProductTitle(title) {
 
 export default function QuickViewModal({
   product,
+  categoryName = "",
   onClose,
   onAddToCart,
   onOpenSizeChart,
@@ -41,6 +43,44 @@ export default function QuickViewModal({
   const [isAdded, setIsAdded] = useState(false);
   const [activeImgIndex, setActiveImgIndex] = useState(0);
   const [isSizeChartOpen, setIsSizeChartOpen] = useState(false);
+
+  const [activeCategory, setActiveCategory] = useState(() => {
+    if (categoryName) return normalizeCategory(categoryName);
+    if (typeof window !== "undefined") {
+      try {
+        const param = new URLSearchParams(window.location.search).get("category");
+        if (param) return normalizeCategory(param);
+      } catch {}
+    }
+    return normalizeCategory(product?.category || "");
+  });
+
+  useEffect(() => {
+    if (categoryName) {
+      setActiveCategory(normalizeCategory(categoryName));
+    }
+  }, [categoryName]);
+
+  const availableCategoryOptions = useMemo(() => {
+    if (!product) return [];
+    const allCats = Array.from(
+      new Set([
+        product?.category,
+        ...(Array.isArray(product?.categories) ? product.categories : []),
+      ].filter(Boolean))
+    );
+    if (allCats.length <= 1) return [];
+    const hasCategoryPrices = product?.categoryPrices && Object.keys(product.categoryPrices).length > 0;
+    const hasPriceVariance = allCats.some(
+      (c) => getProductCategoryPrice(product, c) !== Number(product?.price || 0)
+    );
+    if (!hasCategoryPrices && !hasPriceVariance) return [];
+    return allCats.map((catName) => ({
+      name: normalizeCategory(catName),
+      price: getProductCategoryPrice(product, catName),
+      compareAtPrice: getProductCategoryComparePrice(product, catName),
+    }));
+  }, [product]);
 
   // Available Sizes & Colors
   const sizes = useMemo(() => {
@@ -56,15 +96,42 @@ export default function QuickViewModal({
     return [];
   }, [product]);
 
+  const bottomOptions = useMemo(() => {
+    if (product?.enableBottomOptions === false) return [];
+    if (Array.isArray(product?.bottomOptions) && product.bottomOptions.length > 0) return product.bottomOptions;
+    const cat = String(product?.category || "").toLowerCase();
+    const title = String(product?.name || "").toLowerCase();
+    if (cat.includes("coord") || cat.includes("co-ord") || title.includes("coord") || title.includes("co-ord")) {
+      return DEFAULT_COORD_BOTTOM_OPTIONS;
+    }
+    if (cat.includes("3 piece") || cat.includes("suit")) {
+      return DEFAULT_SUIT_3PC_OPTIONS;
+    }
+    if (cat.includes("kurti") || cat.includes("shirt")) {
+      return DEFAULT_KURTI_BOTTOM_OPTIONS;
+    }
+    return [];
+  }, [product?.bottomOptions, product?.enableBottomOptions, product?.category, product?.name]);
+
+  const isCoordSet = useMemo(() => {
+    const cat = String(product?.category || "").toLowerCase();
+    const title = String(product?.name || "").toLowerCase();
+    return cat.includes("coord") || cat.includes("co-ord") || title.includes("coord") || title.includes("co-ord");
+  }, [product?.category, product?.name]);
+
+  const [selectedBottom, setSelectedBottom] = useState(() => (bottomOptions.length ? bottomOptions[0].name : ""));
+
   // Initialize size and color whenever product changes
   useEffect(() => {
     if (!product) return;
     setSelectedSize(sizes[0] || "S");
     setSelectedColor(colors[0] || product.color || "");
+    const baseOpt = bottomOptions.find((o) => Number(o.priceDelta || 0) === 0) || bottomOptions[0];
+    setSelectedBottom(baseOpt ? baseOpt.name : "");
     setQuantity(1);
     setIsAdded(false);
     setActiveImgIndex(0);
-  }, [product, sizes, colors]);
+  }, [product, sizes, colors, bottomOptions]);
 
   // Gallery images resolver with color variant sync
   const productImages = useMemo(() => {
@@ -127,8 +194,18 @@ export default function QuickViewModal({
 
   const availableStock = Number(product.stock ?? 10);
   const isOutOfStock = availableStock <= 0;
-  const price = Number(product.price || 0);
-  const compareAtPrice = Number(product.compareAtPrice || product.compare_at_price || 0);
+  const basePrice = useMemo(() => {
+    return product ? getProductCategoryPrice(product, activeCategory) : 0;
+  }, [product, activeCategory]);
+
+  const baseCompareAt = useMemo(() => {
+    return product ? getProductCategoryComparePrice(product, activeCategory) : 0;
+  }, [product, activeCategory]);
+
+  const activeBottomOption = useMemo(() => bottomOptions.find((o) => o.name === selectedBottom) || null, [bottomOptions, selectedBottom]);
+  const bottomPriceDelta = Number(activeBottomOption?.priceDelta || 0);
+  const price = Math.max(0, basePrice + bottomPriceDelta);
+  const compareAtPrice = baseCompareAt > 0 ? Math.max(0, baseCompareAt + bottomPriceDelta) : 0;
   const hasDiscount = compareAtPrice > price && price > 0;
   const discountPercent = hasDiscount ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0;
   const savingsPkr = hasDiscount ? compareAtPrice - price : 0;
@@ -137,8 +214,15 @@ export default function QuickViewModal({
   function handleAddToCart() {
     if (isOutOfStock) return;
     setIsAdded(true);
+    const cartProduct = {
+      ...product,
+      price,
+      compareAtPrice: compareAtPrice || product.compareAtPrice,
+      bottom: selectedBottom,
+      category: activeCategory || product.category,
+    };
     if (typeof onAddToCart === "function") {
-      onAddToCart(product, selectedSize, quantity, selectedColor);
+      onAddToCart(cartProduct, selectedSize, quantity, selectedColor, selectedBottom);
     }
     setTimeout(() => {
       setIsAdded(false);
@@ -246,8 +330,8 @@ export default function QuickViewModal({
           <div className="quickViewDetails">
             {/* Category & Status Bar */}
             <div className="qvTopMeta">
-              {product.category && (
-                <span className="quickViewCategory">{product.category}</span>
+              {(activeCategory || product.category) && (
+                <span className="quickViewCategory">{activeCategory || product.category}</span>
               )}
               <div className="qvStockRatingRow">
                 <span className="qvStockPill">
@@ -278,6 +362,31 @@ export default function QuickViewModal({
                 </span>
               )}
             </div>
+
+            {/* Multi-Category Edition Selector (if different prices exist across categories) */}
+            {availableCategoryOptions.length > 1 && (
+              <div className="qvOptionGroup" style={{ marginBottom: "14px" }}>
+                <span className="qvOptionLabel">
+                  Edition / Category: <strong style={{ color: "#173d29" }}>{activeCategory}</strong>
+                </span>
+                <div className="qvSizeChips" style={{ gap: "6px" }}>
+                  {availableCategoryOptions.map((opt) => {
+                    const isSelected = normalizeCategory(activeCategory).toLowerCase() === normalizeCategory(opt.name).toLowerCase();
+                    return (
+                      <button
+                        key={opt.name}
+                        type="button"
+                        className={`qvSizeChip ${isSelected ? "selected" : ""}`}
+                        style={{ padding: "6px 12px", minWidth: "auto", fontSize: "12px", fontWeight: isSelected ? 700 : 500 }}
+                        onClick={() => setActiveCategory(opt.name)}
+                      >
+                        {opt.name} ({currency} {opt.price.toLocaleString()})
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Description */}
             {product.description && (
@@ -353,6 +462,51 @@ export default function QuickViewModal({
               </div>
             </div>
 
+            {/* Style / Bottom / Outfit Piece Options */}
+            {!!bottomOptions.length && (
+              <div className="quickViewSection">
+                <div className="quickViewSectionHeader">
+                  <div className="sectionLabelGroup">
+                    <span className="sectionLabel">{isCoordSet ? "Outfit / Piece:" : "Style / Bottom:"}</span>
+                    <b className="sectionValue">{selectedBottom || "Select style"}</b>
+                  </div>
+                </div>
+                <div
+                  className="bottomOptionsList"
+                  role="radiogroup"
+                  aria-label="Style and piece options"
+                  style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", marginTop: "6px", gap: "8px" }}
+                >
+                  {bottomOptions.map((opt) => {
+                    const isSelected = selectedBottom === opt.name;
+                    const delta = Number(opt.priceDelta || 0);
+                    return (
+                      <button
+                        key={opt.name}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        className={`bottomOptionBtn ${isSelected ? "selected" : ""}`}
+                        onClick={() => setSelectedBottom(opt.name)}
+                        style={{ padding: "8px 10px" }}
+                      >
+                        <span className="bottomOptionName" style={{ fontSize: "12.5px" }}>{opt.name}</span>
+                        {delta > 0 ? (
+                          <span className="bottomOptionDelta" style={{ fontSize: "11px" }}>+Rs. {delta.toLocaleString()}</span>
+                        ) : delta < 0 ? (
+                          <span className="bottomOptionDelta" style={{ color: "#166534", fontWeight: 700, fontSize: "11px" }}>
+                            -Rs. {Math.abs(delta).toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="bottomOptionBase" style={{ fontSize: "11px" }}>{isCoordSet ? "2-Piece Included" : "Shirt only"}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Quantity Selector */}
             <div className="quickViewSection">
               <div className="quickViewSectionHeader">
@@ -408,7 +562,7 @@ export default function QuickViewModal({
               </button>
 
               <Link
-                href={`/product/${product.id}`}
+                href={`/product/${product.id}${activeCategory ? `?category=${encodeURIComponent(activeCategory)}` : ""}`}
                 className="quickViewFullDetailsLink"
                 onClick={onClose}
                 prefetch={true}

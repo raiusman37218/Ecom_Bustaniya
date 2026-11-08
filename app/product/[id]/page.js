@@ -46,8 +46,10 @@ export async function generateMetadata({ params }) {
   }) : {};
 }
 
-export default async function ProductPage({ params }) {
+export default async function ProductPage({ params, searchParams }) {
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const requestedCategory = resolvedSearchParams?.category || resolvedSearchParams?.cat || "";
   const [products, storeSettings, categories] = await Promise.all([
     getCatalogProducts(),
     getStoreSettings(),
@@ -72,7 +74,13 @@ export default async function ProductPage({ params }) {
         { name: product.name, path: productSlug(product) },
       ])} />
       <JsonLd data={productSchema(product)} />
-      <ProductDetails product={product} related={related} storeSettings={storeSettings} categories={categories} />
+      <ProductDetails
+        product={product}
+        related={related}
+        storeSettings={storeSettings}
+        categories={categories}
+        initialCategory={requestedCategory}
+      />
     </>
   );
 }

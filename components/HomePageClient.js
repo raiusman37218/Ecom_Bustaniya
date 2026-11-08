@@ -150,13 +150,16 @@ export default function Home({
   }, [initialCategories]);
   const [heroSlide, setHeroSlide] = useState(0);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
+  const [quickViewCategory, setQuickViewCategory] = useState("");
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
 
-  function openQuickView(product, e) {
+  function openQuickView(product, e, category = "") {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
+    const cat = category || (activeCategory !== "All" ? activeCategory : (product?.category || ""));
+    setQuickViewCategory(cat);
     setQuickViewProduct(product);
   }
   const [expandedFaqId, setExpandedFaqId] = useState(null);
@@ -360,23 +363,43 @@ export default function Home({
     rail.scrollBy({ left: direction * rail.clientWidth * 0.78, behavior: "smooth" });
   }
 
-  function addToCart(product, size = "S", qty = 1, color = null) {
+  function addToCart(product, size = "S", qty = 1, color = null, bottom = null) {
     if (Number(product.stock || 0) <= 0) return;
     const itemColor = color || product.color || (Array.isArray(product.colors) ? product.colors[0] : null);
+    const itemCategory = product.category || "";
+    const itemBottom = bottom || product.bottom || null;
+    const itemPrice = Number(product.price || 0);
+
     trackEvent("AddToCart", {
       customData: {
         contentName: product.name,
         contentIds: [String(product.article_number || product.articleNumber || product.id || "")],
-        contents: [{ id: String(product.article_number || product.articleNumber || product.id || ""), quantity: qty, item_price: Number(product.price || 0) }],
+        contents: [{ id: String(product.article_number || product.articleNumber || product.id || ""), quantity: qty, item_price: itemPrice }],
         numItems: qty,
-        value: Number(product.price || 0) * qty,
+        value: itemPrice * qty,
         currency: "PKR",
       },
     });
     setCart((current) => {
-      const found = current.find((item) => item.id === product.id && item.size === size && (item.color || "") === (itemColor || ""));
-      if (found) return current.map((item) => item.id === product.id && item.size === size && (item.color || "") === (itemColor || "") ? { ...item, quantity: item.quantity + qty } : item);
-      return [...current, { ...product, size, color: itemColor, quantity: qty }];
+      const found = current.find((item) =>
+        item.id === product.id &&
+        item.size === size &&
+        (item.color || "") === (itemColor || "") &&
+        (item.category || "") === (itemCategory || "") &&
+        (item.bottom || "") === (itemBottom || "")
+      );
+      if (found) {
+        return current.map((item) =>
+          item.id === product.id &&
+          item.size === size &&
+          (item.color || "") === (itemColor || "") &&
+          (item.category || "") === (itemCategory || "") &&
+          (item.bottom || "") === (itemBottom || "")
+            ? { ...item, quantity: item.quantity + qty }
+            : item
+        );
+      }
+      return [...current, { ...product, size, color: itemColor, category: itemCategory, bottom: itemBottom, price: itemPrice, quantity: qty }];
     });
     setCartOpen(true);
   }
@@ -579,7 +602,7 @@ export default function Home({
                             sizes="(max-width: 340px) 100vw, (max-width: 600px) 50vw, (max-width: 1100px) 33vw, 25vw"
                           />
                         )}
-                        <Link className="productCardLink" href={`/product/${product.id}`} prefetch={true} aria-label={`View ${product.name}`} />
+                        <Link className="productCardLink" href={`/product/${product.id}${activeCategory !== "All" ? `?category=${encodeURIComponent(activeCategory)}` : ""}`} prefetch={true} aria-label={`View ${product.name}`} />
                         {product.badge && <span className="badge">{product.badge}</span>}
                         {salePercent(product, activeCategory) > 0 && <span className="saleBadge">{salePercent(product, activeCategory)}% OFF</span>}
                         <button
@@ -599,12 +622,12 @@ export default function Home({
                             color={isInWishlist(product.id) ? "#c8175a" : "#16301d"}
                           />
                         </button>
-                        <button className="quickViewButton" type="button" onClick={(e) => openQuickView(product, e)}>Quick view</button>
+                        <button className="quickViewButton" type="button" onClick={(e) => openQuickView(product, e, activeCategory !== "All" ? activeCategory : "")}>Quick view</button>
                       </div>
                       <div className="productInfo">
                         <div>
                           <p>{activeCategory !== "All" ? activeCategory : product.category}</p>
-                          <h3><Link href={`/product/${product.id}`} prefetch={true}>{product.name}</Link></h3>
+                          <h3><Link href={`/product/${product.id}${activeCategory !== "All" ? `?category=${encodeURIComponent(activeCategory)}` : ""}`} prefetch={true}>{product.name}</Link></h3>
                           {Array.isArray(product.colors) && product.colors.length > 0 && (
                             <div className="colorSwatches" aria-label={`${product.colors.length} available colours`}>
                               {product.colors.slice(0, 5).map((color) => {
@@ -612,7 +635,7 @@ export default function Home({
                                 return (
                                   <Link
                                     key={color}
-                                    href={`/product/${product.id}?color=${encodeURIComponent(color)}`}
+                                    href={`/product/${product.id}?color=${encodeURIComponent(color)}${activeCategory !== "All" ? `&category=${encodeURIComponent(activeCategory)}` : ""}`}
                                     onClick={(e) => e.stopPropagation()}
                                     title={color}
                                     aria-label={`View in ${color}`}
@@ -1273,9 +1296,13 @@ export default function Home({
       {quickViewProduct && (
         <QuickViewModal
           product={quickViewProduct}
-          onClose={() => setQuickViewProduct(null)}
-          onAddToCart={(prod, size, qty, color) => {
-            addToCart(prod, size, qty, color);
+          categoryName={quickViewCategory}
+          onClose={() => {
+            setQuickViewProduct(null);
+            setQuickViewCategory("");
+          }}
+          onAddToCart={(prod, size, qty, color, bottom) => {
+            addToCart(prod, size, qty, color, bottom);
           }}
           onOpenSizeChart={() => setSizeChartOpen(true)}
           currency="Rs."

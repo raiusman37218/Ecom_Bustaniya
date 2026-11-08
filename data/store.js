@@ -86,12 +86,13 @@ export function getProductCategoryPrice(product, targetCategoryName) {
   if (!product) return 0;
   const basePrice = Number(product.price || 0);
   if (!targetCategoryName || targetCategoryName === "All") return basePrice;
-  const target = normalizeCategory(targetCategoryName);
+  const target = normalizeCategory(targetCategoryName).toLowerCase();
   const categoryPrices = (product.categoryPrices && typeof product.categoryPrices === "object" ? product.categoryPrices : null)
-    || (product.cost_breakdown?.metadata?.categoryPrices && typeof product.cost_breakdown.metadata.categoryPrices === "object" ? product.cost_breakdown.metadata.categoryPrices : null);
+    || (product.cost_breakdown?.metadata?.categoryPrices && typeof product.cost_breakdown.metadata.categoryPrices === "object" ? product.cost_breakdown.metadata.categoryPrices : null)
+    || (product.costBreakdown?.metadata?.categoryPrices && typeof product.costBreakdown.metadata.categoryPrices === "object" ? product.costBreakdown.metadata.categoryPrices : null);
   if (categoryPrices) {
     for (const [cat, overridePrice] of Object.entries(categoryPrices)) {
-      if (normalizeCategory(cat).toLowerCase() === target.toLowerCase() && Number(overridePrice) > 0) {
+      if (normalizeCategory(cat).toLowerCase() === target && Number(overridePrice) > 0) {
         return Number(overridePrice);
       }
     }
@@ -103,12 +104,13 @@ export function getProductCategoryComparePrice(product, targetCategoryName) {
   if (!product) return 0;
   const baseCompare = Number(product.compareAtPrice || product.compare_at_price || 0);
   if (!targetCategoryName || targetCategoryName === "All") return baseCompare;
-  const target = normalizeCategory(targetCategoryName);
+  const target = normalizeCategory(targetCategoryName).toLowerCase();
   const categoryPrices = (product.categoryPrices && typeof product.categoryPrices === "object" ? product.categoryPrices : null)
-    || (product.cost_breakdown?.metadata?.categoryPrices && typeof product.cost_breakdown.metadata.categoryPrices === "object" ? product.cost_breakdown.metadata.categoryPrices : null);
+    || (product.cost_breakdown?.metadata?.categoryPrices && typeof product.cost_breakdown.metadata.categoryPrices === "object" ? product.cost_breakdown.metadata.categoryPrices : null)
+    || (product.costBreakdown?.metadata?.categoryPrices && typeof product.costBreakdown.metadata.categoryPrices === "object" ? product.costBreakdown.metadata.categoryPrices : null);
   if (categoryPrices) {
     for (const [cat, overridePrice] of Object.entries(categoryPrices)) {
-      if (normalizeCategory(cat).toLowerCase() === target.toLowerCase() && Number(overridePrice) > 0) {
+      if (normalizeCategory(cat).toLowerCase() === target && Number(overridePrice) > 0) {
         return baseCompare > Number(overridePrice) ? baseCompare : 0;
       }
     }
@@ -164,19 +166,31 @@ export const DEFAULT_KURTI_BOTTOM_OPTIONS = [
   { name: "With Trouser", priceDelta: 1500 },
 ];
 
+export const DEFAULT_COORD_BOTTOM_OPTIONS = [
+  { name: "Complete 2-Piece Set", priceDelta: 0 },
+  { name: "Shirt / Top Only", priceDelta: -2500 },
+  { name: "With Matching Dupatta", priceDelta: 1500 },
+];
+
+export const DEFAULT_SUIT_3PC_OPTIONS = [
+  { name: "Complete 3-Piece Suit", priceDelta: 0 },
+  { name: "2-Piece (Shirt + Trouser)", priceDelta: -1500 },
+  { name: "Shirt Only", priceDelta: -3500 },
+];
+
 export const products = [
   { id: 1, name: "Gulnaar Corset Kurti", category: "Kurtis", subcategory: "corset-kurti", price: 4490, compareAtPrice: 5490, badge: "New", colors: ["Maroon", "Black", "Emerald"], bottomOptions: DEFAULT_KURTI_BOTTOM_OPTIONS, description: "A corset kurti for women who want a modern Pakistani eastern wear look. Confirm fabric, length and measurements before ordering.", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=85" },
-  { id: 2, name: "Mehr Co-ord Set", category: "Co-ord Sets", price: 7990, compareAtPrice: 9490, badge: "Bestseller", colors: ["Ivory", "Sage", "Dusty Pink"], description: "A women's co-ord set for easy matching style in Pakistan. Confirm fabric, pieces included and size measurements before ordering.", image: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=900&q=85" },
+  { id: 2, name: "Mehr Co-ord Set", category: "Co-ord Sets", price: 7990, compareAtPrice: 9490, badge: "Bestseller", colors: ["Ivory", "Sage", "Dusty Pink"], bottomOptions: DEFAULT_COORD_BOTTOM_OPTIONS, description: "A women's co-ord set for easy matching style in Pakistan. Confirm fabric, pieces included and size measurements before ordering.", image: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=900&q=85" },
   { id: 3, name: "Sahar Simple Kurti", category: "Kurtis", subcategory: "simple-kurti", price: 4590, colors: ["Navy", "Mustard", "Rust"], bottomOptions: DEFAULT_KURTI_BOTTOM_OPTIONS, description: "A simple kurti for everyday eastern wear, casual plans and university styling. Confirm fabric, length and measurements before ordering.", image: "https://images.unsplash.com/photo-1605763240000-7e93b172d754?auto=format&fit=crop&w=900&q=85" },
-  { id: 4, name: "Zarmina Festive Co-ord", category: "Co-ord Sets", price: 12990, compareAtPrice: 15990, badge: "Limited", colors: ["Burgundy", "Teal", "Gold"], description: "A festive co-ord set for Pakistani women's occasion wear. Confirm fabric, pieces included and measurements before ordering.", image: "https://images.unsplash.com/photo-1597983073514-4a0c3e18d892?auto=format&fit=crop&w=900&q=85" },
+  { id: 4, name: "Zarmina Festive Co-ord", category: "Co-ord Sets", price: 12990, compareAtPrice: 15990, badge: "Limited", colors: ["Burgundy", "Teal", "Gold"], bottomOptions: DEFAULT_COORD_BOTTOM_OPTIONS, description: "A festive co-ord set for Pakistani women's occasion wear. Confirm fabric, pieces included and measurements before ordering.", image: "https://images.unsplash.com/photo-1597983073514-4a0c3e18d892?auto=format&fit=crop&w=900&q=85" },
   { id: 5, name: "Ivory Wide-Leg Trouser", category: "Bottoms", price: 3490, badge: "New", colors: ["Ivory", "Black", "Off White", "Beige"], description: "A women's wide-leg trouser for pairing with kurtis, tops and eastern outfits. Confirm fabric, waist and length measurements before ordering.", image: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=900&q=85" },
   { id: 6, name: "Mushk Straight Pants", category: "Bottoms", price: 2990, colors: ["Black", "White", "Cream"], description: "Straight pants for women to complete everyday Pakistani outfits. Confirm fabric, waist and length measurements before ordering.", image: "https://images.unsplash.com/photo-1590159983013-d4ff5fc71c1d?auto=format&fit=crop&w=900&q=85" },
   { id: 7, name: "Neelum Corset Kurti", category: "Kurtis", subcategory: "corset-kurti", price: 4990, compareAtPrice: 5990, badge: "Bestseller", colors: ["Emerald", "Maroon", "Black"], bottomOptions: DEFAULT_KURTI_BOTTOM_OPTIONS, description: "A corset kurti with a modern eastern wear mood for Pakistani shoppers. Confirm fabric, length and measurements before ordering.", image: "https://images.unsplash.com/photo-1605763240000-7e93b172d754?auto=format&fit=crop&w=900&q=85" },
   { id: 8, name: "Rooh Layered Jacket Kurti", category: "Kurtis", subcategory: "jacket-kurti", price: 6490, badge: "New", colors: ["Rust", "Olive", "Charcoal"], bottomOptions: DEFAULT_KURTI_BOTTOM_OPTIONS, description: "A jacket kurti for layered Pakistani styling and statement everyday wear. Confirm fabric, layers and measurements before ordering.", image: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=900&q=85" },
   { id: 9, name: "Meher Long Jacket Kurti", category: "Kurtis", subcategory: "jacket-kurti", price: 6990, colors: ["Purple", "Royal Blue", "Black"], bottomOptions: DEFAULT_KURTI_BOTTOM_OPTIONS, description: "A long jacket kurti for women who prefer layered eastern wear. Confirm fabric, length and measurements before ordering.", image: "https://images.unsplash.com/photo-1597983073514-4a0c3e18d892?auto=format&fit=crop&w=900&q=85" },
   { id: 10, name: "Noor Everyday Kurti", category: "Kurtis", subcategory: "simple-kurti", price: 3990, colors: ["Pink", "Sky Blue", "Lilac"], bottomOptions: DEFAULT_KURTI_BOTTOM_OPTIONS, description: "An everyday kurti for Pakistani women's casual eastern wear. Confirm fabric, length and measurements before ordering.", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=85" },
-  { id: 11, name: "Gulbahar 3 Piece Suit", category: "3 Piece Suits", price: 10990, badge: "New", colors: ["Rose Gold", "Peach", "Mint"], description: "A Pakistani 3 piece suit for women looking for a complete eastern outfit. Confirm fabric, included pieces and measurements before ordering.", image: "/bustaniya-campaign-hero-v4.webp" },
-  { id: 12, name: "Zeenat Festive 3 Piece", category: "3 Piece Suits", price: 13990, compareAtPrice: 16990, badge: "Limited", colors: ["Maroon", "Emerald", "Navy"], description: "A festive 3 piece suit for Pakistani women's occasion dressing. Confirm fabric, included pieces and measurements before ordering.", image: "https://images.unsplash.com/photo-1597983073514-4a0c3e18d892?auto=format&fit=crop&w=900&q=85" }
+  { id: 11, name: "Gulbahar 3 Piece Suit", category: "3 Piece Suits", price: 10990, badge: "New", colors: ["Rose Gold", "Peach", "Mint"], bottomOptions: DEFAULT_SUIT_3PC_OPTIONS, description: "A Pakistani 3 piece suit for women looking for a complete eastern outfit. Confirm fabric, included pieces and measurements before ordering.", image: "/bustaniya-campaign-hero-v4.webp" },
+  { id: 12, name: "Zeenat Festive 3 Piece", category: "3 Piece Suits", price: 13990, compareAtPrice: 16990, badge: "Limited", colors: ["Maroon", "Emerald", "Navy"], bottomOptions: DEFAULT_SUIT_3PC_OPTIONS, description: "A festive 3 piece suit for Pakistani women's occasion dressing. Confirm fabric, included pieces and measurements before ordering.", image: "https://images.unsplash.com/photo-1597983073514-4a0c3e18d892?auto=format&fit=crop&w=900&q=85" }
 ];
 
 

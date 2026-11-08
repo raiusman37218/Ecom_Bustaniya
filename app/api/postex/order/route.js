@@ -11,6 +11,7 @@ import { calculatePaymentAmounts, normalizePaymentMethod, paymentSnapshot } from
 import { sendMetaCapiEvent } from "../../../../lib/metaCapi";
 import { triggerPluginHook } from "../../../../lib/plugins/engine";
 import { getCanonicalPostexCity } from "../../../../lib/postexCities";
+import { getProductCategoryPrice } from "../../../../data/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -421,14 +422,23 @@ export async function POST(request) {
         color: requested.color || null,
         bottom: requested.bottom ? String(requested.bottom).trim() : null,
         price: (() => {
+          const reqCat = requested.category || requested.targetCategory || "";
+          const catPricesObj = (product.categoryPrices && typeof product.categoryPrices === "object")
+            ? product.categoryPrices
+            : (product.cost_breakdown?.metadata?.categoryPrices || product.costBreakdown?.metadata?.categoryPrices || {});
+          const baseCatPrice = reqCat ? getProductCategoryPrice(product, reqCat) : (
+            Object.values(catPricesObj).some((p) => Number(p) === Number(requested.price))
+              ? Number(requested.price)
+              : Number(product.price || 0)
+          );
           const reqBottom = String(requested.bottom || "").trim();
           if (reqBottom && Array.isArray(product.bottomOptions)) {
             const matched = product.bottomOptions.find(
               (opt) => opt.name && opt.name.toLowerCase() === reqBottom.toLowerCase()
             );
-            if (matched) return Number(product.price || 0) + Number(matched.priceDelta || 0);
+            if (matched) return baseCatPrice + Number(matched.priceDelta || 0);
           }
-          return Number(product.price || 0);
+          return baseCatPrice;
         })(),
         name: requested.bottom ? `${product.name} (${requested.bottom})` : product.name,
       };

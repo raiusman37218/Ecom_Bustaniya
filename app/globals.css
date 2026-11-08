@@ -24992,6 +24992,80 @@ body {
   border: 1px solid #bbf7d0;
 }
 
+/* Multi-Category Edition Selector Options */
+.editionSelectorSection {
+  margin: 16px 0 18px;
+}
+
+.editionOptionsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.editionOptionBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+  user-select: none;
+  position: relative;
+}
+
+.editionOptionBtn:hover {
+  border-color: #1d6840;
+  background: #fdfdfd;
+  transform: translateY(-1px);
+}
+
+.editionOptionBtn.selected {
+  border-color: #1d6840;
+  background: #f0fdf4;
+  box-shadow: 0 0 0 1px #1d6840, 0 2px 8px rgba(29, 104, 64, 0.08);
+}
+
+.editionName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.editionOptionBtn.selected .editionName {
+  color: #14532d;
+}
+
+.editionPrice {
+  font-size: 12px;
+  font-weight: 600;
+  color: #16a34a;
+  margin-top: 3px;
+  line-height: 1;
+}
+
+@media (max-width: 600px) {
+  .editionOptionsList {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .editionOptionBtn {
+    padding: 9px 10px;
+  }
+
+  .editionName {
+    font-size: 12px;
+  }
+}
+
 /* WearAroha Style / Bottom Pairing Options */
 .bottomSelectorSection {
   margin: 18px 0;
